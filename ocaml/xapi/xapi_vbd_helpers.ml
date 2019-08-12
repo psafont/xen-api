@@ -43,14 +43,14 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
   let _ref = Ref.string_of _ref' in
   let current_ops = List.setify (List.map snd record.Db_actions.vBD_current_operations) in
   (* Policy:
-     * current_ops must be empty [ will make exceptions later for eg eject/unplug of attached vbd ]
-     * referenced VDI must be exclusively locked for any other task (eg clone)
-     * Look up every other VBD pointing to the same VDI as this one and generate the subset
-       for which either currently-attached is true or current_operations is non-empty.
-       With reference to the VDI.sharable and VDI.read_only flags, perform the sharing
-       check.
-     * Consider the powerstate of the VM
-     * Exempt the control domain from current-operations checking
+   * current_ops must be empty [ will make exceptions later for eg eject/unplug of attached vbd ]
+   * referenced VDI must be exclusively locked for any other task (eg clone)
+   * Look up every other VBD pointing to the same VDI as this one and generate the subset
+     for which either currently-attached is true or current_operations is non-empty.
+     With reference to the VDI.sharable and VDI.read_only flags, perform the sharing
+     check.
+   * Consider the powerstate of the VM
+   * Exempt the control domain from current-operations checking
    * NB must skip empty VBDs *)
   let table : table = Hashtbl.create 10 in
   List.iter (fun x -> Hashtbl.replace table x None) all_ops;
