@@ -98,7 +98,10 @@ let set_is_a_template ~__context ~self ~value =
     |> List.unbox_list
     |> List.iter (fun p -> Db.PVS_proxy.destroy ~__context ~self:p);
     (* delete the vm metrics associated with the vm if it exists, when we templat'ize it *)
-    try Db.VM_metrics.destroy ~__context ~self:m with _ -> ()
+    try
+      Db.VM_metrics.destroy ~__context ~self:m;
+      Db.VM.set_metrics ~__context ~self ~value:Ref.null
+    with _ -> ()
   end;
   Db.VM.set_is_a_template ~__context ~self ~value
 
@@ -362,7 +365,7 @@ let has_non_allocated_vgpus ~__context ~self =
   |> List.filter (fun pgpu -> not (Db.is_valid_ref __context pgpu))
   |> (<>) []
 
-(* This function assert the host has enough gpu resource for the VM 
+(* This function assert the host has enough gpu resource for the VM
  * The detailed method as follows
  * 1. Set the pre_allocate_list to []
  * 2. Dry run the allocation process for the first vgpu of the remainding vGPU list of the VM
@@ -697,12 +700,12 @@ let rank_hosts_by_best_vgpu ~__context vgpu visible_hosts =
       ) hosts
     |> List.map (fun g -> List.map (fun (h,_)-> h) g)
 
-(* Selects a single host from the set of all hosts on which the given [vm] can boot. 
+(* Selects a single host from the set of all hosts on which the given [vm] can boot.
    Raises [Api_errors.no_hosts_available] if no such host exists.
    1.Take Vgpu or Network SR-IOV as a group_key for group all hosts into host list list
    2.helper function's order determine the priority of resources,now vgpu has higher priority than Network SR-IOV
    3.If no key found in VM,then host_lists will be [all_hosts] *)
-let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot = 
+let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
   let validate_host = vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:true in
   let all_hosts = Db.Host.get_all ~__context in
   let group_key = get_group_key ~__context ~vm in
