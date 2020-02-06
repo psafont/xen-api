@@ -1,15 +1,12 @@
 language: c
-sudo: required
+os: linux
 services: docker
 script: bash ./.travis-$BUILD_METHOD.sh
 env:
-    matrix:
-        - BUILD_METHOD=xs-opam
-        - BUILD_METHOD=python-nosetests
-        - BUILD_METHOD=python-nosetests-3
-notifications:
-    slack: citrix:BHYQZbI8m036ELU21gZil75Y
-matrix:
-    fast_finish: true
-    allow_failures:
-        - env: BUILD_METHOD=python-nosetests-3
+- BUILD_METHOD=xs-opam
+- BUILD_METHOD=python-nosetests
+- BUILD_METHOD=python-nosetests-3
+jobs:
+  fast_finish: true
+  allow_failures:
+    - env: BUILD_METHOD=python-nosetests-3
