@@ -139,3 +139,8 @@ let cluster_host_enable_failed = addMessage "CLUSTER_HOST_ENABLE_FAILED" 3L
 
 (* raised by external script in clustering daemon, do not delete this: it is not dead code *)
 let cluster_host_fencing = addMessage "CLUSTER_HOST_FENCING" 2L
+
+(* Certificate expiration messages *)
+let host_server_certificate_expiring_30 = addMessage "HOST_SERVER_CERTIFICATE_EXPIRING" 3L
+let host_server_certificate_expiring_14 = addMessage "HOST_SERVER_CERTIFICATE_EXPIRING" 2L
+let host_server_certificate_expiring_07 = addMessage "HOST_SERVER_CERTIFICATE_EXPIRING" 1L
