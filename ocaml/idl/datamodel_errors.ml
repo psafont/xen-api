@@ -1041,18 +1041,18 @@ let _ =
     ~doc:"Provided RSA key is using more than 2 primes, expecting only 2." ();
 
   error Api_errors.server_certificate_invalid []
-    ~doc:"Provided certificate is not in a pem-encoded X509." ();
+    ~doc:"The provided certificate is not in a pem-encoded X509." ();
     error Api_errors.server_certificate_key_mismatch []
-    ~doc:"Provided key does not match the provided certificate's public key." ();
+    ~doc:"The provided key does not match the provided certificate's public key." ();
   error Api_errors.server_certificate_not_valid_yet ["now"; "not_before"]
-    ~doc:"Provided certificate is not valid yet." ();
+    ~doc:"The provided certificate is not valid yet." ();
   error Api_errors.server_certificate_expired ["now"; "not_after"]
-    ~doc:"Provided certificate has expired." ();
+    ~doc:"The provided certificate has expired." ();
   error Api_errors.server_certificate_signature_not_supported []
-    ~doc:"Provided certificate is not using the SHA256 (SHA2) signature algorithm." ();
+    ~doc:"The provided certificate is not using the SHA256 (SHA2) signature algorithm." ();
 
   error Api_errors.server_certificate_chain_invalid []
-    ~doc:"Provided intermediate certificates are not in a pem-encoded X509." ();
+    ~doc:"The provided intermediate certificates are not in a pem-encoded X509." ();
 
   error Api_errors.vmpp_has_vm []
     ~doc:"There is at least one VM assigned to this protection policy." ();
