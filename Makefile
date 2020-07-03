@@ -37,9 +37,6 @@ doc-json:
 	dune build --profile=$(PROFILE) ocaml/idl/json_backend/gen_json.exe
 	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir _build/install/default/jekyll
 
-format:
-	dune build @fmt --auto-promote
-
 install: build doc
 	mkdir -p $(DESTDIR)$(SBINDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
@@ -93,3 +90,4 @@ install: build doc
 uninstall:
 	# only removes the libraries, which were installed with `dune install`
 	dune uninstall xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types
+
