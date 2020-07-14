@@ -710,3 +710,10 @@ let test =
   ]
   @ test_get_nbd_info
   @ test_data_destroy
+
+let () =
+  Suite_init.harness_init () ;
+  (* Alcotest hides the standard output of successful tests,
+     so we will probably not exceed the 4MB limit in Travis *)
+  Debug.log_to_stdout () ;
+  Alcotest.run "Test Vdi Cbt suite" ["Test_vdi_cbt", test]

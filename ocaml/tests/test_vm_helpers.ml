@@ -569,3 +569,9 @@ let test =
     , `Quick
     , test_get_group_key_vgpu_and_netsriov )
   ]
+let () =
+  Suite_init.harness_init ();
+  (* Alcotest hides the standard output of successful tests,
+     so we will probably not exceed the 4MB limit in Travis *)
+  Debug.log_to_stdout ();
+  Alcotest.run "Test VM Helpers suite" ["Test_vm_helpers", test]

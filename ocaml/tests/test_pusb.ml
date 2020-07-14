@@ -64,3 +64,10 @@ let test =
     , `Quick
     , test_scan_with_usb_add_and_remove )
   ]
+
+let () =
+  Suite_init.harness_init () ;
+  (* Alcotest hides the standard output of successful tests,
+     so we will probably not exceed the 4MB limit in Travis *)
+  Debug.log_to_stdout () ;
+  Alcotest.run "Test Pusb suite" ["Test_pusb", test]

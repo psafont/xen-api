@@ -211,3 +211,10 @@ let test =
   ; ("test_get_network_succeeds", `Quick, test_get_network_succeeds)
   ; ("test_get_network_fails", `Quick, test_get_network_fails)
   ]
+
+let () =
+  Suite_init.harness_init () ;
+  (* Alcotest hides the standard output of successful tests,
+     so we will probably not exceed the 4MB limit in Travis *)
+  Debug.log_to_stdout () ;
+  Alcotest.run "Test Cluster suite" ["Test_cluster", test]

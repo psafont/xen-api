@@ -527,3 +527,4 @@ let test =
       ("test_null_vm", `Quick, test_null_vm)
     ; ("test_update_allowed_operations", `Quick, test_update_allowed_operations)
     ]
+    

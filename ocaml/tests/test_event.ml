@@ -257,3 +257,10 @@ let test =
   ; ("test_event_from_parallel", `Slow, event_from_parallel_test)
   ; ("test_event_object_level_event", `Slow, object_level_event_test)
   ]
+
+let () =
+  Suite_init.harness_init () ;
+  (* Alcotest hides the standard output of successful tests,
+     so we will probably not exceed the 4MB limit in Travis *)
+  Debug.log_to_stdout () ;
+  Alcotest.run "Test Event suite" ["Test_event", test]

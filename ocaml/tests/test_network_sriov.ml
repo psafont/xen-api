@@ -509,3 +509,10 @@ let test =
     , `Quick
     , test_require_operation_on_pci_device_modprobe_5 )
   ]
+
+let () =
+  Suite_init.harness_init ();
+  (* Alcotest hides the standard output of successful tests,
+     so we will probably not exceed the 4MB limit in Travis *)
+  Debug.log_to_stdout ();
+  Alcotest.run "Daemon Network SRIOV suite" ["Test_network_sriov", test]

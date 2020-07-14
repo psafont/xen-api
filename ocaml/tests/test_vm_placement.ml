@@ -596,6 +596,7 @@ module Categorisation = struct
     ]
 end
 
+
 module Selection = struct
   open Construction
 
@@ -631,3 +632,10 @@ end
 
 let test =
   Utility.tests @ Summarisation.tests @ Categorisation.tests @ Selection.tests
+
+let () =
+  Suite_init.harness_init () ;
+  (* Alcotest hides the standard output of successful tests,
+     so we will probably not exceed the 4MB limit in Travis *)
+  Debug.log_to_stdout () ;
+  Alcotest.run "Test VM Placement suite" ["Test_vm_placement", test]
