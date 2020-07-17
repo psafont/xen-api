@@ -66,4 +66,5 @@ let test =
   ]
 
 let () =
-  Suite_init.run_with_init "Test Pusb suite" "Test_pusb" test
+  Suite_init.harness_init () ;
+  Alcotest.run "Test Pusb suite" ["Test_pusb", test]

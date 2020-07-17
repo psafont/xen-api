@@ -841,4 +841,5 @@ let test =
   @ test_clustering_lock_only_taken_if_needed
 
 let () =
-  Suite_init.run_with_init "Test Clustering suite" "test_clustering" test
+  Suite_init.harness_init () ;
+  Alcotest.run "Test Clustering suite" ["Test_cluster", Test_cluster.test ; "Test_cluster_host", Test_cluster_host.test; "test_clustering", test]

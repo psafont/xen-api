@@ -229,6 +229,3 @@ let test =
   ; ("test_forget", `Quick, test_forget)
   ; ("test_forget2", `Quick, test_forget2)
   ]
-
-let () =
-  Suite_init.run_with_init "Test Clustering suite" "Test_cluster_host" test

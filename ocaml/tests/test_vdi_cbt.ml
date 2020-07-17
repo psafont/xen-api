@@ -712,5 +712,5 @@ let test =
   @ test_data_destroy
 
 let () =
-  Suite_init.run_with_init "Test VDI CBT suite" "Test_vdi_cbt" test ;
-  Suite_init.run_with_init "Test Event suite" "Test_event" Test_event.test
+  Suite_init.harness_init () ;
+  Alcotest.run "Test Events and VDI CBT " ["Test_vdi_cbt", test; "Test_event", Test_event.test]

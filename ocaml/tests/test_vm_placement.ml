@@ -634,4 +634,5 @@ let test =
   Utility.tests @ Summarisation.tests @ Categorisation.tests @ Selection.tests
 
 let () =
-  Suite_init.run_with_init "Test VM Placement suite" "Test_vm_placement" test
+  Suite_init.harness_init () ;
+  Alcotest.run "Test VM Placement suite" ["Test_vm_placement", test]

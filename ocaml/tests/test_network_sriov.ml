@@ -511,4 +511,5 @@ let test =
   ]
 
 let () =
-  Suite_init.run_with_init "Daemon Network SRIOV suite" "Test_network_sriov" test
+  Suite_init.harness_init () ;
+  Alcotest.run "Daemon Network SRIOV suite" ["Test_network_sriov", test]

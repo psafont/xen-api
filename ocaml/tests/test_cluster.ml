@@ -211,6 +211,3 @@ let test =
   ; ("test_get_network_succeeds", `Quick, test_get_network_succeeds)
   ; ("test_get_network_fails", `Quick, test_get_network_fails)
   ]
-
-let () =
-  Suite_init.run_with_init "Test Cluster suite" "Test_cluster" test
