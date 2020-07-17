@@ -2,7 +2,10 @@
   (name suite_alcotest)
   (package xapi)
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
-  (modules (:standard \ test_daemon_manager test_vdi_cbt test_event test_clustering test_cluster_host test_cluster test_pusb test_network_sriov test_vm_placement test_vm_helpers))
+  (modules (:standard \ test_daemon_manager test_vdi_cbt test_event
+                      test_clustering test_cluster_host test_cluster
+                      test_pusb test_network_sriov test_vm_placement
+                      test_vm_helpers))
   (libraries
     alcotest
     astring
@@ -17,114 +20,23 @@
   )
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
   (deps (source_tree test_data))
-  (action (run %{test} --color=always))
 )
 
-
-(test 
- (name test_vm_helpers)
+(tests
+ (names test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
+        test_clustering test_pusb test_daemon_manager)
  (package xapi)
  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
- (modules test_vm_helpers)
+ (modules test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
+          test_event test_clustering test_cluster_host test_cluster test_pusb
+          test_daemon_manager)
  (libraries
   alcotest
   xapi_internal
   tests_common
  )
  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
- (action (run %{test} --color=always))
 )
-
-
-(test 
- (name test_vm_placement)
- (package xapi)
- (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
- (modules test_vm_placement)
- (libraries
-  alcotest
-  xapi_internal
-  tests_common
- )
- (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
- (action (run %{test} --color=always))
-)
-
-
-(test 
- (name test_network_sriov)
- (package xapi)
- (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
- (modules test_network_sriov)
- (libraries
-  alcotest
-  xapi_internal
-  tests_common
- )
- (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
- (action (run %{test} --color=always))
-)
-
-
-(test 
- (name test_vdi_cbt)
- (package xapi)
- (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
- (modules test_vdi_cbt test_event)
- (libraries
-  alcotest
-  xapi_internal
-  tests_common
- )
- (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
- (action (run %{test} --color=always))
-)
-
-
-(test 
- (name test_clustering)
- (package xapi)
- (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
- (modules test_clustering test_cluster_host test_cluster)
- (libraries
-  alcotest
-  xapi_internal
-  tests_common
- )
- (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
- (action (run %{test} --color=always))
-)
-
-
-(test 
- (name test_pusb)
- (package xapi)
- (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
- (modules test_pusb)
- (libraries
-  alcotest
-  xapi_internal
-  tests_common
- )
- (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
- (action (run %{test} --color=always))
-)
-
-
-(test 
- (name test_daemon_manager)
- (package xapi)
- (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
- (modules test_daemon_manager)
- (libraries
-  alcotest
-  xapi_internal
-  tests_common
- )
- (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
- (action (run %{test} --color=always))
-)
-
 
 (alias
   (name runtest)
