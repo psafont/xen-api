@@ -257,6 +257,3 @@ let test =
   ; ("test_event_from_parallel", `Slow, event_from_parallel_test)
   ; ("test_event_object_level_event", `Slow, object_level_event_test)
   ]
-
-let () =
-  Suite_init.run_with_init "Test Event suite" "Test_event" test

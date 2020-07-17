@@ -712,4 +712,5 @@ let test =
   @ test_data_destroy
 
 let () =
-  Suite_init.run_with_init "Test Vdi Cbt suite" "Test_vdi_cbt" test
+  Suite_init.run_with_init "Test VDI CBT suite" "Test_vdi_cbt" test ;
+  Suite_init.run_with_init "Test Event suite" "Test_event" Test_event.test
