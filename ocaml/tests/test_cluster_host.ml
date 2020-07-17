@@ -231,8 +231,4 @@ let test =
   ]
 
 let () =
-  Suite_init.harness_init () ;
-  (* Alcotest hides the standard output of successful tests,
-     so we will probably not exceed the 4MB limit in Travis *)
-  Debug.log_to_stdout () ;
-  Alcotest.run "Test Clustering suite" ["Test_cluster_host", test]
+  Suite_init.run_with_init "Test Clustering suite" "Test_cluster_host" test
