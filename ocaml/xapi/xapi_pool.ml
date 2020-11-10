@@ -2130,11 +2130,32 @@ let retrieve_wlb_recommendations ~__context = get_opt_recommendations ~__context
 
 let send_test_post = Remote_requests.send_test_post
 
-let certificate_install = Certificates.(pool_install CA_Certificate)
+let certificate_install ~__context ~name ~cert =
+  let certificate =
+    Certificates.(pool_install CA_Certificate) ~__context ~name ~cert
+  in
+  let pool = Helpers.get_pool ~__context in
+  let _add_certificate_to_db certificate =
+    let date_of_ptime time = Date.of_float (Ptime.to_float_s time) in
+    let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
+    let not_before, not_after =
+      dates_of_ptimes (X509.Certificate.validity certificate)
+    in
+    let fingerprint =
+      X509.Certificate.fingerprint Mirage_crypto.Hash.(`SHA256) certificate
+      |> Certificates.pp_hash
+    in
+    let uuid = Uuid.(to_string (make_uuid ())) in
+    let ref = Ref.make () in
+    Db.Certificate.create ~__context ~ref ~uuid ~_type:`pool ~host:Ref.null
+      ~pool ~not_before ~not_after ~fingerprint
+  in
+  certificate
 
 let install_ca_certificate = certificate_install
 
-let certificate_uninstall = Certificates.(pool_uninstall CA_Certificate)
+let certificate_uninstall ~__context ~name =
+  Certificates.(pool_uninstall CA_Certificate) ~__context ~name
 
 let uninstall_ca_certificate = certificate_uninstall
 
