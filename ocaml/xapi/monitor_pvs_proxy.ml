@@ -13,7 +13,6 @@
  *)
 
 module Mtxext = Xapi_stdext_threads.Threadext.Mutex
-module Lstext = Xapi_stdext_std.Listext.List
 module Mcache = Monitor_dbcalls_cache
 
 module D = Debug.Make (struct let name = "monitor_pvs_proxy" end)
@@ -39,7 +38,7 @@ let get_changes rrd_files =
         let datasources = Monitor_types.datasources_from_filename filename in
         Mcache.log_errors_from filename ;
         datasources
-        |> Lstext.filter_map (function
+        |> List.filter_map (function
              | Rrd.VM vm_uuid, ds when ds.Ds.ds_name = "pvscache_status" ->
                  Some (vm_uuid, ds)
              | _ ->
@@ -99,7 +98,7 @@ let update rrd_files =
             let value = pvs_proxy_status_of_int status in
             let vm = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
             Db.VM.get_VIFs ~__context ~self:vm
-            |> Lstext.filter_map (fun vif ->
+            |> List.filter_map (fun vif ->
                    Pvs_proxy_control.find_proxy_for_vif ~__context ~vif)
             |> List.filter (fun self ->
                    Db.PVS_proxy.get_currently_attached ~__context ~self)

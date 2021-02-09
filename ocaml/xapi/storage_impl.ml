@@ -66,7 +66,6 @@
 *)
 
 module Date = Xapi_stdext_date.Date
-module Listext = Xapi_stdext_std.Listext
 module Unixext = Xapi_stdext_unix.Unixext
 open Xapi_stdext_threads.Threadext
 open Storage_interface
@@ -319,7 +318,7 @@ module Errors = struct
   let add dp sr vdi code =
     Mutex.execute errors_m (fun () ->
         let t = {dp; time= Unix.gettimeofday (); sr; vdi; error= code} in
-        errors := Listext.List.take 100 (t :: !errors))
+        errors := Xapi_stdext_std.Listext.List.take 100 (t :: !errors))
 
   let list () = Mutex.execute errors_m (fun () -> !errors)
 

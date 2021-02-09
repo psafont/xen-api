@@ -12,10 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Client
-open Db_filter_types
+module Client = Client.Client
 module Date = Xapi_stdext_date.Date
-module Listext = Xapi_stdext_std.Listext
 module Threadext = Xapi_stdext_threads.Threadext
 module Unixext = Xapi_stdext_unix.Unixext
 module Xstringext = Xapi_stdext_std.Xstringext
@@ -2202,7 +2200,7 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
         if
           List.length hosts
           <> List.length
-               (Listext.List.setify
+               (List.sort_uniq String.compare
                   (List.map
                      (fun h -> Db.Host.get_hostname ~__context ~self:h)
                      hosts))
