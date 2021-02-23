@@ -390,7 +390,11 @@ let gen_server highapi =
   List.iter (List.iter print)
     (between [""]
        [
-         ["open API"; "open Server_helpers"]
+         [
+           "open API"
+         ; "open Server_helpers"
+         ; "module Listext = Xapi_stdext_std.Listext.List"
+         ]
        ; O.Module.strings_of (Gen_server.gen_module highapi)
        ]
     )
