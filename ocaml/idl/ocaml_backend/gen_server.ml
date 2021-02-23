@@ -49,7 +49,7 @@ let read_msg_parameter msg_parameter = from_rpc
 
 let debug msg args =
   if !enable_debugging then
-    "D.debug \"" ^ String.escaped msg ^ "\" " ^ String.concat " " args ^ ";"
+    Printf.sprintf "D.debug {|%s|} %s;" msg (String.concat " " args)
   else
     ""
 
@@ -57,10 +57,7 @@ let has_default_args args =
   let arg_has_default arg =
     match arg.DT.param_default with None -> false | Some _ -> true
   in
-  let any_defaults =
-    List.fold_left (fun e x -> e || x) false (List.map arg_has_default args)
-  in
-  any_defaults
+  List.exists arg_has_default args
 
 (* ------------------------------------------------------------------------------------------
     Code to generate a single operation in server dispatcher
@@ -80,11 +77,8 @@ let count_mandatory_message_parameters (msg : message) =
 
 let operation (obj : obj) (x : message) =
   let msg_params = x.DT.msg_params in
-  let msg_params_with_default_values =
-    List.filter (fun p -> p.DT.param_default <> None) msg_params
-  in
-  let msg_params_without_default_values =
-    List.filter (fun p -> p.DT.param_default = None) msg_params
+  let msg_params_with_default_values, msg_params_without_default_values =
+    List.partition (fun p -> p.DT.param_default <> None) msg_params
   in
   let msg_without_default_values =
     {x with DT.msg_params= msg_params_without_default_values}
@@ -103,7 +97,7 @@ let operation (obj : obj) (x : message) =
     | false, Some (ty, _) ->
         Printf.sprintf "(fun x -> rpc_of_%s x)" (OU.alias_of_ty ty)
     | false, None ->
-        "(fun _ -> Rpc.String \"\")"
+        {|(fun _ -> Rpc.String "")|}
   in
   (* Result unmarshaller converts the result to a rpc type for the Task table *)
   let result_unmarshaller =
@@ -129,15 +123,14 @@ let operation (obj : obj) (x : message) =
   let is_non_constructor_with_defaults =
     (not is_ctor) && has_default_args x.DT.msg_params
   in
-  let arg_pattern = String.concat "::" string_args in
   let arg_pattern =
     if is_non_constructor_with_defaults then
-      arg_pattern ^ "::default_args"
+      String.concat " :: " (string_args @ ["default_args"])
     else
-      arg_pattern ^ "::[]"
+      Printf.sprintf "[%s]" (String.concat "; " string_args)
   in
   let name_pattern_match =
-    Printf.sprintf "| \"%s\" | \"%s\" -> " wire_name alternative_wire_name
+    Printf.sprintf {|| "%s" | "%s" -> |} wire_name alternative_wire_name
   in
   (* Lookup the various fields from the constructor record *)
   let from_ctor_record =
@@ -145,17 +138,16 @@ let operation (obj : obj) (x : message) =
     let of_field f =
       let binding = O.string_of_param (Client.param_of_field f) in
       let converter = Printf.sprintf "%s_of_rpc" (OU.alias_of_ty f.DT.ty) in
+      let wire_name = Printf.sprintf {|"%s"|} (DU.wire_name_of_field f) in
       let lookup_expr =
         match f.DT.default_value with
         | None ->
-            Printf.sprintf "(my_assoc \"%s\" __structure)"
-              (DU.wire_name_of_field f)
+            Printf.sprintf "(my_assoc %s __structure)" wire_name
         | Some default ->
             Printf.sprintf
-              "(if (List.mem_assoc \"%s\" __structure) then (my_assoc \"%s\" \
-               __structure) else %s)"
-              (DU.wire_name_of_field f) (DU.wire_name_of_field f)
+              "(Option.value ~default:(%s) (List.assoc_opt %s __structure))"
               (Datamodel_values.to_ocaml_string default)
+              wire_name
       in
       Printf.sprintf "        let %s = %s %s in" binding converter lookup_expr
     in
@@ -211,34 +203,33 @@ let operation (obj : obj) (x : message) =
       List.exists (fun a -> is_session_arg a) args_without_default_values
   in
   let rbac_check_begin =
+    let serialize_list lst =
+      lst
+      |> List.map (Printf.sprintf {|"%s"|})
+      |> String.concat "; "
+      |> Printf.sprintf "[%s]"
+    in
+    let default_arg_name_params =
+      if is_non_constructor_with_defaults then
+        List.map (fun dp -> dp.DT.param_name) msg_params_with_default_values
+      else
+        []
+    in
+    let arg_name_params = orig_string_args @ default_arg_name_params in
+    let key_names = List.map (fun (k, _) -> k) x.msg_map_keys_roles in
     if has_session_arg then
       [
-        "let arg_name_params = List.combine ("
-        ^ List.fold_right
-            (fun arg args -> "\"" ^ arg ^ "\"::" ^ args)
-            orig_string_args
-            ( if is_non_constructor_with_defaults then
-                List.fold_right
-                  (fun dp ss -> "\"" ^ dp.DT.param_name ^ "\"::" ^ ss)
-                  msg_params_with_default_values ""
-                ^ "[]"
-            else
-              "[]"
-            )
-        ^ ") __params in"
-      ; "let key_names = "
-        ^ List.fold_right
-            (fun arg args -> "\"" ^ arg ^ "\"::" ^ args)
-            (List.map (fun (k, _) -> k) x.msg_map_keys_roles)
-            "[]"
-        ^ " in"
+        Printf.sprintf
+          "let arg_name_params = %s in"
+          (serialize_list arg_name_params)
+      ; "let arg_name_params = List.combine arg_name_params __params in"
+      ; Printf.sprintf "let key_names = %s in" (serialize_list key_names)
       ; "let rbac __context fn = Rbac.check session_id __call \
          ~args:arg_name_params ~keys:key_names ~__context ~fn in"
       ]
     else
-      ["let rbac __context fn = fn() in"]
+      ["let rbac __context fn = fn () in"]
   in
-  let rbac_check_end = if has_session_arg then [] else [] in
   let unmarshall_code =
     (* If we are forwarding the call then we don't want to emit a warning
        because we know we don't need the arguments *)
@@ -263,7 +254,7 @@ let operation (obj : obj) (x : message) =
           in
           let param_type = OU.alias_of_ty default_param.DT.param_type in
           let try_and_get_default =
-            Printf.sprintf "Server_helpers.nth %d default_args" param_count
+            Printf.sprintf "List.nth default_args %d" param_count
           in
           let default_value =
             match default_param.DT.param_default with
@@ -405,7 +396,6 @@ let operation (obj : obj) (x : message) =
         @ session_check_exp
         @ rbac_check_begin
         @ gen_body ()
-        @ rbac_check_end
       else
         comments
         @ ["let session_id = ref_session_of_rpc session_id_rpc in"]
@@ -487,11 +477,7 @@ let gen_module api : O.Module.t =
                    (\"dispatch:\"^__call^\"\") ~http_other_config \
                    ?subtask_of:(may Ref.of_string subtask_of) (fun __context \
                    ->"
-                ; (*
-	      "if not (Hashtbl.mem supress_printing_for_these_messages __call) then ";
-	      debug "%s %s" [ "__call"; "(if __async then \"(async)\" else \"\")" ];
-*)
-                  "Server_helpers.dispatch_exn_wrapper (fun () -> (match \
+                ; "Server_helpers.dispatch_exn_wrapper (fun () -> (match \
                    __call with "
                 ]
                @ List.flatten (List.map obj all_objs)
@@ -518,20 +504,21 @@ let gen_module api : O.Module.t =
                    " ])"
                  ; "| func -> "
                  ; "  if (try Scanf.sscanf func \"system.isAlive:%s\" (fun _ \
-                    -> true) with _ -> false)"
-                 ; "  then Rpc.success (List.hd __params)"
-                 ; "  else begin"
+                    -> true) with _ -> false) then"
+                 ; "    Rpc.success (List.hd __params)"
+                 ; "  else ("
                  ; "    if (try Scanf.sscanf func \"unknown-message-%s\" (fun \
-                    _ -> false) with _ -> true)"
-                 ; "    then "
-                   ^ debug "This is not a built-in rpc \"%s\"" ["__call"]
-                 ; "    begin match __params with"
-                 ; "    | session_id_rpc::_->"
+                    _ -> false) with _ -> true) then"
+                 ; "    " ^ debug "This is not a built-in rpc \"%s\"" ["__call"]
+                 ; "    ( match __params with"
+                 ; "    | session_id_rpc :: _ ->"
                  ; "      let session_id = ref_session_of_rpc session_id_rpc in"
                  ; "      Session_check.check false session_id;"
                  ; "      (* based on the Host.call_extension call *)"
-                 ; "      let arg_name_params = List.combine \
-                    (\"session_id\"::__call::[]) __params in"
+                 ; "      (* only session_id and the call name are checked in \
+                    rbac *)"
+                 ; "      let arg_name_params = List.combine [\"session_id\"; \
+                    __call] __params in"
                  ; "      let key_names = [] in"
                  ; "      let rbac __context fn = Rbac.check session_id \
                     \"Host.call_extension\" ~args:arg_name_params \
@@ -540,9 +527,7 @@ let gen_module api : O.Module.t =
                     call with Rpc.name = __call }"
                  ; "    | _ ->"
                  ; "      Server_helpers.unknown_rpc_failure func "
-                 ; "    end"
-                 ; "  end"
-                 ; ")))"
+                 ; ")))))"
                  ]
                )
              ()
