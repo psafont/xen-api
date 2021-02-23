@@ -53,6 +53,9 @@ let debug msg args =
   else
     ""
 
+let error msg args =
+  Printf.sprintf "D.error {|%s|} %s;" msg (String.concat " " args)
+
 let has_default_args args =
   let arg_has_default arg =
     match arg.DT.param_default with None -> false | Some _ -> true
@@ -219,9 +222,16 @@ let operation (obj : obj) (x : message) =
     let key_names = List.map (fun (k, _) -> k) x.msg_map_keys_roles in
     if has_session_arg then
       [
+        (* not all default parameters are always present *)
         Printf.sprintf
-          "let arg_name_params = %s in"
+          "let arg_name_params = Listext.take (List.length __params) %s in"
           (serialize_list arg_name_params)
+      ; "if List.length arg_name_params <  List.length __params then "
+        ^ error "%s"
+            [
+              {|"The parameter list is longer than the named parameter list of \
+               the API call."|}
+            ]
       ; "let arg_name_params = List.combine arg_name_params __params in"
       ; Printf.sprintf "let key_names = %s in" (serialize_list key_names)
       ; "let rbac __context fn = Rbac.check session_id __call \
@@ -517,8 +527,9 @@ let gen_module api : O.Module.t =
                  ; "      (* based on the Host.call_extension call *)"
                  ; "      (* only session_id and the call name are checked in \
                     rbac *)"
+                 ; "      let first_params = Listext.take 2 __params in"
                  ; "      let arg_name_params = List.combine [\"session_id\"; \
-                    __call] __params in"
+                    __call] first_params in"
                  ; "      let key_names = [] in"
                  ; "      let rbac __context fn = Rbac.check session_id \
                     \"Host.call_extension\" ~args:arg_name_params \
