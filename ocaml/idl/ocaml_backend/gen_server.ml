@@ -57,9 +57,7 @@ let error msg args =
   Printf.sprintf "D.error {|%s|} %s;" msg (String.concat " " args)
 
 let has_default_args args =
-  let arg_has_default arg =
-    match arg.DT.param_default with None -> false | Some _ -> true
-  in
+  let arg_has_default arg = Option.is_some arg.DT.param_default in
   List.exists arg_has_default args
 
 (* ------------------------------------------------------------------------------------------
@@ -106,7 +104,7 @@ let operation (obj : obj) (x : message) =
   let result_unmarshaller =
     match (x.msg_custom_marshaller, x.msg_result) with
     | true, _ ->
-        "(fun x -> x)"
+        "Fun.id"
     | false, Some (ty, _) ->
         Printf.sprintf "(fun x -> %s_of_rpc x)" (OU.alias_of_ty ty)
     | false, None ->
@@ -308,27 +306,33 @@ let operation (obj : obj) (x : message) =
     | Some (HostExtension name) ->
         [
           "let host = ref_host_of_rpc host_rpc in"
-        ; "let call_string = Jsonrpc.string_of_call {call with name=__call} in"
-        ; "let marshaller = (fun x -> x) in"
-        ; "let local_op = fun ~__context ->(rbac __context \
-           (fun()->(Custom.Host.call_extension \
-           ~__context:(Context.check_for_foreign_database ~__context) ~host \
-           ~call:call_string))) in"
+        ; "let call_string = Jsonrpc.string_of_call {call with name= __call} in"
+        ; "let marshaller = Fun.id in"
+        ; "let local_op ~__context ="
+        ; "  rbac __context (fun () ->"
+        ; "    Custom.Host.call_extension \
+           ~__context:(Context.check_for_foreign_database ~__context)"
+        ; "      ~host ~call:call_string)"
+        ; "in"
         ; "let supports_async = true in"
         ; "let generate_task_for = true in"
-        ; "let forward_op = fun ~local_fn ~__context -> (rbac __context \
-           (fun()-> (Forward.Host.call_extension \
-           ~__context:(Context.check_for_foreign_database ~__context) ~host \
-           ~call:call_string) )) in"
-        ; "let resp = Server_helpers.do_dispatch ~session_id ~forward_op \
-           supports_async __call local_op marshaller fd http_req __label \
-           __sync_ty generate_task_for in"
+        ; "let forward_op ~local_fn ~__context ="
+        ; "  rbac __context (fun () ->"
+        ; "    Forward.Host.call_extension \
+           ~__context:(Context.check_for_foreign_database ~__context)"
+        ; "      ~host ~call:call_string)"
+        ; "in"
+        ; "let resp ="
+        ; "  Server_helpers.do_dispatch ~session_id ~forward_op supports_async"
+        ; "    __call local_op marshaller fd http_req __label __sync_ty \
+           generate_task_for"
+        ; "in"
         ; "if resp.Rpc.success then"
         ; "  try"
         ; "    "
-          ^ debug "HostExtension '%s' resp \"%s\""
+          ^ debug {|HostExtension '%s' resp "%s"|}
               ["__call (Jsonrpc.string_of_response resp)"]
-        ; "    ignore(if __sync_ty = `Sync then let _ = "
+        ; "    ignore (if __sync_ty = `Sync then let _ = "
           ^ result_unmarshaller
           ^ " resp.contents in ());"
         ; "    resp"
@@ -348,14 +352,12 @@ let operation (obj : obj) (x : message) =
         let common_let_decs =
           [
             "let marshaller = " ^ result_marshaller ^ " in"
-          ; "let local_op = fun ~__context ->(rbac __context (fun()->("
+          ; "let local_op = fun ~__context -> (rbac __context (fun () -> ("
             ^ module_prefix
             ^ "."
             ^ impl_fn
             ^ "))) in"
-          ; "let supports_async = "
-            ^ (if has_async then "true" else "false")
-            ^ " in"
+          ; "let supports_async = " ^ string_of_bool has_async ^ " in"
           ; "let generate_task_for = "
             ^ string_of_bool (not (List.mem obj.name DM.no_task_id_for))
             ^ " in"
@@ -366,12 +368,12 @@ let operation (obj : obj) (x : message) =
             [
               Printf.sprintf
                 "let forward_op = fun ~local_fn ~__context -> (rbac __context \
-                 (fun()-> (%s.%s) )) in"
+                 (fun () -> (%s.%s) )) in"
                 _forward impl_fn
             ]
           else
             [
-              Printf.sprintf "%s \"%s\";"
+              Printf.sprintf {|%s "%s";|}
                 ( if may_be_side_effecting x then
                     "ApiLogSideEffect.debug"
                 else
@@ -396,50 +398,115 @@ let operation (obj : obj) (x : message) =
             "resp"
           ]
         in
-        common_let_decs @ side_effect_let_decs @ body_exp
+        List.concat [common_let_decs; side_effect_let_decs; body_exp]
   in
   let all =
     let all_list =
       if not (DU.has_been_removed x.DT.msg_lifecycle) then
-        comments
-        @ unmarshall_code
-        @ session_check_exp
-        @ rbac_check_begin
-        @ gen_body ()
+        [
+          comments
+        ; unmarshall_code
+        ; session_check_exp
+        ; rbac_check_begin
+        ; gen_body ()
+        ]
       else
-        comments
-        @ ["let session_id = ref_session_of_rpc session_id_rpc in"]
-        @ session_check_exp
-        @ ["response_of_failure Api_errors.message_removed []"]
+        [
+          comments
+        ; ["let session_id = ref_session_of_rpc session_id_rpc in"]
+        ; session_check_exp
+        ; ["response_of_failure Api_errors.message_removed []"]
+        ]
     in
-    String.concat "\n            " ("" :: all_list)
+    String.concat "\n            " ("" :: List.concat all_list)
   in
-  name_pattern_match
-  ^ "\n"
-  ^ "        begin match __params with\n"
-  ^ "        | "
-  ^ arg_pattern
-  ^ " -> "
-  ^ all
-  ^ "\n"
-  ^ "        | _ ->\n"
-  ^ "            Server_helpers.parameter_count_mismatch_failure __call "
-  ^ "\""
-  ^ string_of_int (count_mandatory_message_parameters x)
-  ^ "\""
-  ^ " (string_of_int ((List.length __params) - "
-  ^ (if x.msg_session then "1" else "0")
-  ^ "))\n"
-  ^ "        end"
+  let case =
+    [
+      name_pattern_match
+    ; "        ( match __params with"
+    ; "        | " ^ arg_pattern ^ " -> " ^ all
+    ; "        | _ ->"
+    ; Printf.sprintf
+        {|            Server_helpers.parameter_count_mismatch_failure __call "%s" (string_of_int ((List.length __params) - %s))|}
+        (string_of_int (count_mandatory_message_parameters x))
+        (if x.msg_session then "1" else "0")
+    ; "        )"
+    ]
+  in
+  String.concat "\n" case
 
 (* ------------------------------------------------------------------------------------------
     Code to generate whole module
    ------------------------------------------------------------------------------------------ *)
 
+let body objects =
+  let transform (obj : obj) = List.map (operation obj) obj.messages in
+  List.concat
+    [
+      [
+        "let __call, __params = call.Rpc.name, call.Rpc.params in"
+      ; "List.iter (fun p -> let s = Rpc.to_string p in if not \
+         (Xapi_stdext_encodings.Encodings.UTF8_XML.is_valid s) then"
+      ; "raise (Api_errors.Server_error(Api_errors.invalid_value, [\"Invalid \
+         UTF-8 string in parameter\"; s])))  __params;"
+      ; "let __label = __call in"
+      ; "let __sync_ty, __call = \
+         Server_helpers.sync_ty_and_maybe_remove_prefix __call in"
+      ; "let subtask_of = if http_req.Http.Request.task <> None then \
+         http_req.Http.Request.task else http_req.Http.Request.subtask_of in"
+      ; "let http_other_config = Context.get_http_other_config http_req in"
+      ; {|Server_helpers.exec_with_new_task ("dispatch:" ^ __call) ~http_other_config|}
+      ; "  ?subtask_of:(Option.map Ref.of_string subtask_of) (fun __context ->"
+      ; "Server_helpers.dispatch_exn_wrapper (fun () -> match __call with "
+      ]
+    ; List.flatten (List.map transform objects)
+    ; [{|| "system.listMethods" -> |}; "  success (rpc_of_string_set ["]
+    ; (let objmsgs obj =
+         List.map
+           (fun msg ->
+             Printf.sprintf {|"%s";|} (DU.wire_name ~sync:true obj msg)
+             )
+           obj.messages
+       in
+       let allmsg =
+         List.map (fun obj -> String.concat "" (objmsgs obj)) objects
+       in
+       allmsg
+      )
+    ; [
+        " ])"
+      ; "| func -> "
+      ; "  if (try Scanf.sscanf func \"system.isAlive:%s\" (fun _ -> true) \
+         with _ -> false) then"
+      ; "    Rpc.success (List.hd __params)"
+      ; "  else ("
+      ; "    if (try Scanf.sscanf func \"unknown-message-%s\" (fun _ -> false) \
+         with _ -> true) then"
+      ; "    " ^ debug "This is not a built-in rpc \"%s\"" ["__call"]
+      ; "    ( match __params with"
+      ; "    | session_id_rpc :: _ ->"
+      ; "      let session_id = ref_session_of_rpc session_id_rpc in"
+      ; "      Session_check.check false session_id;"
+      ; "      (* based on the Host.call_extension call *)"
+      ; "      (* only session_id and the call name are checked in rbac *)"
+      ; "      let first_params = Listext.take 2 __params in"
+      ; "      let arg_name_params = List.combine [\"session_id\"; __call] \
+         first_params in"
+      ; "      let key_names = [] in"
+      ; "      let rbac __context fn = Rbac.check session_id \
+         \"Host.call_extension\" ~args:arg_name_params ~keys:key_names \
+         ~__context ~fn in"
+      ; "      Server_helpers.forward_extension ~__context rbac { call with \
+         Rpc.name = __call }"
+      ; "    | _ ->"
+      ; "      Server_helpers.unknown_rpc_failure func "
+      ; "))))"
+      ]
+    ]
+
 let gen_module api : O.Module.t =
   (* For testing purposes the ocaml client and server are kept in sync *)
   let api = Client.client_api ~sync:true api in
-  let obj (obj : obj) = List.map (operation obj) obj.messages in
   let all_objs = Dm_api.objects_of_api api in
   O.Module.make ~name:module_name
     ~args:
@@ -453,7 +520,6 @@ let gen_module api : O.Module.t =
       ; "module ApiLogRead = Debug.Make(struct let name = \"api_readonly\" end)"
       ; "module ApiLogSideEffect = Debug.Make(struct let name = \"api_effect\" \
          end)"
-        (*      "exception Invalid_operation"; *)
       ]
     ~elements:
       [
@@ -465,83 +531,7 @@ let gen_module api : O.Module.t =
                ; O.Anon (Some "fd", "Unix.file_descr")
                ; O.Anon (Some "call", "Rpc.call")
                ]
-             ~ty:"response"
-             ~body:
-               ([
-                  "let __call, __params = call.Rpc.name, call.Rpc.params in"
-                ; "List.iter (fun p -> let s = Rpc.to_string p in if not \
-                   (Xapi_stdext_encodings.Encodings.UTF8_XML.is_valid s) then"
-                ; "raise (Api_errors.Server_error(Api_errors.invalid_value, \
-                   [\"Invalid UTF-8 string in parameter\"; s])))  __params;"
-                ; "let __label = __call in"
-                ; "let (__sync_ty, __call) = \
-                   Server_helpers.sync_ty_and_maybe_remove_prefix __call in"
-                ; "let subtask_of = if http_req.Http.Request.task <> None then \
-                   http_req.Http.Request.task else \
-                   http_req.Http.Request.subtask_of in"
-                ; "let http_other_config = Context.get_http_other_config \
-                   http_req in"
-                ; "let may f = function | None -> None | Some x -> Some (f x) \
-                   in"
-                ; "Server_helpers.exec_with_new_task \
-                   (\"dispatch:\"^__call^\"\") ~http_other_config \
-                   ?subtask_of:(may Ref.of_string subtask_of) (fun __context \
-                   ->"
-                ; "Server_helpers.dispatch_exn_wrapper (fun () -> (match \
-                   __call with "
-                ]
-               @ List.flatten (List.map obj all_objs)
-               @ [
-                   "| \"system.listMethods\" -> "
-                 ; "  success (rpc_of_string_set ["
-                 ]
-               @ (let objmsgs obj =
-                    List.map
-                      (fun msg ->
-                        Printf.sprintf "\"%s\";"
-                          (DU.wire_name ~sync:true obj msg)
-                        )
-                      obj.messages
-                  in
-                  let allmsg =
-                    List.map
-                      (fun obj -> String.concat "" (objmsgs obj))
-                      all_objs
-                  in
-                  allmsg
-                 )
-               @ [
-                   " ])"
-                 ; "| func -> "
-                 ; "  if (try Scanf.sscanf func \"system.isAlive:%s\" (fun _ \
-                    -> true) with _ -> false) then"
-                 ; "    Rpc.success (List.hd __params)"
-                 ; "  else ("
-                 ; "    if (try Scanf.sscanf func \"unknown-message-%s\" (fun \
-                    _ -> false) with _ -> true) then"
-                 ; "    " ^ debug "This is not a built-in rpc \"%s\"" ["__call"]
-                 ; "    ( match __params with"
-                 ; "    | session_id_rpc :: _ ->"
-                 ; "      let session_id = ref_session_of_rpc session_id_rpc in"
-                 ; "      Session_check.check false session_id;"
-                 ; "      (* based on the Host.call_extension call *)"
-                 ; "      (* only session_id and the call name are checked in \
-                    rbac *)"
-                 ; "      let first_params = Listext.take 2 __params in"
-                 ; "      let arg_name_params = List.combine [\"session_id\"; \
-                    __call] first_params in"
-                 ; "      let key_names = [] in"
-                 ; "      let rbac __context fn = Rbac.check session_id \
-                    \"Host.call_extension\" ~args:arg_name_params \
-                    ~keys:key_names ~__context ~fn in"
-                 ; "      Server_helpers.forward_extension ~__context rbac { \
-                    call with Rpc.name = __call }"
-                 ; "    | _ ->"
-                 ; "      Server_helpers.unknown_rpc_failure func "
-                 ; ")))))"
-                 ]
-               )
-             ()
+             ~ty:"response" ~body:(body all_objs) ()
           )
       ]
     ()
