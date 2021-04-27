@@ -77,7 +77,7 @@ list-hd:
 verify-cert:
 	@NONE=$$( git grep -r --count 'verify_cert:None' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc) ;\
 	echo "counted $$NONE usages of verify_cert:None" ;\
-	test $$NONE -eq 6
+	test $$NONE -eq 7
 
 quality-gate: list-hd verify-cert ;
 

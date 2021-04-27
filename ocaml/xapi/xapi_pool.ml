@@ -36,8 +36,8 @@ let no_exn f x =
   try ignore (f x)
   with exn -> debug "Ignoring exception: %s" (ExnHelper.string_of_exn exn)
 
-let rpc host_address xml =
-  try Helpers.make_remote_rpc host_address xml
+let rpc ~verify_cert host_address xml =
+  try Helpers.make_remote_rpc ~verify_cert host_address xml
   with Xmlrpc_client.Connection_reset ->
     raise
       (Api_errors.Server_error
@@ -1255,17 +1255,49 @@ let join_common ~__context ~master_address ~master_username ~master_password
   (* get hold of cluster secret - this is critical; if this fails whole pool join fails *)
   (* Note: this is where the license restrictions are checked on the other side.. if we're trying to join
      	a host that does not support pooling then an error will be thrown at this stage *)
-  let rpc = rpc master_address in
+  let unverified_rpc = rpc ~verify_cert:None master_address in
+  let me = Helpers.get_localhost ~__context in
   let session_id =
     try
-      Client.Session.login_with_password rpc master_username master_password
-        Datamodel_common.api_version_string Constants.xapi_user_agent
+      Client.Session.login_with_password unverified_rpc master_username
+        master_password Datamodel_common.api_version_string
+        Constants.xapi_user_agent
     with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
       raise
         (Api_errors.Server_error
            (Api_errors.pool_joining_host_service_failed, []))
   in
   let new_pool_secret = ref (SecretString.of_string "") in
+  finally
+    (fun () ->
+      pre_join_checks ~__context ~rpc:unverified_rpc ~session_id ~force ;
+
+      (* Distribute the pool certificate so other members can connect to me
+         after I restart and I can connect to them *)
+      let my_uuid = Db.Host.get_uuid ~__context ~self:me in
+      let my_certificate = Certificates.get_internal_server_certificate () in
+      let pool_certs =
+        Client.Pool.pre_join_exchange_certificates ~rpc:unverified_rpc
+          ~session_id ~uuid:my_uuid ~certificate:my_certificate
+      in
+      Cert_distrib.import_joining_pool_certs ~__context ~pool_certs ;
+      new_pool_secret := Client.Pool.initial_auth unverified_rpc session_id)
+    (fun () -> Client.Session.logout unverified_rpc session_id) ;
+
+  (* Certificate exchange done, we must switch to verified pool connections as
+     soon as possible *)
+  let verified_rpc = rpc ~verify_cert:(Stunnel_client.pool ()) master_address in
+  let session_id =
+    try
+      Client.Session.login_with_password verified_rpc master_username
+        master_password Datamodel_common.api_version_string
+        Constants.xapi_user_agent
+    with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
+      raise
+        (Api_errors.Server_error
+           (Api_errors.pool_joining_host_service_failed, []))
+  in
+
   (* If management is on a VLAN, then get the Pool master
      management network bridge before we logout the session *)
   let pool_master_bridge, mgmt_pif =
@@ -1275,18 +1307,16 @@ let join_common ~__context ~master_address ~master_username ~master_password
     in
     if Db.PIF.get_VLAN_master_of ~__context ~self:my_pif <> Ref.null then
       let pif =
-        Client.Host.get_management_interface rpc session_id
-          (get_master ~rpc ~session_id)
+        Client.Host.get_management_interface verified_rpc session_id
+          (get_master ~rpc:verified_rpc ~session_id)
       in
-      let network = Client.PIF.get_network rpc session_id pif in
-      (Some (Client.Network.get_bridge rpc session_id network), my_pif)
+      let network = Client.PIF.get_network verified_rpc session_id pif in
+      (Some (Client.Network.get_bridge verified_rpc session_id network), my_pif)
     else
       (None, my_pif)
   in
   finally
     (fun () ->
-      pre_join_checks ~__context ~rpc ~session_id ~force ;
-      new_pool_secret := Client.Pool.initial_auth rpc session_id ;
       (* get pool db from new master so I have a backup ready if we failover to me *)
       ( try
           Pool_db_backup.fetch_database_backup ~master_address
@@ -1296,14 +1326,15 @@ let join_common ~__context ~master_address ~master_username ~master_password
             (ExnHelper.string_of_exn e)
       ) ;
       (* this is where we try and sync up as much state as we can
-         		with the master. This is "best effort" rather than
-         		critical; if we fail part way through this then we carry
-         		on with the join *)
+         with the master. This is "best effort" rather than
+         critical; if we fail part way through this then we carry
+         on with the join *)
       try
-        update_non_vm_metadata ~__context ~rpc ~session_id ;
+        update_non_vm_metadata ~__context ~rpc:verified_rpc ~session_id ;
         ignore
-          (Importexport.remote_metadata_export_import ~__context ~rpc
-             ~session_id ~remote_address:master_address ~restore:true `All)
+          (Importexport.remote_metadata_export_import ~__context
+             ~rpc:verified_rpc ~session_id ~remote_address:master_address
+             ~restore:true `All)
       with e ->
         debug "Error whilst importing db objects into master; aborted: %s"
           (Printexc.to_string e) ;
@@ -1311,12 +1342,12 @@ let join_common ~__context ~master_address ~master_username ~master_password
           "Error whilst importing db objects to master. The pool-join \
            operation will continue, but some of the slave's VMs may not be \
            available on the master.")
-    (fun () -> Client.Session.logout rpc session_id) ;
+    (fun () -> Client.Session.logout verified_rpc session_id) ;
+
   (* Attempt to unplug all our local storage. This is needed because
-     	   when we restart as a slave, all the references will be wrong
-     	   and these may have been cached by the storage layer. *)
+     when we restart as a slave, all the references will be wrong
+     and these may have been cached by the storage layer. *)
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      let me = Helpers.get_localhost ~__context in
       List.iter
         (fun self ->
           Helpers.log_exn_continue
@@ -1356,6 +1387,16 @@ let join ~__context ~master_address ~master_username ~master_password =
 let join_force ~__context ~master_address ~master_username ~master_password =
   join_common ~__context ~master_address ~master_username ~master_password
     ~force:true
+
+let pre_join_exchange_certificates ~__context ~uuid ~certificate :
+    API.string_to_string_map =
+  let to_hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
+  let joiner_certificate =
+    Cert_distrib.make_joiner_cert ~__context ~uuid ~certificate
+  in
+  Cert_distrib.import_joiner ~__context ~joiner_certificate ~to_hosts ;
+  Cert_distrib.make_pool_certs ~__context
+  |> List.map Cert_distrib.host_cert_to_string_to_string
 
 (* Assume that db backed up from master will be there and ready to go... *)
 let emergency_transition_to_master ~__context =
