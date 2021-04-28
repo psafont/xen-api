@@ -396,7 +396,7 @@ let pool_uninstall kind ~__context ~name =
 
 (* Extracts the server certificate from the server certificate pem file.
    It strips the private key as well as the rest of the certificate chain. *)
-let get_public_certficate_from_pkcs12 path =
+let read_public_certficate_from_pkcs12 path =
   match Gencertlib.Pem.parse_file path with
   | Ok Gencertlib.Pem.{host_cert; _} ->
       host_cert
@@ -408,10 +408,10 @@ let get_public_certficate_from_pkcs12 path =
       raise_library_corrupt ()
 
 let get_server_certificate () =
-  get_public_certficate_from_pkcs12 !Xapi_globs.server_cert_path
+  read_public_certficate_from_pkcs12 !Xapi_globs.server_cert_path
 
 let get_internal_server_certificate () =
-  get_public_certficate_from_pkcs12 !Xapi_globs.server_cert_internal_path
+  read_public_certficate_from_pkcs12 !Xapi_globs.server_cert_internal_path
 
 open Rresult
 
