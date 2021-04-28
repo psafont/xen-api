@@ -33,13 +33,13 @@ let bdf_paren_prnt_fmt = format_of_string "(%04x:%02x:%02x.%01x)"
 
 let bdf_paren_scan_fmt = format_of_string "(%04x:%02x:%02x.%01x)"
 
+let bdf_paren_list_fmt = format_of_string "(%04x:%02x:%02x.%01x)%s"
+
 let pcidev_of_pci ~__context pci =
   let bdf_str = Db.PCI.get_pci_id ~__context ~self:pci in
   Scanf.sscanf bdf_str bdf_fmt (fun a b c d -> (a, b, c, d))
 
-let is_bdf_format str =
-  try Scanf.sscanf str bdf_fmt_ignore true
-  with Scanf.Scan_failure _ | Failure _ | End_of_file -> false
+let bdf_paren_of_pcidev (a, b, c, d) = Printf.sprintf bdf_paren_prnt_fmt a b c d
 
 (* Confusion: the n/xxxx:xx:xx.x syntax originally meant PCI device
    xxxx:xx:xx.x should be plugged into bus number n. HVM guests don't have
@@ -74,48 +74,42 @@ let get_pci_hidden_raw_value () =
   let cmd = !Xapi_globs.xen_cmdline_path ^ " --get-dom0 " ^ pci_hiding_key in
   let raw_kv_string = Helpers.get_process_output cmd in
   (* E.g. "xen-pciback.hide=(0000:00:02.0)(0000:00:02.1)\n" or just "\n" *)
-  if Astring.String.is_prefix ~affix:pci_hiding_key_eq raw_kv_string then
-    let keylen = String.length pci_hiding_key_eq in
-    (* rtrim to remove trailing newline *)
-    Xapi_stdext_std.Xstringext.String.(rtrim (sub_to_end raw_kv_string keylen))
-  else
-    ""
+  Scanf.ksscanf raw_kv_string
+    (fun _ _ -> None)
+    "xen-pciback.hide=%s\n" Option.some
 
 let get_hidden_pcidevs () =
-  let paren_len = String.length "(0000:00:00.0)" in
   let rec read_dev devs raw =
     match raw with
     | "" ->
         devs
     | _ ->
-        let dev =
-          Scanf.sscanf raw bdf_paren_scan_fmt (fun a b c d -> (a, b, c, d))
-        in
-        read_dev (dev :: devs)
-          (Xapi_stdext_std.Xstringext.String.sub_to_end raw paren_len)
+        Scanf.sscanf raw bdf_paren_list_fmt (fun a b c d rest ->
+            read_dev ((a, b, c, d) :: devs) rest)
   in
-  read_dev [] (get_pci_hidden_raw_value ())
+  Option.fold ~none:[] ~some:(read_dev []) (get_pci_hidden_raw_value ())
 
-let _is_pci_hidden ~__context pci =
+let _is_pci_hidden ~__context pci hidden_pcidevs =
   let pcidev = pcidev_of_pci ~__context pci in
-  List.mem pcidev (get_hidden_pcidevs ())
+  List.mem pcidev hidden_pcidevs
 
 (** Check whether a PCI device will be hidden from the dom0 kernel on boot. *)
 let is_pci_hidden ~__context pci =
-  Mutex.execute m (fun () -> _is_pci_hidden ~__context pci)
+  Mutex.execute m (fun () ->
+      _is_pci_hidden ~__context pci (get_hidden_pcidevs ()))
 
 let _hide_pci ~__context pci =
-  if not (_is_pci_hidden ~__context pci) then
-    let paren_of (a, b, c, d) = Printf.sprintf bdf_paren_prnt_fmt a b c d in
+  let hidden_pcidevs = get_hidden_pcidevs () in
+  if _is_pci_hidden ~__context pci hidden_pcidevs then
     let p = pcidev_of_pci ~__context pci in
-    let devs = p :: get_hidden_pcidevs () in
-    let valstr = List.fold_left (fun acc d -> acc ^ paren_of d) "" devs in
+    let devs = p :: hidden_pcidevs in
+    let valstr = String.concat "" (List.rev_map bdf_paren_of_pcidev devs) in
     let cmd =
       Printf.sprintf "%s --set-dom0 %s%s"
         !Xapi_globs.xen_cmdline_path
         pci_hiding_key_eq valstr
     in
-    let _ = Helpers.get_process_output cmd in
+    let (_ : string) = Helpers.get_process_output cmd in
     ()
 
 (** Hide a PCI device from the dom0 kernel. (Takes effect after next boot.) *)
@@ -123,13 +117,13 @@ let hide_pci ~__context pci =
   Mutex.execute m (fun () -> _hide_pci ~__context pci)
 
 let _unhide_pci ~__context pci =
-  if _is_pci_hidden ~__context pci then
-    let raw_value = get_pci_hidden_raw_value () in
-    let bdf_paren =
-      Printf.sprintf "(%s)" (Db.PCI.get_pci_id ~__context ~self:pci)
-    in
+  let hidden_pcidevs = get_hidden_pcidevs () in
+  if _is_pci_hidden ~__context pci hidden_pcidevs then
+    let pci_dev = pcidev_of_pci ~__context pci in
     let new_value =
-      Xapi_stdext_std.Xstringext.String.replace bdf_paren "" raw_value
+      List.filter (fun x -> x <> pci_dev) hidden_pcidevs
+      |> List.rev_map bdf_paren_of_pcidev
+      |> String.concat ""
     in
     let cmd =
       match new_value with
@@ -142,7 +136,7 @@ let _unhide_pci ~__context pci =
             !Xapi_globs.xen_cmdline_path
             pci_hiding_key_eq new_value
     in
-    let _ = Helpers.get_process_output cmd in
+    let (_ : string) = Helpers.get_process_output cmd in
     ()
 
 (** Unhide a PCI device from the dom0 kernel. (Takes effect after next boot.) *)
