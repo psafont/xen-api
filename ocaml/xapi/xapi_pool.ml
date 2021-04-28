@@ -1390,12 +1390,10 @@ let join_force ~__context ~master_address ~master_username ~master_password =
 
 let pre_join_exchange_certificates ~__context ~uuid ~certificate :
     API.string_to_string_map =
-  let to_hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
   let joiner_certificate =
     Cert_distrib.make_joiner_cert ~__context ~uuid ~certificate
   in
-  Cert_distrib.import_joiner ~__context ~joiner_certificate ~to_hosts ;
-  Cert_distrib.make_pool_certs ~__context
+  Cert_distrib.exchange_certificates_with_joiner ~__context ~joiner_certificate
   |> List.map Cert_distrib.host_cert_to_string_to_string
 
 (* Assume that db backed up from master will be there and ready to go... *)
