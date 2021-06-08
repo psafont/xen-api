@@ -2563,13 +2563,37 @@ let migrate_receive ~__context ~host ~network ~options:_ =
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
   let master_url = Uri.make ~scheme ~host:master_address () |> Uri.to_string in
-  [
-    (Xapi_vm_migrate._sm, sm_url)
-  ; (Xapi_vm_migrate._host, Ref.string_of host)
-  ; (Xapi_vm_migrate._xenops, xenops_url)
-  ; (Xapi_vm_migrate._session_id, new_session_id)
-  ; (Xapi_vm_migrate._master, master_url)
-  ]
+
+  let pool = Helpers.get_pool ~__context in
+  let certs_needed =
+    Db.Pool.get_tls_verification_enabled ~__context ~self:pool
+  in
+  let certificates =
+    if certs_needed then
+      let host_cert =
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Client.Host.get_server_certificate ~rpc ~session_id ~host
+        )
+      in
+      let master_cert = Certificates.get_internal_server_certificate () in
+      [
+        (Xapi_vm_migrate._host_cert, host_cert)
+      ; (Xapi_vm_migrate._master_cert, master_cert)
+      ]
+    else
+      []
+  in
+  List.concat
+    [
+      [
+        (Xapi_vm_migrate._sm, sm_url)
+      ; (Xapi_vm_migrate._host, Ref.string_of host)
+      ; (Xapi_vm_migrate._xenops, xenops_url)
+      ; (Xapi_vm_migrate._session_id, new_session_id)
+      ; (Xapi_vm_migrate._master, master_url)
+      ]
+    ; certificates
+    ]
 
 let update_display ~__context ~host ~action =
   let open Xapi_host_display in

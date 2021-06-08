@@ -44,17 +44,24 @@ let _session_id = "session_id"
 
 let _master = "master"
 
+let _host_cert = "host_cert"
+
+let _master_cert = "master_cert"
+
 type remote = {
     rpc: Rpc.call -> Rpc.response
   ; session: API.ref_session
   ; sm_url: string
   ; xenops_url: string
   ; master_url: string
-  ; remote_ip: string
+  ; (* IP address *)
+    remote_ip: string
   ; (* IP address *)
     remote_master_ip: string
-  ; (* IP address *)
-    dest_host: API.ref_host
+  ; dest_host: API.ref_host
+  ; (* PEM-encoded certificate *)
+    remote_cert: string option
+  ; remote_master_cert: string option
 }
 
 let get_ip_from_url url =
@@ -124,6 +131,8 @@ let remote_of_dest ~__context dest =
     else
       url
   in
+  let remote_cert = List.assoc_opt _host_cert dest in
+  let remote_master_cert = List.assoc_opt _master_cert dest in
   {
     rpc
   ; session= session_id
@@ -133,6 +142,8 @@ let remote_of_dest ~__context dest =
   ; remote_ip
   ; remote_master_ip
   ; dest_host
+  ; remote_cert
+  ; remote_master_cert
   }
 
 let number = ref 0
