@@ -35,24 +35,9 @@ type t_trusted = CA_Certificate | CRL
 
 let c_rehash = "/usr/bin/c_rehash"
 
-let pem_certificate_header = "-----BEGIN CERTIFICATE-----"
-
-let pem_certificate_footer = "-----END CERTIFICATE-----"
-
-let ca_certificates_path = "/etc/stunnel/certs"
-
-let pem_of_string x =
-  match Cstruct.of_string x |> X509.Certificate.decode_pem with
-  | Error _ ->
-      D.error "pem_of_string: failed to parse certificate string" ;
-      raise
-        Api_errors.(Server_error (invalid_value, ["certificate"; "<omitted>"]))
-  | Ok x ->
-      x
-
 let library_path = function
   | CA_Certificate ->
-      ca_certificates_path
+      !Xapi_globs.trusted_certs_dir
   | CRL ->
       Stunnel.crl_path
 
