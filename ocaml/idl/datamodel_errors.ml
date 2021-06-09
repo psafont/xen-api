@@ -1010,6 +1010,8 @@ let _ =
       "Cannot migrate a VM to a destination host which is older than the \
        source host."
     () ;
+  error Api_errors.vm_migrate_pool_downgrades_tls []
+    ~doc:"Cannot migrate VM to a pool that does not verify TLS connections" () ;
   error Api_errors.vm_host_incompatible_version ["host"; "vm"]
     ~doc:
       "This VM operation cannot be performed on an older-versioned host during \

@@ -403,6 +403,8 @@ let vm_requires_vgpu = add_error "VM_REQUIRES_VGPU"
 
 let vm_requires_iommu = add_error "VM_REQUIRES_IOMMU"
 
+let vm_migrate_pool_downgrades_tls = "VM_MIGRATE_POOL_DOWNGRADES_TLS"
+
 let vm_host_incompatible_version_migrate =
   add_error "VM_HOST_INCOMPATIBLE_VERSION_MIGRATE"
 

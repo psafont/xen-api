@@ -1942,7 +1942,26 @@ let assert_can_migrate_sender ~__context ~vm ~dest ~live:_ ~vdi_map:_ ~vif_map:_
   (* We only need to check compatibility for "live" vGPUs *)
   if Db.VM.get_power_state ~__context ~self:vm <> `Halted then
     Xapi_pgpu_helpers.assert_destination_has_pgpu_compatible_with_vm ~__context
-      ~vm ~vgpu_map ~host:remote.dest_host ?remote:remote_for_migration_type ()
+      ~vm ~vgpu_map ~host:remote.dest_host ?remote:remote_for_migration_type () ;
+
+  (* Ensure that the destination pool is as strict as us with TLS *)
+  match migration_type ~__context ~remote with
+  | `cross_pool ->
+      let pool = Helpers.get_pool ~__context in
+      let local_enforces_tls_verification =
+        Db.Pool.get_tls_verification_enabled ~__context ~self:pool
+      in
+      let remote_enforces_tls_verification =
+        Option.(is_some remote.remote_cert && is_some remote.remote_master_cert)
+      in
+      if local_enforces_tls_verification && not remote_enforces_tls_verification
+      then
+        raise
+          (Api_errors.Server_error
+             (Api_errors.vm_migrate_pool_downgrades_tls, [])
+          )
+  | _ ->
+      ()
 
 let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map
     =
