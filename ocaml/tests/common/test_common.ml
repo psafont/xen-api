@@ -20,7 +20,7 @@ let working_area = "/tmp/xapi-test"
 (** Utility functions *)
 let id (x : 'a) : 'a = x
 
-let make_uuid () = Uuid.string_of_uuid (Uuid.make_uuid ())
+let make_uuid () = Uuid.to_string (Uuid.make_uuid ())
 
 let assert_raises_api_error (code : string) ?(args : string list option)
     (f : unit -> 'a) : unit =

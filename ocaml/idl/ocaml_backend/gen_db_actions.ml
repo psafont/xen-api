@@ -86,7 +86,7 @@ let dm_to_string tys : O.Module.t =
           "(Ref.string_of : " ^ OU.ocaml_of_ty ty ^ " -> string)"
       (*
       | DT.Ref "session" -> "(Uuid.string_of_cookie : "^OU.ocaml_of_ty ty^" -> string)"
-      | DT.Ref s -> "(Uuid.string_of_uuid : "^OU.ocaml_of_ty ty^" -> string)"
+      | DT.Ref s -> "(Uuid.to_string : "^OU.ocaml_of_ty ty^" -> string)"
 *)
       | DT.Set ty ->
           "fun s -> set " ^ OU.alias_of_ty ty ^ " s"

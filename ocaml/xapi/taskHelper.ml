@@ -25,7 +25,7 @@ let now () = Date.of_float (Unix.time ())
 let make ~__context ~http_other_config ?(description = "") ?session_id
     ?subtask_of label : t * t Uuid.t =
   let uuid = Uuid.make_uuid () in
-  let uuid_str = Uuid.string_of_uuid uuid in
+  let uuid_str = Uuid.to_string uuid in
   let ref = Ref.make () in
   (* we store in database only parent/child relationship between real tasks *)
   let subtaskid_of =

@@ -103,12 +103,13 @@ let create_pbd_alerts rpc session snapshot (pbd_ref, pbd_rec, timestamp) =
       Scanf.sscanf value "[%d, %d]" (fun current max -> (current, max))
     in
     let host =
-      Uuid.of_string (Client.Host.get_uuid rpc session pbd_rec.API.pBD_host)
+      Option.get
+        (Uuid.of_string (Client.Host.get_uuid rpc session pbd_rec.API.pBD_host))
     in
     let host_name =
       Client.Host.get_name_label rpc session pbd_rec.API.pBD_host
     in
-    let pbd = Uuid.of_string pbd_rec.API.pBD_uuid in
+    let pbd = Option.get (Uuid.of_string pbd_rec.API.pBD_uuid) in
     let alert = {host; host_name; pbd; timestamp; scsi_id; current; max} in
     debug "Alert '%s' created from %s=%s" (to_string alert) key value ;
     alert
@@ -127,7 +128,7 @@ let create_host_alerts rpc session snapshot (host_ref, host_rec, timestamp) =
     let current, max =
       Scanf.sscanf value "[%d, %d]" (fun current max -> (current, max))
     in
-    let host = Uuid.of_string host_rec.API.host_uuid in
+    let host = Option.get (Uuid.of_string host_rec.API.host_uuid) in
     let host_name = host_rec.API.host_name_label in
     let pbd = Uuid.null in
     let alert = {host; host_name; pbd; timestamp; scsi_id; current; max} in
