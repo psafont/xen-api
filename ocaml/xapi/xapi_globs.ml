@@ -917,7 +917,31 @@ let winbind_machine_pwd_timeout = ref (7 * 24 * 3600)
 
 let winbind_update_closest_kdc_interval = ref (3600. *. 24.) (* every day *)
 
-let winbind_kerberos_encryption_type = ref "strong"
+module KerberosEncryption = struct
+  type t = Strong | Legacy | All
+
+  let default = Strong
+
+  let to_string = function
+    | Strong ->
+        "strong"
+    | Legacy ->
+        "legacy"
+    | All ->
+        "all"
+
+  let of_string = function
+    | "all" ->
+        Some All
+    | "legacy" ->
+        Some Legacy
+    | "strong" ->
+        Some Strong
+    | _ ->
+        None
+end
+
+let winbind_kerberos_encryption = ref KerberosEncryption.Strong
 
 let tdb_tool = ref "/usr/bin/tdbtool"
 
@@ -1258,8 +1282,13 @@ let other_options =
     , "Which AD backend used to talk to DC"
     )
   ; ( "winbind_kerberos_encryption_type"
-    , Arg.Set_string winbind_kerberos_encryption_type
-    , (fun () -> !winbind_kerberos_encryption_type)
+    , Arg.String
+        (fun s ->
+          Option.iter
+            (fun k -> winbind_kerberos_encryption := k)
+            (KerberosEncryption.of_string s)
+          )
+    , (fun () -> KerberosEncryption.to_string !winbind_kerberos_encryption)
     , "Encryption types to use when operating as Kerberos client \
        [strong|legacy|all]"
     )

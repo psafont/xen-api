@@ -70,33 +70,6 @@ type domain_info = {
         (* Persist netbios_name to support hostname change *)
 }
 
-module KerberosEncryptionTypes = struct
-  type t = Strong | Legacy | All
-
-  let default = Strong
-
-  let to_string = function
-    | Strong ->
-        "strong"
-    | Legacy ->
-        "legacy"
-    | All ->
-        "all"
-
-  let of_string = function
-    | "all" ->
-        All
-    | "legacy" ->
-        Legacy
-    | "strong" ->
-        Strong
-    | _ as v ->
-        debug "Invalid kerberos type %s use default %s" v (to_string default) ;
-        default
-
-  let get () = of_string !Xapi_globs.winbind_kerberos_encryption_type
-end
-
 let hd msg = function
   | [] ->
       error "%s" msg ;
@@ -719,7 +692,7 @@ let config_winbind_damon ~domain ~workgroup ~netbios_name =
       ; Printf.sprintf "machine password timeout = %d"
           !Xapi_globs.winbind_machine_pwd_timeout
       ; Printf.sprintf "kerberos encryption types = %s"
-          KerberosEncryptionTypes.(get () |> to_string)
+          Xapi_globs.(KerberosEncryption.to_string !winbind_kerberos_encryption)
       ; Printf.sprintf "workgroup = %s" workgroup
       ; Printf.sprintf "netbios name = %s" netbios_name
       ; "idmap config * : range = 3000000-3999999"
