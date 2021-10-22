@@ -140,7 +140,7 @@ let () =
     ]
   in
   match
-    Xcp_service.configure2 ~name:"suspend-image-viewer" ~version:Version.version
+    Xcp_service.configure2 ~name:"suspend-image-viewer" ~version:Build_info.version
       ~resources ~doc ~options ()
   with
   | `Ok () ->
