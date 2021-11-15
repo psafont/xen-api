@@ -192,7 +192,7 @@ module Udhcpd_conf = struct
           false
     in
     let config_list =
-      skel :: interface :: subnet :: (if include_gw then [ router ] else [])
+      (skel :: interface :: subnet :: (if include_gw then [ router ] else []))
       @ (if include_pxe then [ pxe ] else [])
       @ leases
     in

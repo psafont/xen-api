@@ -195,8 +195,8 @@ let is_himn_req req =
 
 
 (* The API does not use the error.code and only retains it for compliance with
-  the JSON-RPC v2.0 specs. We set this always to a non-zero value because
-  some JsonRpc clients consider error.code 0 as no error*)
+   the JSON-RPC v2.0 specs. We set this always to a non-zero value because
+   some JsonRpc clients consider error.code 0 as no error*)
 let error_code_lit = 1L
 
 let json_of_error_object ?(data = None) code message =

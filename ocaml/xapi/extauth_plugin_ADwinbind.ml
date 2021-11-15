@@ -1237,7 +1237,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
        | Ok uname ->
            ntlm_auth uname password
      in
-     Ok sid)
+     Ok sid )
     |> maybe_raise
 
 

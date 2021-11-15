@@ -76,10 +76,10 @@ let headers s headers =
 
 
 (* let response s hdrs length f =
-  output_http s hdrs;
-  output_http s [ Printf.sprintf "Content-Length: %Ld" length ];
-  output_http s [ "" ];
-  f s *)
+   output_http s hdrs;
+   output_http s [ Printf.sprintf "Content-Length: %Ld" length ];
+   output_http s [ "" ];
+   f s *)
 
 (* If http/1.0 was requested, return that, else return http/1.1 *)
 let get_return_version req =

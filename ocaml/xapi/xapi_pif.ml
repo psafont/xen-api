@@ -1074,9 +1074,9 @@ let assert_cluster_host_operation_not_in_progress ~__context =
 
 
 (* Block allowing unplug if
-  - a cluster host is enabled on this PIF
-  - a cluster host is being created in this pool
-  - a Cluster_host.enable is in progress on any PIF *)
+   - a cluster host is enabled on this PIF
+   - a cluster host is being created in this pool
+   - a Cluster_host.enable is in progress on any PIF *)
 let set_disallow_unplug ~__context ~self ~value =
   if Db.PIF.get_disallow_unplug ~__context ~self <> value
   then (

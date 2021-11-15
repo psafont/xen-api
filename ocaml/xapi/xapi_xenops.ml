@@ -353,10 +353,9 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
            ( Api_errors
              .vm_attached_to_more_than_one_vdi_with_timeoffset_marked_as_reset_on_boot
            , Ref.string_of vm
-             ::
-             ( reference_timeoffset_pairs
-             |> List.map fst
-             |> List.map Ref.string_of ) ) )
+             :: ( reference_timeoffset_pairs
+                |> List.map fst
+                |> List.map Ref.string_of ) ) )
 
 
 (* /boot/ contains potentially sensitive files like xen-initrd, so we will only*)
@@ -1234,8 +1233,9 @@ module MD = struct
     let timeoffset = rtc_timeoffset_of_vm ~__context (vmref, vm) vbds in
     let platformdata =
       (Vm_platform.timeoffset, timeoffset)
-      ::
-      List.filter (fun (key, _) -> key <> Vm_platform.timeoffset) platformdata
+      :: List.filter
+           (fun (key, _) -> key <> Vm_platform.timeoffset)
+           platformdata
     in
     let platformdata =
       let genid =

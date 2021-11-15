@@ -1339,7 +1339,7 @@ module VM = struct
       | m :: ms ->
           (* Treat the first as the template for the rest *)
           let defaults = List.map (fun _ -> m) all_vcpus in
-          Xapi_stdext_std.Listext.List.take vm.vcpu_max (m :: ms @ defaults)
+          Xapi_stdext_std.Listext.List.take vm.vcpu_max ((m :: ms) @ defaults)
     in
     (* convert a mask into a binary string, one char per pCPU *)
     let bitmap cpus : string =
@@ -2764,9 +2764,9 @@ module VM = struct
         None
         []
         !Xc_resources.igmp_query_injector_script
-        ("--wait-vif-connected"
-         :: string_of_int !Xenopsd.vif_ready_for_igmp_query_timeout :: vif_names
-        )
+        ( "--wait-vif-connected"
+        :: string_of_int !Xenopsd.vif_ready_for_igmp_query_timeout
+        :: vif_names )
     in
     Forkhelpers.dontwaitpid pid
 
@@ -4434,9 +4434,9 @@ module VIF = struct
           |> List.flatten
         in
         ("pvs-site", s)
-        ::
-        ("pvs-interface", iface)
-        :: ("pvs-server-num", string_of_int (List.length srvs)) :: server_keys
+        :: ("pvs-interface", iface)
+        :: ("pvs-server-num", string_of_int (List.length srvs))
+        :: server_keys
 
 
   let active_path vm vif =
@@ -4530,7 +4530,7 @@ module VIF = struct
                         ( vif.carrier
                         && vif.locking_mode <> Xenops_interface.Vif.Disabled )
                       ~extra_private_keys:
-                        ( id :: vif.extra_private_keys
+                        ( (id :: vif.extra_private_keys)
                         @ locking_mode
                         @ setup_vif_rules
                         @ setup_pvs_proxy_rules

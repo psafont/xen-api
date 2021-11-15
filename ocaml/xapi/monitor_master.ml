@@ -173,7 +173,7 @@ let update_pifs ~__context host pifs =
                       Db.PIF.get_network ~__context ~self:access_pif )
                     pifrec.API.pIF_tunnel_transport_PIF_of
                 in
-                pifrec.API.pIF_network :: vlan_networks @ tunnel_networks
+                (pifrec.API.pIF_network :: vlan_networks) @ tunnel_networks
                 |> List.map vifs_on_local_bridge
                 |> List.flatten
                 |> List.iter set_carrier

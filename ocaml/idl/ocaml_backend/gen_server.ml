@@ -168,9 +168,9 @@ let operation (obj : obj) (x : message) =
     in
     String.concat
       "\n"
-      ("let __structure = match __structure_rpc with Dict d -> d | _ -> \
-        failwith \"bad __structure\" in"
-       :: List.map of_field fields )
+      ( "let __structure = match __structure_rpc with Dict d -> d | _ -> \
+         failwith \"bad __structure\" in"
+      :: List.map of_field fields )
   in
   (* impl_fn = something like "VM.make ~__context" *)
   let impl_fn =

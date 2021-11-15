@@ -375,7 +375,8 @@ let load connections default_schema =
   (* We also consider populating from the HA metadata LUN and the general metadata LUN *)
   let connections =
     Parse_db_conf.make Db_globs.ha_metadata_db
-    :: Parse_db_conf.make Db_globs.gen_metadata_db :: connections
+    :: Parse_db_conf.make Db_globs.gen_metadata_db
+    :: connections
   in
   (* If we have a temporary_restore_path (backup uploaded in previous run of xapi process) then restore from that *)
   let populate db =

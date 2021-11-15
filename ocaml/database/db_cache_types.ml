@@ -232,9 +232,9 @@ module Table = struct
       else
         ( lower_length_deleted_queue + 1
         , new_element
-          ::
-          Xapi_stdext_std.Listext.List.take lower_length_deleted_queue t.deleted
-        )
+          :: Xapi_stdext_std.Listext.List.take
+               lower_length_deleted_queue
+               t.deleted )
     in
     { rows = StringRowMap.remove g key t.rows
     ; deleted_len = new_len

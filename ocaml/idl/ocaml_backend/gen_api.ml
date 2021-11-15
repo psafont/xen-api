@@ -82,31 +82,31 @@ let gen_non_record_type highapi tys =
         aux accu t
     | (DT.Set (DT.Enum (n, _) as e) as ty) :: t ->
         aux
-          (sprintf
-             "type %s = %s list [@@deriving rpc]"
-             (OU.alias_of_ty ty)
-             (OU.alias_of_ty e)
-           :: accu )
+          ( sprintf
+              "type %s = %s list [@@deriving rpc]"
+              (OU.alias_of_ty ty)
+              (OU.alias_of_ty e)
+          :: accu )
           t
     | ty :: t ->
         let alias = OU.alias_of_ty ty in
         if List.mem_assoc alias overrides
         then
           aux
-            (sprintf
-               "type %s = %s\n%s\n"
-               alias
-               (OU.ocaml_of_ty ty)
-               (List.assoc alias overrides)
-             :: accu )
+            ( sprintf
+                "type %s = %s\n%s\n"
+                alias
+                (OU.ocaml_of_ty ty)
+                (List.assoc alias overrides)
+            :: accu )
             t
         else
           aux
-            (sprintf
-               "type %s = %s [@@deriving rpc]"
-               (OU.alias_of_ty ty)
-               (OU.ocaml_of_ty ty)
-             :: accu )
+            ( sprintf
+                "type %s = %s [@@deriving rpc]"
+                (OU.alias_of_ty ty)
+                (OU.ocaml_of_ty ty)
+            :: accu )
             t
   in
   aux [] tys
@@ -241,7 +241,7 @@ let gen_record_type ~with_module highapi tys =
             ; ""
             ]
         in
-        aux (type_t :: others @ accu) t
+        aux ((type_t :: others) @ accu) t
     | _ :: t ->
         aux accu t
   in

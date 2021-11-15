@@ -292,16 +292,15 @@ let get_http_permissions_roles =
       @
       let roles = Option.value ~default:[] some_roles in
       (Datamodel.rbac_http_permission_prefix ^ http_permission, roles)
-      ::
-      List.map (* sub_actions for this http_permission *)
-        (fun (sub_action, some_roles) ->
-          let roles = Option.value ~default:[] some_roles in
-          ( Datamodel.rbac_http_permission_prefix
-            ^ http_permission
-            ^ "/"
-            ^ sub_action
-          , roles ) )
-        sub_actions )
+      :: List.map (* sub_actions for this http_permission *)
+           (fun (sub_action, some_roles) ->
+             let roles = Option.value ~default:[] some_roles in
+             ( Datamodel.rbac_http_permission_prefix
+               ^ http_permission
+               ^ "/"
+               ^ sub_action
+             , roles ) )
+           sub_actions )
     []
     Datamodel.http_actions
 

@@ -2083,9 +2083,9 @@ module Ethtool = struct
     then
       ignore
         (call
-           ("-s"
-            :: name :: List.concat (List.map (fun (k, v) -> [ k; v ]) options)
-           ) )
+           ( "-s"
+           :: name
+           :: List.concat (List.map (fun (k, v) -> [ k; v ]) options) ) )
 
 
   let set_offload name options =
@@ -2093,9 +2093,9 @@ module Ethtool = struct
     then
       ignore
         (call
-           ("-K"
-            :: name :: List.concat (List.map (fun (k, v) -> [ k; v ]) options)
-           ) )
+           ( "-K"
+           :: name
+           :: List.concat (List.map (fun (k, v) -> [ k; v ]) options) ) )
 end
 
 module Dracut = struct

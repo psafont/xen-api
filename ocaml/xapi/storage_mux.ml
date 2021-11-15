@@ -140,7 +140,8 @@ module Mux = struct
         List.fold_left
           (fun acc (sr, result) ->
             Printf.sprintf "For SR: %s" (s_of_sr sr)
-            :: string_of_sm_result (fun s -> s) result :: acc )
+            :: string_of_sm_result (fun s -> s) result
+            :: acc )
           []
           results
       in

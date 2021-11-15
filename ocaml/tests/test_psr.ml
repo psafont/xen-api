@@ -270,7 +270,7 @@ let check_psr_succeeded r exp_pool_secret master members =
 (* we test almost all combinations of hosts and fistpoints. the only
    case we don't test is one case of master cleanup failure,
    since it is slightly different - it has its own unit test (see below).
- *)
+*)
 let almost_all_possible_fists ~num_hosts =
   let multiply fp_times fp_actions host_ids =
     List.map

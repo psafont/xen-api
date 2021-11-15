@@ -660,7 +660,7 @@ let print_header data_sources show_name show_uuid =
 
 
 (* R2.6. Output the latest known value for each available metric on stdout in
-	 comma-separated row on stdout *)
+   comma-separated row on stdout *)
 
 let print_last session_id data_sources =
   let last_update = Xport.get_update session_id in

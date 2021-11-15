@@ -2223,7 +2223,7 @@ let apply_edition_internal ~__context ~host ~edition ~additional =
   in
   (* Construct the RPC params to be sent to v6d *)
   let params =
-    ("current_edition", current_edition) :: license_server
+    (("current_edition", current_edition) :: license_server)
     @ current_license_params
     @ additional
   in

@@ -113,7 +113,7 @@ module VMSetBiosStrings = Generic.MakeStateful (struct
         [ hd ]
     | hd :: tl ->
         let r = combination tl in
-        hd :: List.map (fun v -> hd @ v) r @ r
+        (hd :: List.map (fun v -> hd @ v) r) @ r
 
 
   let tests =

@@ -369,12 +369,11 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
              Cleaning up the cloned VDIs." ;
           let vdis =
             cloned_suspend_VDI
-            ::
-            List.fold_left
-              (fun acc (_, vdi, on_error_delete) ->
-                if on_error_delete then vdi :: acc else acc )
-              []
-              cloned_disks
+            :: List.fold_left
+                 (fun acc (_, vdi, on_error_delete) ->
+                   if on_error_delete then vdi :: acc else acc )
+                 []
+                 cloned_disks
           in
           List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) vdis ;
           raise e )

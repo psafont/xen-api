@@ -114,7 +114,8 @@ let networks path vif_type (list : string -> string list) =
     if List.mem "ipv6" (list path)
     then
       ipv4
-      :: ipv4_with_idx :: find_ipv6 (extend path "ipv6") (extend prefix "ipv6")
+      :: ipv4_with_idx
+      :: find_ipv6 (extend path "ipv6") (extend prefix "ipv6")
     else [ ipv4; ipv4_with_idx ]
   in
   (* Find all "ethn", "xenbrn" or newer interface standard names

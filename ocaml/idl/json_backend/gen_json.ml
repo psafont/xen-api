@@ -193,29 +193,24 @@ let fields_of_obj_with_enums obj =
     (fun (fields, enums) field ->
       let ty, e = string_of_ty_with_enums field.ty in
       ( JObject
-          (("name", JString (String.concat "_" field.full_name))
-           ::
-           ("description", JString field.field_description)
-           ::
-           ("type", JString ty)
-           ::
-           ("qualifier", JString (string_of_qualifier field.qualifier))
-           ::
-           ( "tag"
-           , JString
-               ( match field.field_doc_tags with
-               | [] ->
-                   ""
-               | t :: _ ->
-                   string_of_doc_tag t ) )
-           ::
-           ("lifecycle", jarray_of_lifecycle field.lifecycle)
-           ::
-           ( match field.default_value with
-           | Some d ->
-               [ ("default", JString (string_of_default d)) ]
-           | None ->
-               [] ) )
+          ( ("name", JString (String.concat "_" field.full_name))
+          :: ("description", JString field.field_description)
+          :: ("type", JString ty)
+          :: ("qualifier", JString (string_of_qualifier field.qualifier))
+          :: ( "tag"
+             , JString
+                 ( match field.field_doc_tags with
+                 | [] ->
+                     ""
+                 | t :: _ ->
+                     string_of_doc_tag t ) )
+          :: ("lifecycle", jarray_of_lifecycle field.lifecycle)
+          ::
+          ( match field.default_value with
+          | Some d ->
+              [ ("default", JString (string_of_default d)) ]
+          | None ->
+              [] ) )
         :: fields
       , enums @ e ) )
     ([], [])

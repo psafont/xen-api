@@ -1029,7 +1029,7 @@ let ionice_qos_scheduler _ =
   (* Check that we can parse and print the qos_scheduler values *)
   let prios = [ Highest; High; Normal; Low; Lowest; Other 499 ] in
   let xs =
-    Idle :: List.map (fun x -> RealTime x) prios
+    (Idle :: List.map (fun x -> RealTime x) prios)
     @ List.map (fun x -> BestEffort x) prios
   in
   List.iter

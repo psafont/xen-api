@@ -193,8 +193,9 @@ module DaemonConfiguration = struct
             ( "common-config"
             , []
             , xml_leaf_element "GenerationUUID" config.common_generation_uuid
-              ::
-              xml_leaf_element "UDPport" (string_of_int config.common_udp_port)
+              :: xml_leaf_element
+                   "UDPport"
+                   (string_of_int config.common_udp_port)
               :: List.map Host.to_xml_element config.common_hosts
               @ [ Xml.Element
                     ( "parameters"

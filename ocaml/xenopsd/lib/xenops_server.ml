@@ -853,10 +853,9 @@ module Redirector = struct
           List.concat
             (List.map
                one
-               (default.queues
-                ::
-                parallel_queues.queues
-                :: List.map snd (StringMap.bindings !overrides) ) ) )
+               ( default.queues
+               :: parallel_queues.queues
+               :: List.map snd (StringMap.bindings !overrides) ) ) )
   end
 end
 

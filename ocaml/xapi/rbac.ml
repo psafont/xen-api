@@ -63,7 +63,6 @@ let trackid session_id = Context.trackid_of_session (Some session_id)
    1. a session (i.e. a user) has multiple subject IDs;
    2. a subject ID has multiple roles;
    3. a role has multiple permissions.
-
 *)
 
 (* efficient look-up structures *)

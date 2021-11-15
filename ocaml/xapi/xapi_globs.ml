@@ -230,7 +230,7 @@ let auto_scan_interval = "auto-scan-interval"
    specified on the vncterm command line:
      -T, --text            provide telnet access too
      -v, --vnclisten       listen for VNC connection at a given address:port
-   The init scripts in dom0 spawn vncterm with -T -v 127.0.0.1:0  *)
+   The init scripts in dom0 spawn vncterm with -T -v 127.0.0.1:0 *)
 let host_console_vncport = 5900L
 
 let host_console_textport = 9500L

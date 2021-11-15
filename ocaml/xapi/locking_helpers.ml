@@ -132,13 +132,11 @@ module Thread_state = struct
       IntMap.map
         (fun ts ->
           [ ts.name ]
-          ::
-          [ Ref.really_pretty_and_small ts.task ]
-          ::
-          List.map
-            (fun (r, t) ->
-              [ string_of_resource r; Printf.sprintf "%.0f" (t' -. t) ] )
-            ts.acquired_resources )
+          :: [ Ref.really_pretty_and_small ts.task ]
+          :: List.map
+               (fun (r, t) ->
+                 [ string_of_resource r; Printf.sprintf "%.0f" (t' -. t) ] )
+               ts.acquired_resources )
         snapshot
     in
     let resources_of_ts ts =

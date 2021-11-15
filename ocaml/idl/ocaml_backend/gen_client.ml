@@ -272,8 +272,8 @@ let gen_module api : O.Module.t =
     ~postamble
     ~args:[ "X : IO" ]
     ~elements:
-      (O.Module.Module async
-       :: List.map (fun x -> O.Module.Module (obj ~sync:true x)) all_objs )
+      ( O.Module.Module async
+      :: List.map (fun x -> O.Module.Module (obj ~sync:true x)) all_objs )
     ()
 
 

@@ -523,11 +523,11 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 
 (**************************************************************************************)
 
-(*  Helper function to create a new VDI record with all fields copied from
-    an original, except ref and *_operations, UUID and others supplied as optional arguments.
-    If a new UUID is not supplied, a fresh one is generated.
-    storage_lock defaults to false.
-    Parent defaults to Ref.null.
+(* Helper function to create a new VDI record with all fields copied from
+   an original, except ref and *_operations, UUID and others supplied as optional arguments.
+   If a new UUID is not supplied, a fresh one is generated.
+   storage_lock defaults to false.
+   Parent defaults to Ref.null.
 *)
 (*let clone_record ~uuid ?name_label ?name_description ?sR ?virtual_size ?location
     ?physical_utilisation ?_type ?sharable ?read_only ?storage_lock ?other_config ?parent

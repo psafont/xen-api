@@ -878,7 +878,7 @@ let make_param_funs
       let ops =
         [ ( cli_name "list"
           , []
-          , "params" :: "database:" :: all_optn @ sm_param_names
+          , ("params" :: "database:" :: all_optn) @ sm_param_names
           , "Lists all the "
             ^ plural
             ^ ", filtering on the optional arguments. To filter on map \
@@ -4740,7 +4740,7 @@ let vm_uninstall_common fd printer rpc session_id params vms =
           Ref.null
     in
     let output =
-      string_of_vm vm :: List.map string_of_vdi vdis
+      (string_of_vm vm :: List.map string_of_vdi vdis)
       @ if suspend_VDI = Ref.null then [] else [ string_of_vdi suspend_VDI ]
     in
     toprint := !toprint @ output ;
@@ -5297,12 +5297,13 @@ let vm_migrate printer rpc session_id params =
                   rpc
                   session_id
                   params
-                  ("host"
-                   ::
-                   "host-uuid"
-                   ::
-                   "host-name"
-                   :: "live" :: "force" :: "copy" :: vm_migrate_sxm_params )
+                  ( "host"
+                  :: "host-uuid"
+                  :: "host-name"
+                  :: "live"
+                  :: "force"
+                  :: "copy"
+                  :: vm_migrate_sxm_params )
               in
               if vms = [] then failwith "No matching VMs found" ;
               let vbds =
@@ -7015,7 +7016,9 @@ let diagnostic_license_status printer rpc session_id params =
   let pool =
     [ "-"; "-"; Features.to_compact_string pool_features; "-"; "-"; "-" ]
   in
-  let table = heading :: divider :: hosts @ invalid_hosts @ [ divider; pool ] in
+  let table =
+    (heading :: divider :: hosts) @ invalid_hosts @ [ divider; pool ]
+  in
   (* Compute the required column widths *)
   let rec transpose x =
     if List.filter (fun x -> x <> []) x = []

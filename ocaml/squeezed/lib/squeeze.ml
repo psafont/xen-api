@@ -748,12 +748,11 @@ let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
     let debug_string =
       String.concat
         "; "
-        (host_debug_string
-         ::
-         List.map
-           (fun domain ->
-             short_string_of_domain domain ^ new_target_direction domain )
-           host.domains )
+        ( host_debug_string
+        :: List.map
+             (fun domain ->
+               short_string_of_domain domain ^ new_target_direction domain )
+             host.domains )
     in
     debug "%s" debug_string ;
     (* For each domid, decide what maxmem should be *)

@@ -24,14 +24,14 @@ open D
 let () = Mirage_crypto_rng_unix.initialize ()
 
 (* Certificate locations:
-  * a) stunnel external             = /etc/xensource/xapi-ssl.pem
-  * b) stunnel SNI (internal)       = /etc/xensource/xapi-pool-tls.pem
-  * c) user trusted cert folder     = /etc/stunnel/certs/
-  * d) internal trusted cert folder = /etc/stunnel/certs-pool/
-  * e) appliance trusted bundle     = /etc/stunnel/xapi-stunnel-ca-bundle.pem
-  * f) host-in-pool trusted bundle  = /etc/stunnel/xapi-pool-ca-bundle.pem
-  *
-  * Note that the bundles (e) and (f) are generated automatically using the contents of (c) and (d) respectively *)
+   * a) stunnel external             = /etc/xensource/xapi-ssl.pem
+   * b) stunnel SNI (internal)       = /etc/xensource/xapi-pool-tls.pem
+   * c) user trusted cert folder     = /etc/stunnel/certs/
+   * d) internal trusted cert folder = /etc/stunnel/certs-pool/
+   * e) appliance trusted bundle     = /etc/stunnel/xapi-stunnel-ca-bundle.pem
+   * f) host-in-pool trusted bundle  = /etc/stunnel/xapi-pool-ca-bundle.pem
+   *
+   * Note that the bundles (e) and (f) are generated automatically using the contents of (c) and (d) respectively *)
 
 type t_trusted =
   | CA_Certificate

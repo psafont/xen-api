@@ -123,8 +123,9 @@ end
 (* keys read by vif udev script (keep in sync with api:scripts/vif) *)
 let vif_udev_keys =
   "promiscuous"
-  ::
-  List.map (fun x -> "ethtool-" ^ x) [ "rx"; "tx"; "sg"; "tso"; "ufo"; "gso" ]
+  :: List.map
+       (fun x -> "ethtool-" ^ x)
+       [ "rx"; "tx"; "sg"; "tso"; "ufo"; "gso" ]
 
 
 (****************************************************************************************)
@@ -189,10 +190,9 @@ module Generic = struct
             t.Xst.mkdirperms private_data_path (Xenbus_utils.hotplug device) ;
             t.Xst.writev
               private_data_path
-              (("backend-kind", string_of_kind device.backend.kind)
-               ::
-               ("backend-id", string_of_int device.backend.domid)
-               :: private_list ) ;
+              ( ("backend-kind", string_of_kind device.backend.kind)
+              :: ("backend-id", string_of_int device.backend.domid)
+              :: private_list ) ;
             t.Xst.mkdirperms
               extra_xenserver_path
               (Xenbus_utils.rwperm_for_guest device.frontend.domid) ;

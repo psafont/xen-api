@@ -1127,7 +1127,8 @@ let xenguest_args_pvh
     List.map
       (fun (m, c) ->
         "-module"
-        :: m :: (match c with Some x -> [ "-cmdline"; x ] | None -> []) )
+        :: m
+        :: (match c with Some x -> [ "-cmdline"; x ] | None -> []) )
       modules
     |> List.flatten
   in
