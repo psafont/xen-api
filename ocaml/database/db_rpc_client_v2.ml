@@ -42,12 +42,14 @@ functor
       | y ->
           y
 
+
     let get_table_from_ref _ x =
       match process (Request.Get_table_from_ref x) with
       | Response.Get_table_from_ref y ->
           y
       | _ ->
           raise Remote_db_server_returned_bad_message
+
 
     let is_valid_ref _ x =
       match process (Request.Is_valid_ref x) with
@@ -56,12 +58,14 @@ functor
       | _ ->
           raise Remote_db_server_returned_bad_message
 
+
     let read_refs _ x =
       match process (Request.Read_refs x) with
       | Response.Read_refs y ->
           y
       | _ ->
           raise Remote_db_server_returned_bad_message
+
 
     let read_field_where _ x =
       match process (Request.Read_field_where x) with
@@ -70,12 +74,14 @@ functor
       | _ ->
           raise Remote_db_server_returned_bad_message
 
+
     let db_get_by_uuid _ t u =
       match process (Request.Db_get_by_uuid (t, u)) with
       | Response.Db_get_by_uuid y ->
           y
       | _ ->
           raise Remote_db_server_returned_bad_message
+
 
     let db_get_by_name_label _ t l =
       match process (Request.Db_get_by_name_label (t, l)) with
@@ -84,12 +90,14 @@ functor
       | _ ->
           raise Remote_db_server_returned_bad_message
 
+
     let create_row _ x y z =
       match process (Request.Create_row (x, y, z)) with
       | Response.Create_row y ->
           y
       | _ ->
           raise Remote_db_server_returned_bad_message
+
 
     let delete_row _ x y =
       match process (Request.Delete_row (x, y)) with
@@ -98,12 +106,14 @@ functor
       | _ ->
           raise Remote_db_server_returned_bad_message
 
+
     let write_field _ a b c d =
       match process (Request.Write_field (a, b, c, d)) with
       | Response.Write_field y ->
           y
       | _ ->
           raise Remote_db_server_returned_bad_message
+
 
     let read_field _ x y z =
       match process (Request.Read_field (x, y, z)) with
@@ -112,12 +122,14 @@ functor
       | _ ->
           raise Remote_db_server_returned_bad_message
 
+
     let find_refs_with_filter _ s e =
       match process (Request.Find_refs_with_filter (s, e)) with
       | Response.Find_refs_with_filter y ->
           y
       | _ ->
           raise Remote_db_server_returned_bad_message
+
 
     let read_record _ x y =
       match process (Request.Read_record (x, y)) with
@@ -126,12 +138,14 @@ functor
       | _ ->
           raise Remote_db_server_returned_bad_message
 
+
     let read_records_where _ x e =
       match process (Request.Read_records_where (x, e)) with
       | Response.Read_records_where y ->
           y
       | _ ->
           raise Remote_db_server_returned_bad_message
+
 
     let process_structured_field _ a b c d e =
       match process (Request.Process_structured_field (a, b, c, d, e)) with

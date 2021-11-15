@@ -94,7 +94,9 @@ open Printf
 open Http
 open Xapi_stdext_std.Xstringext
 
-module D = Debug.Make (struct let name = "wlb_reports" end)
+module D = Debug.Make (struct
+  let name = "wlb_reports"
+end)
 
 open D
 
@@ -109,18 +111,14 @@ let trim_and_send method_name tag recv_sock send_sock =
   let fill () =
     let s = Bytes.create bufsize in
     let n = Unix.read recv_sock s 0 bufsize in
-    if n > 0 then
-      Buffer.add_bytes recv_buf (Bytes.sub s 0 n) ;
+    if n > 0 then Buffer.add_bytes recv_buf (Bytes.sub s 0 n) ;
     n
   in
   (* Since we use xml parser to parse the reponse message, we don't need to escape the xml content in `send` *)
   let send s = Unix.write_substring send_sock s 0 (String.length s) |> ignore in
   let rec recv_all () =
     let n = fill () in
-    if n > 0 then
-      recv_all ()
-    else
-      ()
+    if n > 0 then recv_all () else ()
   in
   recv_all () ;
   let s = Buffer.contents recv_buf in
@@ -133,24 +131,37 @@ let trim_and_send method_name tag recv_sock send_sock =
     try
       let xml_data_set_content =
         Workload_balancing.data_from_leaf
-          (Workload_balancing.descend_and_match [tag] report_result_xml)
+          (Workload_balancing.descend_and_match [ tag ] report_result_xml)
       in
       debug "send conent: %s" xml_data_set_content ;
       send xml_data_set_content
-    with Workload_balancing.Xml_parse_failure error ->
-      Workload_balancing.parse_result_code method_name report_result_xml
-        "Failed to detect end of XML, data could be truncated" s true
-  with Xml.Error err ->
-    Workload_balancing.raise_malformed_response' method_name
-      "Expected data is truncated." s
+    with
+    | Workload_balancing.Xml_parse_failure error ->
+        Workload_balancing.parse_result_code
+          method_name
+          report_result_xml
+          "Failed to detect end of XML, data could be truncated"
+          s
+          true
+  with
+  | Xml.Error err ->
+      Workload_balancing.raise_malformed_response'
+        method_name
+        "Expected data is truncated."
+        s
+
 
 let handle req bio method_name tag (method_name, request_func) =
   let client_sock = Buf_io.fd_of bio in
   Buf_io.assert_buffer_empty bio ;
-  debug "handle: fd = %d"
+  debug
+    "handle: fd = %d"
     (Xapi_stdext_unix.Unixext.int_of_file_descr client_sock) ;
   req.Request.close <- true ;
-  Xapi_http.with_context (sprintf "WLB %s request" method_name) req client_sock
+  Xapi_http.with_context
+    (sprintf "WLB %s request" method_name)
+    req
+    client_sock
     (fun __context ->
       (* This is the signal to say we've taken responsibility from the CLI server for completing the task *)
       (* The GUI can deal with this itself, but the CLI is complicated by the thin cli/cli server split *)
@@ -163,29 +174,40 @@ let handle req bio method_name tag (method_name, request_func) =
       | Api_errors.Server_error (_, _) as exn ->
           raise exn
       | exn ->
-          warn "WLB %s request failed: %s" method_name
+          warn
+            "WLB %s request failed: %s"
+            method_name
             (ExnHelper.string_of_exn exn) ;
-          raise (Api_errors.Server_error (Api_errors.internal_error, []))
-  )
+          raise (Api_errors.Server_error (Api_errors.internal_error, [])) )
+
 
 (* GET /wlb_report?session_id=<session>&task_id=<task>&
                    report=<report name>&<param1>=<value1>&...
 *)
 let report_handler (req : Request.t) (bio : Buf_io.t) _ =
-  if not (List.mem_assoc "report" req.Request.query) then (
+  if not (List.mem_assoc "report" req.Request.query)
+  then (
     error "Request for WLB report lacked 'report' parameter" ;
-    failwith "Bad request"
-  ) ;
+    failwith "Bad request" ) ;
   let report = List.assoc "report" req.Request.query in
   let params =
     List.filter
-      (fun (k, _) -> not (List.mem k ["session_id"; "task_id"; "report"]))
+      (fun (k, _) -> not (List.mem k [ "session_id"; "task_id"; "report" ]))
       req.Request.query
   in
-  handle req bio "ExecuteReport" report_tag
+  handle
+    req
+    bio
+    "ExecuteReport"
+    report_tag
     (Workload_balancing.wlb_report_request report params)
+
 
 (* GET /wlb_diagnostics?session_id=<session>&task_id=<task> *)
 let diagnostics_handler (req : Request.t) (bio : Buf_io.t) _ =
-  handle req bio "GetDiagnostics" diagnostics_tag
+  handle
+    req
+    bio
+    "GetDiagnostics"
+    diagnostics_tag
     Workload_balancing.wlb_diagnostics_request

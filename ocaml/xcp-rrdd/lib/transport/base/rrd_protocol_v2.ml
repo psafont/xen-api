@@ -42,6 +42,7 @@ let get_total_bytes datasource_count metadata_length =
   + metadata_length_bytes
   + metadata_length
 
+
 (* Field start points. *)
 let header_start = 0
 
@@ -58,8 +59,10 @@ let datasource_value_start = timestamp_start + timestamp_bytes
 let get_metadata_length_start datasource_count =
   datasource_value_start + (datasource_count * datasource_value_bytes)
 
+
 let get_metadata_start datasource_count =
   get_metadata_length_start datasource_count + metadata_length_bytes
+
 
 (* Reading fields from cstructs. *)
 module Read = struct
@@ -68,12 +71,14 @@ module Read = struct
     Cstruct.blit_to_bytes cs header_start header 0 header_bytes ;
     header
 
+
   let data_crc cs = Cstruct.BE.get_uint32 cs data_crc_start
 
   let metadata_crc cs = Cstruct.BE.get_uint32 cs metadata_crc_start
 
   let datasource_count cs =
     Int32.to_int (Cstruct.BE.get_uint32 cs datasource_count_start)
+
 
   let timestamp cs = Cstruct.BE.get_uint64 cs timestamp_start
 
@@ -96,20 +101,25 @@ module Read = struct
           in
           aux
             (start + datasource_value_bytes)
-            ((owner, {cached_datasource with Ds.ds_value= value}) :: acc)
+            ((owner, { cached_datasource with Ds.ds_value = value }) :: acc)
             rest
     in
     List.rev (aux datasource_value_start [] cached_datasources)
+
 
   let metadata_length cs datasource_count =
     Int32.to_int
       (Cstruct.BE.get_uint32 cs (get_metadata_length_start datasource_count))
 
+
   let metadata cs datasource_count metadata_length =
     let metadata = Bytes.create metadata_length in
-    Cstruct.blit_to_bytes cs
+    Cstruct.blit_to_bytes
+      cs
       (get_metadata_start datasource_count)
-      metadata 0 metadata_length ;
+      metadata
+      0
+      metadata_length ;
     metadata
 end
 
@@ -118,12 +128,14 @@ module Write = struct
   let header cs =
     Cstruct.blit_from_bytes default_header 0 cs header_start header_bytes
 
+
   let data_crc cs value = Cstruct.BE.set_uint32 cs data_crc_start value
 
   let metadata_crc cs value = Cstruct.BE.set_uint32 cs metadata_crc_start value
 
   let datasource_count cs value =
     Cstruct.BE.set_uint32 cs datasource_count_start (Int32.of_int value)
+
 
   let timestamp cs value = Cstruct.BE.set_uint64 cs timestamp_start value
 
@@ -146,14 +158,20 @@ module Write = struct
     in
     aux datasource_value_start values
 
+
   let metadata_length cs value datasource_count =
-    Cstruct.BE.set_uint32 cs
+    Cstruct.BE.set_uint32
+      cs
       (get_metadata_length_start datasource_count)
       (Int32.of_int value)
 
+
   let metadata cs value datasource_count =
     let metadata_length = String.length value in
-    Cstruct.blit_from_string value 0 cs
+    Cstruct.blit_from_string
+      value
+      0
+      cs
       (get_metadata_start datasource_count)
       metadata_length
 end
@@ -166,6 +184,7 @@ let default_value_of_string (s : string) : Rrd.ds_value_type =
       Rrd.VT_Int64 0L
   | _ ->
       raise Invalid_payload
+
 
 (* WARNING! This creates datasources from datasource metadata, hence the
  * values will be meaningless. The types however, will be correct. *)
@@ -198,6 +217,7 @@ let uninitialised_ds_of_rpc ((name, rpc) : string * Rpc.t) :
   in
   (owner, ds)
 
+
 let parse_metadata metadata =
   try
     let rpc = Jsonrpc.of_string metadata in
@@ -206,9 +226,11 @@ let parse_metadata metadata =
       Rrd_rpc.dict_of_rpc ~rpc:(List.assoc "datasources" kvs)
     in
     List.map uninitialised_ds_of_rpc datasource_rpcs
-  with exn ->
-    Printf.eprintf "Error: %s%!" (Printexc.to_string exn) ;
-    raise Invalid_payload
+  with
+  | exn ->
+      Printf.eprintf "Error: %s%!" (Printexc.to_string exn) ;
+      raise Invalid_payload
+
 
 let make_payload_reader () =
   let last_data_crc = ref 0l in
@@ -217,8 +239,7 @@ let make_payload_reader () =
   fun cs ->
     (* Check the header string is present and correct. *)
     let header = Read.header cs in
-    if not (header = default_header) then
-      raise Invalid_header_string ;
+    if not (header = default_header) then raise Invalid_header_string ;
     (* Check that the data CRC has changed. Since the CRC'd data
        		 * includes the timestamp, this should change with every update. *)
     let data_crc = Read.data_crc cs in
@@ -229,17 +250,18 @@ let make_payload_reader () =
     (* Check the data crc is correct. *)
     let data_crc_calculated =
       Crc32.cstruct
-        (Cstruct.sub cs timestamp_start
-           (timestamp_bytes + (datasource_count * datasource_value_bytes))
-        )
+        (Cstruct.sub
+           cs
+           timestamp_start
+           (timestamp_bytes + (datasource_count * datasource_value_bytes)) )
     in
-    if not (data_crc = data_crc_calculated) then
-      raise Invalid_checksum
-    else
-      last_data_crc := data_crc ;
+    if not (data_crc = data_crc_calculated)
+    then raise Invalid_checksum
+    else last_data_crc := data_crc ;
     (* Read the datasource values. *)
     let datasources =
-      if metadata_crc = !last_metadata_crc then
+      if metadata_crc = !last_metadata_crc
+      then
         (* Metadata hasn't changed, so just read the datasources values. *)
         Read.datasource_values cs !cached_datasources
       else
@@ -250,8 +272,8 @@ let make_payload_reader () =
           Read.metadata cs datasource_count metadata_length |> Bytes.to_string
         in
         (* Check the metadata checksum is correct. *)
-        if not (metadata_crc = Crc32.string metadata 0 metadata_length) then
-          raise Invalid_checksum ;
+        if not (metadata_crc = Crc32.string metadata 0 metadata_length)
+        then raise Invalid_checksum ;
         (* If all is OK, cache the metadata checksum and read the values
          * based on this new metadata. *)
         last_metadata_crc := metadata_crc ;
@@ -266,7 +288,8 @@ let make_payload_reader () =
         |> Read.datasource_values cs
     in
     cached_datasources := datasources ;
-    {timestamp; datasources}
+    { timestamp; datasources }
+
 
 let write_payload alloc_cstruct payload =
   let metadata = Rrd_json.json_metadata_of_dss payload.datasources in
@@ -283,7 +306,8 @@ let write_payload alloc_cstruct payload =
   (* Write timestamp. *)
   Write.timestamp cs payload.timestamp ;
   (* Write datasource values. *)
-  Write.datasource_values cs
+  Write.datasource_values
+    cs
     (List.map (fun (_, ds) -> ds.Ds.ds_value) payload.datasources) ;
   (* Write the metadata. *)
   Write.metadata cs metadata datasource_count ;
@@ -292,12 +316,14 @@ let write_payload alloc_cstruct payload =
   (* Write the data checksum. *)
   let data_crc =
     Crc32.cstruct
-      (Cstruct.sub cs timestamp_start
-         (timestamp_bytes + (datasource_count * datasource_value_bytes))
-      )
+      (Cstruct.sub
+         cs
+         timestamp_start
+         (timestamp_bytes + (datasource_count * datasource_value_bytes)) )
   in
   Write.data_crc cs data_crc
 
+
 let make_payload_writer () = write_payload
 
-let protocol = {make_payload_reader; make_payload_writer}
+let protocol = { make_payload_reader; make_payload_writer }

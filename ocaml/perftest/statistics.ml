@@ -20,28 +20,27 @@ let gaussian mu sigma x =
   /. (sigma *. sqrt (2.0 *. pi))
   *. exp (-.((x -. mu) ** 2.0) /. (2.0 *. sigma *. sigma))
 
+
 module Hist = struct
-  type t = {
-      bin_start: float array
-    ; bin_end: float array
-    ; bin_count: float array
+  type t =
+    { bin_start : float array
+    ; bin_end : float array
+    ; bin_count : float array
           (* height of each bin: multiply by width to get area *)
-  }
+    }
 
   (** Initialise a histogram covering values from [min:max] in 'n' uniform steps *)
   let make (min : float) (max : float) (n : int) =
     let range = max -. min in
-    {
-      bin_start=
+    { bin_start =
         Array.init n (fun i ->
-            (range /. float_of_int n *. float_of_int i) +. min
-        )
-    ; bin_end=
+            (range /. float_of_int n *. float_of_int i) +. min )
+    ; bin_end =
         Array.init n (fun i ->
-            (range /. float_of_int n *. float_of_int (i + 1)) +. min
-        )
-    ; bin_count= Array.init n (fun _ -> 0.)
+            (range /. float_of_int n *. float_of_int (i + 1)) +. min )
+    ; bin_count = Array.init n (fun _ -> 0.)
     }
+
 
   let integrate (x : t) =
     let n = Array.length x.bin_start in
@@ -57,6 +56,7 @@ module Hist = struct
     done ;
     result
 
+
   (** Call 'f' with the start, end and height of each bin *)
   let iter (x : t) (f : float -> float -> float -> unit) =
     for i = 0 to Array.length x.bin_start - 1 do
@@ -64,13 +64,14 @@ module Hist = struct
       f x.bin_start.(i) x.bin_end.(i) (x.bin_count.(i) /. width)
     done
 
+
   (** Fold 'f' over the bins calling it with 'bin_start' 'bin_end' 'height' and 'acc' *)
   let fold (x : t) (f : float -> float -> float -> 'a -> 'a) (init : 'a) =
     let acc = ref init in
     iter x (fun bin_start bin_end height ->
-        acc := f bin_start bin_end height !acc
-    ) ;
+        acc := f bin_start bin_end height !acc ) ;
     !acc
+
 
   (** Write output to a file descriptor in gnuplot format *)
   let to_gnuplot (x : t) (fd : Unix.file_descr) =
@@ -78,8 +79,8 @@ module Hist = struct
         let center = (bin_start +. bin_end) /. 2.0 in
         let line = Printf.sprintf "%f %f\n" center height |> Bytes.of_string in
         let (_ : int) = Unix.write fd line 0 (Bytes.length line) in
-        ()
-    )
+        () )
+
 
   exception Stop
 
@@ -87,12 +88,15 @@ module Hist = struct
   let add (x : t) (y : float) =
     try
       for i = 0 to Array.length x.bin_start - 1 do
-        if x.bin_start.(i) <= y && y <= x.bin_end.(i + 1) then (
+        if x.bin_start.(i) <= y && y <= x.bin_end.(i + 1)
+        then (
           x.bin_count.(i) <- x.bin_count.(i) +. 1.0 ;
-          raise Stop
-        )
+          raise Stop )
       done
-    with Stop -> ()
+    with
+    | Stop ->
+        ()
+
 
   (** Evaluate 'f' given the center of each bin and add the result to the bin count *)
   let convolve (x : t) (f : float -> float) =
@@ -103,20 +107,20 @@ module Hist = struct
       x.bin_count.(i) <- x.bin_count.(i) +. (result *. width)
     done
 
+
   (** Given a monotonically increasing histogram find the 'x' value given a 'y' *)
   let find_x (x : t) (y : float) =
     match
-      fold x
+      fold
+        x
         (fun bin_start bin_end height acc ->
           match acc with
           | Some x ->
               acc (* got it already *)
           | None ->
-              if height > y then
-                Some ((bin_start +. bin_end) /. 2.) (* no interpolation *)
-              else
-                None
-          )
+              if height > y
+              then Some ((bin_start +. bin_end) /. 2.) (* no interpolation *)
+              else None )
         None
     with
     | Some x ->
@@ -128,6 +132,7 @@ end
 module Normal = struct
   let mean (points : float list) =
     List.fold_left ( +. ) 0. points /. float_of_int (List.length points)
+
 
   let sigma (points : float list) =
     let sum_x = List.fold_left ( +. ) 0. points
@@ -142,6 +147,7 @@ module LogNormal = struct
     let normal_sigma = Normal.sigma points in
     let normal_mean = Normal.mean points in
     exp (normal_mean +. (normal_sigma *. normal_sigma /. 2.))
+
 
   let sigma (points : float list) =
     let points = List.map log points in

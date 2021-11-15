@@ -33,7 +33,9 @@ module Input_json_object = Generic.MakeStateless (struct
   let good_call =
     let fin = open_in (Filename.concat dir "good_call.json") in
     let s = input_line fin in
-    close_in fin ; Jsonrpc.of_string s
+    close_in fin ;
+    Jsonrpc.of_string s
+
 
   exception Parse_error
 
@@ -54,12 +56,13 @@ module Input_json_object = Generic.MakeStateless (struct
       | _ ->
           Error Parse_error
     in
-    close_in fin ; response
+    close_in fin ;
+    response
+
 
   let tests =
     `QuickAndAutoDocumented
-      [
-        (* A file containing exactly one JSON object. *)
+      [ (* A file containing exactly one JSON object. *)
         (* It has got curly braces inside strings to make it interesting. *)
         ("good_call.json", Ok good_call)
       ; (* A file containing a partial JSON object. *)
@@ -72,4 +75,4 @@ module Input_json_object = Generic.MakeStateless (struct
       ]
 end)
 
-let tests = [("json_rpc_client_input_json_object", Input_json_object.tests)]
+let tests = [ ("json_rpc_client_input_json_object", Input_json_object.tests) ]

@@ -14,7 +14,9 @@
 
 open Client
 
-module D = Debug.Make (struct let name = "tasks" end)
+module D = Debug.Make (struct
+  let name = "tasks"
+end)
 
 module TaskSet = Set.Make (struct
   type t = API.ref_task
@@ -37,8 +39,8 @@ let wait_for_all_inner ~rpc ~session_id ?all_timeout ~tasks =
   let timer = Mtime_clock.counter () in
   let timeout = 5.0 in
   let rec wait ~token ~task_set =
-    if TaskSet.is_empty task_set then
-      true
+    if TaskSet.is_empty task_set
+    then true
     else
       match timeout_span with
       | Some span when Mtime.Span.compare (Mtime_clock.count timer) span > 0 ->
@@ -63,17 +65,14 @@ let wait_for_all_inner ~rpc ~session_id ?all_timeout ~tasks =
               (fun task_set' record ->
                 match record with
                 | Event_helper.Task (t, Some t_rec) ->
-                    if
-                      TaskSet.mem t task_set'
-                      && t_rec.API.task_status <> `pending
-                    then
-                      TaskSet.remove t task_set'
-                    else
-                      task_set'
+                    if TaskSet.mem t task_set'
+                       && t_rec.API.task_status <> `pending
+                    then TaskSet.remove t task_set'
+                    else task_set'
                 | _ ->
-                    task_set'
-                )
-              task_set records
+                    task_set' )
+              task_set
+              records
           in
           wait ~token:event_from.Event_types.token ~task_set:pending_task_set
   in
@@ -81,12 +80,15 @@ let wait_for_all_inner ~rpc ~session_id ?all_timeout ~tasks =
   let task_set =
     List.fold_left
       (fun task_set' task -> TaskSet.add task task_set')
-      TaskSet.empty tasks
+      TaskSet.empty
+      tasks
   in
   wait ~token ~task_set
 
+
 let wait_for_all ~rpc ~session_id ~tasks =
   wait_for_all_inner ~rpc ~session_id ?all_timeout:None ~tasks |> ignore
+
 
 let with_tasks_destroy ~rpc ~session_id ~timeout ~tasks =
   let wait_or_cancel () =
@@ -96,24 +98,20 @@ let with_tasks_destroy ~rpc ~session_id ~timeout ~tasks =
       D.info "Canceling tasks" ;
       List.iter
         (fun task ->
-          if Client.Task.get_status ~rpc ~session_id ~self:task = `pending then
-            Client.Task.cancel ~rpc ~session_id ~task
-          )
+          if Client.Task.get_status ~rpc ~session_id ~self:task = `pending
+          then Client.Task.cancel ~rpc ~session_id ~task )
         tasks ;
       (* cancel is not immediate, give it a reasonable chance to take effect *)
       wait_for_all_inner ~rpc ~session_id ~all_timeout:60. ~tasks |> ignore ;
-      false
-    ) else
-      true
+      false )
+    else true
   in
   let destroy_all () =
     List.iter
       (fun task ->
         (* db gc thread in xapi may delete task from tasks table *)
         D.log_and_ignore_exn (fun () ->
-            Client.Task.destroy ~rpc ~session_id ~self:task
-        )
-        )
+            Client.Task.destroy ~rpc ~session_id ~self:task ) )
       tasks
   in
   Xapi_stdext_pervasives.Pervasiveext.finally wait_or_cancel destroy_all

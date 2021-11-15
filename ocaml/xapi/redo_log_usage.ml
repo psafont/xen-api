@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module R = Debug.Make (struct let name = "redo_log" end)
+module R = Debug.Make (struct
+  let name = "redo_log"
+end)
 
 exception NoGeneration
 
@@ -32,25 +34,30 @@ let read_from_redo_log log staging_path db_ref =
       Xapi_stdext_pervasives.Pervasiveext.finally
         (fun () ->
           let outfd =
-            Unix.openfile temp_file
-              [Unix.O_CREAT; Unix.O_WRONLY; Unix.O_TRUNC]
+            Unix.openfile
+              temp_file
+              [ Unix.O_CREAT; Unix.O_WRONLY; Unix.O_TRUNC ]
               0o755
           in
           (* ideally, the reading would also respect the latest_response_time *)
           let total_read =
             Xapi_stdext_unix.Unixext.read_data_in_string_chunks
               (fun str length ->
-                Xapi_stdext_unix.Unixext.time_limited_write_substring outfd
-                  length str latest_response_time
-                )
+                Xapi_stdext_unix.Unixext.time_limited_write_substring
+                  outfd
+                  length
+                  str
+                  latest_response_time )
               fd
           in
           R.debug "Reading database from fd into file %s" temp_file ;
           (* Check that we read the expected amount of data *)
-          R.debug "We read %d bytes and were told to expect %d bytes" total_read
+          R.debug
+            "We read %d bytes and were told to expect %d bytes"
+            total_read
             expected_length ;
-          if total_read <> expected_length then
-            raise (DatabaseWrongSize (expected_length, total_read)) ;
+          if total_read <> expected_length
+          then raise (DatabaseWrongSize (expected_length, total_read)) ;
           (* Read from the file into the cache *)
           let conn = Parse_db_conf.make temp_file in
           (* ideally, the reading from the file would also respect the latest_response_time *)
@@ -60,14 +67,13 @@ let read_from_redo_log log staging_path db_ref =
           Db_ref.update_database db_ref (fun _ -> db) ;
           R.debug
             "Finished reading database from %s into cache (generation = %Ld)"
-            temp_file gen_count ;
+            temp_file
+            gen_count ;
           (* Set the generation count *)
-          latest_generation := Some gen_count
-          )
+          latest_generation := Some gen_count )
         (fun () ->
           (* Remove the temporary file *)
-          Xapi_stdext_unix.Unixext.unlink_safe temp_file
-          )
+          Xapi_stdext_unix.Unixext.unlink_safe temp_file )
     in
     let read_delta gen_count delta =
       (* Apply the delta *)
@@ -78,10 +84,9 @@ let read_from_redo_log log staging_path db_ref =
           raise NoGeneration
           (* we should have already read in a database with a generation count *)
       | Some g ->
-          if gen_count > g then
-            latest_generation := Some gen_count
-          else
-            raise DeltaTooOld
+          if gen_count > g
+          then latest_generation := Some gen_count
+          else raise DeltaTooOld
       (* the delta should be at least as new as the database to which it applies *)
     in
     R.debug "Reading from redo log" ;
@@ -104,14 +109,18 @@ let read_from_redo_log log staging_path db_ref =
         R.debug "Database from redo log has generation %Ld" generation ;
         (* Write the in-memory cache to the file *)
         (* Make sure the generation count is right -- is this necessary? *)
-        Db_ref.update_database db_ref
+        Db_ref.update_database
+          db_ref
           (Db_cache_types.Database.set_generation generation) ;
         let db = Db_ref.get_database db_ref in
         Db_xml.To.file staging_path db ;
         Xapi_stdext_unix.Unixext.write_string_to_file
           (staging_path ^ ".generation")
           (Generation.to_string generation)
-  with _ -> ()
+  with
+  | _ ->
+      ()
+
 
 (* it's just a best effort. if we can't read from the log, then don't worry. *)
 

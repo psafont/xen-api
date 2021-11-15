@@ -14,12 +14,13 @@
 (* The world's simplest program which attempts to reboot domain 0 *)
 
 let _ =
-  if Array.length Sys.argv <> 2 || Sys.argv.(1) <> "yesreally" then (
-    Printf.fprintf stderr
+  if Array.length Sys.argv <> 2 || Sys.argv.(1) <> "yesreally"
+  then (
+    Printf.fprintf
+      stderr
       "Immediately fence this host - use with extreme caution\n" ;
     Printf.fprintf stderr "Usage: %s yesreally\n" Sys.argv.(0) ;
-    exit 1
-  ) ;
+    exit 1 ) ;
   let xc = Xenctrl.interface_open () in
   (* Clear both watchdog slots *)
   (try ignore (Xenctrl.watchdog xc 1 0l) with _ -> ()) ;

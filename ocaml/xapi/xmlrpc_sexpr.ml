@@ -44,7 +44,7 @@ let xmlrpc_to_sexpr (root : xml) =
         []
     | h, PCData text :: _ ->
         let text = String.strip String.isspace text in
-        [SExpr.String text]
+        [ SExpr.String text ]
     (* empty <value>s have default value '' *)
     | h, Element ("value", _, []) :: siblings ->
         SExpr.String "" :: visit h siblings
@@ -58,16 +58,18 @@ let xmlrpc_to_sexpr (root : xml) =
         let (mychildren : SExpr.t list) = visit (h + 1) children in
         let anode = SExpr.Node mychildren in
         let (mysiblings : SExpr.t list) = visit h siblings in
-        if List.length mychildren = 2 then (*name & value?*)
+        if List.length mychildren = 2
+        then
+          (*name & value?*)
           match List.nth mychildren 0 with
           | SExpr.String name ->
               (*is name a string?*)
               anode :: mysiblings
               (*then add member anode*)
           | _ ->
-              mysiblings (*ignore incorrect member*)
-        else
-          mysiblings
+              mysiblings
+          (*ignore incorrect member*)
+        else mysiblings
     (*ignore incorrect member*)
     (* any other element *)
     | h, Element (tag, _, children) :: siblings ->
@@ -78,7 +80,8 @@ let xmlrpc_to_sexpr (root : xml) =
         let (mysiblings : SExpr.t list) = visit h siblings in
         anode :: mysiblings
   in
-  List.hd (visit 0 [root])
+  List.hd (visit 0 [ root ])
+
 
 (** Accepts a tree of s-expressions of type SExpr.t
     with contents (tag child1 child2 ... childn)
@@ -99,7 +102,7 @@ let xmlrpc_to_sexpr (root : xml) =
 *)
 let sexpr_to_xmlrpc (root : SExpr.t) =
   let encase_with (container : string) (el : xml) =
-    Element (container, [], [el])
+    Element (container, [], [ el ])
   in
   let is_not_empty_tag (el : xml) =
     match el with Element ("", _, _) -> false | _ -> true
@@ -109,43 +112,42 @@ let sexpr_to_xmlrpc (root : SExpr.t) =
     (* sexpr representing a struct with member tags *)
     | ( h
       , SExpr.Node (SExpr.String "struct" :: _)
-      , SExpr.Node (SExpr.String name :: avalue :: _) ) -> (
-      match avalue with
+      , SExpr.Node (SExpr.String name :: avalue :: _) ) ->
+      ( match avalue with
       | SExpr.String "" ->
           Element
             ( "member"
             , []
-            , [Element ("name", [], [PCData name]); Element ("value", [], [])]
-            )
+            , [ Element ("name", [], [ PCData name ])
+              ; Element ("value", [], [])
+              ] )
       | SExpr.String value ->
           Element
             ( "member"
             , []
-            , [
-                Element ("name", [], [PCData name])
-              ; Element ("value", [], [PCData value])
-              ]
-            )
+            , [ Element ("name", [], [ PCData name ])
+              ; Element ("value", [], [ PCData value ])
+              ] )
       | SExpr.Node _ as somenode ->
           Element
             ( "member"
             , []
-            , [
-                Element ("name", [], [PCData name])
+            , [ Element ("name", [], [ PCData name ])
               ; Element
-                  ("value", [], [visit (h + 1) (SExpr.String "member") somenode])
-              ]
-            )
+                  ( "value"
+                  , []
+                  , [ visit (h + 1) (SExpr.String "member") somenode ] )
+              ] )
       | _ ->
-          Element ("WRONG_SEXPR_MEMBER", [], [])
-    )
+          Element ("WRONG_SEXPR_MEMBER", [], []) )
     (* member tag without values - wrong format - defaults to empty value *)
-    | h, SExpr.Node (SExpr.String "struct" :: _), SExpr.Node [SExpr.String name]
-      ->
+    | ( h
+      , SExpr.Node (SExpr.String "struct" :: _)
+      , SExpr.Node [ SExpr.String name ] ) ->
         Element
           ( "member"
           , []
-          , [Element ("name", [], [PCData name]); Element ("value", [], [])]
+          , [ Element ("name", [], [ PCData name ]); Element ("value", [], []) ]
           )
     (* sexpr representing array tags *)
     | h, _, SExpr.Node (SExpr.String "array" :: values) ->
@@ -153,7 +155,7 @@ let sexpr_to_xmlrpc (root : SExpr.t) =
         Element
           ( "array"
           , []
-          , [Element ("data", [], List.map (encase_with "value") xmlvalues)]
+          , [ Element ("data", [], List.map (encase_with "value") xmlvalues) ]
           )
     (* sexpr representing any other tag with children *)
     | h, _, SExpr.Node (SExpr.String tag :: atail) ->

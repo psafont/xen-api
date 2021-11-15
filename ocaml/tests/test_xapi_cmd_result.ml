@@ -29,12 +29,10 @@ module XapiCmdResult = Generic.MakeStateless (struct
 
   let tests =
     `QuickAndAutoDocumented
-      [
-        ( (':', "Pre-Win2k Domain", "Pre-Win2k Domain: CONNAPP\nsome:other")
-        , Some "CONNAPP"
-        )
+      [ ( (':', "Pre-Win2k Domain", "Pre-Win2k Domain: CONNAPP\nsome:other")
+        , Some "CONNAPP" )
       ; ((':', "Pre-Win2k Domain", "Not import msg"), None)
       ]
 end)
 
-let tests = make_suite "xapi_cmd_result_" [("of_output", XapiCmdResult.tests)]
+let tests = make_suite "xapi_cmd_result_" [ ("of_output", XapiCmdResult.tests) ]

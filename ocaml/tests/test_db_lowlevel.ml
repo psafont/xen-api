@@ -28,53 +28,67 @@ let test_db_get_all_records_race () =
   in
   (* Call get_all_records *)
   let _ =
-    try Db.VM.get_all_records ~__context
-    with Db_exn.DBCache_NotFound ("missing row", _, _) ->
-      Alcotest.fail "Race condition present"
+    try Db.VM.get_all_records ~__context with
+    | Db_exn.DBCache_NotFound ("missing row", _, _) ->
+        Alcotest.fail "Race condition present"
   in
   Thread.join destroyer_thread
+
 
 let tear_down () = Db_cache_impl.fist_delay_read_records_where := false
 
 let test_db_get_all_records_race () =
-  Xapi_stdext_pervasives.Pervasiveext.finally test_db_get_all_records_race
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    test_db_get_all_records_race
     tear_down
+
 
 let test_idempotent_map () =
   Db_globs.idempotent_map := false ;
   let __context = make_test_database () in
   let (vm_ref : API.ref_VM) = make_vm ~__context () in
   Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test" ~value:"value" ;
-  Alcotest.check_raises "add existing (key, value) pair to non-idempotent map"
+  Alcotest.check_raises
+    "add existing (key, value) pair to non-idempotent map"
     (Db_exn.Duplicate_key ("VM", "other_config", Ref.string_of vm_ref, "test"))
     (fun () ->
-      Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test"
-        ~value:"value"
-      ) ;
+      Db.VM.add_to_other_config
+        ~__context
+        ~self:vm_ref
+        ~key:"test"
+        ~value:"value" ) ;
   Alcotest.check_raises
     "add existing key with different value to non-idempotent map"
     (Db_exn.Duplicate_key ("VM", "other_config", Ref.string_of vm_ref, "test"))
     (fun () ->
-      Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test"
-        ~value:"value2"
-      ) ;
+      Db.VM.add_to_other_config
+        ~__context
+        ~self:vm_ref
+        ~key:"test"
+        ~value:"value2" ) ;
   Db_globs.idempotent_map := true ;
   let __context = make_test_database () in
   let (vm_ref : API.ref_VM) = make_vm ~__context () in
   Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test" ~value:"value" ;
   Alcotest.(check unit)
-    "add existing (key, value) pair to idempotent map" ()
-    (Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test"
-       ~value:"value"
-    ) ;
+    "add existing (key, value) pair to idempotent map"
+    ()
+    (Db.VM.add_to_other_config
+       ~__context
+       ~self:vm_ref
+       ~key:"test"
+       ~value:"value" ) ;
   Alcotest.check_raises
     "add existing key with different value to idempotent map"
     (Db_exn.Duplicate_key ("VM", "other_config", Ref.string_of vm_ref, "test"))
     (fun () ->
-      Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test"
-        ~value:"value2"
-      ) ;
+      Db.VM.add_to_other_config
+        ~__context
+        ~self:vm_ref
+        ~key:"test"
+        ~value:"value2" ) ;
   Db_globs.idempotent_map := false
+
 
 let test_slave_uses_nonlegacy_addmap () =
   let operation = Db_cache_types.AddMapLegacy in
@@ -82,8 +96,10 @@ let test_slave_uses_nonlegacy_addmap () =
     Db_rpc_common_v1.marshall_structured_op operation
     |> Db_rpc_common_v1.unmarshall_structured_op
   in
-  Alcotest.check Alcotest_comparators.db_cache_structured_op
-    "same operation after marshall -> unmarshall roundtrip" operation'
+  Alcotest.check
+    Alcotest_comparators.db_cache_structured_op
+    "same operation after marshall -> unmarshall roundtrip"
+    operation'
     Db_cache_types.AddMap ;
   let operationv2 =
     Db_rpc_common_v2.Request.Process_structured_field
@@ -92,39 +108,45 @@ let test_slave_uses_nonlegacy_addmap () =
   let operationv2' =
     Db_rpc_common_v2.Request.(operationv2 |> rpc_of_t |> t_of_rpc)
   in
-  Alcotest.check Alcotest_comparators.db_rpc_request
-    "same request after rpc_of -> of_rpc roundtrip" operationv2'
+  Alcotest.check
+    Alcotest_comparators.db_rpc_request
+    "same request after rpc_of -> of_rpc roundtrip"
+    operationv2'
     (Db_rpc_common_v2.Request.Process_structured_field
-       (("", ""), "", "", "", Db_cache_types.AddMap)
-    )
+       (("", ""), "", "", "", Db_cache_types.AddMap) )
+
 
 let test_empty_key_in_map () =
   let __context = make_test_database () in
   let (vm_ref : API.ref_VM) = make_vm ~__context () in
-  Alcotest.check_raises "add_to_other_config: empty key" Db_exn.Empty_key_in_map
+  Alcotest.check_raises
+    "add_to_other_config: empty key"
+    Db_exn.Empty_key_in_map
     (fun () ->
-      Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"" ~value:"value"
-  ) ;
-  Alcotest.check_raises "set_other_config: empty key" Db_exn.Empty_key_in_map
+      Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"" ~value:"value" ) ;
+  Alcotest.check_raises
+    "set_other_config: empty key"
+    Db_exn.Empty_key_in_map
     (fun () ->
-      Db.VM.set_other_config ~__context ~self:vm_ref ~value:[("", "value")]
-  )
+      Db.VM.set_other_config ~__context ~self:vm_ref ~value:[ ("", "value") ] )
+
 
 let test_utf8 () =
   let __context = make_test_database () in
   let (vm_ref : API.ref_VM) = make_vm ~__context () in
-  Alcotest.check_raises "non-utf8 Db.set raises exception" Db_exn.Invalid_value
-    (fun () -> Db.VM.set_name_label ~__context ~self:vm_ref ~value:"abc\xffdef"
-  )
+  Alcotest.check_raises
+    "non-utf8 Db.set raises exception"
+    Db_exn.Invalid_value
+    (fun () ->
+      Db.VM.set_name_label ~__context ~self:vm_ref ~value:"abc\xffdef" )
+
 
 let test =
-  [
-    ("test_db_get_all_records_race", `Quick, test_db_get_all_records_race)
+  [ ("test_db_get_all_records_race", `Quick, test_db_get_all_records_race)
   ; ("test_db_idempotent_map", `Quick, test_idempotent_map)
   ; ( "test_slaves_use_nonlegacy_addmap"
     , `Quick
-    , test_slave_uses_nonlegacy_addmap
-    )
+    , test_slave_uses_nonlegacy_addmap )
   ; ("test_empty_key_in_map", `Quick, test_empty_key_in_map)
   ; ("test_utf8", `Quick, test_utf8)
   ]

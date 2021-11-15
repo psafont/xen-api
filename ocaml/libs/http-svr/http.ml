@@ -26,67 +26,69 @@ exception Method_not_implemented
 
 exception Malformed_url of string
 
-module D = Debug.Make (struct let name = "http" end)
+module D = Debug.Make (struct
+  let name = "http"
+end)
 
 open D
 
 let http_403_forbidden ?(version = "1.1") () =
-  [
-    Printf.sprintf "HTTP/%s 403 Forbidden" version
+  [ Printf.sprintf "HTTP/%s 403 Forbidden" version
   ; "Connection: close"
   ; "Cache-Control: no-cache, no-store"
   ]
 
+
 let http_200_ok ?(version = "1.1") ?(keep_alive = true) () =
-  [
-    Printf.sprintf "HTTP/%s 200 OK" version
+  [ Printf.sprintf "HTTP/%s 200 OK" version
   ; ("Connection: " ^ if keep_alive then "keep-alive" else "close")
   ; "Cache-Control: no-cache, no-store"
   ]
 
+
 let http_200_ok_with_content length ?(version = "1.1") ?(keep_alive = true) () =
-  [
-    Printf.sprintf "HTTP/%s 200 OK" version
+  [ Printf.sprintf "HTTP/%s 200 OK" version
   ; ("Connection: " ^ if keep_alive then "keep-alive" else "close")
   ; "Content-Length: " ^ Int64.to_string length
   ; "Cache-Control: no-cache, no-store"
   ]
 
+
 let http_404_missing ?(version = "1.1") () =
-  [
-    Printf.sprintf "HTTP/%s 404 Not Found" version
+  [ Printf.sprintf "HTTP/%s 404 Not Found" version
   ; "Connection: close"
   ; "Cache-Control: no-cache, no-store"
   ]
 
+
 let http_302_redirect ?(version = "1.1") url =
-  [
-    Printf.sprintf "HTTP/%s 302 Found" version
+  [ Printf.sprintf "HTTP/%s 302 Found" version
   ; "Connection: close"
   ; "Cache-Control: no-cache, no-store"
   ; "Location: " ^ url
   ]
 
+
 let http_400_badrequest ?(version = "1.1") () =
-  [
-    Printf.sprintf "HTTP/%s 400 Bad Request" version
+  [ Printf.sprintf "HTTP/%s 400 Bad Request" version
   ; "Connection: close"
   ; "Cache-Control: no-cache, no-store"
   ]
+
 
 let http_500_internal_server_error ?(version = "1.0") () =
-  [
-    Printf.sprintf "HTTP/%s 500 Internal Server Error" version
+  [ Printf.sprintf "HTTP/%s 500 Internal Server Error" version
   ; "Connection: close"
   ; "Cache-Control: no-cache, no-store"
   ]
 
+
 let http_501_method_not_implemented ?(version = "1.0") () =
-  [
-    Printf.sprintf "HTTP/%s 501 Method Not Implemented" version
+  [ Printf.sprintf "HTTP/%s 501 Method Not Implemented" version
   ; "Connection: close"
   ; "Cache-Control: no-cache, no-store"
   ]
+
 
 module Hdr = struct
   let task_id = "task-id"
@@ -126,10 +128,12 @@ let output_http fd headers =
   |> String.concat ""
   |> Unixext.really_write_string fd
 
+
 let explode str = Astring.String.fold_right (fun c acc -> c :: acc) str []
 
 let implode chr_list =
   String.concat "" (List.map Astring.String.of_char chr_list)
+
 
 let urldecode url =
   let chars = explode url in
@@ -138,8 +142,9 @@ let urldecode url =
         fn (' ' :: ac) tl
     | '%' :: a :: b :: tl ->
         let cs =
-          try int_of_string (implode ['0'; 'x'; a; b])
-          with _ -> raise (Malformed_url url)
+          try int_of_string (implode [ '0'; 'x'; a; b ]) with
+          | _ ->
+              raise (Malformed_url url)
         in
         fn (Char.chr cs :: ac) tl
     | x :: tl ->
@@ -149,14 +154,15 @@ let urldecode url =
   in
   fn [] chars
 
+
 (* Encode @param suitably for appearing in a query parameter in a URL. *)
 let urlencode param =
   let chars = explode param in
   let rec fn = function
     | x :: tl ->
         let s =
-          if x = ' ' then
-            "+"
+          if x = ' '
+          then "+"
           else
             match x with
             | 'A' .. 'Z'
@@ -182,6 +188,7 @@ let urlencode param =
   in
   fn chars
 
+
 (** Parses strings of the form a=b&c=d into ["a", "b"; "c", "d"] *)
 let parse_keyvalpairs xs =
   let kvpairs =
@@ -192,38 +199,41 @@ let parse_keyvalpairs xs =
       | k :: vs ->
           (urldecode k, urldecode (String.concat "=" vs))
       | [] ->
-          raise Http_parse_failure
-      )
+          raise Http_parse_failure )
     kvpairs
+
 
 let parse_uri x =
   match Astring.String.cuts ~sep:"?" x with
-  | [uri] ->
+  | [ uri ] ->
       (uri, [])
-  | [uri; params] ->
+  | [ uri; params ] ->
       (uri, parse_keyvalpairs params)
   | _ ->
       raise Http_parse_failure
 
-type authorization = Basic of string * string | UnknownAuth of string
+
+type authorization =
+  | Basic of string * string
+  | UnknownAuth of string
 [@@deriving rpc]
 
 let authorization_of_string x =
   let basic = "Basic " in
-  if Astring.String.is_prefix ~affix:basic x then
+  if Astring.String.is_prefix ~affix:basic x
+  then
     let end_of_string s from = String.sub s from (String.length s - from) in
     match Base64.decode (end_of_string x (String.length basic)) with
-    | Result.Ok userpass -> (
-      match Astring.String.cuts ~sep:":" userpass with
-      | [username; password] ->
+    | Result.Ok userpass ->
+      ( match Astring.String.cuts ~sep:":" userpass with
+      | [ username; password ] ->
           Basic (username, password)
       | _ ->
-          UnknownAuth x
-    )
+          UnknownAuth x )
     | Result.Error _ ->
         UnknownAuth x
-  else
-    UnknownAuth x
+  else UnknownAuth x
+
 
 let string_of_authorization = function
   | UnknownAuth x ->
@@ -231,7 +241,14 @@ let string_of_authorization = function
   | Basic (username, password) ->
       "Basic " ^ Base64.encode_string (username ^ ":" ^ password)
 
-type method_t = Get | Post | Put | Connect | Options | Unknown of string
+
+type method_t =
+  | Get
+  | Post
+  | Put
+  | Connect
+  | Options
+  | Unknown of string
 [@@deriving rpc]
 
 let string_of_method_t = function
@@ -248,6 +265,7 @@ let string_of_method_t = function
   | Unknown x ->
       "Unknown " ^ x
 
+
 let method_t_of_string = function
   | "GET" ->
       Get
@@ -262,10 +280,14 @@ let method_t_of_string = function
   | x ->
       Unknown x
 
-module Scanner = struct
-  type t = {marker: string; mutable i: int}
 
-  let make x = {marker= x; i= 0}
+module Scanner = struct
+  type t =
+    { marker : string
+    ; mutable i : int
+    }
+
+  let make x = { marker = x; i = 0 }
 
   let input x c = if c = x.marker.[x.i] then x.i <- x.i + 1 else x.i <- 0
 
@@ -304,10 +326,9 @@ let read_up_to buf already_read marker fd =
 		flush stderr;
 *)
     let n =
-      if !b < already_read then
-        min safe_to_read (already_read - !b)
-      else
-        Unix.read fd buf !b safe_to_read
+      if !b < already_read
+      then min safe_to_read (already_read - !b)
+      else Unix.read fd buf !b safe_to_read
     in
     if n = 0 then raise End_of_file ;
     (*
@@ -320,15 +341,17 @@ let read_up_to buf already_read marker fd =
 			flush stderr;
 *)
       Scanner.input marker (Bytes.get buf (!b + j)) ;
-      if !header_len_value_at = None then (
+      if !header_len_value_at = None
+      then (
         Scanner.input hl_marker (Bytes.get buf (!b + j)) ;
-        if Scanner.matched hl_marker then
+        if Scanner.matched hl_marker
+        then
           header_len_value_at := Some (!b + j + 1)
-        (*
+          (*
 					Printf.fprintf stderr "header_len_value_at = %d\n" (!b + j + 1);
 					flush stderr
 *)
-      )
+        )
     done ;
     b := !b + n ;
     (*
@@ -349,6 +372,7 @@ let read_up_to buf already_read marker fd =
   done ;
   !b
 
+
 let read_http_header buf fd = read_up_to buf 0 end_of_headers fd
 
 let smallest_request = "GET / HTTP/1.0\r\n\r\n"
@@ -362,9 +386,11 @@ let make_frame_header headers =
      	   HTTP response. *)
   Printf.sprintf "FRAME %012d" (String.length headers)
 
+
 let read_frame_header buf =
   let prefix = Bytes.sub_string buf 0 frame_header_length in
   try Scanf.sscanf prefix "FRAME %012d" (fun x -> Some x) with _ -> None
+
 
 let read_http_request_header fd =
   let buf = Bytes.create 1024 in
@@ -392,6 +418,7 @@ let read_http_request_header fd =
   in
   (frame, Bytes.sub_string buf 0 headers_length, proxy)
 
+
 let read_http_response_header buf fd =
   Unixext.really_read fd buf 0 frame_header_length ;
   match read_frame_header buf with
@@ -401,54 +428,58 @@ let read_http_response_header buf fd =
       Unixext.really_read fd buf 0 length ;
       length
 
+
 module Accept = struct
   (* Constraint: we can't have ty = None but subty <> None *)
-  type t = {
-      ty: string option
+  type t =
+    { ty : string option
     ; (* None means '*' *)
-      subty: string option
+      subty : string option
     ; (* None means '*' *)
-      q: int
+      q : int
           (* range 0 - 1000 *)
           (* We won't parse the more advanced stuff *)
-  }
+    }
 
   let string_of_t x =
-    Printf.sprintf "%s/%s;q=%.3f"
+    Printf.sprintf
+      "%s/%s;q=%.3f"
       (Option.value ~default:"*" x.ty)
       (Option.value ~default:"*" x.subty)
       (float_of_int x.q /. 1000.)
 
+
   let matches (ty, subty) = function
-    | {ty= Some ty'; subty= Some subty'; _} ->
+    | { ty = Some ty'; subty = Some subty'; _ } ->
         ty' = ty && subty' = subty
-    | {ty= Some ty'; subty= None; _} ->
+    | { ty = Some ty'; subty = None; _ } ->
         ty' = ty
-    | {ty= None; subty= Some _; _} ->
+    | { ty = None; subty = Some _; _ } ->
         assert false
-    | {ty= None; subty= None; _} ->
+    | { ty = None; subty = None; _ } ->
         true
+
 
   (* compare [a] and [b] where both match some media type *)
   let compare (a : t) (b : t) =
     let c = compare a.q b.q in
-    if c <> 0 then
-      -c (* q factor (user-preference) overrides all else *)
+    if c <> 0
+    then -c (* q factor (user-preference) overrides all else *)
     else
       match (a.ty, b.ty) with
       | Some _, None ->
           1
       | None, Some _ ->
           -1
-      | _, _ -> (
-        match (a.subty, b.subty) with
+      | _, _ ->
+        ( match (a.subty, b.subty) with
         | Some _, None ->
             1
         | None, Some _ ->
             -1
         | _, _ ->
-            0
-      )
+            0 )
+
 
   let preferred_match media ts =
     match List.filter (matches media) ts with
@@ -456,6 +487,7 @@ module Accept = struct
         None
     | xs ->
         Some (List.hd (List.sort compare xs))
+
 
   exception Parse_failure of string
 
@@ -465,7 +497,7 @@ module Accept = struct
         let ty_of_string = function "*" -> None | x -> Some x in
         let ty, subty =
           match Astring.String.cuts ~sep:"/" ty_subty with
-          | [ty; subty] ->
+          | [ ty; subty ] ->
               (ty_of_string ty, ty_of_string subty)
           | _ ->
               raise (Parse_failure ty_subty)
@@ -478,127 +510,139 @@ module Accept = struct
               | Some (k, v) ->
                   (k, v)
               | _ ->
-                  raise (Parse_failure x)
-              )
+                  raise (Parse_failure x) )
             params
         in
         let q =
-          if List.mem_assoc "q" params then
-            int_of_float (1000. *. float_of_string (List.assoc "q" params))
-          else
-            1000
+          if List.mem_assoc "q" params
+          then int_of_float (1000. *. float_of_string (List.assoc "q" params))
+          else 1000
         in
-        {ty; subty; q}
+        { ty; subty; q }
     | _ ->
         raise (Parse_failure x)
+
 
   let ts_of_string x = List.map t_of_string (Astring.String.cuts ~sep:"," x)
 end
 
 module Request = struct
-  type t = {
-      m: method_t
-    ; uri: string
-    ; query: (string * string) list
-    ; version: string
-    ; frame: bool
-    ; transfer_encoding: string option
-    ; accept: string option
-    ; content_length: int64 option
-    ; auth: authorization option
-    ; cookie: (string * string) list
-    ; task: string option
-    ; subtask_of: string option
-    ; content_type: string option
-    ; host: string option
-    ; user_agent: string option
-    ; mutable close: bool
-    ; additional_headers: (string * string) list
-    ; body: string option
-  }
+  type t =
+    { m : method_t
+    ; uri : string
+    ; query : (string * string) list
+    ; version : string
+    ; frame : bool
+    ; transfer_encoding : string option
+    ; accept : string option
+    ; content_length : int64 option
+    ; auth : authorization option
+    ; cookie : (string * string) list
+    ; task : string option
+    ; subtask_of : string option
+    ; content_type : string option
+    ; host : string option
+    ; user_agent : string option
+    ; mutable close : bool
+    ; additional_headers : (string * string) list
+    ; body : string option
+    }
   [@@deriving rpc]
 
   let empty =
-    {
-      m= Unknown ""
-    ; uri= ""
-    ; query= []
-    ; version= ""
-    ; frame= false
-    ; transfer_encoding= None
-    ; accept= None
-    ; content_length= None
-    ; auth= None
-    ; cookie= []
-    ; task= None
-    ; subtask_of= None
-    ; content_type= None
-    ; host= None
-    ; user_agent= None
-    ; close= true
-    ; additional_headers= []
-    ; body= None
+    { m = Unknown ""
+    ; uri = ""
+    ; query = []
+    ; version = ""
+    ; frame = false
+    ; transfer_encoding = None
+    ; accept = None
+    ; content_length = None
+    ; auth = None
+    ; cookie = []
+    ; task = None
+    ; subtask_of = None
+    ; content_type = None
+    ; host = None
+    ; user_agent = None
+    ; close = true
+    ; additional_headers = []
+    ; body = None
     }
 
-  let make ?(frame = false) ?(version = "1.1") ?(keep_alive = true) ?accept
-      ?cookie ?length ?auth ?subtask_of ?body ?(headers = []) ?content_type
-      ?host ?(query = []) ~user_agent meth path =
-    {
-      empty with
+
+  let make
+      ?(frame = false)
+      ?(version = "1.1")
+      ?(keep_alive = true)
+      ?accept
+      ?cookie
+      ?length
+      ?auth
+      ?subtask_of
+      ?body
+      ?(headers = [])
+      ?content_type
+      ?host
+      ?(query = [])
+      ~user_agent
+      meth
+      path =
+    { empty with
       version
     ; frame
-    ; close= not keep_alive
-    ; cookie= Option.value ~default:[] cookie
+    ; close = not keep_alive
+    ; cookie = Option.value ~default:[] cookie
     ; subtask_of
-    ; content_length= length
+    ; content_length = length
     ; auth
     ; content_type
     ; host
-    ; user_agent= Some user_agent
-    ; m= meth
-    ; uri= path
-    ; additional_headers= headers
+    ; user_agent = Some user_agent
+    ; m = meth
+    ; uri = path
+    ; additional_headers = headers
     ; body
     ; accept
     ; query
     }
 
+
   let get_version x = x.version
 
   let of_request_line x =
     match Astring.String.fields ~empty:false x with
-    | [m; uri; version] -> (
+    | [ m; uri; version ] ->
         (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
         let uri, query = parse_uri uri in
         (* strip the "HTTP/" prefix from the version string *)
-        match Astring.String.cut ~sep:"/" version with
+        ( match Astring.String.cut ~sep:"/" version with
         | Some (_, version) ->
-            {
-              m= method_t_of_string m
-            ; frame= false
+            { m = method_t_of_string m
+            ; frame = false
             ; uri
             ; query
-            ; content_length= None
-            ; transfer_encoding= None
-            ; accept= None
+            ; content_length = None
+            ; transfer_encoding = None
+            ; accept = None
             ; version
-            ; cookie= []
-            ; auth= None
-            ; task= None
-            ; subtask_of= None
-            ; content_type= None
-            ; host= None
-            ; user_agent= None
-            ; close= false
-            ; additional_headers= []
-            ; body= None
+            ; cookie = []
+            ; auth = None
+            ; task = None
+            ; subtask_of = None
+            ; content_type = None
+            ; host = None
+            ; user_agent = None
+            ; close = false
+            ; additional_headers = []
+            ; body = None
             }
         | None ->
             error "Failed to parse: %s" x ;
-            raise Http_parse_failure
-      )
+            raise Http_parse_failure )
     | _ ->
         raise Http_parse_failure
+
 
   let to_string x =
     let kvpairs x =
@@ -608,69 +652,84 @@ module Request = struct
       "{ frame = %b; method = %s; uri = %s; query = [ %s ]; content_length = [ \
        %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; \
        subtask_of = %s; content-type = %s; host = %s; user_agent = %s }"
-      x.frame (string_of_method_t x.m) x.uri (kvpairs x.query)
+      x.frame
+      (string_of_method_t x.m)
+      x.uri
+      (kvpairs x.query)
       (Option.fold ~none:"" ~some:Int64.to_string x.content_length)
       (Option.value ~default:"" x.transfer_encoding)
-      x.version "(value filtered)" (* cookies *)
+      x.version
+      "(value filtered)" (* cookies *)
       (Option.value ~default:"" x.task)
       (Option.value ~default:"" x.subtask_of)
       (Option.value ~default:"" x.content_type)
       (Option.value ~default:"" x.host)
       (Option.value ~default:"" x.user_agent)
 
+
   let to_header_list x =
     let kvpairs x =
-      String.concat "&"
+      String.concat
+        "&"
         (List.map (fun (k, v) -> urlencode k ^ "=" ^ urlencode v) x)
     in
     let query = if x.query = [] then "" else "?" ^ kvpairs x.query in
     let cookie =
-      if x.cookie = [] then [] else [Hdr.cookie ^ ": " ^ kvpairs x.cookie]
+      if x.cookie = [] then [] else [ Hdr.cookie ^ ": " ^ kvpairs x.cookie ]
     in
     let transfer_encoding =
-      Option.fold ~none:[]
-        ~some:(fun x -> [Hdr.transfer_encoding ^ ": " ^ x])
+      Option.fold
+        ~none:[]
+        ~some:(fun x -> [ Hdr.transfer_encoding ^ ": " ^ x ])
         x.transfer_encoding
     in
     let accept =
-      Option.fold ~none:[] ~some:(fun x -> [Hdr.accept ^ ": " ^ x]) x.accept
+      Option.fold ~none:[] ~some:(fun x -> [ Hdr.accept ^ ": " ^ x ]) x.accept
     in
     let content_length =
-      Option.fold ~none:[]
-        ~some:(fun x -> [Printf.sprintf "%s: %Ld" Hdr.content_length x])
+      Option.fold
+        ~none:[]
+        ~some:(fun x -> [ Printf.sprintf "%s: %Ld" Hdr.content_length x ])
         x.content_length
     in
     let auth =
-      Option.fold ~none:[]
-        ~some:(fun x -> [Hdr.authorization ^ ": " ^ string_of_authorization x])
+      Option.fold
+        ~none:[]
+        ~some:(fun x -> [ Hdr.authorization ^ ": " ^ string_of_authorization x ])
         x.auth
     in
     let task =
-      Option.fold ~none:[] ~some:(fun x -> [Hdr.task_id ^ ": " ^ x]) x.task
+      Option.fold ~none:[] ~some:(fun x -> [ Hdr.task_id ^ ": " ^ x ]) x.task
     in
     let subtask_of =
-      Option.fold ~none:[]
-        ~some:(fun x -> [Hdr.subtask_of ^ ": " ^ x])
+      Option.fold
+        ~none:[]
+        ~some:(fun x -> [ Hdr.subtask_of ^ ": " ^ x ])
         x.subtask_of
     in
     let content_type =
-      Option.fold ~none:[]
-        ~some:(fun x -> [Hdr.content_type ^ ": " ^ x])
+      Option.fold
+        ~none:[]
+        ~some:(fun x -> [ Hdr.content_type ^ ": " ^ x ])
         x.content_type
     in
     let host =
-      Option.fold ~none:[] ~some:(fun x -> [Hdr.host ^ ": " ^ x]) x.host
+      Option.fold ~none:[] ~some:(fun x -> [ Hdr.host ^ ": " ^ x ]) x.host
     in
     let user_agent =
-      Option.fold ~none:[]
-        ~some:(fun x -> [Hdr.user_agent ^ ": " ^ x])
+      Option.fold
+        ~none:[]
+        ~some:(fun x -> [ Hdr.user_agent ^ ": " ^ x ])
         x.user_agent
     in
     let close =
-      [(Hdr.connection ^ ": " ^ if x.close then "close" else "keep-alive")]
+      [ (Hdr.connection ^ ": " ^ if x.close then "close" else "keep-alive") ]
     in
-    [
-      Printf.sprintf "%s %s%s HTTP/%s" (string_of_method_t x.m) x.uri query
+    [ Printf.sprintf
+        "%s %s%s HTTP/%s"
+        (string_of_method_t x.m)
+        x.uri
+        query
         x.version
     ]
     @ cookie
@@ -686,6 +745,7 @@ module Request = struct
     @ close
     @ List.map (fun (k, v) -> k ^ ":" ^ v) x.additional_headers
 
+
   let to_headers_and_body (x : t) =
     (* If the body is given then compute a content length *)
     let x =
@@ -693,12 +753,13 @@ module Request = struct
       | None ->
           x
       | Some b ->
-          {x with content_length= Some (Int64.of_int (String.length b))}
+          { x with content_length = Some (Int64.of_int (String.length b)) }
     in
-    let hl = to_header_list x @ [""] in
+    let hl = to_header_list x @ [ "" ] in
     let headers = String.concat "" (List.map (fun x -> x ^ "\r\n") hl) in
     let body = Option.value ~default:"" x.body in
     (headers, body)
+
 
   let to_wire_string (x : t) =
     let headers, body = to_headers_and_body x in
@@ -707,28 +768,28 @@ module Request = struct
 end
 
 module Response = struct
-  type t = {
-      version: string
-    ; frame: bool
-    ; code: string
-    ; message: string
-    ; content_length: int64 option
-    ; task: string option
-    ; additional_headers: (string * string) list
-    ; body: string option
-  }
+  type t =
+    { version : string
+    ; frame : bool
+    ; code : string
+    ; message : string
+    ; content_length : int64 option
+    ; task : string option
+    ; additional_headers : (string * string) list
+    ; body : string option
+    }
 
   let _empty =
-    {
-      version= "1.1"
-    ; frame= false
-    ; code= "500"
-    ; message= "Empty response"
-    ; content_length= Some 0L
-    ; task= None
-    ; additional_headers= []
-    ; body= None
+    { version = "1.1"
+    ; frame = false
+    ; code = "500"
+    ; message = "Empty response"
+    ; content_length = Some 0L
+    ; task = None
+    ; additional_headers = []
+    ; body = None
     }
+
 
   let to_string x =
     let kvpairs x =
@@ -737,54 +798,72 @@ module Response = struct
     Printf.sprintf
       "{ frame = %b; version = %s; code = %s; message = %s; content_length = \
        %s; task = %s; additional_headers = [ %s ] }"
-      x.frame x.version x.code x.message
-      (Option.fold ~none:"None"
+      x.frame
+      x.version
+      x.code
+      x.message
+      (Option.fold
+         ~none:"None"
          ~some:(fun x -> "Some " ^ Int64.to_string x)
-         x.content_length
-      )
+         x.content_length )
       (Option.fold ~none:"None" ~some:(fun x -> "Some " ^ x) x.task)
       (kvpairs x.additional_headers)
 
+
   let empty =
-    {
-      version= "1.1"
-    ; frame= false
-    ; code= "500"
-    ; message= "Unknown error message"
-    ; content_length= None
-    ; task= None
-    ; additional_headers= []
-    ; body= None
+    { version = "1.1"
+    ; frame = false
+    ; code = "500"
+    ; message = "Unknown error message"
+    ; content_length = None
+    ; task = None
+    ; additional_headers = []
+    ; body = None
     }
 
-  let make ?(frame = false) ?(version = "1.1") ?length ?task ?(headers = [])
-      ?body code message =
-    {
-      version
+
+  let make
+      ?(frame = false)
+      ?(version = "1.1")
+      ?length
+      ?task
+      ?(headers = [])
+      ?body
+      code
+      message =
+    { version
     ; frame
     ; code
     ; message
-    ; content_length= length
+    ; content_length = length
     ; task
-    ; additional_headers= headers
+    ; additional_headers = headers
     ; body
     }
 
+
   let internal_error =
-    {empty with code= "500"; message= "internal error"; content_length= Some 0L}
+    { empty with
+      code = "500"
+    ; message = "internal error"
+    ; content_length = Some 0L
+    }
+
 
   let to_header_list (x : t) =
     let status = Printf.sprintf "HTTP/%s %s %s" x.version x.code x.message in
     let content_length =
-      Option.fold ~none:[]
-        ~some:(fun x -> [Printf.sprintf "%s: %Ld" Hdr.content_length x])
+      Option.fold
+        ~none:[]
+        ~some:(fun x -> [ Printf.sprintf "%s: %Ld" Hdr.content_length x ])
         x.content_length
     in
     let task =
-      Option.fold ~none:[] ~some:(fun x -> [Hdr.task_id ^ ": " ^ x]) x.task
+      Option.fold ~none:[] ~some:(fun x -> [ Hdr.task_id ^ ": " ^ x ]) x.task
     in
     let headers = List.map (fun (k, v) -> k ^ ":" ^ v) x.additional_headers in
     status :: (content_length @ task @ headers)
+
 
   let to_headers_and_body (x : t) =
     (* If the body is given then compute a content length *)
@@ -793,12 +872,13 @@ module Response = struct
       | None ->
           x
       | Some b ->
-          {x with content_length= Some (Int64.of_int (String.length b))}
+          { x with content_length = Some (Int64.of_int (String.length b)) }
     in
-    let hl = to_header_list x @ [""] in
+    let hl = to_header_list x @ [ "" ] in
     let headers = String.concat "" (List.map (fun x -> x ^ "\r\n") hl) in
     let body = Option.value ~default:"" x.body in
     (headers, body)
+
 
   let to_wire_string (x : t) =
     let headers, body = to_headers_and_body x in
@@ -808,7 +888,9 @@ end
 
 (* For transfer-encoding: chunked *)
 
-type 'a ll = End | Item of 'a * (unit -> 'a ll)
+type 'a ll =
+  | End
+  | Item of 'a * (unit -> 'a ll)
 
 let rec ll_iter f = function
   | End ->
@@ -817,19 +899,25 @@ let rec ll_iter f = function
       f x ;
       ll_iter f (xs ())
 
+
 module Url = struct
-  type http = {
-      host: string
-    ; auth: authorization option
-    ; port: int option
-    ; ssl: bool
-  }
+  type http =
+    { host : string
+    ; auth : authorization option
+    ; port : int option
+    ; ssl : bool
+    }
 
-  type file = {path: string}
+  type file = { path : string }
 
-  type scheme = Http of http | File of file
+  type scheme =
+    | Http of http
+    | File of file
 
-  type data = {uri: string; query_params: (string * string) list}
+  type data =
+    { uri : string
+    ; query_params : (string * string) list
+    }
 
   type t = scheme * data
 
@@ -841,60 +929,58 @@ module Url = struct
       String.sub s start (length - start)
     in
     let host x =
-      try x |> sub_after '[' |> sub_before ']'
-      with Not_found -> (
-        try (* [<ipv6-literal>]... *)
-            x |> sub_before ':'
-        with Not_found -> (* <hostname|ipv4-literal>:... *)
-                          x
-      )
+      try x |> sub_after '[' |> sub_before ']' with
+      | Not_found ->
+        ( try (* [<ipv6-literal>]... *)
+              x |> sub_before ':' with
+        | Not_found ->
+            (* <hostname|ipv4-literal>:... *)
+            x )
     in
     (* <hostname|ipv4-literal> *)
     let port x =
       let port_part =
-        try x |> sub_after ']' |> sub_after ':'
-        with Not_found -> (
-          try (* ...]:port *)
-              x |> sub_after ']'
-          with Not_found -> (
-            try (* ...] *)
-                x |> sub_after ':'
-            with Not_found -> (* ...:port *)
-                              ""
-          )
-        )
+        try x |> sub_after ']' |> sub_after ':' with
+        | Not_found ->
+          ( try (* ...]:port *)
+                x |> sub_after ']' with
+          | Not_found ->
+            ( try (* ...] *)
+                  x |> sub_after ':' with
+            | Not_found ->
+                (* ...:port *)
+                "" ) )
       in
       (* no port *)
       try Some (int_of_string port_part) with _ -> None
     in
     let uname_password_host_port x =
       match Astring.String.cuts ~sep:"@" x with
-      | [_] ->
+      | [ _ ] ->
           (None, host x, port x)
-      | [uname_password; host_port] -> (
-        match Astring.String.cuts ~sep:":" uname_password with
-        | [uname; password] ->
+      | [ uname_password; host_port ] ->
+        ( match Astring.String.cuts ~sep:":" uname_password with
+        | [ uname; password ] ->
             (Some (Basic (uname, password)), host host_port, port host_port)
         | _ ->
             failwith
-              (Printf.sprintf "Failed to parse authentication substring: %s"
-                 uname_password
-              )
-      )
+              (Printf.sprintf
+                 "Failed to parse authentication substring: %s"
+                 uname_password ) )
       | _ ->
           failwith
             (Printf.sprintf
-               "Failed to parse username password host and port: %s" x
-            )
+               "Failed to parse username password host and port: %s"
+               x )
     in
     let reconstruct_uri uri = "/" ^ String.concat "/" uri in
     let data_of_uri uri =
       let uri, params = parse_uri (reconstruct_uri uri) in
-      {uri; query_params= params}
+      { uri; query_params = params }
     in
     let http_or_https ssl x =
       let uname_password, host, port = uname_password_host_port x in
-      let scheme = Http {host; port; auth= uname_password; ssl} in
+      let scheme = Http { host; port; auth = uname_password; ssl } in
       scheme
     in
     match Astring.String.cuts ~sep:"/" url with
@@ -904,29 +990,32 @@ module Url = struct
         (http_or_https true x, data_of_uri uri)
     | "file:" :: uri ->
         let uri, params = parse_uri (reconstruct_uri uri) in
-        (File {path= uri}, {uri= "/"; query_params= params})
+        (File { path = uri }, { uri = "/"; query_params = params })
     | x :: _ ->
         failwith (Printf.sprintf "Unknown scheme %s" x)
     | _ ->
         failwith (Printf.sprintf "Failed to parse URL: %s" url)
 
-  let data_to_string {uri; query_params= params} =
+
+  let data_to_string { uri; query_params = params } =
     let kvpairs x =
-      String.concat "&"
+      String.concat
+        "&"
         (List.map (fun (k, v) -> urlencode k ^ "=" ^ urlencode v) x)
     in
     let params = if params = [] then "" else "?" ^ kvpairs params in
     uri ^ params
 
+
   (* Wrap a literal IPv6 address in square brackets; otherwise pass through *)
   let maybe_wrap_IPv6_literal addr =
-    if Unixext.domain_of_addr addr = Some Unix.PF_INET6 then
-      "[" ^ addr ^ "]"
-    else
-      addr
+    if Unixext.domain_of_addr addr = Some Unix.PF_INET6
+    then "[" ^ addr ^ "]"
+    else addr
+
 
   let to_string = function
-    | File {path}, data ->
+    | File { path }, data ->
         Printf.sprintf "file:%s%s" path (data_to_string data) (* XXX *)
     | Http h, data ->
         let userpassat =
@@ -939,20 +1028,23 @@ module Url = struct
         let colonport =
           match h.port with Some x -> Printf.sprintf ":%d" x | _ -> ""
         in
-        Printf.sprintf "http%s://%s%s%s%s"
+        Printf.sprintf
+          "http%s://%s%s%s%s"
           (if h.ssl then "s" else "")
           userpassat
           (maybe_wrap_IPv6_literal h.host)
-          colonport (data_to_string data)
+          colonport
+          (data_to_string data)
+
 
   let get_uri (_scheme, data) = data.uri
 
-  let set_uri (scheme, data) u = (scheme, {data with uri= u})
+  let set_uri (scheme, data) u = (scheme, { data with uri = u })
 
   let get_query_params (_scheme, data) = data.query_params
 
   let get_query (_scheme, data) = data_to_string data
 
   let auth_of (scheme, _) =
-    match scheme with File _ -> None | Http {auth; _} -> auth
+    match scheme with File _ -> None | Http { auth; _ } -> auth
 end

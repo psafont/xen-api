@@ -36,10 +36,10 @@ module type TRANSPORT = sig
       	 *  too large. *)
 end
 
-type writer = {
-    write_payload: Rrd_protocol.payload -> unit
-  ; cleanup: unit -> unit
-}
+type writer =
+  { write_payload : Rrd_protocol.payload -> unit
+  ; cleanup : unit -> unit
+  }
 
 module Make (T : TRANSPORT) = struct
   let create id protocol =
@@ -47,18 +47,18 @@ module Make (T : TRANSPORT) = struct
     let writer = protocol.Rrd_protocol.make_payload_writer () in
     let is_open = ref true in
     let write_payload payload =
-      if !is_open then
+      if !is_open
+      then
         let allocator = T.get_allocator state in
         writer allocator payload
-      else
-        raise Rrd_io.Resource_closed
+      else raise Rrd_io.Resource_closed
     in
     let cleanup () =
-      if !is_open then (
+      if !is_open
+      then (
         T.cleanup id info state ;
-        is_open := false
-      ) else
-        raise Rrd_io.Resource_closed
+        is_open := false )
+      else raise Rrd_io.Resource_closed
     in
-    (info, {write_payload; cleanup})
+    (info, { write_payload; cleanup })
 end

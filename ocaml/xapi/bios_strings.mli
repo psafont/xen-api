@@ -18,7 +18,10 @@ val get_host_bios_strings : __context:Context.t -> (string * string) list
 
 (** Exposed to test the module *)
 
-type record = {name: string; values: (string * string) list}
+type record =
+  { name : string
+  ; values : (string * string) list
+  }
 
 module P : sig
   val records : record list Angstrom.t

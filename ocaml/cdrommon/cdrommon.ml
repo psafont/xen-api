@@ -14,7 +14,9 @@
 let oldnotify = ref false
 
 let disc_inserted name =
-  let args = [|"xe"; "host-notify"; "type=cdrom"; "params=inserted:" ^ name|] in
+  let args =
+    [| "xe"; "host-notify"; "type=cdrom"; "params=inserted:" ^ name |]
+  in
   let ret = Xapi_stdext_unix.Unixext.spawnvp args.(0) args in
   (* check if we got an error, and record the fact *)
   match ret with
@@ -25,24 +27,25 @@ let disc_inserted name =
   | _ ->
       oldnotify := true
 
+
 let disc_removed (_ : string) =
   (* we don't need to do anything *)
   oldnotify := false
 
+
 let check interval name =
   let has_disc = ref false in
   let check_has_disc status =
-    if !has_disc then (
+    if !has_disc
+    then (
       ( match status with
       | Cdrom.NO_INFO | Cdrom.NO_DISC | Cdrom.TRAY_OPEN ->
           has_disc := false ;
           disc_removed name
       | _ ->
-          ()
-      ) ;
-      if !oldnotify then
-        disc_inserted name
-    ) else
+          () ) ;
+      if !oldnotify then disc_inserted name )
+    else
       match status with
       | Cdrom.DISC_OK ->
           has_disc := true ;
@@ -58,11 +61,12 @@ let check interval name =
     Unix.sleep interval
   done
 
+
 let () =
-  if Array.length Sys.argv <> 2 then (
+  if Array.length Sys.argv <> 2
+  then (
     Printf.eprintf "usage: %s <cdrompath>\n" Sys.argv.(0) ;
-    exit 1
-  ) ;
+    exit 1 ) ;
   Xapi_stdext_unix.Unixext.daemonize () ;
   (* check every 2 seconds *)
   check 2 Sys.argv.(1)

@@ -1,17 +1,19 @@
 open Test_common
 open Test_vgpu_common
 
-module D = Debug.Make (struct let name = "test_xapi_xenops" end)
+module D = Debug.Make (struct
+  let name = "test_xapi_xenops"
+end)
 
 open D
 
 let test_enabled_in_xenguest () =
-  let should_raise = ["foo"; ""; "banana"; "2"] in
-  let should_be_true = ["TRUE"; "tRuE"; "1"; "true"] in
-  let should_be_false = ["FALSE"; "fAlSe"; "0"; "false"] in
+  let should_raise = [ "foo"; ""; "banana"; "2" ] in
+  let should_be_true = [ "TRUE"; "tRuE"; "1"; "true" ] in
+  let should_be_false = [ "FALSE"; "fAlSe"; "0"; "false" ] in
   let err k = failwith (Printf.sprintf "Failed to parse '%s' correctly" k) in
   let k = "test_key" in
-  let p v = [(k, v)] in
+  let p v = [ (k, v) ] in
   let val_fn p = Vm_platform.is_true ~key:k ~platformdata:p ~default:false in
   let valid_fn p = Vm_platform.is_valid ~key:k ~platformdata:p in
   (* Empty list should be valid *)
@@ -20,21 +22,21 @@ let test_enabled_in_xenguest () =
   List.iter
     (fun x ->
       let e = val_fn (p x) in
-      if not e then err x
-      )
+      if not e then err x )
     should_be_true ;
   List.iter
     (fun x ->
       let e = val_fn (p x) in
-      if e then err x
-      )
+      if e then err x )
     should_be_false
+
 
 let simulator_setup = ref false
 
 let setup_simulator () =
-  if not !simulator_setup then (
-    Xapi_globs.xenopsd_queues := ["simulator"] ;
+  if not !simulator_setup
+  then (
+    Xapi_globs.xenopsd_queues := [ "simulator" ] ;
     Xapi_globs.default_xenopsd := "simulator" ;
     Xenops_utils.set_fs_backend
       (Some (module Xenops_utils.MemFS : Xenops_utils.FS)) ;
@@ -43,14 +45,14 @@ let setup_simulator () =
       (Some (module Xenops_server_simulator : Xenops_server_plugin.S)) ;
     Xenops_server.WorkerPool.start 16 ;
     Xcp_client.use_switch := true ;
-    Xapi_xenops_queue.queue_override := [("simulator", Xenopsd.rpc_fn)] ;
-    simulator_setup := true
-  ) else
-    ()
+    Xapi_xenops_queue.queue_override := [ ("simulator", Xenopsd.rpc_fn) ] ;
+    simulator_setup := true )
+  else ()
+
 
 let unsetup_simulator () =
-  if !simulator_setup then
-    Xcp_client.use_switch := false
+  if !simulator_setup then Xcp_client.use_switch := false
+
 
 let test_xapi_restart_inner () =
   let __context = make_test_database () in
@@ -70,8 +72,7 @@ let test_xapi_restart_inner () =
             ->
               ()
           | e ->
-              raise e
-          )
+              raise e )
         ()
     in
     (cancel, th)
@@ -88,21 +89,25 @@ let test_xapi_restart_inner () =
     make_host ~__context ~name_label:"host2" ~hostname:"localhost2" ()
   in
   let flags =
-    [
-      (Xapi_globs.cpu_info_vendor_key, "AuthenticAMD")
+    [ (Xapi_globs.cpu_info_vendor_key, "AuthenticAMD")
     ; (Xapi_globs.cpu_info_features_key, "deadbeef-deadbeef")
     ]
   in
   let add_flags vm =
     Db.VM.set_last_boot_CPU_flags ~__context ~self:vm ~value:flags ;
-    Db.VM.add_to_other_config ~__context ~self:vm ~key:"xenops"
+    Db.VM.add_to_other_config
+      ~__context
+      ~self:vm
+      ~key:"xenops"
       ~value:"simulator"
   in
-  List.iter add_flags [vm1; vm2; vm3; vm4; vm5; vm6; vm7] ;
+  List.iter add_flags [ vm1; vm2; vm3; vm4; vm5; vm6; vm7 ] ;
   try
     (* Domain zero is running but not in xenopsd *)
     Db.VM.set_is_control_domain ~__context ~self:vm0 ~value:true ;
-    Db.VM.set_resident_on ~__context ~self:vm0
+    Db.VM.set_resident_on
+      ~__context
+      ~self:vm0
       ~value:(Helpers.get_localhost ~__context) ;
     Db.VM.set_power_state ~__context ~self:vm0 ~value:`Running ;
     (* Start all 7 VMs *)
@@ -117,7 +122,8 @@ let test_xapi_restart_inner () =
     Db.VM.set_is_control_domain ~__context ~self:vm6 ~value:true ;
     (* Kill the event thread *)
     cancel := true ;
-    Client.UPDATES.inject_barrier "dbg"
+    Client.UPDATES.inject_barrier
+      "dbg"
       (Xapi_xenops.id_of_vm ~__context ~self:vm1)
       0 ;
     let before = Unix.gettimeofday () in
@@ -135,40 +141,62 @@ let test_xapi_restart_inner () =
           Client.VM.stat "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm)
         in
         stat.Vm.power_state = Running
-      with Xenopsd_error (Does_not_exist _) -> false
+      with
+      | Xenopsd_error (Does_not_exist _) ->
+          false
     in
     let assert_correct_state (vm, running) =
       let name = Db.VM.get_name_label ~__context ~self:vm in
       Alcotest.(check bool)
         (Printf.sprintf "State is correct in xapi (%s)" name)
-        running (is_resident vm) ;
+        running
+        (is_resident vm) ;
       Alcotest.(check bool)
         (Printf.sprintf "State is correct in xenopsd (%s)" name)
-        running (is_running_in_xenopsd vm)
+        running
+        (is_running_in_xenopsd vm)
     in
     List.iter
       (fun vm -> assert_correct_state (vm, true))
-      [vm1; vm2; vm3; vm4; vm5; vm6; vm7] ;
+      [ vm1; vm2; vm3; vm4; vm5; vm6; vm7 ] ;
     (* Simulate various out-of-band VM operations by resetting the xapi state to halted, and stop one that was running *)
     Db.VM.set_resident_on ~__context ~self:vm1 ~value:Ref.null ;
-    Db.VM.set_name_label ~__context ~self:vm1
+    Db.VM.set_name_label
+      ~__context
+      ~self:vm1
       ~value:"vm1: resident-on set to null" ;
     Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm2 ~value:`Halted ;
-    Db.VM.set_name_label ~__context ~self:vm2
+    Db.VM.set_name_label
+      ~__context
+      ~self:vm2
       ~value:"vm2: force_state_reset to halted" ;
     ignore
-      (Client.VM.shutdown "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm3) None) ;
-    Db.VM.set_name_label ~__context ~self:vm3
+      (Client.VM.shutdown
+         "dbg"
+         (Xapi_xenops.id_of_vm ~__context ~self:vm3)
+         None ) ;
+    Db.VM.set_name_label
+      ~__context
+      ~self:vm3
       ~value:"vm3: shutdown in xenopsd while xapi was off" ;
     Db.VM.set_resident_on ~__context ~self:vm4 ~value:host2 ;
-    Db.VM.set_name_label ~__context ~self:vm4
+    Db.VM.set_name_label
+      ~__context
+      ~self:vm4
       ~value:"vm4: xapi thinks it's running somewhere else" ;
     Db.VM.destroy ~__context ~self:vm5 ;
-    Db.VM.set_name_label ~__context ~self:vm6
+    Db.VM.set_name_label
+      ~__context
+      ~self:vm6
       ~value:"vm6: is_control_domain=true" ;
     ignore
-      (Client.VM.shutdown "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm7) None) ;
-    Db.VM.set_name_label ~__context ~self:vm7
+      (Client.VM.shutdown
+         "dbg"
+         (Xapi_xenops.id_of_vm ~__context ~self:vm7)
+         None ) ;
+    Db.VM.set_name_label
+      ~__context
+      ~self:vm7
       ~value:
         "vm7: shutdown in xenopsd while xapi was off (and is_control_domain)" ;
     (* Now run the on_xapi_restart logic *)
@@ -184,8 +212,7 @@ let test_xapi_restart_inner () =
               ->
                 ()
             | e ->
-                raise e
-            )
+                raise e )
           ()
       in
       (cancel, th)
@@ -193,7 +220,8 @@ let test_xapi_restart_inner () =
     debug "Resync_all_vms" ;
     Xapi_xenops.resync_all_vms ~__context ;
     cancel := true ;
-    Client.UPDATES.inject_barrier "dbg"
+    Client.UPDATES.inject_barrier
+      "dbg"
       (Xapi_xenops.id_of_vm ~__context ~self:vm1)
       0 ;
     let before = Unix.gettimeofday () in
@@ -201,19 +229,23 @@ let test_xapi_restart_inner () =
     let after = Unix.gettimeofday () in
     debug "Elapsed time for thread death: %f\n%!" (after -. before) ;
     (* And check that the right thing has happened *)
-    List.iter assert_correct_state
-      [
-        (vm1, true)
+    List.iter
+      assert_correct_state
+      [ (vm1, true)
       ; (vm2, true)
       ; (vm3, false)
       ; (vm4, false)
       ; (vm6, true)
       ; (vm7, false)
       ]
-  with e ->
-    Printf.printf "Caught: %s\n" (Printexc.to_string e) ;
-    Printf.printf "Backtrace: %s\n%!" (Backtrace.to_string_hum (Backtrace.get e)) ;
-    raise e
+  with
+  | e ->
+      Printf.printf "Caught: %s\n" (Printexc.to_string e) ;
+      Printf.printf
+        "Backtrace: %s\n%!"
+        (Backtrace.to_string_hum (Backtrace.get e)) ;
+      raise e
+
 
 let test_xapi_restart () =
   Xapi_stdext_pervasives.Pervasiveext.finally
@@ -222,9 +254,9 @@ let test_xapi_restart () =
       | `Ok x ->
           x
       | `Error (e, _b) ->
-          raise e
-      )
+          raise e )
     unsetup_simulator
+
 
 let test_nested_virt_licensing () =
   let __context = make_test_database () in
@@ -236,55 +268,56 @@ let test_nested_virt_licensing () =
      false -> definitely should be unrestricted
   *)
   let nested_virt_checks =
-    [
-      ([], false)
-    ; ([("foo", "bar"); ("baz", "moo"); ("nested-virt", "true")], true)
-    ; ([("nested-virt", "TRUE")], true)
-    ; ([("nested-virt", "false")], false)
-    ; ([("nested-virt", "1")], true)
-    ; ([("nested-virt", "0")], false)
-    ; ([("nested-virt", "true")], true)
+    [ ([], false)
+    ; ([ ("foo", "bar"); ("baz", "moo"); ("nested-virt", "true") ], true)
+    ; ([ ("nested-virt", "TRUE") ], true)
+    ; ([ ("nested-virt", "false") ], false)
+    ; ([ ("nested-virt", "1") ], true)
+    ; ([ ("nested-virt", "0") ], false)
+    ; ([ ("nested-virt", "true") ], true)
     ]
   in
   let string_of_platform p =
-    Printf.sprintf "[%s]"
-      (String.concat ";"
-         (List.map (fun (k, v) -> Printf.sprintf "'%s','%s'" k v) p)
-      )
+    Printf.sprintf
+      "[%s]"
+      (String.concat
+         ";"
+         (List.map (fun (k, v) -> Printf.sprintf "'%s','%s'" k v) p) )
   in
   let pool = Db.Pool.get_all ~__context |> List.hd in
   let check_one (platform, should_raise) =
     ( try
-        Db.Pool.set_restrictions ~__context ~self:pool
-          ~value:[("restrict_nested_virt", "true")] ;
+        Db.Pool.set_restrictions
+          ~__context
+          ~self:pool
+          ~value:[ ("restrict_nested_virt", "true") ] ;
         Vm_platform.check_restricted_flags ~__context platform ;
-        if should_raise then
+        if should_raise
+        then
           failwith
             (Printf.sprintf
                "Failed to raise an exception for platform map: '[%s]'"
-               (string_of_platform platform)
-            )
+               (string_of_platform platform) )
       with
-      | Api_errors.Server_error (e, l)
-      when e = Api_errors.license_restriction
-      ->
-        if not should_raise then
+    | Api_errors.Server_error (e, l) when e = Api_errors.license_restriction ->
+        if not should_raise
+        then
           failwith
             (Printf.sprintf
                "Raise an exception unexpectedly for platform map: '[%s]'"
-               (string_of_platform platform)
-            )
-    ) ;
+               (string_of_platform platform) ) ) ;
     (* If the feature is unrestricted, nothing should raise an exception *)
-    Db.Pool.set_restrictions ~__context ~self:pool
-      ~value:[("restrict_nested_virt", "false")] ;
+    Db.Pool.set_restrictions
+      ~__context
+      ~self:pool
+      ~value:[ ("restrict_nested_virt", "false") ] ;
     Vm_platform.check_restricted_flags ~__context platform
   in
   List.iter check_one nested_virt_checks
 
+
 let test =
-  [
-    ("test_nested_virt_licensing", `Quick, test_nested_virt_licensing)
+  [ ("test_nested_virt_licensing", `Quick, test_nested_virt_licensing)
   ; ("test_enabled_in_xenguest", `Quick, test_enabled_in_xenguest)
   ; ("test_xapi_restart", `Quick, test_xapi_restart)
   ]

@@ -18,7 +18,9 @@ let new_pool_secret = "new_pool_secret"
 
 (* we could also test with a fistpoint 'During' the computation,
    but this adds even more complexity to the test *)
-type fistpoint_time = Before | After
+type fistpoint_time =
+  | Before
+  | After
 
 let string_of_fistpoint_time = function Before -> "Before" | After -> "After"
 
@@ -35,44 +37,52 @@ let string_of_fistpoint_action = function
   | Cleanup ->
       "Cleanup"
 
+
 (* we place fistpoints either just before
    executing some action or just after *)
 type fistpoint = fistpoint_time * fistpoint_action
 
 let string_of_fistpoint (t, p) =
-  Printf.sprintf "%s:%s"
+  Printf.sprintf
+    "%s:%s"
     (string_of_fistpoint_time t)
     (string_of_fistpoint_action p)
+
 
 exception Fistpoint of fistpoint
 
 let () =
   Printexc.register_printer (function
-    | Fistpoint fp ->
-        Some (string_of_fistpoint fp)
-    | _ ->
-        None
-    )
+      | Fistpoint fp ->
+          Some (string_of_fistpoint fp)
+      | _ ->
+          None )
+
 
 type host_id = int
 
-type member = {
-    id: host_id
-  ; mutable current_pool_secret: string
-  ; mutable staged_pool_secret: string option
-  ; mutable fistpoint: fistpoint option
-}
+type member =
+  { id : host_id
+  ; mutable current_pool_secret : string
+  ; mutable staged_pool_secret : string option
+  ; mutable fistpoint : fistpoint option
+  }
 
-type psr_state = {
-    mutable checkpoint: string option
-  ; mutable pool_secret_backups: (string * string) option
-}
+type psr_state =
+  { mutable checkpoint : string option
+  ; mutable pool_secret_backups : (string * string) option
+  }
 
 (* in the real implementation, the checkpoint and pool secret backups
    are stored on the master, so we model that here *)
-type master = {member: member; psr_state: psr_state}
+type master =
+  { member : member
+  ; psr_state : psr_state
+  }
 
-type host_t = Master of master | Member of member
+type host_t =
+  | Master of master
+  | Member of member
 
 let map_r f = Rresult.R.reword_error (fun (failure, e) -> (failure, f e))
 
@@ -84,27 +94,29 @@ let string_of_failure = function
   | Failed_during_cleanup ->
       "Failed_during_cleanup"
 
+
 let string_of_r = function
   | Ok () ->
       "Success"
   | Error (failure, host_id) ->
       Printf.sprintf "%s: %d" (string_of_failure failure) host_id
 
+
 let mk_hosts num =
   if num < 1 then failwith (Printf.sprintf "expected num > 0, but num=%d" num) ;
   let member =
-    {
-      id= 0
-    ; current_pool_secret= default_pool_secret
-    ; staged_pool_secret= None
-    ; fistpoint= None
+    { id = 0
+    ; current_pool_secret = default_pool_secret
+    ; staged_pool_secret = None
+    ; fistpoint = None
     }
   in
   let master =
-    {member; psr_state= {checkpoint= None; pool_secret_backups= None}}
+    { member; psr_state = { checkpoint = None; pool_secret_backups = None } }
   in
-  let members = List.init (num - 1) (fun id -> {member with id= id + 1}) in
+  let members = List.init (num - 1) (fun id -> { member with id = id + 1 }) in
   (master, members)
+
 
 module Impl =
 functor
@@ -130,6 +142,7 @@ functor
     let backup pool_secrets =
       master.psr_state.pool_secret_backups <- Some pool_secrets
 
+
     let retrieve () = Option.get master.psr_state.pool_secret_backups
 
     let iter_host f = function Member m -> f m | Master m -> f m.member
@@ -141,10 +154,11 @@ functor
           | Some ((Before, Accept_new_pool_secret) as fp) ->
               raise (Fistpoint fp)
           | Some ((After, Accept_new_pool_secret) as fp) ->
-              f () ; raise (Fistpoint fp)
+              f () ;
+              raise (Fistpoint fp)
           | _ ->
-              f ()
-      )
+              f () )
+
 
     let tell_send_new_pool_secret _ =
       iter_host (fun h ->
@@ -153,10 +167,11 @@ functor
           | Some ((Before, Send_new_pool_secret) as fp) ->
               raise (Fistpoint fp)
           | Some ((After, Send_new_pool_secret) as fp) ->
-              f () ; raise (Fistpoint fp)
+              f () ;
+              raise (Fistpoint fp)
           | _ ->
-              f ()
-      )
+              f () )
+
 
     let tell_cleanup_old_pool_secret _ =
       iter_host (fun h ->
@@ -165,10 +180,11 @@ functor
           | Some ((Before, Cleanup) as fp) ->
               raise (Fistpoint fp)
           | Some ((After, Cleanup) as fp) ->
-              f () ; raise (Fistpoint fp)
+              f () ;
+              raise (Fistpoint fp)
           | _ ->
-              f ()
-      )
+              f () )
+
 
     let cleanup_master _ =
       let f () =
@@ -180,7 +196,8 @@ functor
       | Some ((Before, Cleanup) as fp) ->
           raise (Fistpoint fp)
       | Some ((After, Cleanup) as fp) ->
-          f () ; raise (Fistpoint fp)
+          f () ;
+          raise (Fistpoint fp)
       | _ ->
           f ()
   end
@@ -196,20 +213,25 @@ end
 (* the test implementation has been defined above,
    and we use this function to access it *)
 let mk_psr master members =
-  let module PSR = Xapi_psr.Make (Impl (struct
-    let master = master
+  let module PSR =
+    Xapi_psr.Make (Impl (struct
+      let master = master
 
-    let members = members
-  end)) in
+      let members = members
+    end))
+  in
   let module PSR = struct
     include PSR
 
     let start pool_secrets ~master ~members =
-      start pool_secrets ~master:(Master master)
+      start
+        pool_secrets
+        ~master:(Master master)
         ~members:(List.map (fun m -> Member m) members)
       |> map_r (function Member m -> m.id | Master m -> m.member.id)
   end in
   (module PSR : PSR)
+
 
 let r' = Alcotest.testable (Fmt.of_to_string string_of_r) ( = )
 
@@ -219,28 +241,31 @@ let check_psr_succeeded r exp_pool_secret master members =
   List.iter
     (fun h ->
       Alcotest.(
-        check string "new pool secret should be correct" exp_pool_secret
-          h.current_pool_secret
-      )
-      )
+        check
+          string
+          "new pool secret should be correct"
+          exp_pool_secret
+          h.current_pool_secret) )
     hosts ;
   List.iter
     (fun h ->
       Alcotest.(
-        check (option string) "staged_pool_secret is null" None
-          h.staged_pool_secret
-      )
-      )
+        check
+          (option string)
+          "staged_pool_secret is null"
+          None
+          h.staged_pool_secret) )
     hosts ;
   let psr_state = master.psr_state in
   Alcotest.(
-    check (option string) "checkpoint was cleaned up" None psr_state.checkpoint
-  ) ;
+    check (option string) "checkpoint was cleaned up" None psr_state.checkpoint) ;
   Alcotest.(
     check
       (option (pair string string))
-      "pool secret backups were cleaned up" None psr_state.pool_secret_backups
-  )
+      "pool secret backups were cleaned up"
+      None
+      psr_state.pool_secret_backups)
+
 
 (* we test almost all combinations of hosts and fistpoints. the only
    case we don't test is one case of master cleanup failure,
@@ -254,10 +279,8 @@ let almost_all_possible_fists ~num_hosts =
           (fun (action, mk_expected_err) ->
             List.map
               (fun host_id -> ((time, action), host_id, mk_expected_err host_id))
-              host_ids
-            )
-          fp_actions
-        )
+              host_ids )
+          fp_actions )
       fp_times
     |> List.concat
     |> List.concat
@@ -265,38 +288,36 @@ let almost_all_possible_fists ~num_hosts =
   let range = List.init num_hosts Fun.id in
   let open Xapi_psr in
   let master_fistpoints =
-    multiply [Before; After]
-      [
-        ( Accept_new_pool_secret
-        , fun id -> Error (Failed_during_accept_new_pool_secret, id)
-        )
+    multiply
+      [ Before; After ]
+      [ ( Accept_new_pool_secret
+        , fun id -> Error (Failed_during_accept_new_pool_secret, id) )
       ; ( Send_new_pool_secret
-        , fun id -> Error (Failed_during_send_new_pool_secret, id)
-        )
+        , fun id -> Error (Failed_during_send_new_pool_secret, id) )
       ]
-      [0]
+      [ 0 ]
     |> List.cons ((Before, Cleanup), 0, Error (Failed_during_cleanup, 0))
   in
   let member_fistpoints =
-    multiply [Before; After]
-      [
-        ( Accept_new_pool_secret
-        , fun id -> Error (Failed_during_accept_new_pool_secret, id)
-        )
+    multiply
+      [ Before; After ]
+      [ ( Accept_new_pool_secret
+        , fun id -> Error (Failed_during_accept_new_pool_secret, id) )
       ; ( Send_new_pool_secret
-        , fun id -> Error (Failed_during_send_new_pool_secret, id)
-        )
+        , fun id -> Error (Failed_during_send_new_pool_secret, id) )
       ; (Cleanup, fun id -> Error (Failed_during_cleanup, id))
       ]
       (List.tl range)
   in
   List.append member_fistpoints master_fistpoints
 
+
 let test_no_fistpoint () =
   let master, members = mk_hosts 6 in
   let module PSR = (val mk_psr master members) in
   let r = PSR.start (default_pool_secret, new_pool_secret) ~master ~members in
   check_psr_succeeded r new_pool_secret master members
+
 
 (* try PSR with a fistpoint primed, check that it
    fails; then retry without any fistpoints and
@@ -309,7 +330,10 @@ let test_fail_once () =
   almost_all_possible_fists ~num_hosts
   |> List.iter (fun (fistpoint, host_id, exp_err) ->
          let new_pool_secret =
-           Printf.sprintf "%s-%d-%s" new_pool_secret host_id
+           Printf.sprintf
+             "%s-%d-%s"
+             new_pool_secret
+             host_id
              (string_of_fistpoint fistpoint)
          in
          let faulty_host = List.nth hosts host_id in
@@ -317,13 +341,15 @@ let test_fail_once () =
          let r =
            PSR.start (default_pool_secret, new_pool_secret) ~master ~members
          in
-         Alcotest.check r'
+         Alcotest.check
+           r'
            (Printf.sprintf "PSR should fail with %s" (string_of_r exp_err))
-           exp_err r ;
+           exp_err
+           r ;
          faulty_host.fistpoint <- None ;
          let r = PSR.start (default_pool_secret, "not_used") ~master ~members in
-         check_psr_succeeded r new_pool_secret master members
-     )
+         check_psr_succeeded r new_pool_secret master members )
+
 
 let test_master_fails_during_cleanup () =
   let open Xapi_psr in
@@ -334,25 +360,24 @@ let test_master_fails_during_cleanup () =
   let exp_err = Error (Failed_during_cleanup, 0) in
   master.member.fistpoint <- Some fistpoint ;
   let r = PSR.start (default_pool_secret, new_pool_secret) ~master ~members in
-  Alcotest.check r'
+  Alcotest.check
+    r'
     (Printf.sprintf "PSR should fail with %s" (string_of_r exp_err))
-    exp_err r ;
+    exp_err
+    r ;
   master.member.fistpoint <- None ;
   let r =
     PSR.start (default_pool_secret, "this_ps_gets_used") ~master ~members
   in
   check_psr_succeeded r "this_ps_gets_used" master members
 
+
 let tests =
-  [
-    ( "PSR"
-    , [
-        ("test_no_fistpoint", `Quick, test_no_fistpoint)
+  [ ( "PSR"
+    , [ ("test_no_fistpoint", `Quick, test_no_fistpoint)
       ; ("test_fail_once", `Quick, test_fail_once)
       ; ( "test_master_fails_during_cleanup"
         , `Quick
-        , test_master_fails_during_cleanup
-        )
-      ]
-    )
+        , test_master_fails_during_cleanup )
+      ] )
   ]

@@ -13,8 +13,10 @@ let current_schema_hash : string =
   in
   Datamodel.all_system |> List.map hash_of_obj |> String.concat ":" |> hash
 
+
 let () =
-  if last_known_schema_hash <> current_schema_hash then (
+  if last_known_schema_hash <> current_schema_hash
+  then (
     Printf.eprintf
       {|
 
@@ -23,5 +25,4 @@ datamodel schema versions if necessary, and update 'last_known_schema_hash'.
 
 |}
       current_schema_hash ;
-    exit 1
-  )
+    exit 1 )

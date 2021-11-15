@@ -39,15 +39,16 @@ let rec formatted_wrap formatter s =
   let prespace, postspace = split_in_2 " " s in
   let preeol, posteol = split_in_2 "\n" s in
 
-  if String.length prespace < String.length preeol then (
+  if String.length prespace < String.length preeol
+  then (
     Format.fprintf formatter "%s@ " prespace ;
-    if String.length postspace > 0 then
-      formatted_wrap formatter postspace
-  ) else if String.length posteol > 0 then (
+    if String.length postspace > 0 then formatted_wrap formatter postspace )
+  else if String.length posteol > 0
+  then (
     Format.fprintf formatter "%s@\n" preeol ;
-    formatted_wrap formatter posteol
-  ) else
-    Format.fprintf formatter "%s@ " preeol
+    formatted_wrap formatter posteol )
+  else Format.fprintf formatter "%s@ " preeol
+
 
 let comment doc ?(indent = 0) s =
   let indent_str = String.make indent ' ' in
@@ -60,13 +61,12 @@ let comment doc ?(indent = 0) s =
   in
 
   let funcs =
-    {
-      out_string= out
-    ; out_flush= flush
-    ; out_newline=
+    { out_string = out
+    ; out_flush = flush
+    ; out_newline =
         (fun () -> out (Printf.sprintf "\n%s * " indent_str) 0 (indent + 4))
-    ; out_spaces= spaces
-    ; out_indent= spaces
+    ; out_spaces = spaces
+    ; out_indent = spaces
     }
   in
   Format.pp_set_formatter_out_functions formatter funcs ;
@@ -75,8 +75,7 @@ let comment doc ?(indent = 0) s =
   Format.pp_set_margin formatter 76 ;
   Format.fprintf formatter "%s" indent_str ;
   Format.fprintf formatter "/*" ;
-  if doc then
-    Format.fprintf formatter "*" ;
+  if doc then Format.fprintf formatter "*" ;
   Format.fprintf formatter "\n" ;
   Format.fprintf formatter "%s" indent_str ;
   Format.fprintf formatter " * " ;
@@ -86,8 +85,9 @@ let comment doc ?(indent = 0) s =
 
   Format.fprintf formatter "%!" ;
 
-  Format.pp_set_formatter_out_functions formatter
-    {funcs with out_newline= newline} ;
+  Format.pp_set_formatter_out_functions
+    formatter
+    { funcs with out_newline = newline } ;
 
   let result = Buffer.contents buf in
   let n = String.length result in

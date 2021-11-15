@@ -1,28 +1,31 @@
 open Topology
 
-module D = Debug.Make (struct let name = "test_topology" end)
+module D = Debug.Make (struct
+  let name = "test_topology"
+end)
 
 let make_numa ~numa ~cores =
   let distances =
-    Array.init numa (fun i -> Array.init numa (fun j -> 10 + (11 * abs (j - i))))
+    Array.init numa (fun i ->
+        Array.init numa (fun j -> 10 + (11 * abs (j - i))) )
   in
   let cores_per_numa = cores / numa in
   let cpu_to_node = Array.init cores (fun core -> core / cores_per_numa) in
   (cores, NUMA.make ~distances ~cpu_to_node)
 
+
 let make_numa_amd ~cores_per_numa =
   (* e.g. AMD Opteron 6272 *)
   let numa = 8 in
   let distances =
-    [|
-       [|10; 16; 16; 22; 16; 22; 16; 22|]
-     ; [|16; 10; 22; 16; 16; 22; 22; 16|]
-     ; [|16; 22; 10; 16; 16; 16; 16; 16|]
-     ; [|22; 16; 16; 10; 16; 16; 22; 22|]
-     ; [|16; 16; 16; 16; 10; 16; 16; 22|]
-     ; [|22; 22; 16; 16; 16; 10; 22; 16|]
-     ; [|16; 22; 16; 22; 16; 22; 10; 16|]
-     ; [|22; 16; 16; 22; 22; 16; 16; 10|]
+    [| [| 10; 16; 16; 22; 16; 22; 16; 22 |]
+     ; [| 16; 10; 22; 16; 16; 22; 22; 16 |]
+     ; [| 16; 22; 10; 16; 16; 16; 16; 16 |]
+     ; [| 22; 16; 16; 10; 16; 16; 22; 22 |]
+     ; [| 16; 16; 16; 16; 10; 16; 16; 22 |]
+     ; [| 22; 22; 16; 16; 16; 10; 22; 16 |]
+     ; [| 16; 22; 16; 22; 16; 22; 10; 16 |]
+     ; [| 22; 16; 16; 22; 22; 16; 16; 10 |]
     |]
   in
   let cpu_to_node =
@@ -30,32 +33,36 @@ let make_numa_amd ~cores_per_numa =
   in
   (cores_per_numa * numa, NUMA.make ~distances ~cpu_to_node)
 
-type t = {worst: int; average: float; nodes: NUMA.node list; best: int}
+
+type t =
+  { worst : int
+  ; average : float
+  ; nodes : NUMA.node list
+  ; best : int
+  }
 
 let pp =
   Fmt.(
     Dump.record
-      [
-        Dump.field "worst" (fun t -> t.worst) int
+      [ Dump.field "worst" (fun t -> t.worst) int
       ; Dump.field "average" (fun t -> t.average) float
       ; Dump.field "nodes" (fun t -> t.nodes) (Dump.list NUMA.pp_dump_node)
       ; Dump.field "best" (fun t -> t.best) int
-      ]
-  )
+      ])
+
 
 let sum_costs l =
   D.debug "====" ;
   List.fold_left
     (fun accum cost ->
-      {
-        worst= max accum.worst cost.worst
-      ; average= accum.average +. cost.average
-      ; nodes= cost.nodes @ accum.nodes
-      ; best= min accum.best cost.best
-      }
-      )
-    {worst= min_int; average= 0.; nodes= []; best= max_int}
+      { worst = max accum.worst cost.worst
+      ; average = accum.average +. cost.average
+      ; nodes = cost.nodes @ accum.nodes
+      ; best = min accum.best cost.best
+      } )
+    { worst = min_int; average = 0.; nodes = []; best = max_int }
     l
+
 
 let vm_access_costs host all_vms (vcpus, nodes, cpuset) =
   let nodes = List.of_seq nodes in
@@ -73,8 +80,7 @@ let vm_access_costs host all_vms (vcpus, nodes, cpuset) =
            let worst = List.fold_left max 0 distances in
            let best = List.fold_left min max_int distances in
            let average = float (List.fold_left ( + ) 0 distances) /. float n in
-           {worst; best; nodes= []; average}
-       )
+           { worst; best; nodes = []; average } )
     |> sum_costs
   in
   D.debug "Costs: %s" (Fmt.to_to_string pp costs) ;
@@ -82,31 +88,37 @@ let vm_access_costs host all_vms (vcpus, nodes, cpuset) =
   let nodes =
     all_vms |> List.map (fun ((_, nodes), _) -> nodes) |> List.flatten
   in
-  {costs with average= costs.average /. cpus; nodes}
+  { costs with average = costs.average /. cpus; nodes }
+
 
 let cost_not_worse ~default c =
   let worst = max default.worst c.worst in
   let best = min default.best c.best in
   let average = min default.average c.average in
-  D.debug "Default access times: %s; New plan: %s"
+  D.debug
+    "Default access times: %s; New plan: %s"
     (Fmt.to_to_string pp default)
     (Fmt.to_to_string pp c) ;
   Alcotest.(
-    check int "The worst-case access time must not be changed from default"
-      default.worst worst
-  ) ;
+    check
+      int
+      "The worst-case access time must not be changed from default"
+      default.worst
+      worst) ;
   Alcotest.(check int "Best case access time must not change" best c.best) ;
   Alcotest.(
-    check (float 1e-3)
-      "Average access times could improve, but must not be worse" average
-      c.average
-  ) ;
-  if c.best < default.best then
-    D.debug "The new plan has improved the best-case access time!" ;
-  if c.worst < default.worst then
-    D.debug "The new plan has improved the worst-case access time!" ;
-  if c.average < default.average then
-    D.debug "The new plan has improved the average access time!"
+    check
+      (float 1e-3)
+      "Average access times could improve, but must not be worse"
+      average
+      c.average) ;
+  if c.best < default.best
+  then D.debug "The new plan has improved the best-case access time!" ;
+  if c.worst < default.worst
+  then D.debug "The new plan has improved the worst-case access time!" ;
+  if c.average < default.average
+  then D.debug "The new plan has improved the average access time!"
+
 
 let balancing nodes ~vms =
   (* We expect to use many NUMA nodes when we have more VMs, more elaborate
@@ -116,6 +128,7 @@ let balancing nodes ~vms =
   let nodes_used = List.sort_uniq compare nodes |> List.length in
   min vms nodes_used |> float
 
+
 let check_aggregate_costs_not_worse (default, next, plans) ~cores ~vms =
   let default = sum_costs default in
   let next = sum_costs next in
@@ -124,8 +137,7 @@ let check_aggregate_costs_not_worse (default, next, plans) ~cores ~vms =
   let balancing_next = balancing next.nodes ~vms in
   let balancing_best = max balancing_next balancing_default in
   Alcotest.(
-    check (float 1e-3) "Balancing could improve" balancing_best balancing_next
-  ) ;
+    check (float 1e-3) "Balancing could improve" balancing_best balancing_next) ;
   if balancing_next > balancing_default then D.debug "Balancing has improved!" ;
   let used_cpus =
     plans
@@ -134,6 +146,7 @@ let check_aggregate_costs_not_worse (default, next, plans) ~cores ~vms =
     |> CPUSet.cardinal
   in
   Alcotest.(check int "All vCPUs are used " cores used_cpus)
+
 
 let default_mem = Int64.shift_left 1L 30
 
@@ -161,7 +174,9 @@ let test_allocate ?(mem = default_mem) (expected_cores, h) ~vms () =
          | None ->
              Alcotest.fail "No NUMA plan"
          | Some plan ->
-             D.debug "NUMA allocation succeeded for VM %d: %s" i
+             D.debug
+               "NUMA allocation succeeded for VM %d: %s"
+               i
                (Fmt.to_to_string CPUSet.pp_dump plan) ;
              let usednodes =
                plan
@@ -179,60 +194,46 @@ let test_allocate ?(mem = default_mem) (expected_cores, h) ~vms () =
              cost_not_worse ~default:costs_default costs_numa_aware ;
              ( costs_default :: costs_old
              , costs_numa_aware :: costs_new
-             , ((vm_cores, List.of_seq usednodes), plan) :: plans
-             )
-         )
+             , ((vm_cores, List.of_seq usednodes), plan) :: plans ) )
        ([], [], [])
   |> check_aggregate_costs_not_worse ~cores ~vms
+
 
 let () = Printexc.record_backtrace true
 
 let suite =
   ( "topology test"
-  , [
-      ( "Allocation of 1 VM on 1 node"
+  , [ ( "Allocation of 1 VM on 1 node"
       , `Quick
-      , test_allocate ~vms:1 @@ make_numa ~numa:1 ~cores:2
-      )
+      , test_allocate ~vms:1 @@ make_numa ~numa:1 ~cores:2 )
     ; ( "Allocation of 10 VMs on 1 node"
       , `Quick
-      , test_allocate ~vms:10 @@ make_numa ~numa:1 ~cores:8
-      )
+      , test_allocate ~vms:10 @@ make_numa ~numa:1 ~cores:8 )
     ; ( "Allocation of 1 VM on 2 nodes"
       , `Quick
-      , test_allocate ~vms:1 @@ make_numa ~numa:2 ~cores:4
-      )
+      , test_allocate ~vms:1 @@ make_numa ~numa:2 ~cores:4 )
     ; ( "Allocation of 10 VM on 2 nodes"
       , `Quick
-      , test_allocate ~vms:10 @@ make_numa ~numa:2 ~cores:4
-      )
+      , test_allocate ~vms:10 @@ make_numa ~numa:2 ~cores:4 )
     ; ( "Allocation of 1 VM on 4 nodes"
       , `Quick
-      , test_allocate ~vms:1 @@ make_numa ~numa:4 ~cores:16
-      )
+      , test_allocate ~vms:1 @@ make_numa ~numa:4 ~cores:16 )
     ; ( "Allocation of 10 VM on 4 nodes"
       , `Quick
-      , test_allocate ~vms:10 @@ make_numa ~numa:4 ~cores:16
-      )
+      , test_allocate ~vms:10 @@ make_numa ~numa:4 ~cores:16 )
     ; ( "Allocation of 40 VM on 16 nodes"
       , `Quick
-      , test_allocate ~vms:40 @@ make_numa ~numa:16 ~cores:256
-      )
+      , test_allocate ~vms:40 @@ make_numa ~numa:16 ~cores:256 )
     ; ( "Allocation of 40 VM on 32 nodes"
       , `Quick
-      , test_allocate ~vms:40 @@ make_numa ~numa:32 ~cores:256
-      )
+      , test_allocate ~vms:40 @@ make_numa ~numa:32 ~cores:256 )
     ; ( "Allocation of 40 VM on 64 nodes"
       , `Quick
-      , test_allocate ~vms:80 @@ make_numa ~numa:64 ~cores:256
-      )
+      , test_allocate ~vms:80 @@ make_numa ~numa:64 ~cores:256 )
     ; ( "Allocation of 10 VM on assymetric nodes"
       , `Quick
-      , test_allocate ~vms:10 (make_numa_amd ~cores_per_numa:4)
-      )
+      , test_allocate ~vms:10 (make_numa_amd ~cores_per_numa:4) )
     ; ( "Allocation of 10 VM on assymetric nodes"
       , `Quick
-      , test_allocate ~vms:6 ~mem:mem3 (make_numa_amd ~cores_per_numa:4)
-      )
-    ]
-  )
+      , test_allocate ~vms:6 ~mem:mem3 (make_numa_amd ~cores_per_numa:4) )
+    ] )

@@ -17,7 +17,9 @@
 
 open Printf
 
-module D = Debug.Make (struct let name = "dbsync" end)
+module D = Debug.Make (struct
+  let name = "dbsync"
+end)
 
 open D
 
@@ -28,7 +30,10 @@ let resync_dom0_config_files () =
   try
     debug "resyncing dom0 config files if necessary" ;
     Config_file_sync.fetch_config_files_on_slave_startup ()
-  with e -> warn "Did not sync dom0 config files: %s" (Printexc.to_string e)
+  with
+  | e ->
+      warn "Did not sync dom0 config files: %s" (Printexc.to_string e)
+
 
 (** During rolling upgrade the Rio+ hosts require host metrics to exist. The persistence changes
     in Miami resulted in these not being created by default. We recreate them here for compatability.
@@ -37,25 +42,33 @@ let create_host_metrics ~__context =
   List.iter
     (fun self ->
       let m = Db.Host.get_metrics ~__context ~self in
-      if not (Db.is_valid_ref __context m) then (
-        debug "Creating missing Host_metrics object for Host: %s"
+      if not (Db.is_valid_ref __context m)
+      then (
+        debug
+          "Creating missing Host_metrics object for Host: %s"
           (Db.Host.get_uuid ~__context ~self) ;
         let r = Ref.make () in
-        Db.Host_metrics.create ~__context ~ref:r
+        Db.Host_metrics.create
+          ~__context
+          ~ref:r
           ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
-          ~live:false ~memory_total:0L ~memory_free:0L
-          ~last_updated:Xapi_stdext_date.Date.never ~other_config:[] ;
-        Db.Host.set_metrics ~__context ~self ~value:r
-      )
-      )
+          ~live:false
+          ~memory_total:0L
+          ~memory_free:0L
+          ~last_updated:Xapi_stdext_date.Date.never
+          ~other_config:[] ;
+        Db.Host.set_metrics ~__context ~self ~value:r ) )
     (Db.Host.get_all ~__context)
 
+
 let update_env () =
-  Server_helpers.exec_with_new_task "dbsync (update_env)" ~task_in_database:true
+  Server_helpers.exec_with_new_task
+    "dbsync (update_env)"
+    ~task_in_database:true
     (fun __context ->
       let other_config =
         match Db.Pool.get_all ~__context with
-        | [pool] ->
+        | [ pool ] ->
             Db.Pool.get_other_config ~__context ~self:pool
         | [] ->
             (* Happens before the pool object has been created *)
@@ -72,12 +85,12 @@ let update_env () =
          	  been set on the pool record before we run it [otherwise we
          	  try and sync config files from the old master if someone's
          	  done a pool.designate_new_master!] *)
-      if not (Pool_role.is_master ()) then resync_dom0_config_files ()
-  )
+      if not (Pool_role.is_master ()) then resync_dom0_config_files () )
+
 
 let setup () =
-  try update_env ()
-  with exn ->
-    Backtrace.is_important exn ;
-    debug "dbsync caught an exception: %s" (ExnHelper.string_of_exn exn) ;
-    raise exn
+  try update_env () with
+  | exn ->
+      Backtrace.is_important exn ;
+      debug "dbsync caught an exception: %s" (ExnHelper.string_of_exn exn) ;
+      raise exn

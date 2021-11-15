@@ -7,23 +7,26 @@ let cycle user rounds n =
   assert (Unixpwd.getspw user = pw) ;
   Unixpwd.setpwd user pw ;
   assert (Unixpwd.getpwd user = pw) ;
-  if n mod (rounds / 80) = 0 then (
-    print_char '=' ; flush stdout
-  )
+  if n mod (rounds / 80) = 0
+  then (
+    print_char '=' ;
+    flush stdout )
+
 
 let main () =
   let rounds = 500_000 in
-  let user = match Sys.argv with [|_; name|] -> name | _ -> default_user in
+  let user = match Sys.argv with [| _; name |] -> name | _ -> default_user in
   for n = 1 to rounds do
     cycle user rounds n
   done ;
   print_char '\n'
 
+
 let () =
-  if !Sys.interactive then
-    ()
+  if !Sys.interactive
+  then ()
   else
-    try main ()
-    with e ->
-      Printf.eprintf "error: %s\n" (Printexc.to_string e) ;
-      exit 1
+    try main () with
+    | e ->
+        Printf.eprintf "error: %s\n" (Printexc.to_string e) ;
+        exit 1

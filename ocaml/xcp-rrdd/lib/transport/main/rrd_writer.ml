@@ -12,10 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type writer = Rrd_writer_functor.writer = {
-    write_payload: Rrd_protocol.payload -> unit
-  ; cleanup: unit -> unit
-}
+type writer = Rrd_writer_functor.writer =
+  { write_payload : Rrd_protocol.payload -> unit
+  ; cleanup : unit -> unit
+  }
 
 include Rrd_file_writer
 include Rrd_page_writer

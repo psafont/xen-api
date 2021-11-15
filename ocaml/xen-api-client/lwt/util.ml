@@ -11,9 +11,10 @@ let is_ssl ?(allow_file = true) uri =
       false
   | x ->
       failwith
-        (Printf.sprintf "Unsupported URI scheme: %s"
-           (match x with None -> "None" | Some x -> x)
-        )
+        (Printf.sprintf
+           "Unsupported URI scheme: %s"
+           (match x with None -> "None" | Some x -> x) )
+
 
 let sockaddr_of_uri uri =
   let use_ssl = is_ssl ~allow_file:false uri in
@@ -35,10 +36,8 @@ let sockaddr_of_uri uri =
   in
   Lwt.catch
     (fun () ->
-      Lwt_unix.getaddrinfo host (string_of_int port) [] >|= function
-      | [] ->
-          raise Not_found
-      | addrinfo :: _ ->
-          (addrinfo.Unix.ai_addr, use_ssl)
+      Lwt_unix.getaddrinfo host (string_of_int port) []
+      >|= function
+      | [] -> raise Not_found | addrinfo :: _ -> (addrinfo.Unix.ai_addr, use_ssl)
       )
     (fun _ -> fail (Failed_to_resolve_hostname host))

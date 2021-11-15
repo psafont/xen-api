@@ -21,14 +21,16 @@ let check_network_map =
     check
       (slist
          (pair (Alcotest_comparators.ref ()) (Alcotest_comparators.ref ()))
-         compare
-      )
-  )
+         compare ))
+
 
 let test_infer_vif_map_empty () =
   let __context = Test_common.make_test_database () in
-  check_network_map "Asserted by test_infer_vif_map_empty" []
+  check_network_map
+    "Asserted by test_infer_vif_map_empty"
+    []
     (Xapi_vm_migrate.infer_vif_map ~__context [] [])
+
 
 let test_infer_vif_map () =
   let __context = Test_common.make_test_database () in
@@ -43,19 +45,25 @@ let test_infer_vif_map () =
   check_network_map
     "test_infer_vif_map: check that a map with a single VIF -> network pair is \
      unchanged"
-    (Xapi_vm_migrate.infer_vif_map ~__context [vm_vif1] [(vm_vif1, network1)])
-    [(vm_vif1, network1)] ;
-  Alcotest.check_raises "test_infer_vif_map: check that a missing VIF is caught"
-    Api_errors.(Server_error (vif_not_in_map, [Ref.string_of vm_vif2]))
+    (Xapi_vm_migrate.infer_vif_map
+       ~__context
+       [ vm_vif1 ]
+       [ (vm_vif1, network1) ] )
+    [ (vm_vif1, network1) ] ;
+  Alcotest.check_raises
+    "test_infer_vif_map: check that a missing VIF is caught"
+    Api_errors.(Server_error (vif_not_in_map, [ Ref.string_of vm_vif2 ]))
     (fun () ->
       ignore
-        (Xapi_vm_migrate.infer_vif_map ~__context [vm_vif1; vm_vif2]
-           [(vm_vif1, network1)]
-        )
-      ) ;
+        (Xapi_vm_migrate.infer_vif_map
+           ~__context
+           [ vm_vif1; vm_vif2 ]
+           [ (vm_vif1, network1) ] ) ) ;
   let inferred_map =
-    Xapi_vm_migrate.infer_vif_map ~__context [vm_vif1; snap_vif1]
-      [(vm_vif1, network1)]
+    Xapi_vm_migrate.infer_vif_map
+      ~__context
+      [ vm_vif1; snap_vif1 ]
+      [ (vm_vif1, network1) ]
   in
   Alcotest.(check (Alcotest_comparators.ref ()))
     "test_infer_vif_map: check that a snapshot VIF is mapped implicitly"
@@ -63,17 +71,16 @@ let test_infer_vif_map () =
     network1 ;
   Alcotest.check_raises
     "Check that an orphaned, unmapped snapshot VIF is caught."
-    Api_errors.(Server_error (vif_not_in_map, [Ref.string_of snap_vif2]))
+    Api_errors.(Server_error (vif_not_in_map, [ Ref.string_of snap_vif2 ]))
     (fun () ->
       ignore
-        (Xapi_vm_migrate.infer_vif_map ~__context
-           [vm_vif1; snap_vif1; snap_vif2]
-           [(vm_vif1, network1)]
-        )
-      )
+        (Xapi_vm_migrate.infer_vif_map
+           ~__context
+           [ vm_vif1; snap_vif1; snap_vif2 ]
+           [ (vm_vif1, network1) ] ) )
+
 
 let test =
-  [
-    ("test_infer_vif_map_empty", `Quick, test_infer_vif_map_empty)
+  [ ("test_infer_vif_map_empty", `Quick, test_infer_vif_map_empty)
   ; ("test_infer_vif_map", `Quick, test_infer_vif_map)
   ]

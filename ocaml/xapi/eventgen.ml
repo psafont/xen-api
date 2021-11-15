@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "sql" end)
+module D = Debug.Make (struct
+  let name = "sql"
+end)
 
 open D
 
@@ -21,11 +23,12 @@ let get_record_table :
     (string, __context:Context.t -> self:string -> getrecord) Hashtbl.t =
   Hashtbl.create 20
 
+
 let find_get_record x ~__context ~self () : Rpc.t option =
-  if Hashtbl.mem get_record_table x then
-    Some (Hashtbl.find get_record_table x ~__context ~self ())
-  else
-    None
+  if Hashtbl.mem get_record_table x
+  then Some (Hashtbl.find get_record_table x ~__context ~self ())
+  else None
+
 
 (* If a record is created or destroyed, then
    for any (Ref _) field which is one end of a relationship, need to send
@@ -37,44 +40,46 @@ let compute_object_references_to_follow (obj_name : string) =
   let obj = List.find (fun obj -> obj.Datamodel_types.name = obj_name) objs in
   let relations = Dm_api.relations_of_api api in
   let symmetric =
-    List.concat (List.map (fun (a, b) -> [(a, b); (b, a)]) relations)
+    List.concat (List.map (fun (a, b) -> [ (a, b); (b, a) ]) relations)
   in
   let set = Xapi_stdext_std.Listext.List.setify symmetric in
   List.concat
     (List.map
        (function
-         | {
-             Datamodel_types.ty= Datamodel_types.Ref x
+         | { Datamodel_types.ty = Datamodel_types.Ref x
            ; Datamodel_types.field_name
            } ->
              let this_end = (obj.Datamodel_types.name, field_name) in
-             if List.mem_assoc this_end set then
+             if List.mem_assoc this_end set
+             then
                let other_end = List.assoc this_end set in
                let other_obj = fst other_end in
-               [(other_obj, field_name)]
-             else
-               []
+               [ (other_obj, field_name) ]
+             else []
          | _ ->
-             []
-         )
-       (Datamodel_utils.fields_of_obj obj)
-    )
+             [] )
+       (Datamodel_utils.fields_of_obj obj) )
+
 
 let obj_references_table : (string, (string * string) list) Hashtbl.t =
   Hashtbl.create 30
+
 
 (* populate obj references table *)
 let _ =
   List.iter
     (fun obj ->
       let obj_name = obj.Datamodel_types.name in
-      Hashtbl.replace obj_references_table obj_name
-        (compute_object_references_to_follow obj_name)
-      )
+      Hashtbl.replace
+        obj_references_table
+        obj_name
+        (compute_object_references_to_follow obj_name) )
     (Dm_api.objects_of_api Datamodel.all_api)
+
 
 let follow_references (obj_name : string) =
   Hashtbl.find obj_references_table obj_name
+
 
 (** Compute a set of modify events but skip any for objects which were missing
     (must have been dangling references) *)
@@ -82,14 +87,13 @@ let events_of_other_tbl_refs other_tbl_refs =
   List.concat
     (List.map
        (fun (tbl, fld, x) ->
-         try [(tbl, fld, x ())]
-         with _ ->
-           (* Probably means the reference was dangling *)
-           warn "skipping event for dangling reference %s: %s" tbl fld ;
-           []
-         )
-       other_tbl_refs
-    )
+         try [ (tbl, fld, x ()) ] with
+         | _ ->
+             (* Probably means the reference was dangling *)
+             warn "skipping event for dangling reference %s: %s" tbl fld ;
+             [] )
+       other_tbl_refs )
+
 
 open Db_cache_types
 open Db_action_helper
@@ -101,59 +105,53 @@ let database_callback event db =
     List.filter (fun (_, fld) -> fld = fldname) (other_tbl_refs tblname)
   in
   let is_valid_ref = function
-    | Schema.Value.String r -> (
-      try
-        ignore (Database.table_of_ref r db) ;
-        true
-      with _ -> false
-    )
+    | Schema.Value.String r ->
+      ( try
+          ignore (Database.table_of_ref r db) ;
+          true
+        with
+      | _ ->
+          false )
     | _ ->
         false
   in
   match event with
-  | RefreshRow (tblname, objref) -> (
+  | RefreshRow (tblname, objref) ->
       (* Generate event *)
       let snapshot = find_get_record tblname ~__context:context ~self:objref in
       let record = snapshot () in
-      match record with
+      ( match record with
       | None ->
           error "Failed to send MOD event for %s %s" tblname objref ;
           Printf.printf "Failed to send MOD event for %s %s\n%!" tblname objref
       | Some record ->
-          events_notify ~snapshot:record tblname "mod" objref
-    )
+          events_notify ~snapshot:record tblname "mod" objref )
   | WriteField (tblname, objref, fldname, oldval, newval) ->
       let events_old_val =
-        if is_valid_ref oldval then
+        if is_valid_ref oldval
+        then
           let oldval = Schema.Value.Unsafe_cast.string oldval in
           events_of_other_tbl_refs
             (List.map
                (fun (tbl, fld) ->
                  ( tbl
                  , oldval
-                 , find_get_record tbl ~__context:context ~self:oldval
-                 )
-                 )
-               (other_tbl_refs_for_this_field tblname fldname)
-            )
-        else
-          []
+                 , find_get_record tbl ~__context:context ~self:oldval ) )
+               (other_tbl_refs_for_this_field tblname fldname) )
+        else []
       in
       let events_new_val =
-        if is_valid_ref newval then
+        if is_valid_ref newval
+        then
           let newval = Schema.Value.Unsafe_cast.string newval in
           events_of_other_tbl_refs
             (List.map
                (fun (tbl, fld) ->
                  ( tbl
                  , newval
-                 , find_get_record tbl ~__context:context ~self:newval
-                 )
-                 )
-               (other_tbl_refs_for_this_field tblname fldname)
-            )
-        else
-          []
+                 , find_get_record tbl ~__context:context ~self:newval ) )
+               (other_tbl_refs_for_this_field tblname fldname) )
+        else []
       in
       (* Generate event *)
       let snapshot = find_get_record tblname ~__context:context ~self:objref in
@@ -164,50 +162,45 @@ let database_callback event db =
               error "Failed to send MOD event for %s %s" tbl ref ;
               Printf.printf "Failed to send MOD event for %s %s\n%!" tbl ref
           | tbl, ref, Some s ->
-              events_notify ~snapshot:s tbl "mod" ref
-          )
+              events_notify ~snapshot:s tbl "mod" ref )
         events_old_val ;
       ( match record with
       | None ->
           error "Failed to send MOD event for %s %s" tblname objref ;
           Printf.printf "Failed to send MOD event for %s %s\n%!" tblname objref
       | Some record ->
-          events_notify ~snapshot:record tblname "mod" objref
-      ) ;
+          events_notify ~snapshot:record tblname "mod" objref ) ;
       List.iter
         (function
           | tbl, ref, None ->
               error "Failed to send MOD event for %s %s" tbl ref ;
               Printf.printf "Failed to send MOD event for %s %s\n%!" tbl ref
           | tbl, ref, Some s ->
-              events_notify ~snapshot:s tbl "mod" ref
-          )
+              events_notify ~snapshot:s tbl "mod" ref )
         events_new_val
-  | PreDelete (tblname, objref) -> (
-    match find_get_record tblname ~__context:context ~self:objref () with
+  | PreDelete (tblname, objref) ->
+    ( match find_get_record tblname ~__context:context ~self:objref () with
     | None ->
         error "Failed to generate DEL event for %s %s" tblname objref
     (*				Printf.printf "Failed to generate DEL event for %s %s\n%!" tblname objref; *)
     | Some snapshot ->
-        events_notify ~snapshot tblname "del" objref
-  )
+        events_notify ~snapshot tblname "del" objref )
   | Delete (tblname, objref, kv) ->
       let other_tbl_refs = follow_references tblname in
       let other_tbl_refs =
         List.fold_left
           (fun accu (remote_tbl, fld) ->
             let fld_value = List.assoc fld kv in
-            if is_valid_ref fld_value then
+            if is_valid_ref fld_value
+            then
               let fld_value = Schema.Value.Unsafe_cast.string fld_value in
               ( remote_tbl
               , fld_value
-              , find_get_record remote_tbl ~__context:context ~self:fld_value
-              )
+              , find_get_record remote_tbl ~__context:context ~self:fld_value )
               :: accu
-            else
-              accu
-            )
-          [] other_tbl_refs
+            else accu )
+          []
+          other_tbl_refs
       in
       let other_tbl_ref_events = events_of_other_tbl_refs other_tbl_refs in
       List.iter
@@ -216,8 +209,7 @@ let database_callback event db =
               error "Failed to generate MOD event on %s %s" tbl ref
           (*					Printf.printf "Failed to generate MOD event on %s %s\n%!" tbl ref; *)
           | tbl, ref, Some s ->
-              events_notify ~snapshot:s tbl "mod" ref
-          )
+              events_notify ~snapshot:s tbl "mod" ref )
         other_tbl_ref_events
   | Create (tblname, new_objref, kv) ->
       let snapshot =
@@ -228,17 +220,16 @@ let database_callback event db =
         List.fold_left
           (fun accu (tbl, fld) ->
             let fld_value = List.assoc fld kv in
-            if is_valid_ref fld_value then
+            if is_valid_ref fld_value
+            then
               let fld_value = Schema.Value.Unsafe_cast.string fld_value in
               ( tbl
               , fld_value
-              , find_get_record tbl ~__context:context ~self:fld_value
-              )
+              , find_get_record tbl ~__context:context ~self:fld_value )
               :: accu
-            else
-              accu
-            )
-          [] other_tbl_refs
+            else accu )
+          []
+          other_tbl_refs
       in
       let other_tbl_events = events_of_other_tbl_refs other_tbl_refs in
       ( match snapshot () with
@@ -246,14 +237,12 @@ let database_callback event db =
           error "Failed to generate ADD event for %s %s" tblname new_objref
       (*				Printf.printf "Failed to generate ADD event for %s %s\n%!" tblname new_objref; *)
       | Some snapshot ->
-          events_notify ~snapshot tblname "add" new_objref
-      ) ;
+          events_notify ~snapshot tblname "add" new_objref ) ;
       List.iter
         (function
           | tbl, ref, None ->
               error "Failed to generate MOD event for %s %s" tbl ref
           (* 				Printf.printf "Failed to generate MOD event for %s %s\n%!" tbl ref;*)
           | tbl, ref, Some s ->
-              events_notify ~snapshot:s tbl "mod" ref
-          )
+              events_notify ~snapshot:s tbl "mod" ref )
         other_tbl_events

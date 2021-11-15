@@ -64,8 +64,8 @@ let process_rpc (req : Rpc.t) =
     | Read_missing_uuid (x, y, z) ->
         Response.Read_missing_uuid (x, y, z)
     | Too_many_values (x, y, z) ->
-        Response.Too_many_values (x, y, z)
-    )
+        Response.Too_many_values (x, y, z) )
+
 
 let handler req bio _ =
   let fd = Buf_io.fd_of bio in

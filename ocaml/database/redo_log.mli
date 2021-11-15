@@ -25,21 +25,21 @@ val redo_log_sm_config : (string * string) list
 (** SM config for redo log VDI *)
 
 (** {redo_log data type} *)
-type redo_log = {
-    name: string
-  ; marker: string
-  ; read_only: bool
-  ; enabled: bool ref
-  ; device: string option ref
-  ; currently_accessible: bool ref
-  ; state_change_callback: (bool -> unit) option
-  ; time_of_last_failure: float ref
-  ; backoff_delay: int ref
-  ; sock: Unix.file_descr option ref
-  ; pid: (Forkhelpers.pidty * string * string) option ref
-  ; dying_processes_mutex: Mutex.t
-  ; num_dying_processes: int ref
-}
+type redo_log =
+  { name : string
+  ; marker : string
+  ; read_only : bool
+  ; enabled : bool ref
+  ; device : string option ref
+  ; currently_accessible : bool ref
+  ; state_change_callback : (bool -> unit) option
+  ; time_of_last_failure : float ref
+  ; backoff_delay : int ref
+  ; sock : Unix.file_descr option ref
+  ; pid : (Forkhelpers.pidty * string * string) option ref
+  ; dying_processes_mutex : Mutex.t
+  ; num_dying_processes : int ref
+  }
 
 (** {2 Enabling and disabling writing} *)
 

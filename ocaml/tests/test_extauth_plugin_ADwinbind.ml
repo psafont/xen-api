@@ -30,15 +30,12 @@ module ExtractOuConfig = Generic.MakeStateless (struct
 
   let tests =
     `QuickAndAutoDocumented
-      [
-        ([("auth-type", "AD"); ("service-name", "conappada.local")], ([], []))
-      ; ( [
-            ("auth-type", "AD")
+      [ ([ ("auth-type", "AD"); ("service-name", "conappada.local") ], ([], []))
+      ; ( [ ("auth-type", "AD")
           ; ("service-name", "conappada.local")
           ; ("ou", "TOU")
           ]
-        , ([("ou", "TOU")], ["createcomputer=TOU"])
-        )
+        , ([ ("ou", "TOU") ], [ "createcomputer=TOU" ]) )
       ]
 end)
 
@@ -56,11 +53,11 @@ module Range = Generic.MakeStateless (struct
   let transform (s, e, step) =
     Extauth_plugin_ADwinbind.Migrate_from_pbis.range s e step
 
+
   let tests =
     `QuickAndAutoDocumented
-      [
-        ((0, 10, 1), [0; 1; 2; 3; 4; 5; 6; 7; 8; 9])
-      ; ((0, 1, 1), [0])
+      [ ((0, 10, 1), [ 0; 1; 2; 3; 4; 5; 6; 7; 8; 9 ])
+      ; ((0, 1, 1), [ 0 ])
       ; ((0, 0, 1), [])
       ; ((1, 0, 1), [])
       ]
@@ -80,12 +77,11 @@ module ParseValueFromPbis = Generic.MakeStateless (struct
   let transform s =
     Extauth_plugin_ADwinbind.Migrate_from_pbis.parse_value_from_pbis s
 
+
   let tests =
     `QuickAndAutoDocumented
-      [
-        ( "X'58005200540055004B002D00300032002D003000330024000000'"
-        , "XRTUK-02-03"
-        )
+      [ ( "X'58005200540055004B002D00300032002D003000330024000000'"
+        , "XRTUK-02-03" )
       ; ("X'4C004F00430041004C0048004F0053005400320024000000'", "LOCALHOST2")
       ]
 end)
@@ -98,8 +94,7 @@ let test_domainify_uname =
     Alcotest.(check string) msg exp ac
   in
   let matrix =
-    [
-      ("KRBTGT", "KRBTGT")
+    [ ("KRBTGT", "KRBTGT")
     ; ({|user|}, {|user@domain.net|})
     ; ({|user@domain.net|}, {|user@domain.net|})
     ; ({|DOMAIN\user|}, {|DOMAIN\user|})
@@ -109,8 +104,10 @@ let test_domainify_uname =
     ]
   in
   matrix
-  |> List.map @@ fun (inp, exp) ->
+  |> List.map
+     @@ fun (inp, exp) ->
      (Printf.sprintf "%s -> %s" inp exp, `Quick, check inp exp)
+
 
 let test_ldap_escape =
   let open Extauth_plugin_ADwinbind.Ldap in
@@ -120,8 +117,7 @@ let test_ldap_escape =
     Alcotest.(check string) msg exp escaped
   in
   let matrix =
-    [
-      ({|user|}, {|user|})
+    [ ({|user|}, {|user|})
     ; ({|(user)|}, {|\28user\29|})
     ; ({|(user|}, {|\28user|})
     ; ({|user)|}, {|user\29|})
@@ -131,8 +127,10 @@ let test_ldap_escape =
     ]
   in
   matrix
-  |> List.map @@ fun (inp, exp) ->
+  |> List.map
+     @@ fun (inp, exp) ->
      (Printf.sprintf "%s -> %s" inp exp, `Quick, check inp exp)
+
 
 let test_parse_wbinfo_uid_info =
   let open Extauth_plugin_ADwinbind.Wbinfo in
@@ -151,24 +149,25 @@ let test_parse_wbinfo_uid_info =
   in
 
   let matrix =
-    [
-      ( {|CONNAPP\ladmin:*:3000003:3000174:ladmin:/home/CONNAPP/ladmin:/bin/bash|}
+    [ ( {|CONNAPP\ladmin:*:3000003:3000174:ladmin:/home/CONNAPP/ladmin:/bin/bash|}
       , Ok
-          {
-            user_name= {|CONNAPP\ladmin|}
-          ; uid= 3000003
-          ; gid= 3000174
-          ; gecos= {|ladmin|}
-          }
-      )
+          { user_name = {|CONNAPP\ladmin|}
+          ; uid = 3000003
+          ; gid = 3000174
+          ; gecos = {|ladmin|}
+          } )
     ; ( {|CONNAPP\locked:*:3000004:3000174::/home/CONNAPP/locked:/bin/bash|}
       , Ok
-          {user_name= {|CONNAPP\locked|}; uid= 3000004; gid= 3000174; gecos= ""}
-      )
+          { user_name = {|CONNAPP\locked|}
+          ; uid = 3000004
+          ; gid = 3000174
+          ; gecos = ""
+          } )
     ; ({|blah|}, Error ())
     ]
   in
   matrix |> List.map @@ fun (inp, exp) -> (inp, `Quick, check inp exp)
+
 
 let test_parse_ldap_stdout =
   let open Extauth_plugin_ADwinbind.Ldap in
@@ -357,62 +356,53 @@ dSCorePropagationData: 16010101000000.0Z
 msDS-SupportedEncryptionTypes: 0|}
   in
   let matrix =
-    [
-      ( stdout_ladmin
+    [ ( stdout_ladmin
       , Ok
-          {
-            upn= "ladmin@conappada.local"
-          ; name= "ladmin"
-          ; display_name= "ladmin"
-          ; account_disabled= false
-          ; account_expired= false
-          ; account_locked= false
-          ; password_expired= false
-          }
-      )
+          { upn = "ladmin@conappada.local"
+          ; name = "ladmin"
+          ; display_name = "ladmin"
+          ; account_disabled = false
+          ; account_expired = false
+          ; account_locked = false
+          ; password_expired = false
+          } )
     ; ( stdout_locked
       , Ok
-          {
-            upn= "locked@conappada.local"
-          ; name= "locked"
-          ; display_name= "locked"
-          ; account_disabled= false
-          ; account_expired= false
-          ; account_locked= true
-          ; password_expired= false
-          }
-      )
+          { upn = "locked@conappada.local"
+          ; name = "locked"
+          ; display_name = "locked"
+          ; account_disabled = false
+          ; account_expired = false
+          ; account_locked = true
+          ; password_expired = false
+          } )
     ; ( stdout_expired
       , Ok
-          {
-            upn= "experied@conappada.local"
-          ; name= "experied"
-          ; display_name= "experied"
-          ; account_disabled= false
-          ; account_expired= true
-          ; account_locked= false
-          ; password_expired= true
-          }
-      )
+          { upn = "experied@conappada.local"
+          ; name = "experied"
+          ; display_name = "experied"
+          ; account_disabled = false
+          ; account_expired = true
+          ; account_locked = false
+          ; password_expired = true
+          } )
     ; ( stdout_krbtgt
       , Ok
-          {
-            upn= ""
-          ; display_name= ""
-          ; name= "krbtgt"
-          ; password_expired= false
-          ; account_locked= false
-          ; account_expired= false
-          ; account_disabled= true
-          }
-      )
+          { upn = ""
+          ; display_name = ""
+          ; name = "krbtgt"
+          ; password_expired = false
+          ; account_locked = false
+          ; account_expired = false
+          ; account_disabled = true
+          } )
     ; ("Got 0 replies", Error "ldap parsing failed ': got 0 replies'")
     ; ( "complete garbage"
-      , Error "ldap parsing failed 'unexpected header: string'"
-      )
+      , Error "ldap parsing failed 'unexpected header: string'" )
     ]
   in
   matrix |> List.map @@ fun (inp, exp) -> ("<omit inp>", `Quick, check inp exp)
+
 
 let test_wbinfo_exception_of_stderr =
   let open Extauth_plugin_ADwinbind.Wbinfo in
@@ -431,19 +421,17 @@ let test_wbinfo_exception_of_stderr =
     Alcotest.(check ex) msg exp ac
   in
   let matrix =
-    [
-      ( "failed to call wbcLookupName: WBC_ERR_DOMAIN_NOT_FOUND\x0ACould not \
+    [ ( "failed to call wbcLookupName: WBC_ERR_DOMAIN_NOT_FOUND\x0ACould not \
          lookup name ladmin@mydomain.net\x0A"
-      , Some (Auth_service_error (E_GENERIC, "WBC_ERR_DOMAIN_NOT_FOUND"))
-      )
+      , Some (Auth_service_error (E_GENERIC, "WBC_ERR_DOMAIN_NOT_FOUND")) )
     ; ("garbage", None)
     ]
   in
   matrix |> List.map @@ fun (inp, exp) -> ("<omit inp>", `Quick, check inp exp)
 
+
 let tests =
-  [
-    ("ADwinbind:extract_ou_config", ExtractOuConfig.tests)
+  [ ("ADwinbind:extract_ou_config", ExtractOuConfig.tests)
   ; ("ADwinbind:test_range", Range.tests)
   ; ("ADwinbind:test_parse_value_from_pbis", ParseValueFromPbis.tests)
   ; ("ADwinbind:test_domainify_uname", test_domainify_uname)
@@ -451,6 +439,5 @@ let tests =
   ; ("ADwinbind:test_parse_wbinfo_uid_info", test_parse_wbinfo_uid_info)
   ; ("ADwinbind:test_parse_ldap_stdout", test_parse_ldap_stdout)
   ; ( "ADwinbind:test_wbinfo_exception_of_stderr"
-    , test_wbinfo_exception_of_stderr
-    )
+    , test_wbinfo_exception_of_stderr )
   ]

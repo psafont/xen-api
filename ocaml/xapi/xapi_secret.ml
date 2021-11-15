@@ -17,7 +17,9 @@
 
 open Xapi_stdext_std.Xstringext
 
-module D = Debug.Make (struct let name = "xapi_secret" end)
+module D = Debug.Make (struct
+  let name = "xapi_secret"
+end)
 
 open D
 
@@ -26,10 +28,12 @@ let introduce ~__context ~uuid ~value ~other_config =
   Db.Secret.create ~__context ~ref ~uuid ~value ~other_config ;
   ref
 
+
 let create ~__context ~value ~other_config =
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
   let ref = introduce ~__context ~uuid ~value ~other_config in
   ref
+
 
 let destroy ~__context ~self = Db.Secret.destroy ~__context ~self
 
@@ -39,40 +43,46 @@ let clean_out_passwds ~__context strmap =
     try
       let s = Db.Secret.get_by_uuid ~__context ~uuid in
       Db.Secret.destroy ~__context ~self:s
-    with _ -> ()
+    with
+    | _ ->
+        ()
   in
   let check_key (k, _) = String.endswith "password_secret" k in
   let secrets = List.map snd (List.filter check_key strmap) in
   List.iter delete_secret secrets
+
 
 (* Modify a ((string * string) list) by duplicating all the passwords found in
  * it *)
 let duplicate_passwds ~__context strmap =
   let check_key k = String.endswith "password_secret" k in
   let possibly_duplicate (k, v) =
-    if check_key k then
+    if check_key k
+    then
       let sr = Db.Secret.get_by_uuid ~__context ~uuid:v in
       let v = Db.Secret.get_value ~__context ~self:sr in
       let new_sr = create ~__context ~value:v ~other_config:[] in
       let new_uuid = Db.Secret.get_uuid ~__context ~self:new_sr in
       (k, new_uuid)
-    else
-      (k, v)
+    else (k, v)
   in
   List.map possibly_duplicate strmap
 
+
 let move_passwds_to_secrets ~__context strmap =
   let maybe_move (k, value) =
-    if String.endswith "password" k then (
+    if String.endswith "password" k
+    then (
       let new_k = k ^ "_secret" in
       warn
         "Replacing deprecated %s with %s, please avoid using %s in \
          device-config!"
-        k new_k k ;
+        k
+        new_k
+        k ;
       let new_sr = create ~__context ~value ~other_config:[] in
       let new_uuid = Db.Secret.get_uuid ~__context ~self:new_sr in
-      (new_k, new_uuid)
-    ) else
-      (k, value)
+      (new_k, new_uuid) )
+    else (k, value)
   in
   List.rev_map maybe_move strmap

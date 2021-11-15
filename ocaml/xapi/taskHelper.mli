@@ -30,11 +30,11 @@ val set_external_pid : __context:Context.t -> int -> unit
 val clear_external_pid : __context:Context.t -> unit
 
 val set_result_on_task :
-  __context:Context.t -> [`task] Ref.t -> Rpc.t option -> unit
+  __context:Context.t -> [ `task ] Ref.t -> Rpc.t option -> unit
 
 val set_result : __context:Context.t -> Rpc.t option -> unit
 
-val status_is_completed : [> `cancelled | `failure | `success] -> bool
+val status_is_completed : [> `cancelled | `failure | `success ] -> bool
 
 val complete : __context:Context.t -> Rpc.t option -> unit
 
@@ -63,10 +63,12 @@ val rbac_assert_permission_fn :
 val assert_op_valid :
      ?ok_if_no_session_in_context:bool
   -> __context:Context.t
-  -> [`task] Ref.t
+  -> [ `task ] Ref.t
   -> unit
 
-type id = Sm of string | Xenops of string * string  (** queue name * VM id *)
+type id =
+  | Sm of string
+  | Xenops of string * string  (** queue name * VM id *)
 
 val id_to_task_exn : id -> API.ref_task
 

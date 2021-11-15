@@ -25,8 +25,7 @@ module OfAssocList = Generic.MakeStateless (struct
 
     let string_of_output_t =
       Test_printers.(
-        fun features -> String.concat "," (List.map name_of_feature features)
-      )
+        fun features -> String.concat "," (List.map name_of_feature features))
   end
 
   let transform = of_assoc_list
@@ -35,32 +34,25 @@ module OfAssocList = Generic.MakeStateless (struct
      	   are disabled unless explitly enabled. *)
   let tests =
     `QuickAndAutoDocumented
-      [
-        ([], [Xen_motion; AD; Updates])
-      ; ( [
-            ("restrict_xen_motion", "true")
+      [ ([], [ Xen_motion; AD; Updates ])
+      ; ( [ ("restrict_xen_motion", "true")
           ; ("restrict_ad", "true")
           ; ("restrict_updates", "true")
           ]
-        , []
-        )
-      ; ([("restrict_xen_motion", "true")], [AD; Updates])
-      ; ([("restrict_xen_motion", "false")], [Xen_motion; AD; Updates])
-      ; ( [("restrict_xen_motion", "false"); ("restrict_dmc", "false")]
-        , [DMC; Xen_motion; AD; Updates]
-        )
-      ; ( [
-            ("restrict_xen_motion", "false")
+        , [] )
+      ; ([ ("restrict_xen_motion", "true") ], [ AD; Updates ])
+      ; ([ ("restrict_xen_motion", "false") ], [ Xen_motion; AD; Updates ])
+      ; ( [ ("restrict_xen_motion", "false"); ("restrict_dmc", "false") ]
+        , [ DMC; Xen_motion; AD; Updates ] )
+      ; ( [ ("restrict_xen_motion", "false")
           ; ("restrict_ad", "true")
           ; ("restrict_dmc", "false")
           ]
-        , [DMC; Xen_motion; Updates]
-        )
-      ; ( [("enable_xha", "true"); ("restrict_xen_motion", "true")]
-        , [HA; AD; Updates]
-        )
-      ; ([("restrict_updates", "true")], [Xen_motion; AD])
+        , [ DMC; Xen_motion; Updates ] )
+      ; ( [ ("enable_xha", "true"); ("restrict_xen_motion", "true") ]
+        , [ HA; AD; Updates ] )
+      ; ([ ("restrict_updates", "true") ], [ Xen_motion; AD ])
       ]
 end)
 
-let tests = [("pool_license_of_assoc_list", OfAssocList.tests)]
+let tests = [ ("pool_license_of_assoc_list", OfAssocList.tests) ]

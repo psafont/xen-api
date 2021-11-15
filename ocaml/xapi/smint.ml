@@ -15,11 +15,16 @@
  * @group Storage
 *)
 
-module D = Debug.Make (struct let name = "smint" end)
+module D = Debug.Make (struct
+  let name = "smint"
+end)
 
 open D
 
-type vdi_info = {vdi_info_uuid: string option; vdi_info_location: string}
+type vdi_info =
+  { vdi_info_uuid : string option
+  ; vdi_info_location : string
+  }
 
 (** Very primitive first attempt at a set of backend features *)
 type capability =
@@ -59,8 +64,7 @@ type capability =
 type feature = capability * int64
 
 let string_to_capability_table =
-  [
-    ("SR_CREATE", Sr_create)
+  [ ("SR_CREATE", Sr_create)
   ; ("SR_DELETE", Sr_delete)
   ; ("SR_ATTACH", Sr_attach)
   ; ("SR_DETACH", Sr_detach)
@@ -94,13 +98,16 @@ let string_to_capability_table =
   ; ("VDI_READ_CACHING", Vdi_read_caching)
   ]
 
+
 let capability_to_string_table =
   List.map (fun (k, v) -> (v, k)) string_to_capability_table
+
 
 let string_of_capability c = List.assoc c capability_to_string_table
 
 let string_of_feature (c, v) =
   Printf.sprintf "%s/%Ld" (string_of_capability c) v
+
 
 let has_capability (c : capability) fl = List.mem_assoc c fl
 
@@ -113,8 +120,7 @@ let parse_string_int64_features strings =
         let s = List.hd (Xapi_stdext_std.Xstringext.String.split '/' s) in
         let p = List.mem s (List.map fst string_to_capability_table) in
         if not p then debug "SM.feature: unknown feature %s" s ;
-        p
-        )
+        p )
       strings
   in
   List.map
@@ -122,58 +128,59 @@ let parse_string_int64_features strings =
       match Xapi_stdext_std.Xstringext.String.split '/' c with
       | [] ->
           failwith "parse_feature" (* not possible *)
-      | [cs] ->
+      | [ cs ] ->
           (cs, 1L) (* default version *)
-      | [cs; vs] | cs :: vs :: _ -> (
-        try
-          let v = int_of_string vs in
-          (cs, if v < 1 then 1L else Int64.of_int v)
-        with _ ->
-          debug "SM.feature %s has bad version %s, defaulting to 1" cs vs ;
-          (cs, 1L)
-      )
-      )
+      | [ cs; vs ] | cs :: vs :: _ ->
+        ( try
+            let v = int_of_string vs in
+            (cs, if v < 1 then 1L else Int64.of_int v)
+          with
+        | _ ->
+            debug "SM.feature %s has bad version %s, defaulting to 1" cs vs ;
+            (cs, 1L) ) )
     text_features
+
 
 let parse_capability_int64_features strings =
   List.map
     (function c, v -> (List.assoc c string_to_capability_table, v))
     (parse_string_int64_features strings)
 
-type sr_driver_info = {
-    sr_driver_filename: string
-  ; sr_driver_name: string
-  ; sr_driver_description: string
-  ; sr_driver_vendor: string
-  ; sr_driver_copyright: string
-  ; sr_driver_version: string
-  ; sr_driver_required_api_version: string
-  ; sr_driver_features: feature list
-  ; sr_driver_text_features: string list
-  ; sr_driver_configuration: (string * string) list
-  ; sr_driver_required_cluster_stack: string list
-}
 
-let query_result_of_sr_driver_info x =
-  {
-    Storage_interface.driver= x.sr_driver_filename
-  ; name= x.sr_driver_name
-  ; description= x.sr_driver_description
-  ; vendor= x.sr_driver_vendor
-  ; copyright= x.sr_driver_copyright
-  ; version= x.sr_driver_version
-  ; required_api_version= x.sr_driver_required_api_version
-  ; features= x.sr_driver_text_features
-  ; configuration= x.sr_driver_configuration
-  ; required_cluster_stack= x.sr_driver_required_cluster_stack
+type sr_driver_info =
+  { sr_driver_filename : string
+  ; sr_driver_name : string
+  ; sr_driver_description : string
+  ; sr_driver_vendor : string
+  ; sr_driver_copyright : string
+  ; sr_driver_version : string
+  ; sr_driver_required_api_version : string
+  ; sr_driver_features : feature list
+  ; sr_driver_text_features : string list
+  ; sr_driver_configuration : (string * string) list
+  ; sr_driver_required_cluster_stack : string list
   }
 
-type attach_info = {
-    params: string
-  ; o_direct: bool
-  ; o_direct_reason: string
-  ; xenstore_data: (string * string) list
-}
+let query_result_of_sr_driver_info x =
+  { Storage_interface.driver = x.sr_driver_filename
+  ; name = x.sr_driver_name
+  ; description = x.sr_driver_description
+  ; vendor = x.sr_driver_vendor
+  ; copyright = x.sr_driver_copyright
+  ; version = x.sr_driver_version
+  ; required_api_version = x.sr_driver_required_api_version
+  ; features = x.sr_driver_text_features
+  ; configuration = x.sr_driver_configuration
+  ; required_cluster_stack = x.sr_driver_required_cluster_stack
+  }
+
+
+type attach_info =
+  { params : string
+  ; o_direct : bool
+  ; o_direct_reason : string
+  ; xenstore_data : (string * string) list
+  }
 
 exception Backend_missing_field of string
 

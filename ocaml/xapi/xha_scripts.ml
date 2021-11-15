@@ -12,13 +12,16 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "xapi_ha" end)
+module D = Debug.Make (struct
+  let name = "xapi_ha"
+end)
 
 open D
 
 let ha_dir () =
   let stack = Localdb.get Constants.ha_cluster_stack in
   Filename.concat !Xapi_globs.cluster_stack_root stack
+
 
 let ha_set_pool_state = "ha_set_pool_state"
 
@@ -46,10 +49,12 @@ let get_supported_srs cluster_stack =
   let fname = Filename.concat folder_name ha_supported_srs in
   try
     Some
-      (Xapi_stdext_unix.Unixext.string_of_file fname
-      |> Astring.String.fields ~empty:false
-      )
-  with _ -> None
+      ( Xapi_stdext_unix.Unixext.string_of_file fname
+      |> Astring.String.fields ~empty:false )
+  with
+  | _ ->
+      None
+
 
 (** The xHA scripts throw these exceptions: *)
 exception Xha_error of Xha_errno.code
@@ -60,17 +65,21 @@ let ha_script_m = Mutex.create ()
 let call_script ?log_output script args =
   let path = ha_dir () in
   let script' = Filename.concat path script in
-  let env = [|Printf.sprintf "PATH=%s:%s" (Sys.getenv "PATH") path|] in
+  let env = [| Printf.sprintf "PATH=%s:%s" (Sys.getenv "PATH") path |] in
   try
     Xapi_stdext_threads.Threadext.Mutex.execute ha_script_m (fun () ->
-        Helpers.call_script ?log_output ~env script' args
-    )
-  with Forkhelpers.Spawn_internal_error (stderr, stdout, Unix.WEXITED n) ->
-    let code = Xha_errno.of_int n in
-    warn "%s %s returned %s (%s)" script' (String.concat " " args)
-      (Xha_errno.to_string code)
-      (Xha_errno.to_description_string code) ;
-    raise (Xha_error code)
+        Helpers.call_script ?log_output ~env script' args )
+  with
+  | Forkhelpers.Spawn_internal_error (stderr, stdout, Unix.WEXITED n) ->
+      let code = Xha_errno.of_int n in
+      warn
+        "%s %s returned %s (%s)"
+        script'
+        (String.concat " " args)
+        (Xha_errno.to_string code)
+        (Xha_errno.to_description_string code) ;
+      raise (Xha_error code)
+
 
 (** Internal API call that determines whether it is safe to unplug the PBD
     holding the statefile during shutdown. *)

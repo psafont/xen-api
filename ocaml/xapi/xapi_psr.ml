@@ -16,7 +16,9 @@
   * given a list of hosts containing both the master and
     the members, the master will always be at the head *)
 
-module D = Debug.Make (struct let name = "xapi_psr" end)
+module D = Debug.Make (struct
+  let name = "xapi_psr"
+end)
 
 module Unixext = Xapi_stdext_unix.Unixext
 module Client = Client.Client
@@ -46,6 +48,7 @@ let user_facing_error_message ~__context error =
         "%s encountered an error whilst cleaning up after a pool secret \
          rotation."
         host_name
+
 
 module type Impl = sig
   type pool_secret
@@ -89,9 +92,12 @@ functor
     exception Cannot_parse_checkpoint of string
 
     let string_of_checkpoint x =
-      Rpcmarshal.marshal checkpoint.Rpc.Types.ty x |> Jsonrpc.to_string
+      Rpcmarshal.marshal checkpoint.Rpc.Types.ty x
+      |> Jsonrpc.to_string
       |> (* remove leading and trailing '"' *)
-      fun s -> String.sub s 1 (String.length s - 2)
+      fun s ->
+      String.sub s 1 (String.length s - 2)
+
 
     let checkpoint_of_string s =
       let rpc = Rpc.rpc_of_string s in
@@ -101,11 +107,13 @@ functor
       | Error _ ->
           raise (Cannot_parse_checkpoint s)
 
+
     let rec iter_break f = function
       | [] ->
           Ok ()
       | x :: xs ->
           f x >>= fun _ -> (iter_break [@tailcall]) f xs
+
 
     let rec go pool_secrets master members = function
       | No_checkpoint ->
@@ -120,13 +128,13 @@ functor
                  try
                    Impl.tell_accept_new_pool_secret pool_secrets host ;
                    Ok ()
-                 with e ->
-                   D.error
-                     "failed while telling host to accept new pool secret. \
-                      error= %s"
-                     (Printexc.to_string e) ;
-                   Error (Failed_during_accept_new_pool_secret, host)
-             )
+                 with
+                 | e ->
+                     D.error
+                       "failed while telling host to accept new pool secret. \
+                        error= %s"
+                       (Printexc.to_string e) ;
+                     Error (Failed_during_accept_new_pool_secret, host) )
           >>= fun () ->
           (go [@tailcall]) pool_secrets master members Send_new_pool_secret
       | Send_new_pool_secret ->
@@ -136,13 +144,13 @@ functor
                  try
                    Impl.tell_send_new_pool_secret pool_secrets host ;
                    Ok ()
-                 with e ->
-                   D.error
-                     "failed while telling hosts to send new pool secret. \
-                      error= %s"
-                     (Printexc.to_string e) ;
-                   Error (Failed_during_send_new_pool_secret, host)
-             )
+                 with
+                 | e ->
+                     D.error
+                       "failed while telling hosts to send new pool secret. \
+                        error= %s"
+                       (Printexc.to_string e) ;
+                     Error (Failed_during_send_new_pool_secret, host) )
           >>= fun () ->
           (go [@tailcall]) pool_secrets master members Cleanup_members
       | Cleanup_members ->
@@ -152,23 +160,26 @@ functor
                  try
                    Impl.tell_cleanup_old_pool_secret pool_secrets member ;
                    Ok ()
-                 with e ->
-                   D.error "failed while telling hosts to cleanup. error= %s"
-                     (Printexc.to_string e) ;
-                   Error (Failed_during_cleanup, member)
-             )
+                 with
+                 | e ->
+                     D.error
+                       "failed while telling hosts to cleanup. error= %s"
+                       (Printexc.to_string e) ;
+                     Error (Failed_during_cleanup, member) )
           >>= fun () ->
           (go [@tailcall]) pool_secrets master members Cleanup_master
-      | Cleanup_master -> (
+      | Cleanup_master ->
           Impl.save_checkpoint (string_of_checkpoint Cleanup_master) ;
-          try
-            Impl.cleanup_master pool_secrets ;
-            Ok ()
-          with e ->
-            D.error "failed to cleanup the master. error= %s"
-              (Printexc.to_string e) ;
-            Error (Failed_during_cleanup, master)
-        )
+          ( try
+              Impl.cleanup_master pool_secrets ;
+              Ok ()
+            with
+          | e ->
+              D.error
+                "failed to cleanup the master. error= %s"
+                (Printexc.to_string e) ;
+              Error (Failed_during_cleanup, master) )
+
 
     let start pool_secrets ~master ~members =
       try
@@ -179,14 +190,14 @@ functor
             go pool_secrets master members No_checkpoint
         | Some checkpoint ->
             go (Impl.retrieve ()) master members checkpoint
-      with e ->
-        (* _in theory_ save_checkpoint or backup could fail, so
-           catch that here. however we don't expect this to happen *)
-        D.error "PSR.start: unexpected error: %s" (Printexc.to_string e) ;
-        raise
-          Api_errors.(
-            Server_error (internal_error, ["PSR.start: unexpected error"])
-          )
+      with
+      | e ->
+          (* _in theory_ save_checkpoint or backup could fail, so
+             catch that here. however we don't expect this to happen *)
+          D.error "PSR.start: unexpected error: %s" (Printexc.to_string e) ;
+          raise
+            Api_errors.(
+              Server_error (internal_error, [ "PSR.start: unexpected error" ]))
   end
 
 let perm = 0o640
@@ -223,8 +234,8 @@ end = struct
         raise
           Api_errors.(
             Server_error
-              (internal_error, ["do_backups_exist: invalid backup state"])
-          )
+              (internal_error, [ "do_backups_exist: invalid backup state" ]))
+
 
   let does_checkpoint_exist () = Sys.file_exists checkpoint_path
 
@@ -234,24 +245,29 @@ end = struct
       let old_backup, new_backup = read_backups () in
       SecretString.(equal old_backup old_ps && equal new_backup new_ps)
     in
-    if not do_backups_match then
-      raise Api_errors.(Server_error (internal_error, ["backups don't match"]))
+    if not do_backups_match
+    then
+      raise
+        Api_errors.(Server_error (internal_error, [ "backups don't match" ]))
+
 
   let no_backups () =
-    if do_backups_exist () then
+    if do_backups_exist ()
+    then
       raise
         Api_errors.(
-          Server_error (internal_error, ["pool member should have no backups"])
-        )
+          Server_error (internal_error, [ "pool member should have no backups" ]))
+
 
   let no_checkpoint () =
     (* we expect a checkpoint on the master, but not slaves *)
-    if Pool_role.is_slave () && does_checkpoint_exist () then
+    if Pool_role.is_slave () && does_checkpoint_exist ()
+    then
       raise
         Api_errors.(
           Server_error
-            (internal_error, ["pool member should not have a checkpoint"])
-        )
+            (internal_error, [ "pool member should not have a checkpoint" ]))
+
 
   let master_state_valid () =
     match (do_backups_exist (), does_checkpoint_exist ()) with
@@ -261,63 +277,59 @@ end = struct
         raise
           Api_errors.(
             Server_error
-              (internal_error, ["master pool secret rotation state is invalid"])
-          )
+              ( internal_error
+              , [ "master pool secret rotation state is invalid" ] ))
 end
 
 let cleanup_internal ~additional_files_to_remove ~old_ps ~new_ps =
   match !Xapi_globs.pool_secrets with
-  | [ps] when ps = new_ps ->
+  | [ ps ] when ps = new_ps ->
       Assert.no_backups () ;
       D.info "xapi_psr.ml:cleanup_internal: already cleaned up"
-  | [_] ->
+  | [ _ ] ->
       raise
         Api_errors.(
           Server_error
             ( internal_error
-            , [
-                "cleanup_internal: host has been cleaned up, but pool secret \
+            , [ "cleanup_internal: host has been cleaned up, but pool secret \
                  doesn't match"
-              ]
-            )
-        )
-  | [priority_1_ps; priority_2_ps]
+              ] ))
+  | [ priority_1_ps; priority_2_ps ]
     when SecretString.(equal new_ps priority_1_ps && equal old_ps priority_2_ps)
     ->
       Assert.backups_match ~old_ps ~new_ps ;
       let files_to_remove =
-        List.append additional_files_to_remove
-          [old_pool_secret_backup_path; new_pool_secret_backup_path]
+        List.append
+          additional_files_to_remove
+          [ old_pool_secret_backup_path; new_pool_secret_backup_path ]
       in
       (* if we don't remove pool secret backups, they will be loaded into memory when xapi starts *)
       List.iter
         (fun path ->
-          try Sys.remove path
-          with e ->
-            D.error "cleanup_internal: failed to remove %s. error: %s" path
-              (Printexc.to_string e)
-          )
+          try Sys.remove path with
+          | e ->
+              D.error
+                "cleanup_internal: failed to remove %s. error: %s"
+                path
+                (Printexc.to_string e) )
         files_to_remove ;
       (* psr done, so stop accepting old pool secret *)
-      Xapi_globs.pool_secrets := [priority_1_ps]
-  | [_; _] ->
+      Xapi_globs.pool_secrets := [ priority_1_ps ]
+  | [ _; _ ] ->
       raise
         Api_errors.(
           Server_error
-            (internal_error, ["cleanup_internal: runtime secrets don't match"])
-        )
+            (internal_error, [ "cleanup_internal: runtime secrets don't match" ]))
   | l ->
       raise
         Api_errors.(
           Server_error
             ( internal_error
-            , [
-                Printf.sprintf
+            , [ Printf.sprintf
                   "cleanup_internal: expected 1 or 2 pool secrets, got: %i"
                   (List.length l)
-              ]
-            )
-        )
+              ] ))
+
 
 module Impl =
 functor
@@ -339,55 +351,71 @@ functor
           let (_ : int) =
             Unix.write_substring fd checkpoint 0 (String.length checkpoint)
           in
-          ()
-      )
+          () )
+
 
     let retrieve_checkpoint () =
       match Unixext.read_lines ~path:checkpoint_path with
-      | [x] ->
+      | [ x ] ->
           Some x
       | [] | _ :: _ ->
           D.error "unexpected checkpoint file format: %s" checkpoint_path ;
           raise
             Api_errors.(
               Server_error
-                (internal_error, ["unexpected checkpoint file format"])
-            )
+                (internal_error, [ "unexpected checkpoint file format" ]))
       | exception e ->
           D.info
             "tried to read %s, but encountered exception %s. assuming it \
              didn't exist"
-            checkpoint_path (Printexc.to_string e) ;
+            checkpoint_path
+            (Printexc.to_string e) ;
           None
+
 
     let backup (old_pool_secret, new_pool_secret) =
       Xapi_fist.hang_psr `backup ;
       SecretString.write_to_file old_pool_secret_backup_path old_pool_secret ;
       SecretString.write_to_file new_pool_secret_backup_path new_pool_secret
 
+
     let retrieve = read_backups
 
     let tell_accept_new_pool_secret (old_pool_secret, new_pool_secret) host =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Host.notify_accept_new_pool_secret rpc session_id host
-            old_pool_secret new_pool_secret
-      )
+          Client.Host.notify_accept_new_pool_secret
+            rpc
+            session_id
+            host
+            old_pool_secret
+            new_pool_secret )
+
 
     let tell_send_new_pool_secret (old_pool_secret, new_pool_secret) host =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Host.notify_send_new_pool_secret rpc session_id host
-            old_pool_secret new_pool_secret
-      )
+          Client.Host.notify_send_new_pool_secret
+            rpc
+            session_id
+            host
+            old_pool_secret
+            new_pool_secret )
+
 
     let tell_cleanup_old_pool_secret (old_pool_secret, new_pool_secret) host =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Host.cleanup_pool_secret rpc session_id host old_pool_secret
-            new_pool_secret
-      )
+          Client.Host.cleanup_pool_secret
+            rpc
+            session_id
+            host
+            old_pool_secret
+            new_pool_secret )
+
 
     let cleanup_master (old_ps, new_ps) =
       Xapi_fist.hang_psr `cleanup ;
-      cleanup_internal ~additional_files_to_remove:[checkpoint_path] ~old_ps
+      cleanup_internal
+        ~additional_files_to_remove:[ checkpoint_path ]
+        ~old_ps
         ~new_ps
   end
 
@@ -395,101 +423,99 @@ let notify_new ~__context ~old_ps ~new_ps =
   Xapi_fist.hang_psr `notify_new ;
   Assert.no_checkpoint () ;
   match !Xapi_globs.pool_secrets with
-  | [priority_1_ps; priority_2_ps] ->
+  | [ priority_1_ps; priority_2_ps ] ->
       (* check disk state *)
       Assert.backups_match ~old_ps ~new_ps ;
       (* check runtime state *)
       if SecretString.(equal priority_2_ps new_ps && equal priority_1_ps old_ps)
-      then
-        D.info "xapi_psr.ml:notify_new: already accepting new pool secret"
+      then D.info "xapi_psr.ml:notify_new: already accepting new pool secret"
       else
         raise
           Api_errors.(
             Server_error
               ( internal_error
-              , ["notify_new: existing pool secrets are inconsistent"]
-              )
-          )
-  | [priority_1_ps] when SecretString.equal priority_1_ps old_ps ->
+              , [ "notify_new: existing pool secrets are inconsistent" ] ))
+  | [ priority_1_ps ] when SecretString.equal priority_1_ps old_ps ->
       if Pool_role.is_slave () then Assert.no_backups () ;
       SecretString.write_to_file old_pool_secret_backup_path old_ps ;
       SecretString.write_to_file new_pool_secret_backup_path new_ps ;
-      Xapi_globs.pool_secrets := [old_ps; new_ps]
-  | [_] ->
+      Xapi_globs.pool_secrets := [ old_ps; new_ps ]
+  | [ _ ] ->
       raise
         Api_errors.(
           Server_error
-            (internal_error, ["notify_new: old pool secret doesn't match"])
-        )
+            (internal_error, [ "notify_new: old pool secret doesn't match" ]))
   | l ->
       raise
         Api_errors.(
           Server_error
             ( internal_error
-            , [
-                Printf.sprintf
+            , [ Printf.sprintf
                   "notify_new: expected 1 or 2 pool secrets, got: %i"
                   (List.length l)
-              ]
-            )
-        )
+              ] ))
+
 
 let notify_send ~__context ~old_ps ~new_ps =
   Xapi_fist.hang_psr `notify_send ;
   Assert.no_checkpoint () ;
   Assert.backups_match ~old_ps ~new_ps ;
   match !Xapi_globs.pool_secrets with
-  | [priority_1_ps; priority_2_ps]
+  | [ priority_1_ps; priority_2_ps ]
     when SecretString.(equal priority_1_ps old_ps && equal priority_2_ps new_ps)
     ->
       (* reverse pool secret priorities, so that new_ps is sent in requests *)
       let () =
-        Unixext.with_file new_pool_secret_backup_path [Unix.O_RDONLY] perm
+        Unixext.with_file
+          new_pool_secret_backup_path
+          [ Unix.O_RDONLY ]
+          perm
           (fun ifd ->
-            Unixext.with_file !Xapi_globs.pool_secret_path [Unix.O_WRONLY] perm
+            Unixext.with_file
+              !Xapi_globs.pool_secret_path
+              [ Unix.O_WRONLY ]
+              perm
               (fun ofd ->
                 try
                   let (_ : int64) = Unixext.copy_file ifd ofd in
                   ()
-                with e ->
-                  D.error
-                    "xapi_psr.ml:notify_send: copy pool_secret_path failed. \
-                     from = %s, to = %s"
-                    new_pool_secret_backup_path
-                    !Xapi_globs.pool_secret_path ;
-                  raise e
-            )
-        )
+                with
+                | e ->
+                    D.error
+                      "xapi_psr.ml:notify_send: copy pool_secret_path failed. \
+                       from = %s, to = %s"
+                      new_pool_secret_backup_path
+                      !Xapi_globs.pool_secret_path ;
+                    raise e ) )
       in
-      Xapi_globs.pool_secrets := [priority_2_ps; priority_1_ps] ;
+      Xapi_globs.pool_secrets := [ priority_2_ps; priority_1_ps ] ;
       Db_globs.pool_secret :=
         priority_2_ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc
-  | [priority_1_ps; priority_2_ps]
+  | [ priority_1_ps; priority_2_ps ]
     when SecretString.(equal priority_1_ps new_ps && equal priority_2_ps old_ps)
     ->
       D.info "xapi_psr.ml:notify_send: already sending new_ps"
-  | [_; _] ->
+  | [ _; _ ] ->
       raise
         Api_errors.(
           Server_error
-            (internal_error, ["notify_send: runtime secrets don't match"])
-        )
+            (internal_error, [ "notify_send: runtime secrets don't match" ]))
   | l ->
       raise
         Api_errors.(
           Server_error
             ( internal_error
-            , [
-                Printf.sprintf "notify_send: expected 2 pool secrets, got: %i"
+            , [ Printf.sprintf
+                  "notify_send: expected 2 pool secrets, got: %i"
                   (List.length l)
-              ]
-            )
-        )
+              ] ))
+
 
 let cleanup ~__context ~old_ps ~new_ps =
   Xapi_fist.hang_psr `cleanup ;
   Assert.no_checkpoint () ;
   cleanup_internal ~additional_files_to_remove:[] ~old_ps ~new_ps
+
 
 module HostSet = Set.Make (struct
   type t = API.ref_host
@@ -501,44 +527,49 @@ let start =
   let m = Mutex.create () in
   let with_lock f =
     (* prevents multiple concurrent PSRs *)
-    if Mutex.try_lock m then (
-      try f () ; Mutex.unlock m with e -> Mutex.unlock m ; raise e
-    ) else
+    if Mutex.try_lock m
+    then (
+      try
+        f () ;
+        Mutex.unlock m
+      with
+      | e ->
+          Mutex.unlock m ;
+          raise e )
+    else
       raise
         Api_errors.(
-          Server_error (internal_error, ["pool secret rotation already running"])
-        )
+          Server_error
+            (internal_error, [ "pool secret rotation already running" ]))
   in
   fun ~__context ->
     let self = Helpers.get_pool ~__context in
     let set_up_psr_pending_flag asserts =
       let was_already_pending = Db.Pool.get_is_psr_pending ~__context ~self in
       let maybe_set_pending value =
-        if not was_already_pending then
-          Db.Pool.set_is_psr_pending ~__context ~self ~value
+        if not was_already_pending
+        then Db.Pool.set_is_psr_pending ~__context ~self ~value
       in
       maybe_set_pending true ;
-      try asserts ()
-      with e ->
-        (* only set pending to false if we just set it to true *)
-        maybe_set_pending false ; raise e
+      try asserts () with
+      | e ->
+          (* only set pending to false if we just set it to true *)
+          maybe_set_pending false ;
+          raise e
     in
     let assert_no_ha () =
       let is_ha_enabled = Db.Pool.get_ha_enabled ~__context ~self in
-      if is_ha_enabled then
-        raise Api_errors.(Server_error (ha_is_enabled, []))
+      if is_ha_enabled then raise Api_errors.(Server_error (ha_is_enabled, []))
     in
     let assert_we_are_master () =
-      if
-        not
-          (Helpers.is_pool_master ~__context
-             ~host:(Helpers.get_localhost ~__context)
-          )
+      if not
+           (Helpers.is_pool_master
+              ~__context
+              ~host:(Helpers.get_localhost ~__context) )
       then
         raise
           Api_errors.(
-            Server_error (host_is_slave, [Pool_role.get_master_address ()])
-          )
+            Server_error (host_is_slave, [ Pool_role.get_master_address () ]))
     in
     let assert_all_hosts_alive () =
       let live_hosts = Helpers.get_live_hosts ~__context |> HostSet.of_list in
@@ -547,23 +578,24 @@ let start =
       in
       let all_hosts = all_hosts_list |> HostSet.of_list in
       let offline_hosts = HostSet.diff all_hosts live_hosts in
-      ( if not (HostSet.is_empty offline_hosts) then
-          let offline_host = HostSet.min_elt offline_hosts in
-          raise
-            Api_errors.(
-              Server_error (cannot_contact_host, [Ref.string_of offline_host])
-            )
+      ( if not (HostSet.is_empty offline_hosts)
+      then
+        let offline_host = HostSet.min_elt offline_hosts in
+        raise
+          Api_errors.(
+            Server_error (cannot_contact_host, [ Ref.string_of offline_host ]))
       ) ;
       all_hosts_list
     in
     let assert_no_rpu () =
-      if Helpers.rolling_upgrade_in_progress ~__context then
-        raise Api_errors.(Server_error (not_supported_during_upgrade, []))
+      if Helpers.rolling_upgrade_in_progress ~__context
+      then raise Api_errors.(Server_error (not_supported_during_upgrade, []))
     in
     with_lock (fun () ->
         let master, members =
           set_up_psr_pending_flag (fun () ->
-              Pool_features.assert_enabled ~__context
+              Pool_features.assert_enabled
+                ~__context
                 ~f:Features.Pool_secret_rotation ;
               assert_we_are_master () ;
               Assert.master_state_valid () ;
@@ -573,14 +605,18 @@ let start =
               assert_no_ha () ;
               assert_no_rpu () ;
               Xapi_pool_helpers.assert_no_pool_ops ~__context ;
-              (master, members)
-          )
+              (master, members) )
         in
-        let module PSR = Make (Impl (struct let __context = __context end)) in
+        let module PSR =
+          Make (Impl (struct
+            let __context = __context
+          end))
+        in
         let r =
           PSR.start
             (Xapi_globs.pool_secret (), Helpers.PoolSecret.make ())
-            ~master ~members
+            ~master
+            ~members
         in
         match r with
         | Ok () ->
@@ -591,5 +627,4 @@ let start =
         | Error e ->
             let err_msg = user_facing_error_message ~__context e in
             D.error "PSR failed: %s" err_msg ;
-            raise Api_errors.(Server_error (internal_error, [err_msg]))
-    )
+            raise Api_errors.(Server_error (internal_error, [ err_msg ])) )

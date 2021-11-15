@@ -46,13 +46,21 @@ type command =
 (** In response to a server command, the client sends one of these.
     If the command was "Load" or "Prompt" then the client sends a list
     of data chunks. *)
-type response = OK | Wait | Failed
+type response =
+  | OK
+  | Wait
+  | Failed
 
 (** When streaming binary data, send in chunks with a known length and a
     special End marker at the end. *)
-type blob_header = Chunk of int32 | End
+type blob_header =
+  | Chunk of int32
+  | End
 
-type message = Command of command | Response of response | Blob of blob_header
+type message =
+  | Command of command
+  | Response of response
+  | Blob of blob_header
 
 (*****************************************************************************)
 (* Pretty-print functions                                                    *)
@@ -79,6 +87,7 @@ let string_of_command = function
   | PrintStderr x ->
       "PrintStderr " ^ x
 
+
 let string_of_response = function
   | OK ->
       "OK"
@@ -87,11 +96,13 @@ let string_of_response = function
   | Failed ->
       "Failed"
 
+
 let string_of_blob_header = function
   | Chunk x ->
       "Chunk " ^ Int32.to_string x
   | End ->
       "End"
+
 
 let string_of_message = function
   | Command x ->
@@ -100,6 +111,7 @@ let string_of_message = function
       "Response " ^ string_of_response x
   | Blob x ->
       "Blob " ^ string_of_blob_header x
+
 
 (*****************************************************************************)
 (* Marshal/Unmarshal primitives                                              *)
@@ -113,8 +125,9 @@ let marshal_int32 x =
   and d = x >> 24 && 0xffl in
   let set buf pos v = Bytes.set buf pos (char_of_int @@ Int32.to_int v) in
   let result = Bytes.make 4 '\000' in
-  List.iteri (set result) [a; b; c; d] ;
+  List.iteri (set result) [ a; b; c; d ] ;
   Bytes.unsafe_to_string result
+
 
 let marshal_int x = marshal_int32 (Int32.of_int x)
 
@@ -123,23 +136,28 @@ let marshal_string x = marshal_int (String.length x) ^ x
 let marshal_list f x =
   marshal_int (List.length x) ^ String.concat "" (List.map f x)
 
+
 type context = string * int (* offset *)
 
 let unmarshal_int32 (s, offset) =
-  let ( <<< ) a b = Int32.shift_left a b and ( ||| ) a b = Int32.logor a b in
+  let ( <<< ) a b = Int32.shift_left a b
+  and ( ||| ) a b = Int32.logor a b in
   let a = Int32.of_int (int_of_char s.[offset + 0])
   and b = Int32.of_int (int_of_char s.[offset + 1])
   and c = Int32.of_int (int_of_char s.[offset + 2])
   and d = Int32.of_int (int_of_char s.[offset + 3]) in
   (a <<< 0 ||| (b <<< 8) ||| (c <<< 16) ||| (d <<< 24), (s, offset + 4))
 
+
 let unmarshal_int pos =
   let x, pos = unmarshal_int32 pos in
   (Int32.to_int x, pos)
 
+
 let unmarshal_string pos =
   let len, (s, offset) = unmarshal_int pos in
   (String.sub s offset len, (s, offset + len))
+
 
 let unmarshal_list pos f =
   let len, pos = unmarshal_int pos in
@@ -151,6 +169,7 @@ let unmarshal_list pos f =
         loop pos (item :: acc) (n - 1)
   in
   loop pos [] len
+
 
 (*****************************************************************************)
 (* Marshal/Unmarshal higher-level messages                                   *)
@@ -178,6 +197,7 @@ let marshal_command = function
       marshal_int 14 ^ marshal_string x ^ marshal_list marshal_string xs
   | PrintStderr x ->
       marshal_int 16 ^ marshal_string x
+
 
 exception Unknown_tag of string * int
 
@@ -219,6 +239,7 @@ let unmarshal_command pos =
   | n ->
       raise (Unknown_tag ("command", n))
 
+
 let marshal_response = function
   | OK ->
       marshal_int 5
@@ -226,6 +247,7 @@ let marshal_response = function
       marshal_int 18
   | Failed ->
       marshal_int 6
+
 
 let unmarshal_response pos =
   let tag, pos = unmarshal_int pos in
@@ -239,11 +261,13 @@ let unmarshal_response pos =
   | n ->
       raise (Unknown_tag ("response", n))
 
+
 let marshal_blob_header = function
   | Chunk x ->
       marshal_int 7 ^ marshal_int32 x
   | End ->
       marshal_int 8
+
 
 let unmarshal_blob_header pos =
   let tag, pos = unmarshal_int pos in
@@ -256,6 +280,7 @@ let unmarshal_blob_header pos =
   | n ->
       raise (Unknown_tag ("blob_header", n))
 
+
 let marshal_message = function
   | Command x ->
       marshal_int 9 ^ marshal_command x
@@ -264,14 +289,17 @@ let marshal_message = function
   | Blob x ->
       marshal_int 11 ^ marshal_blob_header x
 
+
 let write_string (fd : Unix.file_descr) buf =
   Unixext.really_write fd buf 0 (String.length buf)
+
 
 (** Marshal a message to a file descriptor prefixing it with total header length *)
 let marshal (fd : Unix.file_descr) x =
   let payload = marshal_message x in
   write_string fd (marshal_int (String.length payload)) ;
   write_string fd payload
+
 
 exception Unmarshal_failure of exn * string
 
@@ -290,6 +318,7 @@ let unmarshal_message pos =
   | n ->
       raise (Unknown_tag ("blob_header", n))
 
+
 (** Unmarshal a message from a file descriptor *)
 let unmarshal (fd : Unix.file_descr) =
   let buf = Buffer.create 0 in
@@ -302,10 +331,14 @@ let unmarshal (fd : Unix.file_descr) =
     Buffer.add_string buf body ;
     if String.length body < length then raise End_of_file ;
     fst (unmarshal_message (body, 0))
-  with e -> raise (Unmarshal_failure (e, Buffer.contents buf))
+  with
+  | e ->
+      raise (Unmarshal_failure (e, Buffer.contents buf))
+
 
 let marshal_protocol (fd : Unix.file_descr) =
   write_string fd (prefix ^ marshal_int major ^ marshal_int minor)
+
 
 exception Protocol_mismatch of string
 
@@ -328,4 +361,6 @@ let unmarshal_protocol (fd : Unix.file_descr) =
     let major', _ = unmarshal_int (major_str, 0) in
     let minor', _ = unmarshal_int (minor_str, 0) in
     (major', minor')
-  with e -> raise (Unmarshal_failure (e, Buffer.contents buf))
+  with
+  | e ->
+      raise (Unmarshal_failure (e, Buffer.contents buf))

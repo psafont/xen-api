@@ -14,8 +14,11 @@
 
 let fistpoint name =
   try
-    Unix.access ("/tmp/fist_" ^ name) [Unix.F_OK] ;
+    Unix.access ("/tmp/fist_" ^ name) [ Unix.F_OK ] ;
     true
-  with _ -> false
+  with
+  | _ ->
+      false
+
 
 let reduce_rra_times = fistpoint "reduce_rra_times"

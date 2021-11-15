@@ -25,28 +25,30 @@ open Db_filter_types
 open Network
 module XenAPI = Client.Client
 
-module D = Debug.Make (struct let name = "create_misc" end)
+module D = Debug.Make (struct
+  let name = "create_misc"
+end)
 
 open D
 
-type host_info = {
-    name_label: string
-  ; xen_verstring: string option
-  ; linux_verstring: string
-  ; hostname: string
-  ; uuid: string
-  ; dom0_uuid: string
-  ; oem_manufacturer: string option
-  ; oem_model: string option
-  ; oem_build_number: string option
-  ; machine_serial_number: string option
-  ; machine_serial_name: string option
-  ; total_memory_mib: int64 option
-  ; dom0_static_max: int64 option
-  ; cpu_info: Xenops_interface.Host.cpu_info option
-  ; chipset_info: Xenops_interface.Host.chipset_info option
-  ; hypervisor: Xenops_interface.Host.hypervisor option
-}
+type host_info =
+  { name_label : string
+  ; xen_verstring : string option
+  ; linux_verstring : string
+  ; hostname : string
+  ; uuid : string
+  ; dom0_uuid : string
+  ; oem_manufacturer : string option
+  ; oem_model : string option
+  ; oem_build_number : string option
+  ; machine_serial_number : string option
+  ; machine_serial_name : string option
+  ; total_memory_mib : int64 option
+  ; dom0_static_max : int64 option
+  ; cpu_info : Xenops_interface.Host.cpu_info option
+  ; chipset_info : Xenops_interface.Host.chipset_info option
+  ; hypervisor : Xenops_interface.Host.hypervisor option
+  }
 
 (** The format of the response looks like
  *  # xen-livepatch list
@@ -58,22 +60,26 @@ type host_info = {
 let make_xen_livepatch_list () =
   let lines =
     try
-      String.split_on_char '\n'
+      String.split_on_char
+        '\n'
         (Helpers.get_process_output !Xapi_globs.xen_livepatch_list)
-    with _ -> []
+    with
+    | _ ->
+        []
   in
   let patches =
     List.fold_left
       (fun acc l ->
         match List.map String.trim (Xstringext.String.split ~limit:2 '|' l) with
-        | [key; "APPLIED"] ->
+        | [ key; "APPLIED" ] ->
             key :: acc
         | _ ->
-            acc
-        )
-      [] lines
+            acc )
+      []
+      lines
   in
   if List.length patches > 0 then Some (String.concat ", " patches) else None
+
 
 (** The format of the response looks like
  *  # kpatch list
@@ -87,9 +93,12 @@ let make_kpatch_list () =
   let end_line = "Installed patch modules:" in
   let lines =
     try
-      String.split_on_char '\n'
+      String.split_on_char
+        '\n'
         (Helpers.get_process_output !Xapi_globs.kpatch_list)
-    with _ -> []
+    with
+    | _ ->
+        []
   in
   let rec loop acc started = function
     | [] ->
@@ -100,13 +109,13 @@ let make_kpatch_list () =
         loop acc true rest
     | line :: rest ->
         let line' = String.trim line in
-        if line' <> "" && started then
-          loop (line' :: acc) true rest
-        else
-          loop acc started rest
+        if line' <> "" && started
+        then loop (line' :: acc) true rest
+        else loop acc started rest
   in
   let patches = loop [] false lines in
   if List.length patches > 0 then Some (String.concat ", " patches) else None
+
 
 (** [count_cpus] returns the number of CPUs found in /proc/cpuinfo *)
 let count_cpus () =
@@ -116,14 +125,14 @@ let count_cpus () =
   let count n line = if matches line then n + 1 else n in
   Unixext.file_lines_fold count 0 cpuinfo
 
+
 (* NB: this is dom0's view of the world, not Xen's. *)
 let read_dom0_memory_usage () =
   try
     let map = Balloon.parse_proc_xen_balloon () in
     let lookup x = Option.get (List.assoc x map) in
     let keys =
-      [
-        Balloon._low_mem_balloon
+      [ Balloon._low_mem_balloon
       ; Balloon._high_mem_balloon
       ; Balloon._current_allocation
       ]
@@ -131,7 +140,10 @@ let read_dom0_memory_usage () =
     let values = List.map lookup keys in
     let result = List.fold_left Int64.add 0L values in
     Some (Int64.mul 1024L result)
-  with _ -> None
+  with
+  | _ ->
+      None
+
 
 let read_localhost_info ~__context =
   let open Xapi_xenops_queue in
@@ -166,24 +178,24 @@ let read_localhost_info ~__context =
   in
   let open Xapi_inventory in
   let open Xenops_interface.Host in
-  {
-    name_label= this_host_name
-  ; xen_verstring= Option.map (fun s -> s.hypervisor.version) stat
+  { name_label = this_host_name
+  ; xen_verstring = Option.map (fun s -> s.hypervisor.version) stat
   ; linux_verstring
-  ; hostname= this_host_name
-  ; uuid= me
-  ; dom0_uuid= lookup _control_domain_uuid
-  ; oem_manufacturer= lookup_inventory_nofail _oem_manufacturer
-  ; oem_model= lookup_inventory_nofail _oem_model
-  ; oem_build_number= lookup_inventory_nofail _oem_build_number
-  ; machine_serial_number= lookup_inventory_nofail _machine_serial_number
-  ; machine_serial_name= lookup_inventory_nofail _machine_serial_name
+  ; hostname = this_host_name
+  ; uuid = me
+  ; dom0_uuid = lookup _control_domain_uuid
+  ; oem_manufacturer = lookup_inventory_nofail _oem_manufacturer
+  ; oem_model = lookup_inventory_nofail _oem_model
+  ; oem_build_number = lookup_inventory_nofail _oem_build_number
+  ; machine_serial_number = lookup_inventory_nofail _machine_serial_number
+  ; machine_serial_name = lookup_inventory_nofail _machine_serial_name
   ; total_memory_mib
   ; dom0_static_max
-  ; cpu_info= Option.map (fun s -> s.cpu_info) stat
-  ; chipset_info= Option.map (fun s -> s.chipset_info) stat
-  ; hypervisor= Option.map (fun s -> s.hypervisor) stat
+  ; cpu_info = Option.map (fun s -> s.cpu_info) stat
+  ; chipset_info = Option.map (fun s -> s.chipset_info) stat
+  ; hypervisor = Option.map (fun s -> s.hypervisor) stat
   }
+
 
 (** Returns the maximum of two values. *)
 let maximum x y = if x > y then x else y
@@ -194,7 +206,7 @@ let minimum x y = if x < y then x else y
 let ( +++ ) = Int64.add
 
 (** [mkints n] creates a list [1; 2; .. ; n] *)
-let rec mkints = function 0 -> [] | n -> mkints (n - 1) @ [n]
+let rec mkints = function 0 -> [] | n -> mkints (n - 1) @ [ n ]
 
 (** Ensures that the database has all the necessary records for domain
     zero, and that the records are up-to-date. Includes the following:
@@ -215,29 +227,36 @@ let rec ensure_domain_zero_records ~__context ~host (host_info : host_info) :
   ensure_domain_zero_console_record ~__context ~domain_zero_ref ;
   ensure_domain_zero_metrics_record ~__context ~domain_zero_ref host_info
 
+
 and maybe_upgrade_domain_zero_record ~__context ~host (host_info : host_info) =
   try
     let control_domain =
       Db.VM.get_by_uuid ~__context ~uuid:host_info.dom0_uuid
     in
-    if Db.Host.get_control_domain ~__context ~self:host = Ref.null then (
-      debug "Setting control domain for host %s to %s" (Ref.string_of host)
+    if Db.Host.get_control_domain ~__context ~self:host = Ref.null
+    then (
+      debug
+        "Setting control domain for host %s to %s"
+        (Ref.string_of host)
         (Ref.string_of control_domain) ;
-      Db.Host.set_control_domain ~__context ~self:host ~value:control_domain
-    )
-  with Db_exn.Read_missing_uuid _ -> ()
+      Db.Host.set_control_domain ~__context ~self:host ~value:control_domain )
+  with
+  | Db_exn.Read_missing_uuid _ ->
+      ()
 
-and ensure_domain_zero_record ~__context (host_info : host_info) : [`VM] Ref.t =
+
+and ensure_domain_zero_record ~__context (host_info : host_info) : [ `VM ] Ref.t
+    =
   let ref_lookup () = Helpers.get_domain_zero ~__context in
   let ref_create () = Ref.make () in
   let domain_zero_ref, found =
     try (ref_lookup (), true) with _ -> (ref_create (), false)
   in
-  if found then
-    update_domain_zero_record ~__context ~domain_zero_ref host_info
-  else
-    create_domain_zero_record ~__context ~domain_zero_ref host_info ;
+  if found
+  then update_domain_zero_record ~__context ~domain_zero_ref host_info
+  else create_domain_zero_record ~__context ~domain_zero_ref host_info ;
   domain_zero_ref
+
 
 and ensure_domain_zero_console_record ~__context ~domain_zero_ref : unit =
   let dom0_consoles = Db.VM.get_consoles ~__context ~self:domain_zero_ref in
@@ -252,37 +271,45 @@ and ensure_domain_zero_console_record ~__context ~domain_zero_ref : unit =
       dom0_consoles
   in
   match (console_records_rfb, console_records_vt100) with
-  | [rfb], [vt100] ->
+  | [ rfb ], [ vt100 ] ->
       debug "1 RFB, 1 VT100 console found... ensuring correct port numbers" ;
-      Db.Console.set_port ~__context ~self:rfb
+      Db.Console.set_port
+        ~__context
+        ~self:rfb
         ~value:Xapi_globs.host_console_vncport ;
-      Db.Console.set_port ~__context ~self:vt100
+      Db.Console.set_port
+        ~__context
+        ~self:vt100
         ~value:Xapi_globs.host_console_textport
   | _ ->
       (* if there's not more than one console of each type then something strange is happening*)
-      create_domain_zero_console_record ~__context ~domain_zero_ref
-        ~console_records_rfb ~console_records_vt100
+      create_domain_zero_console_record
+        ~__context
+        ~domain_zero_ref
+        ~console_records_rfb
+        ~console_records_vt100
 
-and ensure_domain_zero_metrics_record ~__context ~domain_zero_ref
-    (host_info : host_info) : unit =
-  if
-    not
-      (Db.is_valid_ref __context
-         (Db.VM.get_metrics ~__context ~self:domain_zero_ref)
-      )
+
+and ensure_domain_zero_metrics_record
+    ~__context ~domain_zero_ref (host_info : host_info) : unit =
+  if not
+       (Db.is_valid_ref
+          __context
+          (Db.VM.get_metrics ~__context ~self:domain_zero_ref) )
   then (
     debug
       "Domain 0 record does not have associated metrics record. Creating now" ;
     let metrics_ref = Ref.make () in
-    create_domain_zero_metrics_record ~__context
+    create_domain_zero_metrics_record
+      ~__context
       ~domain_zero_metrics_ref:metrics_ref
       ~memory_constraints:(create_domain_zero_memory_constraints host_info)
       ~vcpus:(count_cpus ()) ;
-    Db.VM.set_metrics ~__context ~self:domain_zero_ref ~value:metrics_ref
-  ) else (
+    Db.VM.set_metrics ~__context ~self:domain_zero_ref ~value:metrics_ref )
+  else (
     debug "Updating Domain 0 metrics record" ;
-    update_domain_zero_metrics_record ~__context ~domain_zero_ref
-  )
+    update_domain_zero_metrics_record ~__context ~domain_zero_ref )
+
 
 and create_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info)
     : unit =
@@ -299,50 +326,104 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info
   let vcpus = count_cpus () in
   let metrics = Ref.make () in
   (* Now create the database record. *)
-  Db.VM.create ~__context ~ref:domain_zero_ref
+  Db.VM.create
+    ~__context
+    ~ref:domain_zero_ref
     ~name_label:("Control domain on host: " ^ host_info.hostname)
     ~uuid
     ~name_description:
       "The domain which manages physical devices and manages other domains"
-    ~hVM_boot_policy:"" ~hVM_boot_params:[] ~hVM_shadow_multiplier:1.
-    ~platform:[] ~pCI_bus:"" ~pV_args:"" ~pV_ramdisk:"" ~pV_kernel:""
-    ~pV_bootloader:"" ~pV_bootloader_args:"" ~pV_legacy_args:""
-    ~actions_after_crash:`destroy ~actions_after_reboot:`destroy
-    ~actions_after_shutdown:`destroy ~allowed_operations:[]
-    ~current_operations:[] ~blocked_operations:[] ~power_state:`Running
-    ~vCPUs_max:(Int64.of_int vcpus) ~vCPUs_at_startup:(Int64.of_int vcpus)
-    ~vCPUs_params:[] ~memory_overhead:0L ~memory_static_min:memory.static_min
-    ~memory_dynamic_min:memory.dynamic_min ~memory_target:memory.target
-    ~memory_static_max:memory.static_max ~memory_dynamic_max:memory.dynamic_max
-    ~resident_on:localhost ~scheduled_to_be_resident_on:Ref.null
-    ~affinity:localhost ~suspend_VDI:Ref.null ~domid:0L ~domarch
-    ~is_control_domain:true ~is_a_template:false ~is_default_template:false
-    ~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
-    ~transportable_snapshot_id:"" ~snapshot_info:[] ~snapshot_metadata:""
-    ~parent:Ref.null ~other_config:[] ~blobs:[] ~xenstore_data:[] ~tags:[]
-    ~user_version:1L ~ha_restart_priority:"" ~ha_always_run:false
-    ~recommendations:"" ~last_boot_CPU_flags:[] ~last_booted_record:""
-    ~guest_metrics:Ref.null ~metrics ~bios_strings:[]
-    ~protection_policy:Ref.null ~is_snapshot_from_vmpp:false
-    ~snapshot_schedule:Ref.null ~is_vmss_snapshot:false ~appliance:Ref.null
-    ~start_delay:0L ~shutdown_delay:0L ~order:0L ~suspend_SR:Ref.null
-    ~version:0L ~generation_id:"" ~hardware_platform_version:0L
-    ~has_vendor_device:false ~requires_reboot:false ~reference_label:""
-    ~domain_type:Xapi_globs.domain_zero_domain_type ~nVRAM:[]
+    ~hVM_boot_policy:""
+    ~hVM_boot_params:[]
+    ~hVM_shadow_multiplier:1.
+    ~platform:[]
+    ~pCI_bus:""
+    ~pV_args:""
+    ~pV_ramdisk:""
+    ~pV_kernel:""
+    ~pV_bootloader:""
+    ~pV_bootloader_args:""
+    ~pV_legacy_args:""
+    ~actions_after_crash:`destroy
+    ~actions_after_reboot:`destroy
+    ~actions_after_shutdown:`destroy
+    ~allowed_operations:[]
+    ~current_operations:[]
+    ~blocked_operations:[]
+    ~power_state:`Running
+    ~vCPUs_max:(Int64.of_int vcpus)
+    ~vCPUs_at_startup:(Int64.of_int vcpus)
+    ~vCPUs_params:[]
+    ~memory_overhead:0L
+    ~memory_static_min:memory.static_min
+    ~memory_dynamic_min:memory.dynamic_min
+    ~memory_target:memory.target
+    ~memory_static_max:memory.static_max
+    ~memory_dynamic_max:memory.dynamic_max
+    ~resident_on:localhost
+    ~scheduled_to_be_resident_on:Ref.null
+    ~affinity:localhost
+    ~suspend_VDI:Ref.null
+    ~domid:0L
+    ~domarch
+    ~is_control_domain:true
+    ~is_a_template:false
+    ~is_default_template:false
+    ~is_a_snapshot:false
+    ~snapshot_time:Date.never
+    ~snapshot_of:Ref.null
+    ~transportable_snapshot_id:""
+    ~snapshot_info:[]
+    ~snapshot_metadata:""
+    ~parent:Ref.null
+    ~other_config:[]
+    ~blobs:[]
+    ~xenstore_data:[]
+    ~tags:[]
+    ~user_version:1L
+    ~ha_restart_priority:""
+    ~ha_always_run:false
+    ~recommendations:""
+    ~last_boot_CPU_flags:[]
+    ~last_booted_record:""
+    ~guest_metrics:Ref.null
+    ~metrics
+    ~bios_strings:[]
+    ~protection_policy:Ref.null
+    ~is_snapshot_from_vmpp:false
+    ~snapshot_schedule:Ref.null
+    ~is_vmss_snapshot:false
+    ~appliance:Ref.null
+    ~start_delay:0L
+    ~shutdown_delay:0L
+    ~order:0L
+    ~suspend_SR:Ref.null
+    ~version:0L
+    ~generation_id:""
+    ~hardware_platform_version:0L
+    ~has_vendor_device:false
+    ~requires_reboot:false
+    ~reference_label:""
+    ~domain_type:Xapi_globs.domain_zero_domain_type
+    ~nVRAM:[]
     ~pending_guidances:[] ;
   ensure_domain_zero_metrics_record ~__context ~domain_zero_ref host_info ;
   Db.Host.set_control_domain ~__context ~self:localhost ~value:domain_zero_ref ;
   Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 
-and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref
-    ~dom0_console_protocol =
+
+and create_domain_zero_console_record_with_protocol
+    ~__context ~domain_zero_ref ~dom0_console_protocol =
   let console_ref = Ref.make () in
   let address =
     Http.Url.maybe_wrap_IPv6_literal
       (Db.Host.get_address ~__context ~self:(Helpers.get_localhost ~__context))
   in
   let location =
-    Printf.sprintf "https://%s%s?ref=%s" address Constants.console_uri
+    Printf.sprintf
+      "https://%s%s?ref=%s"
+      address
+      Constants.console_uri
       (Ref.string_of domain_zero_ref)
   in
   let port =
@@ -352,38 +433,61 @@ and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref
     | `vt100 ->
         Xapi_globs.host_console_textport
   in
-  Db.Console.create ~__context ~ref:console_ref
+  Db.Console.create
+    ~__context
+    ~ref:console_ref
     ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
-    ~protocol:dom0_console_protocol ~location ~vM:domain_zero_ref
-    ~other_config:[] ~port
+    ~protocol:dom0_console_protocol
+    ~location
+    ~vM:domain_zero_ref
+    ~other_config:[]
+    ~port
 
-and create_domain_zero_console_record ~__context ~domain_zero_ref
-    ~console_records_rfb ~console_records_vt100 =
-  if List.length console_records_rfb <> 1 then (
+
+and create_domain_zero_console_record
+    ~__context ~domain_zero_ref ~console_records_rfb ~console_records_vt100 =
+  if List.length console_records_rfb <> 1
+  then (
     List.iter
       (fun console -> Db.Console.destroy ~__context ~self:console)
       console_records_rfb ;
-    create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref
-      ~dom0_console_protocol:`rfb
-  ) ;
-  if List.length console_records_vt100 <> 1 then (
+    create_domain_zero_console_record_with_protocol
+      ~__context
+      ~domain_zero_ref
+      ~dom0_console_protocol:`rfb ) ;
+  if List.length console_records_vt100 <> 1
+  then (
     List.iter
       (fun console -> Db.Console.destroy ~__context ~self:console)
       console_records_vt100 ;
-    create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref
-      ~dom0_console_protocol:`vt100
-  )
+    create_domain_zero_console_record_with_protocol
+      ~__context
+      ~domain_zero_ref
+      ~dom0_console_protocol:`vt100 )
 
-and create_domain_zero_metrics_record ~__context ~domain_zero_metrics_ref
-    ~memory_constraints ~vcpus : unit =
-  Db.VM_metrics.create ~__context ~ref:domain_zero_metrics_ref
+
+and create_domain_zero_metrics_record
+    ~__context ~domain_zero_metrics_ref ~memory_constraints ~vcpus : unit =
+  Db.VM_metrics.create
+    ~__context
+    ~ref:domain_zero_metrics_ref
     ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
     ~memory_actual:memory_constraints.target
     ~vCPUs_utilisation:(List.map (fun x -> (Int64.of_int x, 0.)) (mkints vcpus))
-    ~vCPUs_number:(Int64.of_int vcpus) ~vCPUs_CPU:[] ~vCPUs_params:[]
-    ~vCPUs_flags:[] ~state:[] ~start_time:Date.never ~install_time:Date.never
-    ~last_updated:Date.never ~other_config:[] ~hvm:false ~nomigrate:false
-    ~nested_virt:false ~current_domain_type:Xapi_globs.domain_zero_domain_type
+    ~vCPUs_number:(Int64.of_int vcpus)
+    ~vCPUs_CPU:[]
+    ~vCPUs_params:[]
+    ~vCPUs_flags:[]
+    ~state:[]
+    ~start_time:Date.never
+    ~install_time:Date.never
+    ~last_updated:Date.never
+    ~other_config:[]
+    ~hvm:false
+    ~nomigrate:false
+    ~nested_virt:false
+    ~current_domain_type:Xapi_globs.domain_zero_domain_type
+
 
 and update_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info)
     : unit =
@@ -393,17 +497,16 @@ and update_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info
     Vm_memory_constraints.get ~__context ~vm_ref:domain_zero_ref
   in
   let constraints = create_domain_zero_memory_constraints host_info in
-  if not (Xapi_host_helpers.Host_requires_reboot.get ()) then (
+  if not (Xapi_host_helpers.Host_requires_reboot.get ())
+  then (
     let constraints =
       (* Only update static_min if it is unset (i.e. 0) *)
-      if constraints_in_db.static_min > 0L then
-        {constraints with static_min= constraints_in_db.static_min}
-      else
-        constraints
+      if constraints_in_db.static_min > 0L
+      then { constraints with static_min = constraints_in_db.static_min }
+      else constraints
     in
     Vm_memory_constraints.set ~__context ~vm_ref:domain_zero_ref ~constraints ;
-    Db.VM.set_requires_reboot ~__context ~self:domain_zero_ref ~value:false
-  ) ;
+    Db.VM.set_requires_reboot ~__context ~self:domain_zero_ref ~value:false ) ;
   let localhost = Helpers.get_localhost ~__context in
   let cpus = count_cpus () |> Int64.of_int in
   Db.VM.set_power_state ~__context ~self:domain_zero_ref ~value:`Running ;
@@ -412,47 +515,52 @@ and update_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info
   Db.VM.set_VCPUs_max ~__context ~self:domain_zero_ref ~value:cpus ;
   Db.VM.set_VCPUs_at_startup ~__context ~self:domain_zero_ref ~value:cpus
 
+
 and update_domain_zero_metrics_record ~__context ~domain_zero_ref =
   let metrics = Db.VM.get_metrics ~__context ~self:domain_zero_ref in
   let cpus = count_cpus () in
   let cpus' = Int64.of_int cpus in
-  Db.VM_metrics.set_current_domain_type ~__context ~self:metrics
+  Db.VM_metrics.set_current_domain_type
+    ~__context
+    ~self:metrics
     ~value:Xapi_globs.domain_zero_domain_type ;
   Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:cpus' ;
-  Db.VM_metrics.set_VCPUs_utilisation ~__context ~self:metrics
+  Db.VM_metrics.set_VCPUs_utilisation
+    ~__context
+    ~self:metrics
     ~value:(List.map (fun x -> (Int64.of_int x, 0.)) (mkints cpus))
+
 
 and create_domain_zero_memory_constraints (host_info : host_info) :
     Vm_memory_constraints.t =
   try
     match Memory_client.Client.get_domain_zero_policy "create_misc" with
     | Memory_interface.Fixed_size x ->
-        {
-          static_min= x
-        ; static_max= x
-        ; dynamic_min= x
-        ; dynamic_max= x
-        ; target= x
+        { static_min = x
+        ; static_max = x
+        ; dynamic_min = x
+        ; dynamic_max = x
+        ; target = x
         }
     | Memory_interface.Auto_balloon (low, high) ->
-        {
-          static_min= low
-        ; static_max= high
-        ; dynamic_min= low
-        ; dynamic_max= high
-        ; target= high
+        { static_min = low
+        ; static_max = high
+        ; dynamic_min = low
+        ; dynamic_max = high
+        ; target = high
         }
-  with e ->
-    if Pool_role.is_unit_test () then
-      {
-        static_min= 0L
-      ; static_max= 0L
-      ; dynamic_min= 0L
-      ; dynamic_max= 0L
-      ; target= 0L
-      }
-    else
-      raise e
+  with
+  | e ->
+      if Pool_role.is_unit_test ()
+      then
+        { static_min = 0L
+        ; static_max = 0L
+        ; dynamic_min = 0L
+        ; dynamic_max = 0L
+        ; target = 0L
+        }
+      else raise e
+
 
 open Db_filter
 
@@ -463,14 +571,18 @@ let create_root_user ~__context =
   and uuid = Uuid.to_string (Uuid.make_uuid ())
   and ref = Ref.make () in
   let all =
-    Db.User.get_records_where ~__context
+    Db.User.get_records_where
+      ~__context
       ~expr:(Eq (Field "short_name", Literal short_name))
   in
-  if all = [] then
+  if all = []
+  then
     Db.User.create ~__context ~ref ~fullname ~short_name ~uuid ~other_config:[]
+
 
 let get_xapi_verstring () =
   Printf.sprintf "%d.%d" Constants.version_major Constants.version_minor
+
 
 (** Create assoc list of Supplemental-Pack information.
  *  The package information is taking from the [XS-REPOSITORY] XML file in the package
@@ -496,19 +608,15 @@ let make_packs_info () =
             let name = List.assoc "name" attr in
             let version = List.assoc "version" attr in
             let build =
-              if List.mem_assoc "build" attr then
-                Some (List.assoc "build" attr)
-              else
-                None
+              if List.mem_assoc "build" attr
+              then Some (List.assoc "build" attr)
+              else None
             in
             let homogeneous =
-              if
-                List.mem_assoc "enforce-homogeneity" attr
-                && List.assoc "enforce-homogeneity" attr = "true"
-              then
-                true
-              else
-                false
+              if List.mem_assoc "enforce-homogeneity" attr
+                 && List.assoc "enforce-homogeneity" attr = "true"
+              then true
+              else false
             in
             let description =
               match children with
@@ -526,33 +634,32 @@ let make_packs_info () =
                 | Some build ->
                     ", build " ^ build
                 | None ->
-                    ""
-                )
-              ^
-              if homogeneous then
-                ", homogeneous"
-              else
-                ""
+                    "" )
+              ^ if homogeneous then ", homogeneous" else ""
             in
-            let kv = [(param_name, value)] in
-            if originator = "xs" && name = "linux" then
+            let kv = [ (param_name, value) ] in
+            if originator = "xs" && name = "linux"
+            then
               (* CA-29040: put old linux-pack key in there for backwards compatibility *)
-              [("package-linux", "installed")] @ kv
-            else
-              kv
+              [ ("package-linux", "installed") ] @ kv
+            else kv
         | _ ->
             failwith "error while parsing pack data!"
-      with _ ->
-        debug "error while parsing pack data for %s!" fname ;
-        []
+      with
+      | _ ->
+          debug "error while parsing pack data for %s!" fname ;
+          []
     in
     Array.fold_left (fun l fname -> get_pack_details fname @ l) [] packs
-  with _ -> []
+  with
+  | _ ->
+      []
+
 
 (** Create a complete assoc list of version information *)
 let make_software_version ~__context host_info =
   let dbg = Context.string_of_task __context in
-  let option_to_list k o = match o with None -> [] | Some x -> [(k, x)] in
+  let option_to_list k o = match o with None -> [] | Some x -> [ (k, x) ] in
   let v6_version =
     (* Best-effort attempt to read the date-based version from v6d *)
     try
@@ -560,26 +667,25 @@ let make_software_version ~__context host_info =
       | "" ->
           []
       | dbv ->
-          [("dbv", dbv)]
+          [ ("dbv", dbv) ]
     with
     | Api_errors.Server_error (code, []) when code = Api_errors.v6d_failure ->
-      []
+        []
   in
   Xapi_globs.software_version ()
   @ v6_version
-  @ [
-      ("xapi", get_xapi_verstring ())
+  @ [ ("xapi", get_xapi_verstring ())
     ; ("xen", Option.value ~default:"(unknown)" host_info.xen_verstring)
     ; ("linux", host_info.linux_verstring)
     ; ("xencenter_min", Xapi_globs.xencenter_min_verstring)
     ; ("xencenter_max", Xapi_globs.xencenter_max_verstring)
     ; ( "network_backend"
-      , Network_interface.string_of_kind (Net.Bridge.get_kind dbg ())
-      )
+      , Network_interface.string_of_kind (Net.Bridge.get_kind dbg ()) )
     ; ( Xapi_globs._db_schema
-      , Printf.sprintf "%d.%d" Datamodel_common.schema_major_vsn
-          Datamodel_common.schema_minor_vsn
-      )
+      , Printf.sprintf
+          "%d.%d"
+          Datamodel_common.schema_major_vsn
+          Datamodel_common.schema_minor_vsn )
     ]
   @ option_to_list "oem_manufacturer" host_info.oem_manufacturer
   @ option_to_list "oem_model" host_info.oem_model
@@ -590,11 +696,13 @@ let make_software_version ~__context host_info =
   @ option_to_list "kernel_livepatches" (make_kpatch_list ())
   @ make_packs_info ()
 
+
 let create_software_version ~__context ?(info = None) () =
   let host_info = Option.value ~default:(read_localhost_info ~__context) info in
   let software_version = make_software_version ~__context host_info in
   let host = Helpers.get_localhost ~__context in
   Db.Host.set_software_version ~__context ~self:host ~value:software_version
+
 
 let create_host_cpu ~__context host_info =
   let open Map_check in
@@ -604,8 +712,7 @@ let create_host_cpu ~__context host_info =
       warn "Failed to get host CPU info; not updating database"
   | Some cpu_info ->
       let cpu =
-        [
-          ("cpu_count", string_of_int cpu_info.cpu_count)
+        [ ("cpu_count", string_of_int cpu_info.cpu_count)
         ; ("socket_count", string_of_int cpu_info.socket_count)
         ; ("vendor", cpu_info.vendor)
         ; ("speed", cpu_info.speed)
@@ -617,20 +724,15 @@ let create_host_cpu ~__context host_info =
         ; (* To support VMs migrated from hosts which do not support CPU levelling v2,
              		   set the "features" key to what it would be on such hosts. *)
           ( "features"
-          , Cpuid_helpers.string_of_features cpu_info.features_oldstyle
-          )
+          , Cpuid_helpers.string_of_features cpu_info.features_oldstyle )
         ; ( Xapi_globs.cpu_info_features_pv_key
-          , Cpuid_helpers.string_of_features cpu_info.features_pv
-          )
+          , Cpuid_helpers.string_of_features cpu_info.features_pv )
         ; ( Xapi_globs.cpu_info_features_hvm_key
-          , Cpuid_helpers.string_of_features cpu_info.features_hvm
-          )
+          , Cpuid_helpers.string_of_features cpu_info.features_hvm )
         ; ( Xapi_globs.cpu_info_features_hvm_host_key
-          , Cpuid_helpers.string_of_features cpu_info.features_hvm_host
-          )
+          , Cpuid_helpers.string_of_features cpu_info.features_hvm_host )
         ; ( Xapi_globs.cpu_info_features_pv_host_key
-          , Cpuid_helpers.string_of_features cpu_info.features_pv_host
-          )
+          , Cpuid_helpers.string_of_features cpu_info.features_pv_host )
         ]
       in
       let host = Helpers.get_localhost ~__context in
@@ -643,14 +745,14 @@ let create_host_cpu ~__context host_info =
         (Map_check.getf Cpuid_helpers.cpu_count cpu)
         (Map_check.getf Cpuid_helpers.features_hvm cpu |> string_of_features)
         (Map_check.getf Cpuid_helpers.features_pv cpu |> string_of_features)
-        (Map_check.getf Cpuid_helpers.features_hvm_host cpu
-        |> string_of_features
-        )
+        ( Map_check.getf Cpuid_helpers.features_hvm_host cpu
+        |> string_of_features )
         (Map_check.getf Cpuid_helpers.features_pv_host cpu |> string_of_features) ;
       Db.Host.set_cpu_info ~__context ~self:host ~value:cpu ;
       let before = getf ~default:[||] features_hvm old_cpu_info in
       let after = cpu_info.features_hvm in
-      if (not (is_equal before after)) && before <> [||] then (
+      if (not (is_equal before after)) && before <> [||]
+      then (
         let lost = is_strict_subset (intersect before after) before in
         let gained = is_strict_subset (intersect before after) after in
         info
@@ -658,7 +760,8 @@ let create_host_cpu ~__context host_info =
           (if lost then " Some features have gone away." else "")
           (if gained then " Some features were added." else "")
           (string_of_features before) ;
-        if (not (Helpers.rolling_upgrade_in_progress ~__context)) && lost then
+        if (not (Helpers.rolling_upgrade_in_progress ~__context)) && lost
+        then
           let name, priority = Api_messages.host_cpu_features_down in
           let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
           let body =
@@ -668,11 +771,14 @@ let create_host_cpu ~__context host_info =
           in
           Helpers.call_api_functions ~__context (fun rpc session_id ->
               ignore
-                (XenAPI.Message.create rpc session_id name priority `Host
-                   obj_uuid body
-                )
-          )
-      ) ;
+                (XenAPI.Message.create
+                   rpc
+                   session_id
+                   name
+                   priority
+                   `Host
+                   obj_uuid
+                   body ) ) ) ;
 
       (* Recreate all Host_cpu objects *)
 
@@ -690,16 +796,28 @@ let create_host_cpu ~__context host_info =
       in
       List.iter (fun (r, _) -> Db.Host_cpu.destroy ~__context ~self:r) host_cpus ;
       for i = 0 to cpu_info.cpu_count - 1 do
-        let uuid = Uuid.to_string (Uuid.make_uuid ()) and ref = Ref.make () in
+        let uuid = Uuid.to_string (Uuid.make_uuid ())
+        and ref = Ref.make () in
         debug "Creating CPU %d: %s" i uuid ;
         ignore
-          (Db.Host_cpu.create ~__context ~ref ~uuid ~host
-             ~number:(Int64.of_int i) ~vendor:cpu_info.vendor ~speed
-             ~modelname:cpu_info.modelname ~utilisation:0. ~flags:cpu_info.flags
-             ~stepping:cpu_info.stepping ~model ~family ~features:""
-             ~other_config:[]
-          )
+          (Db.Host_cpu.create
+             ~__context
+             ~ref
+             ~uuid
+             ~host
+             ~number:(Int64.of_int i)
+             ~vendor:cpu_info.vendor
+             ~speed
+             ~modelname:cpu_info.modelname
+             ~utilisation:0.
+             ~flags:cpu_info.flags
+             ~stepping:cpu_info.stepping
+             ~model
+             ~family
+             ~features:""
+             ~other_config:[] )
       done
+
 
 let create_pool_cpuinfo ~__context =
   let open Map_check in
@@ -719,37 +837,41 @@ let create_pool_cpuinfo ~__context =
       |> setf vendor (getf vendor host)
       |> setf cpu_count (getf cpu_count host + getf cpu_count pool)
       |> setf socket_count (getf socket_count host + getf socket_count pool)
-      |> setf features_pv
-           (Cpuid_helpers.intersect (getf features_pv host)
-              (getf features_pv pool)
-           )
-      |> setf features_pv_host
+      |> setf
+           features_pv
+           (Cpuid_helpers.intersect
+              (getf features_pv host)
+              (getf features_pv pool) )
+      |> setf
+           features_pv_host
            (Cpuid_helpers.intersect
               (getfdefault ~defaultf:features_pv features_pv_host host)
-              (getfdefault ~defaultf:features_pv features_pv_host pool)
-           )
+              (getfdefault ~defaultf:features_pv features_pv_host pool) )
       |> fun pool' ->
-      if Helpers.host_supports_hvm ~__context hostref then
+      if Helpers.host_supports_hvm ~__context hostref
+      then
         pool'
-        |> setf features_hvm
-             (Cpuid_helpers.intersect (getf features_hvm host)
-                (getf features_hvm pool)
-             )
-        |> setf features_hvm_host
+        |> setf
+             features_hvm
+             (Cpuid_helpers.intersect
+                (getf features_hvm host)
+                (getf features_hvm pool) )
+        |> setf
+             features_hvm_host
              (Cpuid_helpers.intersect
                 (getfdefault ~defaultf:features_hvm features_hvm_host host)
-                (getfdefault ~defaultf:features_hvm features_hvm_host pool)
-             )
-      else
-        pool'
-    with Not_found ->
-      (* pre-Dundee? *)
-      warn "Host %s is missing required `features*` keys" (Ref.string_of hostref) ;
-      pool
+                (getfdefault ~defaultf:features_hvm features_hvm_host pool) )
+      else pool'
+    with
+    | Not_found ->
+        (* pre-Dundee? *)
+        warn
+          "Host %s is missing required `features*` keys"
+          (Ref.string_of hostref) ;
+        pool
   in
   let zero =
-    [
-      ("vendor", "")
+    [ ("vendor", "")
     ; ("socket_count", "0")
     ; ("cpu_count", "0")
     ; ("features_pv", "")
@@ -764,30 +886,30 @@ let create_pool_cpuinfo ~__context =
      features_hvm=%s, features_pv=%s"
     (Map_check.getf Cpuid_helpers.socket_count pool_cpuinfo)
     (Map_check.getf Cpuid_helpers.cpu_count pool_cpuinfo)
-    (Map_check.getf Cpuid_helpers.features_hvm pool_cpuinfo
-    |> string_of_features
-    )
+    ( Map_check.getf Cpuid_helpers.features_hvm pool_cpuinfo
+    |> string_of_features )
     (Map_check.getf Cpuid_helpers.features_pv pool_cpuinfo |> string_of_features) ;
   Db.Pool.set_cpu_info ~__context ~self:pool ~value:pool_cpuinfo ;
   let before = getf ~default:[||] features_hvm old_cpuinfo in
   let after = getf ~default:[||] features_hvm pool_cpuinfo in
-  if (not (is_equal before after)) && before <> [||] then (
+  if (not (is_equal before after)) && before <> [||]
+  then (
     let lost = is_strict_subset (intersect before after) before in
     let features_msg ~msg before after =
       let delta = diff before after in
-      if is_strict_subset (intersect before after) before then
+      if is_strict_subset (intersect before after) before
+      then
         Printf.sprintf " Some features %s: %s." msg (string_of_features delta)
-      else
-        ""
+      else ""
     in
-    info "The pool-level CPU features have changed.%s%s Old features_hvm=%s."
+    info
+      "The pool-level CPU features have changed.%s%s Old features_hvm=%s."
       (features_msg ~msg:"have gone away" before after)
       (features_msg ~msg:"were added" after before)
       (string_of_features before) ;
-    if
-      (not (Helpers.rolling_upgrade_in_progress ~__context))
-      && List.length all_host_cpus > 1
-      && lost
+    if (not (Helpers.rolling_upgrade_in_progress ~__context))
+       && List.length all_host_cpus > 1
+       && lost
     then
       let name, priority = Api_messages.pool_cpu_features_down in
       let obj_uuid = Db.Pool.get_uuid ~__context ~self:pool in
@@ -798,36 +920,43 @@ let create_pool_cpuinfo ~__context =
       in
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           ignore
-            (XenAPI.Message.create rpc session_id name priority `Pool obj_uuid
-               body
-            )
-      )
-  )
+            (XenAPI.Message.create
+               rpc
+               session_id
+               name
+               priority
+               `Pool
+               obj_uuid
+               body ) ) )
+
 
 let create_chipset_info ~__context host_info =
   match host_info.chipset_info with
   | None ->
       warn "Failed to get host chipset info; not updating database"
-  | Some {iommu} ->
+  | Some { iommu } ->
       let host = Helpers.get_localhost ~__context in
-      let info = [("iommu", string_of_bool iommu)] in
+      let info = [ ("iommu", string_of_bool iommu) ] in
       Db.Host.set_chipset_info ~__context ~self:host ~value:info
+
 
 let create_updates_requiring_reboot_info ~__context ~host =
   let update_uuids =
     try
       Xapi_stdext_std.Listext.List.setify
         (Unixext.read_lines !Xapi_globs.reboot_required_hfxs)
-    with _ -> []
+    with
+    | _ ->
+        []
   in
   let updates =
     List.fold_left
       (fun acc uuid ->
-        try Db.Pool_update.get_by_uuid ~__context ~uuid :: acc
-        with _ ->
-          warn "Invalid Pool_update UUID [%s]" uuid ;
-          acc
-        )
-      [] update_uuids
+        try Db.Pool_update.get_by_uuid ~__context ~uuid :: acc with
+        | _ ->
+            warn "Invalid Pool_update UUID [%s]" uuid ;
+            acc )
+      []
+      update_uuids
   in
   Db.Host.set_updates_requiring_reboot ~__context ~self:host ~value:updates

@@ -15,11 +15,16 @@
  * @system service management
 *)
 
-module D = Debug.Make (struct let name = "xapi_systemctl" end)
+module D = Debug.Make (struct
+  let name = "xapi_systemctl"
+end)
 
 open D
 
-type t = Start | Stop | Restart
+type t =
+  | Start
+  | Stop
+  | Restart
 
 exception Systemctl_fail of string
 
@@ -31,38 +36,45 @@ let to_string = function
   | Restart ->
       "restart"
 
+
 let perform ~wait_until_success ~service ~timeout op =
   let op_str = op |> to_string in
   try
     debug "%s %s" op_str service ;
     ignore
-      (Forkhelpers.execute_command_get_output !Xapi_globs.systemctl
-         [op_str; service]
-      ) ;
-    if wait_until_success then (
+      (Forkhelpers.execute_command_get_output
+         !Xapi_globs.systemctl
+         [ op_str; service ] ) ;
+    if wait_until_success
+    then (
       if op = Restart then Thread.delay 0.1 ;
       let is_active = Fe_systemctl.is_active service in
       let success_cond () =
         match op with Start | Restart -> is_active | Stop -> is_active |> not
       in
       try
-        Helpers.retry_until_timeout ~timeout
+        Helpers.retry_until_timeout
+          ~timeout
           (Printf.sprintf "trying to %s %s" op_str service)
           success_cond
-      with e ->
-        debug "Fail to %s %s timeout %f" op_str service timeout ;
-        raise e
-    )
-  with e ->
-    let err_str = ExnHelper.string_of_exn e in
-    error "Fail to %s %s with error %s" op_str service err_str ;
-    raise (Systemctl_fail err_str)
+      with
+      | e ->
+          debug "Fail to %s %s timeout %f" op_str service timeout ;
+          raise e )
+  with
+  | e ->
+      let err_str = ExnHelper.string_of_exn e in
+      error "Fail to %s %s with error %s" op_str service err_str ;
+      raise (Systemctl_fail err_str)
+
 
 let restart ?(timeout = 5.) ~wait_until_success service =
   perform ~wait_until_success ~service ~timeout Restart
 
+
 let stop ?(timeout = 5.) ~wait_until_success service =
   perform ~wait_until_success ~service ~timeout Stop
+
 
 let start ?(timeout = 5.) ~wait_until_success service =
   perform ~wait_until_success ~service ~timeout Start

@@ -13,7 +13,10 @@
  *)
 
 module Winbind : sig
-  type t = Strong | Legacy | All
+  type t =
+    | Strong
+    | Legacy
+    | All
 
   val to_string : t -> string
 

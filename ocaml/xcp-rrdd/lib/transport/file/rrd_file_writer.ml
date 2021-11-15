@@ -12,7 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type local_id = {path: string; shared_page_count: int}
+type local_id =
+  { path : string
+  ; shared_page_count : int
+  }
 
 module File = struct
   let page_size = 4096
@@ -26,25 +29,24 @@ module File = struct
   (** fd for writing to the shared file. *)
   type state_t = Cstruct.t
 
-  let init {path; shared_page_count} =
+  let init { path; shared_page_count } =
     let size = shared_page_count * page_size in
-    let fd = Unix.openfile path [Unix.O_RDWR; Unix.O_CREAT] 0o600 in
+    let fd = Unix.openfile path [ Unix.O_RDWR; Unix.O_CREAT ] 0o600 in
     let mapping =
       Bigarray.(
-        array1_of_genarray @@ Unix.map_file fd char c_layout true [|size|]
-      )
+        array1_of_genarray @@ Unix.map_file fd char c_layout true [| size |])
     in
     Unix.close fd ;
     let cstruct = Cstruct.of_bigarray mapping in
     (path, cstruct)
+
 
   let cleanup _ path _ = Unix.unlink path
 
   (** This assumes there's no limit to the size of file which can be used. *)
   let get_allocator cstruct =
     let alloc_cstruct size =
-      if size > Cstruct.len cstruct then
-        failwith "not enough memory" ;
+      if size > Cstruct.len cstruct then failwith "not enough memory" ;
       cstruct
     in
     alloc_cstruct

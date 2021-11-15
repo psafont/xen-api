@@ -29,10 +29,10 @@ module type TRANSPORT = sig
   (** Given the state of the open resource, expose its contents as a Cstruct. *)
 end
 
-type reader = {
-    read_payload: unit -> Rrd_protocol.payload
-  ; cleanup: unit -> unit
-}
+type reader =
+  { read_payload : unit -> Rrd_protocol.payload
+  ; cleanup : unit -> unit
+  }
 
 module Make (T : TRANSPORT) = struct
   let create id protocol =
@@ -40,22 +40,21 @@ module Make (T : TRANSPORT) = struct
     let reader = protocol.Rrd_protocol.make_payload_reader () in
     let is_open = ref true in
     let read_payload () =
-      if !is_open then
+      if !is_open
+      then
         let cs =
-          if Cstruct.len (T.expose !state) <= 0 then
-            state := T.init id ;
+          if Cstruct.len (T.expose !state) <= 0 then state := T.init id ;
           T.expose !state
         in
         reader cs
-      else
-        raise Rrd_io.Resource_closed
+      else raise Rrd_io.Resource_closed
     in
     let cleanup () =
-      if !is_open then (
+      if !is_open
+      then (
         T.cleanup id !state ;
-        is_open := false
-      ) else
-        raise Rrd_io.Resource_closed
+        is_open := false )
+      else raise Rrd_io.Resource_closed
     in
-    {read_payload; cleanup}
+    { read_payload; cleanup }
 end

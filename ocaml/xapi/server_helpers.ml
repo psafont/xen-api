@@ -13,15 +13,19 @@
  *)
 open Locking_helpers
 
-module D = Debug.Make (struct let name = "dispatcher" end)
+module D = Debug.Make (struct
+  let name = "dispatcher"
+end)
 
 open D
 
 exception Dispatcher_FieldNotFound of string
 
 let my_assoc fld assoc_list =
-  try List.assoc fld assoc_list
-  with Not_found -> raise (Dispatcher_FieldNotFound fld)
+  try List.assoc fld assoc_list with
+  | Not_found ->
+      raise (Dispatcher_FieldNotFound fld)
+
 
 exception Nth (* should never be thrown externally *)
 
@@ -31,6 +35,7 @@ let rec nth n l =
       raise Nth
   | x :: xs ->
       if n = 1 then x else nth (n - 1) xs
+
 
 let async_wire_name = "Async."
 
@@ -45,8 +50,7 @@ let supress_printing_for_these_messages : (string, unit) Hashtbl.t =
   let tbl = Hashtbl.create 20 in
   List.iter
     (fun k -> Hashtbl.replace tbl k ())
-    [
-      "host.tickle_heartbeat"
+    [ "host.tickle_heartbeat"
     ; "session.login_with_password"
     ; "session.logout"
     ; "session.local_logout"
@@ -55,30 +59,36 @@ let supress_printing_for_these_messages : (string, unit) Hashtbl.t =
     ] ;
   tbl
 
+
 (** removes Async. or InternalAsync. prefixes if they exist
   * NB. X_y api call format does not work with Async (and didn't previously) *)
 let sync_ty_and_maybe_remove_prefix x =
   (* expect more async calls than internal_async, so check for async first *)
-  if Astring.String.is_prefix ~affix:async_wire_name x then
-    (`Async, String.sub x async_length (String.length x - async_length))
-  else if Astring.String.is_prefix ~affix:internal_async_wire_name x then
+  if Astring.String.is_prefix ~affix:async_wire_name x
+  then (`Async, String.sub x async_length (String.length x - async_length))
+  else if Astring.String.is_prefix ~affix:internal_async_wire_name x
+  then
     ( `InternalAsync
-    , String.sub x internal_async_length
-        (String.length x - internal_async_length)
-    )
-  else
-    (`Sync, x)
+    , String.sub
+        x
+        internal_async_length
+        (String.length x - internal_async_length) )
+  else (`Sync, x)
+
 
 let unknown_rpc_failure func =
-  API.response_of_failure Api_errors.message_method_unknown [func]
+  API.response_of_failure Api_errors.message_method_unknown [ func ]
+
 
 let parameter_count_mismatch_failure func expected received =
-  API.response_of_failure Api_errors.message_parameter_count_mismatch
-    [func; expected; received]
+  API.response_of_failure
+    Api_errors.message_parameter_count_mismatch
+    [ func; expected; received ]
+
 
 (** WARNING: the context is destroyed when execution is finished if the task is not forwarded, in database and not called asynchronous. *)
-let exec_with_context ~__context ~need_complete ?marshaller ?f_forward
-    ?(called_async = false) f =
+let exec_with_context
+    ~__context ~need_complete ?marshaller ?f_forward ?(called_async = false) f =
   (* Execute fn f in specified __context, marshalling result with "marshaller" *)
   let exec () =
     (* NB:
@@ -88,8 +98,8 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward
        (ie side-effecting) operations and not things like the database layer *)
     try
       let result =
-        if not (Pool_role.is_master ()) then
-          f ~__context (* slaves process everything locally *)
+        if not (Pool_role.is_master ())
+        then f ~__context (* slaves process everything locally *)
         else
           match f_forward with
           | None ->
@@ -99,13 +109,13 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward
               (* use the forwarding layer (NB this might make a local call ultimately) *)
               forward ~local_fn:f ~__context
       in
-      ( if need_complete then
-          match marshaller with
-          | None ->
-              TaskHelper.complete ~__context None
-          | Some fn ->
-              TaskHelper.complete ~__context (Some (fn result))
-      ) ;
+      ( if need_complete
+      then
+        match marshaller with
+        | None ->
+            TaskHelper.complete ~__context None
+        | Some fn ->
+            TaskHelper.complete ~__context (Some (fn result)) ) ;
       result
     with
     | Api_errors.Server_error (a, b) as e when a = Api_errors.task_cancelled ->
@@ -118,46 +128,75 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward
         raise e
   in
   Locking_helpers.Thread_state.with_named_thread
-    (TaskHelper.get_name ~__context) (Context.get_task_id __context) (fun () ->
+    (TaskHelper.get_name ~__context)
+    (Context.get_task_id __context)
+    (fun () ->
       let client = Context.get_client __context in
-      Debug.with_thread_associated ?client
+      Debug.with_thread_associated
+        ?client
         (Context.string_of_task __context)
         (fun () ->
           (* CP-982: promote tracking debug line to info status *)
-          if called_async then
-            info "spawning a new thread to handle the current task%s"
+          if called_async
+          then
+            info
+              "spawning a new thread to handle the current task%s"
               (Context.trackid ~with_brackets:true ~prefix:" " __context) ;
           Xapi_stdext_pervasives.Pervasiveext.finally exec (fun () ->
-              if not called_async then Context.destroy __context
-              (* else debug "nothing more to process for this thread" *)
-          )
-          )
-        ()
-  )
+              if not called_async
+              then
+                Context.destroy __context
+                (* else debug "nothing more to process for this thread" *) ) )
+        () )
+
 
 let dispatch_exn_wrapper f =
-  try f ()
-  with exn ->
-    let code, params = ExnHelper.error_of_exn exn in
-    API.response_of_failure code params
+  try f () with
+  | exn ->
+      let code, params = ExnHelper.error_of_exn exn in
+      API.response_of_failure code params
 
-let do_dispatch ?session_id ?forward_op ?self supports_async called_fn_name
-    op_fn marshaller fd http_req label sync_ty generate_task_for =
+
+let do_dispatch
+    ?session_id
+    ?forward_op
+    ?self
+    supports_async
+    called_fn_name
+    op_fn
+    marshaller
+    fd
+    http_req
+    label
+    sync_ty
+    generate_task_for =
   (* if the call has been forwarded to us, then they are responsible for completing the task, so we don't need to complete it *)
   let called_async = sync_ty <> `Sync in
-  if called_async && not supports_async then
+  if called_async && not supports_async
+  then
     API.response_of_fault
       ("No async mode for this operation (rpc: " ^ called_fn_name ^ ")")
   else
     let internal_async_subtask = sync_ty = `InternalAsync in
     let __context =
-      Context.of_http_req ?session_id ~internal_async_subtask ~generate_task_for
-        ~supports_async ~label ~http_req ~fd
+      Context.of_http_req
+        ?session_id
+        ~internal_async_subtask
+        ~generate_task_for
+        ~supports_async
+        ~label
+        ~http_req
+        ~fd
     in
     let sync () =
       let need_complete = not (Context.forwarded_task __context) in
-      exec_with_context ~__context ~need_complete ~called_async
-        ?f_forward:forward_op ~marshaller op_fn
+      exec_with_context
+        ~__context
+        ~need_complete
+        ~called_async
+        ?f_forward:forward_op
+        ~marshaller
+        op_fn
       |> marshaller
       |> Rpc.success
     in
@@ -166,11 +205,14 @@ let do_dispatch ?session_id ?forward_op ?self supports_async called_fn_name
       ignore
         (Thread.create
            (fun () ->
-             exec_with_context ~__context ~need_complete ~called_async
-               ?f_forward:forward_op ~marshaller op_fn
-             )
-           ()
-        ) ;
+             exec_with_context
+               ~__context
+               ~need_complete
+               ~called_async
+               ?f_forward:forward_op
+               ~marshaller
+               op_fn )
+           () ) ;
       (* Return task id immediately *)
       Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
     in
@@ -183,31 +225,53 @@ let do_dispatch ?session_id ?forward_op ?self supports_async called_fn_name
     | `InternalAsync ->
         async ~need_complete:true
 
+
 (* regardless of forwarding, we are expected to complete the task *)
 
 (* in the following functions, it is our responsibility to complete any tasks we create *)
-let exec_with_new_task ?http_other_config ?quiet ?subtask_of ?session_id
-    ?task_in_database ?task_description ?origin task_name f =
+let exec_with_new_task
+    ?http_other_config
+    ?quiet
+    ?subtask_of
+    ?session_id
+    ?task_in_database
+    ?task_description
+    ?origin
+    task_name
+    f =
   exec_with_context
     ~__context:
-      (Context.make ?http_other_config ?quiet ?subtask_of ?session_id
-         ?task_in_database ?task_description ?origin task_name
-      ) ~need_complete:true (fun ~__context -> f __context
-  )
+      (Context.make
+         ?http_other_config
+         ?quiet
+         ?subtask_of
+         ?session_id
+         ?task_in_database
+         ?task_description
+         ?origin
+         task_name )
+    ~need_complete:true
+    (fun ~__context -> f __context)
+
 
 let exec_with_forwarded_task ?http_other_config ?session_id ?origin task_id f =
   exec_with_context
     ~__context:
-      (Context.from_forwarded_task ?http_other_config ?session_id ?origin
-         task_id
-      ) ~need_complete:true (fun ~__context -> f __context
-  )
+      (Context.from_forwarded_task
+         ?http_other_config
+         ?session_id
+         ?origin
+         task_id )
+    ~need_complete:true
+    (fun ~__context -> f __context)
+
 
 let exec_with_subtask ~__context ?task_in_database task_name f =
   let subcontext =
     Context.make_subcontext ~__context ?task_in_database task_name
   in
   exec_with_context ~__context:subcontext ~need_complete:true f
+
 
 let forward_extension ~__context rbac call =
   rbac __context (fun () -> Xapi_extensions.call_extension call)

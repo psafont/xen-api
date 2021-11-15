@@ -23,16 +23,18 @@ let delay = ref (-1.0)
 
 let _ =
   Arg.parse
-    [
-      ("-hash", Arg.Set hash, "Use hashes")
+    [ ("-hash", Arg.Set hash, "Use hashes")
     ; ("-delay", Arg.Set_float delay, "Delay between updates")
     ]
     (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
     "Display domains and memory use" ;
-  if not !hash then
+  if not !hash
+  then
     Printf.printf
       "# time host_total host_free domainN_total domainN+1_total...\n" ;
-  let ( +* ) = Int64.add and ( /* ) = Int64.div and ( ** ) = Int64.mul in
+  let ( +* ) = Int64.add
+  and ( /* ) = Int64.div
+  and ( ** ) = Int64.mul in
   let finished = ref false in
   while not !finished do
     finished := !delay < 0. ;
@@ -53,39 +55,45 @@ let _ =
           )
         domains
     in
-    if not !hash then (
-      Printf.printf "%s %Ld %Ld"
+    if not !hash
+    then (
+      Printf.printf
+        "%s %Ld %Ld"
         (Date.to_string (Date.of_float (Unix.gettimeofday ())))
-        (total_pages ** one_page) (free_pages ** one_page) ;
+        (total_pages ** one_page)
+        (free_pages ** one_page) ;
       let domains =
         List.stable_sort (fun (a, _) (b, _) -> compare a b) domains
       in
       List.iter
         (fun (_, total) -> Printf.printf " %Ld" (total ** one_page))
         domains ;
-      Printf.printf "\n"
-    ) else (
+      Printf.printf "\n" )
+    else (
       Printf.printf "Total host memory: %Ld MiB\n\n" (total_pages /* 256L) ;
       let nhashes = 55 in
       let hashes pages =
         let n =
           int_of_float
-            (Int64.to_float pages
+            ( Int64.to_float pages
             /. Int64.to_float total_pages
-            *. float_of_int nhashes
-            )
+            *. float_of_int nhashes )
         in
         let hashes = String.make n '#' in
         let spaces = String.make (nhashes - n) ' ' in
         hashes ^ spaces
       in
-      Printf.printf "%10s %s (%Ld MiB)\n" "free" (hashes free_pages)
+      Printf.printf
+        "%10s %s (%Ld MiB)\n"
+        "free"
+        (hashes free_pages)
         (free_pages /* 256L) ;
       List.iter
         (fun (domid, total) ->
-          Printf.printf "%10s %s (%Ld MiB)\n" (string_of_int domid)
-            (hashes total) (total /* 256L)
-          )
-        domains
-    )
+          Printf.printf
+            "%10s %s (%Ld MiB)\n"
+            (string_of_int domid)
+            (hashes total)
+            (total /* 256L) )
+        domains )
   done

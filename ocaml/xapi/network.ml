@@ -15,7 +15,9 @@
 open Xmlrpc_client
 open Network_interface
 
-module D = Debug.Make (struct let name = "network" end)
+module D = Debug.Make (struct
+  let name = "network"
+end)
 
 open D
 module Net = Network_client.Client
@@ -30,21 +32,22 @@ let transform_networkd_exn pif f =
   try f () with
   | Network_error (Script_missing script) ->
       let e = Printf.sprintf "script %s missing" script in
-      reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
+      reraise Api_errors.pif_configuration_error [ Ref.string_of pif; e ]
   | Network_error (Script_error params) ->
       let e =
-        Printf.sprintf "script error [%s]"
+        Printf.sprintf
+          "script error [%s]"
           (String.concat ", " (List.map (fun (k, v) -> k ^ " = " ^ v) params))
       in
-      reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
+      reraise Api_errors.pif_configuration_error [ Ref.string_of pif; e ]
   | Network_error (Read_error file) | Network_error (Write_error file) ->
       let e = "failed to access file " ^ file in
-      reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
+      reraise Api_errors.pif_configuration_error [ Ref.string_of pif; e ]
   | Network_error Not_implemented ->
       let e = "networkd function not implemented" in
-      reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
+      reraise Api_errors.pif_configuration_error [ Ref.string_of pif; e ]
   | Network_error (Vlan_in_use (device, vlan)) ->
-      reraise Api_errors.vlan_in_use [device; string_of_int vlan]
+      reraise Api_errors.vlan_in_use [ device; string_of_int vlan ]
   | e ->
       error "Caught %s while trying to plug a PIF" (ExnHelper.string_of_exn e) ;
-      reraise Api_errors.pif_configuration_error [Ref.string_of pif; ""]
+      reraise Api_errors.pif_configuration_error [ Ref.string_of pif; "" ]

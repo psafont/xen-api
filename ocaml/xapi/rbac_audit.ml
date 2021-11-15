@@ -11,9 +11,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module Audit = Debug.Make (struct let name = "audit" end)
+module Audit = Debug.Make (struct
+  let name = "audit"
+end)
 
-module D = Debug.Make (struct let name = "rbac_audit" end)
+module D = Debug.Make (struct
+  let name = "rbac_audit"
+end)
 
 (* Rbac Audit fields:
 
@@ -46,82 +50,99 @@ open Db_filter_types
 let is_http action =
   Astring.String.is_prefix ~affix:Datamodel.rbac_http_permission_prefix action
 
+
 let call_type_of ~action = if is_http action then "HTTP" else "API"
 
 let str_local_session = "LOCAL_SESSION"
 
 let str_local_superuser = "LOCAL_SUPERUSER"
 
-let get_subject_common ~__context ~session_id ~fnname ~fn_if_local_session
-    ~fn_if_local_superuser ~fn_if_subject =
+let get_subject_common
+    ~__context
+    ~session_id
+    ~fnname
+    ~fn_if_local_session
+    ~fn_if_local_superuser
+    ~fn_if_subject =
   try
-    if Session_check.is_local_session __context session_id then
-      fn_if_local_session ()
+    if Session_check.is_local_session __context session_id
+    then fn_if_local_session ()
     else if DB_Action.Session.get_is_local_superuser ~__context ~self:session_id
-    then
-      fn_if_local_superuser ()
-    else
-      fn_if_subject ()
-  with e ->
-    D.debug "error %s for %s:%s" fnname (trackid session_id)
-      (ExnHelper.string_of_exn e) ;
-    ""
+    then fn_if_local_superuser ()
+    else fn_if_subject ()
+  with
+  | e ->
+      D.debug
+        "error %s for %s:%s"
+        fnname
+        (trackid session_id)
+        (ExnHelper.string_of_exn e) ;
+      ""
+
 
 (* default value returned after an internal error *)
 
 let get_subject_identifier __context session_id =
-  get_subject_common ~__context ~session_id ~fnname:"get_subject_identifier"
+  get_subject_common
+    ~__context
+    ~session_id
+    ~fnname:"get_subject_identifier"
     ~fn_if_local_session:(fun () -> str_local_session)
     ~fn_if_local_superuser:(fun () -> str_local_superuser)
     ~fn_if_subject:(fun () ->
-      DB_Action.Session.get_auth_user_sid ~__context ~self:session_id
-      )
+      DB_Action.Session.get_auth_user_sid ~__context ~self:session_id )
+
 
 let get_subject_name __context session_id =
-  get_subject_common ~__context ~session_id ~fnname:"get_subject_name"
+  get_subject_common
+    ~__context
+    ~session_id
+    ~fnname:"get_subject_name"
     ~fn_if_local_session:(fun () ->
       (* we are in emergency mode here, do not call DB_Action:
          			 - local sessions are not in the normal DB
          			 - local sessions do not have a username field
          			 - DB_Action will block forever trying to access an inaccessible master
       *)
-      ""
-      )
+      "" )
     ~fn_if_local_superuser:(fun () ->
-      DB_Action.Session.get_auth_user_name ~__context ~self:session_id
-      )
+      DB_Action.Session.get_auth_user_name ~__context ~self:session_id )
     ~fn_if_subject:(fun () ->
-      DB_Action.Session.get_auth_user_name ~__context ~self:session_id
-      )
+      DB_Action.Session.get_auth_user_name ~__context ~self:session_id )
+
 
 (*given a ref-value, return a human-friendly value associated with that ref*)
 let get_obj_of_ref_common obj_ref fn =
   let indexrec = Ref_index.lookup obj_ref in
   match indexrec with None -> None | Some indexrec -> fn indexrec
 
+
 let get_obj_of_ref obj_ref =
   get_obj_of_ref_common obj_ref (fun irec ->
-      Some (irec.Ref_index.name_label, irec.Ref_index.uuid, irec.Ref_index._ref)
-  )
+      Some (irec.Ref_index.name_label, irec.Ref_index.uuid, irec.Ref_index._ref) )
+
 
 let get_obj_name_of_ref obj_ref =
   get_obj_of_ref_common obj_ref (fun irec -> irec.Ref_index.name_label)
 
+
 let get_obj_uuid_of_ref obj_ref =
   get_obj_of_ref_common obj_ref (fun irec -> Some irec.Ref_index.uuid)
+
 
 let get_obj_ref_of_ref obj_ref =
   get_obj_of_ref_common obj_ref (fun irec -> Some irec.Ref_index._ref)
 
+
 let get_sexpr_arg name name_of_ref uuid_of_ref ref_value : SExpr.t =
   SExpr.Node
-    [
-      (* s-expr lib should properly escape malicious values *)
+    [ (* s-expr lib should properly escape malicious values *)
       SExpr.String name
     ; SExpr.String name_of_ref
     ; SExpr.String uuid_of_ref
     ; SExpr.String ref_value
     ]
+
 
 (* given a list of (name,'',ref-value) triplets, *)
 (* map '' -> friendly-value of ref-value. *)
@@ -131,31 +152,29 @@ let get_obj_names_of_refs (obj_ref_list : SExpr.t list) : SExpr.t list =
     (fun obj_ref ->
       match obj_ref with
       | SExpr.Node
-          [
-            SExpr.String name
+          [ SExpr.String name
           ; SExpr.String ""
           ; SExpr.String ""
           ; SExpr.String ref_value
           ] ->
-          get_sexpr_arg name
+          get_sexpr_arg
+            name
             ( match get_obj_name_of_ref ref_value with
             | None ->
                 "" (* ref_value is not a ref! *)
             | Some obj_name ->
-                obj_name (* the missing name *)
-            )
+                obj_name (* the missing name *) )
             ( match get_obj_uuid_of_ref ref_value with
             | None ->
                 "" (* ref_value is not a ref! *)
             | Some obj_uuid ->
-                obj_uuid (* the missing uuid *)
-            )
+                obj_uuid (* the missing uuid *) )
             ref_value
       | _ ->
           obj_ref
-      (* do nothing if not a triplet *)
-      )
+      (* do nothing if not a triplet *) )
     obj_ref_list
+
 
 (* unwrap the audit record and add names to the arg refs *)
 (* this is necessary because we can only obtain the ref names *)
@@ -170,45 +189,43 @@ let populate_audit_record_with_obj_names_of_refs line =
     in
     let sexpr = SExpr_TS.of_string sexpr_str in
     match sexpr with
-    | SExpr.Node els -> (
-        if List.length els = 0 then
-          line
+    | SExpr.Node els ->
+        if List.length els = 0
+        then line
         else
           let (args : SExpr.t) = List.hd (List.rev els) in
-          match List.partition (fun (e : SExpr.t) -> e <> args) els with
-          | prefix, [SExpr.Node arg_list] ->
+          ( match List.partition (fun (e : SExpr.t) -> e <> args) els with
+          | prefix, [ SExpr.Node arg_list ] ->
               (* paste together the prefix of original audit record *)
               before_sexpr_str
               ^ " "
               ^ SExpr.string_of
                   (SExpr.Node
-                     (prefix @ [SExpr.Node (get_obj_names_of_refs arg_list)])
+                     (prefix @ [ SExpr.Node (get_obj_names_of_refs arg_list) ])
                   )
           | prefix, _ ->
-              line
-      )
+              line )
     | _ ->
         line
-  with e ->
-    D.debug "error populating audit record arg names: %s"
-      (ExnHelper.string_of_exn e) ;
-    line
+  with
+  | e ->
+      D.debug
+        "error populating audit record arg names: %s"
+        (ExnHelper.string_of_exn e) ;
+      line
+
 
 let action_params_whitelist =
-  [
-    (* manual params asked by audit report team *)
+  [ (* manual params asked by audit report team *)
     ( "host.create"
-    , [
-        "hostname"
+    , [ "hostname"
       ; "address"
       ; "external_auth_type"
       ; "external_auth_service_name"
       ; "edition"
-      ]
-    )
+      ] )
   ; ( "VM.create"
-    , [
-        "is_a_template"
+    , [ "is_a_template"
       ; "memory_target"
       ; "memory_static_max"
       ; "memory_dynamic_max"
@@ -216,32 +233,37 @@ let action_params_whitelist =
       ; "memory_static_min"
       ; "ha_always_run"
       ; "ha_restart_priority"
-      ]
-    )
-  ; ("host.set_address", ["value"])
-  ; ("VM.migrate", ["dest"; "live"])
-  ; ("VM.start_on", ["start_paused"; "force"])
-  ; ("VM.start", ["start_paused"; "force"])
-  ; ("pool.create_VLAN", ["device"; "vLAN"])
-  ; ("pool.join_force", ["master_address"])
-  ; ("pool.join", ["master_address"])
-  ; ("pool.enable_external_auth", ["service_name"; "auth_type"])
-  ; ("host.enable_external_auth", ["service_name"; "auth_type"])
-  ; ("subject.create", ["subject_identifier"; "other_config"])
-  ; ("subject.create.other_config", ["subject-name"])
+      ] )
+  ; ("host.set_address", [ "value" ])
+  ; ("VM.migrate", [ "dest"; "live" ])
+  ; ("VM.start_on", [ "start_paused"; "force" ])
+  ; ("VM.start", [ "start_paused"; "force" ])
+  ; ("pool.create_VLAN", [ "device"; "vLAN" ])
+  ; ("pool.join_force", [ "master_address" ])
+  ; ("pool.join", [ "master_address" ])
+  ; ("pool.enable_external_auth", [ "service_name"; "auth_type" ])
+  ; ("host.enable_external_auth", [ "service_name"; "auth_type" ])
+  ; ("subject.create", [ "subject_identifier"; "other_config" ])
+  ; ("subject.create.other_config", [ "subject-name" ])
   ; (* used for VMPP alert logs *)
-    ("message.create", ["name"; "body"])
+    ("message.create", [ "name"; "body" ])
   ]
+
 
 (* manual ref getters *)
 let get_subject_other_config_subject_name __context self =
   try
-    List.assoc "subject-name"
+    List.assoc
+      "subject-name"
       (DB_Action.Subject.get_other_config ~__context ~self:(Ref.of_string self))
-  with e ->
-    D.debug "couldn't get Subject.other_config.subject-name for ref %s: %s" self
-      (ExnHelper.string_of_exn e) ;
-    ""
+  with
+  | e ->
+      D.debug
+        "couldn't get Subject.other_config.subject-name for ref %s: %s"
+        self
+        (ExnHelper.string_of_exn e) ;
+      ""
+
 
 let get_role_name_label __context self =
   try
@@ -252,50 +274,47 @@ let get_role_name_label __context self =
     in
     let p = List.find (fun p -> Ref.ref_prefix ^ p.role_uuid = self) ps in
     p.role_name_label
-  with e ->
-    D.debug "couldn't get Role.name_label for ref %s: %s" self
-      (ExnHelper.string_of_exn e) ;
-    ""
+  with
+  | e ->
+      D.debug
+        "couldn't get Role.name_label for ref %s: %s"
+        self
+        (ExnHelper.string_of_exn e) ;
+      ""
+
 
 let action_param_ref_getter_fn =
-  [
-    (* manual override on ref getters *)
+  [ (* manual override on ref getters *)
     ( "subject.destroy"
-    , [
-        ( "self"
-        , fun _ctx _ref -> get_subject_other_config_subject_name _ctx _ref
-        )
-      ]
-    )
+    , [ ( "self"
+        , fun _ctx _ref -> get_subject_other_config_subject_name _ctx _ref )
+      ] )
   ; ( "subject.remove_from_roles"
-    , [
-        ( "self"
-        , fun _ctx _ref -> get_subject_other_config_subject_name _ctx _ref
-        )
+    , [ ( "self"
+        , fun _ctx _ref -> get_subject_other_config_subject_name _ctx _ref )
       ; ("role", fun _ctx _ref -> get_role_name_label _ctx _ref)
-      ]
-    )
+      ] )
   ; ( "subject.add_to_roles"
-    , [
-        ( "self"
-        , fun _ctx _ref -> get_subject_other_config_subject_name _ctx _ref
-        )
+    , [ ( "self"
+        , fun _ctx _ref -> get_subject_other_config_subject_name _ctx _ref )
       ; ("role", fun _ctx _ref -> get_role_name_label _ctx _ref)
-      ]
-    )
+      ] )
   ]
+
 
 (* get a namevalue directly from db, instead from db_cache *)
 let get_db_namevalue __context name action _ref =
-  if List.mem_assoc action action_param_ref_getter_fn then
+  if List.mem_assoc action action_param_ref_getter_fn
+  then
     let params = List.assoc action action_param_ref_getter_fn in
-    if List.mem_assoc name params then
+    if List.mem_assoc name params
+    then
       let getter_fn = List.assoc name params in
       getter_fn __context _ref
-    else
-      "" (* default value empty *)
-  else
-    ""
+    else ""
+    (* default value empty *)
+  else ""
+
 
 (* default value empty *)
 
@@ -306,26 +325,25 @@ let get_db_namevalue __context name action _ref =
 *)
 let rec sexpr_args_of __context name rpc_value action =
   let is_selected_action_param action_params =
-    if List.mem_assoc action action_params then
+    if List.mem_assoc action action_params
+    then
       let params = List.assoc action action_params in
       List.mem name params
-    else
-      false
+    else false
   in
   (* heuristic 1: print descriptive arguments in the xapi call *)
-  if
-    List.mem name
-      [
-        "name"
-      ; "label"
-      ; "description"
-      ; "name_label"
-      ; "name_description"
-      ; "new_name"
-      ]
-    (* param for any action *)
-    || is_selected_action_param action_params_whitelist
-    (* action+param pair *)
+  if List.mem
+       name
+       [ "name"
+       ; "label"
+       ; "description"
+       ; "name_label"
+       ; "name_description"
+       ; "new_name"
+       ]
+     (* param for any action *)
+     || is_selected_action_param action_params_whitelist
+     (* action+param pair *)
   then
     match rpc_value with
     | Rpc.String value ->
@@ -333,34 +351,35 @@ let rec sexpr_args_of __context name rpc_value action =
     | Rpc.Dict _ ->
         Some
           (SExpr.Node
-             [
-               SExpr.String name
+             [ SExpr.String name
              ; SExpr.Node
-                 (sexpr_of_parameters __context
+                 (sexpr_of_parameters
+                    __context
                     (action ^ "." ^ name)
-                    (Some (["__structure"], [rpc_value]))
-                 )
+                    (Some ([ "__structure" ], [ rpc_value ])) )
              ; SExpr.String ""
              ; SExpr.String ""
-             ]
-          )
+             ] )
     | _ ->
         (*D.debug "sexpr_args_of:value=%s" (Xml.to_string xml_value);*)
         (*None*)
         Some (get_sexpr_arg name (Rpc.to_string rpc_value) "" "")
-  else (* heuristic 2: print uuid/refs arguments in the xapi call *)
+  else
+    (* heuristic 2: print uuid/refs arguments in the xapi call *)
     match rpc_value with
-    | Rpc.String value -> (
+    | Rpc.String value ->
         let name_uuid_ref = get_obj_of_ref value in
-        match name_uuid_ref with
+        ( match name_uuid_ref with
         | None ->
-            if Astring.String.is_prefix ~affix:Ref.ref_prefix value then
+            if Astring.String.is_prefix ~affix:Ref.ref_prefix value
+            then
               (* it's a ref, just not in the db cache *)
               Some
-                (get_sexpr_arg name
+                (get_sexpr_arg
+                   name
                    (get_db_namevalue __context name action value)
-                   "" value
-                )
+                   ""
+                   value )
             else (* ignore values that are not a ref *)
               None
         | Some (_name_of_ref_value, uuid_of_ref_value, ref_of_ref_value) ->
@@ -374,12 +393,14 @@ let rec sexpr_args_of __context name rpc_value action =
                   a
             in
             Some
-              (get_sexpr_arg name name_of_ref_value uuid_of_ref_value
-                 ref_of_ref_value
-              )
-      )
+              (get_sexpr_arg
+                 name
+                 name_of_ref_value
+                 uuid_of_ref_value
+                 ref_of_ref_value ) )
     | _ ->
         None
+
 
 and
     (* Given an action and its parameters, *)
@@ -389,23 +410,26 @@ and
   | None ->
       []
   | Some (str_names, rpc_values) ->
-      if List.length str_names <> List.length rpc_values then (
+      if List.length str_names <> List.length rpc_values
+      then (
         (* debug mode *)
         D.warn
           "cannot marshall arguments for the action %s: name and value list \
            lengths don't match. str_names=[%s], xml_values=[%s]"
           action
           (List.fold_left (fun ss s -> ss ^ s ^ ",") "" str_names)
-          (List.fold_left (fun ss s -> ss ^ Rpc.to_string s ^ ",") "" rpc_values) ;
-        []
-      ) else
+          (List.fold_left
+             (fun ss s -> ss ^ Rpc.to_string s ^ ",")
+             ""
+             rpc_values ) ;
+        [] )
+      else
         List.fold_right2
           (fun str_name rpc_value (params : SExpr.t list) ->
-            if str_name = "session_id" then
-              params (* ignore session_id param *)
-            else if
-              (* if it is a constructor structure, need to rewrap params *)
-              str_name = "__structure"
+            if str_name = "session_id"
+            then params (* ignore session_id param *)
+            else if (* if it is a constructor structure, need to rewrap params *)
+                    str_name = "__structure"
             then
               match rpc_value with
               | Rpc.Dict d ->
@@ -415,21 +439,23 @@ and
                     sexpr_of_parameters __context action (Some (names, values))
                   in
                   myparam @ params
-              | rpc_value -> (
-                match sexpr_args_of __context str_name rpc_value action with
+              | rpc_value ->
+                ( match sexpr_args_of __context str_name rpc_value action with
                 | None ->
                     params
                 | Some p ->
-                    p :: params
-              )
-            else (* the expected list of xml arguments *)
+                    p :: params )
+            else
+              (* the expected list of xml arguments *)
               match sexpr_args_of __context str_name rpc_value action with
               | None ->
                   params
               | Some p ->
-                  p :: params
-            )
-          str_names rpc_values []
+                  p :: params )
+          str_names
+          rpc_values
+          []
+
 
 let has_to_audit action =
   let has_side_effect action =
@@ -439,9 +465,9 @@ let has_to_audit action =
   (!Xapi_globs.log_getter || has_side_effect action)
   && not
        ((* these actions are ignored *)
-        List.mem action
-          [
-            (* list of _actions_ filtered out from the audit log *)
+        List.mem
+          action
+          [ (* list of _actions_ filtered out from the audit log *)
             "session.local_logout"
           ; "session_local_logout"
           ; (* session logout have their own *)
@@ -462,21 +488,22 @@ let has_to_audit action =
             "host.tickle_heartbeat"
           ; "host_tickle_heartbeat"
             (* spam *)
-          ]
-       )
+          ] )
+
 
 let wrap fn =
-  try fn ()
-  with e ->
-    (* never bubble up the error here *)
-    D.debug "ignoring %s" (ExnHelper.string_of_exn e)
+  try fn () with
+  | e ->
+      (* never bubble up the error here *)
+      D.debug "ignoring %s" (ExnHelper.string_of_exn e)
+
 
 (* Extra info required for the WLB audit report. *)
 let add_dummy_args __context action args =
   match args with
   | None ->
       args
-  | Some (str_names, rpc_values) -> (
+  | Some (str_names, rpc_values) ->
       let rec find_self str_names rpc_values =
         match (str_names, rpc_values) with
         | "self" :: _, rpc :: _ ->
@@ -486,30 +513,39 @@ let add_dummy_args __context action args =
         | _, _ ->
             raise Not_found
       in
-      match action with
+      ( match action with
       (* Add VDI info for VBD.destroy *)
-      | "VBD.destroy" -> (
-        try
-          let vbd = API.ref_VBD_of_rpc (find_self str_names rpc_values) in
-          let vdi = DB_Action.VBD.get_VDI __context vbd in
-          Some (str_names @ ["VDI"], rpc_values @ [API.rpc_of_ref_VDI vdi])
-        with e ->
-          D.debug "couldn't get VDI ref for VBD: %s" (ExnHelper.string_of_exn e) ;
-          args
-      )
+      | "VBD.destroy" ->
+        ( try
+            let vbd = API.ref_VBD_of_rpc (find_self str_names rpc_values) in
+            let vdi = DB_Action.VBD.get_VDI __context vbd in
+            Some (str_names @ [ "VDI" ], rpc_values @ [ API.rpc_of_ref_VDI vdi ])
+          with
+        | e ->
+            D.debug
+              "couldn't get VDI ref for VBD: %s"
+              (ExnHelper.string_of_exn e) ;
+            args )
       | _ ->
-          args
-    )
+          args )
 
-let sexpr_of __context session_id allowed_denied ok_error result_error ?args
-    ?sexpr_of_args action permission =
+
+let sexpr_of
+    __context
+    session_id
+    allowed_denied
+    ok_error
+    result_error
+    ?args
+    ?sexpr_of_args
+    action
+    permission =
   let result_error =
     if result_error = "" then result_error else ":" ^ result_error
   in
   (*let (params:SExpr.t list) = (string_of_parameters action args) in*)
   SExpr.Node
-    [
-      SExpr.String (trackid session_id)
+    [ SExpr.String (trackid session_id)
     ; SExpr.String (get_subject_identifier __context session_id)
     ; SExpr.String (get_subject_name __context session_id)
     ; SExpr.String allowed_denied
@@ -523,21 +559,37 @@ let sexpr_of __context session_id allowed_denied ok_error result_error ?args
             let args' = add_dummy_args __context action args in
             sexpr_of_parameters __context action args'
         | Some sexpr_of_args ->
-            sexpr_of_args
-        )
+            sexpr_of_args )
     ]
+
 
 let append_line = Audit.audit
 
 let fn_append_to_master_audit_log = ref None
 
-let audit_line_of __context session_id allowed_denied ok_error result_error
-    action permission ?args ?sexpr_of_args () =
+let audit_line_of
+    __context
+    session_id
+    allowed_denied
+    ok_error
+    result_error
+    action
+    permission
+    ?args
+    ?sexpr_of_args
+    () =
   let _line =
     SExpr.string_of
-      (sexpr_of __context session_id allowed_denied ok_error result_error ?args
-         ?sexpr_of_args action permission
-      )
+      (sexpr_of
+         __context
+         session_id
+         allowed_denied
+         ok_error
+         result_error
+         ?args
+         ?sexpr_of_args
+         action
+         permission )
   in
   let line = Xapi_stdext_std.Xstringext.String.replace "\n" " " _line in
   (* no \n in line *)
@@ -551,33 +603,45 @@ let audit_line_of __context session_id allowed_denied ok_error result_error
   | Some fn ->
       fn __context action audit_line
 
+
 let allowed_pre_fn ~__context ~action ?args () =
   try
-    if
-      has_to_audit action
-      (* for now, we only cache arg results for destroy actions *)
-      && Xapi_stdext_std.Xstringext.String.has_substr action ".destroy"
+    if has_to_audit action
+       (* for now, we only cache arg results for destroy actions *)
+       && Xapi_stdext_std.Xstringext.String.has_substr action ".destroy"
     then
       let args' = add_dummy_args __context action args in
       Some (sexpr_of_parameters __context action args')
-    else
+    else None
+  with
+  | e ->
+      D.debug "ignoring %s" (ExnHelper.string_of_exn e) ;
       None
-  with e ->
-    D.debug "ignoring %s" (ExnHelper.string_of_exn e) ;
-    None
 
-let allowed_post_fn_ok ~__context ~session_id ~action ~permission ?sexpr_of_args
-    ?args ?result () =
-  wrap (fun () ->
-      if has_to_audit action then
-        audit_line_of __context session_id "ALLOWED" "OK" "" action permission
-          ?sexpr_of_args ?args ()
-  )
 
-let allowed_post_fn_error ~__context ~session_id ~action ~permission
-    ?sexpr_of_args ?args ?error () =
+let allowed_post_fn_ok
+    ~__context ~session_id ~action ~permission ?sexpr_of_args ?args ?result () =
   wrap (fun () ->
-      if has_to_audit action then
+      if has_to_audit action
+      then
+        audit_line_of
+          __context
+          session_id
+          "ALLOWED"
+          "OK"
+          ""
+          action
+          permission
+          ?sexpr_of_args
+          ?args
+          () )
+
+
+let allowed_post_fn_error
+    ~__context ~session_id ~action ~permission ?sexpr_of_args ?args ?error () =
+  wrap (fun () ->
+      if has_to_audit action
+      then
         let error_str =
           match error with
           | None ->
@@ -585,16 +649,34 @@ let allowed_post_fn_error ~__context ~session_id ~action ~permission
           | Some error ->
               ExnHelper.string_of_exn error
         in
-        audit_line_of __context session_id "ALLOWED" "ERROR" error_str action
-          permission ?sexpr_of_args ?args ()
-  )
+        audit_line_of
+          __context
+          session_id
+          "ALLOWED"
+          "ERROR"
+          error_str
+          action
+          permission
+          ?sexpr_of_args
+          ?args
+          () )
+
 
 let denied ~__context ~session_id ~action ~permission ?args () =
   wrap (fun () ->
-      if has_to_audit action then
-        audit_line_of __context session_id "DENIED" "" "" action permission
-          ?args ()
-  )
+      if has_to_audit action
+      then
+        audit_line_of
+          __context
+          session_id
+          "DENIED"
+          ""
+          ""
+          action
+          permission
+          ?args
+          () )
+
 
 let session_create_or_destroy ~create ~__context ~session_id ~uname =
   wrap (fun () ->
@@ -604,25 +686,34 @@ let session_create_or_destroy ~create ~__context ~session_id ~uname =
       let s_is_intrapool = session_rec.API.session_pool in
       let s_is_lsu = session_rec.API.session_is_local_superuser in
       (* filters out intra-pool logins to avoid spamming the audit log *)
-      if (not s_is_intrapool) && not s_is_lsu then
+      if (not s_is_intrapool) && not s_is_lsu
+      then
         let action = if create then "session.create" else "session.destroy" in
         let originator = session_rec.API.session_originator in
-        let sexpr_of_args = [get_sexpr_arg "originator" originator "" ""] in
+        let sexpr_of_args = [ get_sexpr_arg "originator" originator "" "" ] in
         let sexpr_of_args =
-          if create then
-            get_sexpr_arg "uname"
+          if create
+          then
+            get_sexpr_arg
+              "uname"
               (match uname with None -> "" | Some u -> u)
-              "" ""
+              ""
+              ""
             :: sexpr_of_args
-          else
-            sexpr_of_args
+          else sexpr_of_args
         in
-        allowed_post_fn_ok ~__context ~session_id ~action ~sexpr_of_args
-          ~permission:action ()
-  )
+        allowed_post_fn_ok
+          ~__context
+          ~session_id
+          ~action
+          ~sexpr_of_args
+          ~permission:action
+          () )
+
 
 let session_destroy ~__context ~session_id =
   session_create_or_destroy ~uname:None ~create:false ~__context ~session_id
+
 
 let session_create ~__context ~session_id ~uname =
   session_create_or_destroy ~create:true ~__context ~session_id ~uname

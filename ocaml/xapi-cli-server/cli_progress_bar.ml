@@ -19,15 +19,15 @@ module type Floatable = sig
 end
 
 module Make (T : Floatable) = struct
-  type t = {
-      max_value: T.t
-    ; mutable current_value: T.t
-    ; width: int
-    ; line: bytes
-    ; mutable spin_index: int
-    ; start_time: float
-    ; mutable summarised: bool
-  }
+  type t =
+    { max_value : T.t
+    ; mutable current_value : T.t
+    ; width : int
+    ; line : bytes
+    ; mutable spin_index : int
+    ; start_time : float
+    ; mutable summarised : bool
+    }
 
   let prefix_s = "[*] "
 
@@ -37,7 +37,7 @@ module Make (T : Floatable) = struct
 
   let suffix = String.length suffix_s
 
-  let spinner = [|'-'; '\\'; '|'; '/'|]
+  let spinner = [| '-'; '\\'; '|'; '/' |]
 
   let create width current_value max_value =
     let line = Bytes.make width ' ' in
@@ -45,32 +45,34 @@ module Make (T : Floatable) = struct
     String.blit suffix_s 0 line (width - suffix - 1) suffix ;
     let spin_index = 0 in
     let start_time = Unix.gettimeofday () in
-    {
-      max_value
+    { max_value
     ; current_value
     ; width
     ; line
     ; spin_index
     ; start_time
-    ; summarised= false
+    ; summarised = false
     }
+
 
   let percent t =
     int_of_float T.(to_float t.current_value /. to_float t.max_value *. 100.)
+
 
   let bar_width t value =
     int_of_float
       T.(
         to_float value
         /. to_float t.max_value
-        *. float_of_int (t.width - prefix - suffix)
-      )
+        *. float_of_int (t.width - prefix - suffix))
+
 
   let hms secs =
     let h = secs / 3600 in
     let m = secs mod 3600 / 60 in
     let s = secs mod 60 in
     Printf.sprintf "%02d:%02d:%02d" h m s
+
 
   let eta t =
     let time_so_far = Unix.gettimeofday () -. t.start_time in
@@ -79,6 +81,7 @@ module Make (T : Floatable) = struct
     in
     let remaining = int_of_float (total_time -. time_so_far) in
     hms remaining
+
 
   let string_of_bar t =
     let w = bar_width t t.current_value in
@@ -93,6 +96,7 @@ module Make (T : Floatable) = struct
     String.blit eta 0 t.line (t.width - 10) (String.length eta) ;
     Bytes.to_string t.line
 
+
   let update t new_value =
     let new_value = min new_value t.max_value in
     let old_bar = bar_width t t.current_value in
@@ -100,11 +104,13 @@ module Make (T : Floatable) = struct
     t.current_value <- new_value ;
     new_bar <> old_bar
 
+
   let summarise t =
-    if not t.summarised then (
+    if not t.summarised
+    then (
       t.summarised <- true ;
-      Printf.sprintf "Total time: %s\n"
-        (hms (int_of_float (Unix.gettimeofday () -. t.start_time)))
-    ) else
-      ""
+      Printf.sprintf
+        "Total time: %s\n"
+        (hms (int_of_float (Unix.gettimeofday () -. t.start_time))) )
+    else ""
 end

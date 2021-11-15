@@ -17,7 +17,9 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 open Event_types
 
-module D = Debug.Make (struct let name = "xapi_event" end)
+module D = Debug.Make (struct
+  let name = "xapi_event"
+end)
 
 open D
 
@@ -28,7 +30,9 @@ module Message = struct
 
   let get_since_for_events :
       (__context:Context.t -> int64 -> int64 * t list) ref =
-    ref (fun ~__context _ -> ignore __context ; (0L, []))
+    ref (fun ~__context _ ->
+        ignore __context ;
+        (0L, []) )
 end
 
 module Token = struct
@@ -38,12 +42,13 @@ module Token = struct
 
   let of_string token =
     match String.split_on_char ',' token with
-    | [from; from_t] ->
+    | [ from; from_t ] ->
         (Int64.of_string from, Int64.of_string from_t)
-    | [""] ->
+    | [ "" ] ->
         (0L, 0L)
     | _ ->
         raise (Failed_to_parse token)
+
 
   let to_string (last, last_t) =
     (* We prefix with zeroes so tokens which differ only in the generation
@@ -52,22 +57,25 @@ module Token = struct
 end
 
 module Subscription = struct
-  type t = Class of string | Object of string * string | All
+  type t =
+    | Class of string
+    | Object of string * string
+    | All
 
   let of_string x =
-    if x = "*" then
-      All
+    if x = "*"
+    then All
     else
       match Xapi_stdext_std.Xstringext.String.split ~limit:2 '/' x with
-      | [cls] ->
+      | [ cls ] ->
           Class (String.lowercase_ascii cls)
-      | [cls; id] ->
+      | [ cls; id ] ->
           Object (String.lowercase_ascii cls, id)
       | _ ->
           raise
             (Api_errors.Server_error
-               (Api_errors.event_subscription_parse_failure, [x])
-            )
+               (Api_errors.event_subscription_parse_failure, [ x ]) )
+
 
   let to_string subs =
     let to_string x =
@@ -80,6 +88,7 @@ module Subscription = struct
           "all"
     in
     Printf.sprintf "[%s]" (String.concat "," (List.map to_string subs))
+
 
   let any = List.fold_left (fun acc x -> acc || x) false
 
@@ -96,6 +105,7 @@ module Subscription = struct
     in
     any (List.map matches subs)
 
+
   (** [event_matches subs ev]: true if at least one subscription from [subs] selects for specified class and object *)
   let object_matches subs ty _ref =
     let tbl = String.lowercase_ascii ty in
@@ -108,6 +118,7 @@ module Subscription = struct
           x = tbl && y = _ref
     in
     any (List.map matches subs)
+
 
   (** [event_matches subs ev]: true if at least one subscription from [subs] selects for event [ev] *)
   let event_matches subs ev = object_matches subs ev.ty ev.reference
@@ -130,23 +141,24 @@ module Next = struct
   (** When we GC events we track how many we've deleted so we can send an error to the client *)
   let highest_forgotten_id = ref (-1L)
 
-  type subscription = {
-      mutable last_id: int64
+  type subscription =
+    { mutable last_id : int64
     ; (* last event ID to sent to this client *)
-      mutable subs: Subscription.t list
+      mutable subs : Subscription.t list
     ; (* list of all the subscriptions *)
-      m: Mutex.t
+      m : Mutex.t
     ; (* protects access to the mutable fields in this record *)
-      session: API.ref_session
+      session : API.ref_session
     ; (* session which owns this subscription *)
-      mutable session_invalid: bool
+      mutable session_invalid : bool
     ; (* set to true if the associated session has been deleted *)
-      mutable timeout: float (* Timeout *)
-  }
+      mutable timeout : float (* Timeout *)
+    }
 
   (* For Event.next, the single subscription associated with a session *)
   let subscriptions : (API.ref_session, subscription) Hashtbl.t =
     Hashtbl.create 10
+
 
   let m = Mutex.create ()
 
@@ -157,103 +169,99 @@ module Next = struct
     let string = Jsonrpc.to_string rpc in
     String.length string
 
+
   (* Add an event to the queue if it matches any active subscriptions *)
   let add ev =
     Mutex.execute m (fun () ->
         let matches =
           Hashtbl.fold
             (fun _ s acc ->
-              if Subscription.event_matches s.subs ev then
-                true
-              else
-                acc
-              )
-            subscriptions false
+              if Subscription.event_matches s.subs ev then true else acc )
+            subscriptions
+            false
         in
-        if matches then (
+        if matches
+        then (
           let size = event_size ev in
           queue := (size, ev) :: !queue ;
           (* debug "Adding event %Ld: %s" (!id) (string_of_event ev); *)
           id := Int64.add !id Int64.one ;
-          Condition.broadcast c
-        ) else
-          ( (* debug "Dropping event %s" (string_of_event ev) *) ) ;
+          Condition.broadcast c )
+        else ( (* debug "Dropping event %s" (string_of_event ev) *) ) ;
         (* GC the events in the queue *)
         let total_size =
           List.fold_left (fun acc (sz, _) -> acc + sz) 0 !queue
         in
         let too_many = total_size > max_queue_size in
         let to_keep, to_drop =
-          if not too_many then
-            (!queue, [])
+          if not too_many
+          then (!queue, [])
           else
             (* Reverse-sort by ID and preserve only enough events such that the total
                			       size does not exceed 'max_queue_size' *)
             let sorted =
               List.sort
                 (fun (_, a) (_, b) ->
-                  compare (Int64.of_string b.id) (Int64.of_string a.id)
-                  )
+                  compare (Int64.of_string b.id) (Int64.of_string a.id) )
                 !queue
             in
             let total_size_after, rev_to_keep, rev_to_drop =
               List.fold_left
                 (fun (tot_size, keep, drop) (size, elt) ->
-                  if tot_size + size < max_queue_size then
-                    (tot_size + size, (size, elt) :: keep, drop)
-                  else
-                    (tot_size + size, keep, (size, elt) :: drop)
-                  )
-                (0, [], []) sorted
+                  if tot_size + size < max_queue_size
+                  then (tot_size + size, (size, elt) :: keep, drop)
+                  else (tot_size + size, keep, (size, elt) :: drop) )
+                (0, [], [])
+                sorted
             in
             let to_keep = List.rev rev_to_keep in
             let to_drop = List.rev rev_to_drop in
-            if List.length to_keep < old_max_queue_length then
+            if List.length to_keep < old_max_queue_length
+            then
               warn
                 "Event queue length degraded. Number of events kept: %d (less \
                  than old_max_queue_length=%d)"
-                (List.length to_keep) old_max_queue_length ;
+                (List.length to_keep)
+                old_max_queue_length ;
             (to_keep, to_drop)
         in
         queue := to_keep ;
         (* Remember the highest ID of the list of events to drop *)
-        if to_drop <> [] then
-          highest_forgotten_id := Int64.of_string (snd (List.hd to_drop)).id
+        if to_drop <> []
+        then highest_forgotten_id := Int64.of_string (snd (List.hd to_drop)).id
         (* debug "After event queue GC: keeping %d; dropping %d (highest dropped id = %Ld)"
-           			(List.length to_keep) (List.length to_drop) !highest_forgotten_id *)
-    )
+           			(List.length to_keep) (List.length to_drop) !highest_forgotten_id *) )
+
 
   let assert_subscribed session =
     Mutex.execute m (fun () ->
-        if not (Hashtbl.mem subscriptions session) then
+        if not (Hashtbl.mem subscriptions session)
+        then
           raise
             (Api_errors.Server_error
                ( Api_errors.session_not_registered
-               , [Context.trackid_of_session (Some session)]
-               )
-            )
-    )
+               , [ Context.trackid_of_session (Some session) ] ) ) )
+
 
   (* Fetch the single subscription_record associated with a session or create
      	   one if one doesn't exist already *)
   let get_subscription session =
     Mutex.execute m (fun () ->
-        if Hashtbl.mem subscriptions session then
-          Hashtbl.find subscriptions session
+        if Hashtbl.mem subscriptions session
+        then Hashtbl.find subscriptions session
         else
           let subscription =
-            {
-              last_id= !id
-            ; subs= []
-            ; m= Mutex.create ()
+            { last_id = !id
+            ; subs = []
+            ; m = Mutex.create ()
             ; session
-            ; session_invalid= false
-            ; timeout= 0.0
+            ; session_invalid = false
+            ; timeout = 0.0
             }
           in
           Hashtbl.replace subscriptions session subscription ;
-          subscription
-    )
+          subscription )
+
 
   let on_session_deleted session_id =
     Mutex.execute m (fun () ->
@@ -262,15 +270,16 @@ module Next = struct
           Mutex.execute sub.m (fun () -> sub.session_invalid <- true) ;
           Condition.broadcast c
         in
-        if Hashtbl.mem subscriptions session_id then (
+        if Hashtbl.mem subscriptions session_id
+        then (
           let sub = Hashtbl.find subscriptions session_id in
           mark_invalid sub ;
-          Hashtbl.remove subscriptions session_id
-        )
-    )
+          Hashtbl.remove subscriptions session_id ) )
+
 
   let session_is_invalid sub =
     Mutex.execute sub.m (fun () -> sub.session_invalid)
+
 
   (* Blocks the caller until the current ID has changed OR the session has been
      	    invalidated. *)
@@ -281,15 +290,15 @@ module Next = struct
         while !id = from_id && not (session_is_invalid subscription) do
           Condition.wait c m
         done ;
-        result := !id
-    ) ;
-    if session_is_invalid subscription then
+        result := !id ) ;
+    if session_is_invalid subscription
+    then
       raise
         (Api_errors.Server_error
-           (Api_errors.session_invalid, [Ref.string_of subscription.session])
+           (Api_errors.session_invalid, [ Ref.string_of subscription.session ])
         )
-    else
-      !result
+    else !result
+
 
   (* Thrown if the user requests events which we don't have because we've thrown
      	   then away. This should only happen if more than max_stored_events are produced
@@ -298,6 +307,7 @@ module Next = struct
   *)
   let events_lost () =
     raise (Api_errors.Server_error (Api_errors.events_lost, []))
+
 
   (* Return events from the queue between a start and an end ID. Throws
      	   an API error if some events have been lost, signalling the client to
@@ -310,8 +320,7 @@ module Next = struct
     let selected_events =
       Mutex.execute m (fun () ->
           some_events_lost := !highest_forgotten_id >= id_start ;
-          List.find_all (fun (_, ev) -> check_ev ev) !queue
-      )
+          List.find_all (fun (_, ev) -> check_ev ev) !queue )
     in
     (* Note we may actually retrieve fewer events than we expect because the
        		   queue may have been coalesced. *)
@@ -331,23 +340,23 @@ module From = struct
       Mutex.execute m (fun () ->
           let result = !id in
           id := Int64.succ !id ;
-          result
-      )
+          result )
+
 
   (* A (blocking) call which should be unblocked on logout *)
-  type call = {
-      index: int64
+  type call =
+    { index : int64
     ; (* Unique id for this call *)
-      mutable cur_id: int64
+      mutable cur_id : int64
     ; (* Most current generation count relevant to the client *)
-      subs: Subscription.t list
+      subs : Subscription.t list
     ; (* list of all the subscriptions *)
-      session: API.ref_session
+      session : API.ref_session
     ; (* the session associated with this call *)
-      mutable session_invalid: bool
+      mutable session_invalid : bool
     ; (* set to true if the associated session has been deleted *)
-      m: Mutex.t (* protects access to the mutable fields in this record *)
-  }
+      m : Mutex.t (* protects access to the mutable fields in this record *)
+    }
 
   (* The set of (blocking) calls associated with a session *)
   let calls : (API.ref_session, call list) Hashtbl.t = Hashtbl.create 10
@@ -355,8 +364,8 @@ module From = struct
   let get_current_event_number () =
     Db_cache_types.Manifest.generation
       (Db_cache_types.Database.manifest
-         (Db_ref.get_database (Db_backend.make ()))
-      )
+         (Db_ref.get_database (Db_backend.make ())) )
+
 
   (* Add an event to the queue if it matches any active subscriptions *)
   let add ev =
@@ -366,57 +375,51 @@ module From = struct
             (fun _ s acc ->
               List.fold_left
                 (fun acc s ->
-                  if Subscription.event_matches s.subs ev then (
+                  if Subscription.event_matches s.subs ev
+                  then (
                     s.cur_id <- get_current_event_number () ;
-                    true
-                  ) else
-                    acc
-                  )
-                acc s
-              )
-            calls false
+                    true )
+                  else acc )
+                acc
+                s )
+            calls
+            false
         in
-        if matches_per_thread then Condition.broadcast c
-    )
+        if matches_per_thread then Condition.broadcast c )
+
 
   (* Call a function with a registered call which will be woken up if
      	   the session is destroyed in the background. *)
   let with_call session subs f =
     let index = next_index () in
     let fresh =
-      {
-        index
-      ; cur_id= 0L
+      { index
+      ; cur_id = 0L
       ; subs
-      ; m= Mutex.create ()
+      ; m = Mutex.create ()
       ; session
-      ; session_invalid= false
+      ; session_invalid = false
       }
     in
     Mutex.execute m (fun () ->
         let existing =
-          if Hashtbl.mem calls session then
-            Hashtbl.find calls session
-          else
-            []
+          if Hashtbl.mem calls session then Hashtbl.find calls session else []
         in
-        Hashtbl.replace calls session (fresh :: existing)
-    ) ;
+        Hashtbl.replace calls session (fresh :: existing) ) ;
     finally
       (fun () -> f fresh)
       (fun () ->
         Mutex.execute m (fun () ->
-            if Hashtbl.mem calls session then
+            if Hashtbl.mem calls session
+            then
               let existing = Hashtbl.find calls session in
               let remaining =
                 List.filter (fun x -> not (x.index = fresh.index)) existing
               in
-              if remaining = [] then
-                Hashtbl.remove calls session
-              else
-                Hashtbl.replace calls session remaining
-        )
-        )
+              if remaining = []
+              then Hashtbl.remove calls session
+              else Hashtbl.replace calls session remaining ) )
+
 
   (* Is called by the session timeout code *)
   let on_session_deleted session_id =
@@ -426,14 +429,15 @@ module From = struct
           Mutex.execute sub.m (fun () -> sub.session_invalid <- true) ;
           Condition.broadcast c
         in
-        if Hashtbl.mem calls session_id then (
+        if Hashtbl.mem calls session_id
+        then (
           List.iter mark_invalid (Hashtbl.find calls session_id) ;
-          Hashtbl.remove calls session_id
-        )
-    )
+          Hashtbl.remove calls session_id ) )
+
 
   let session_is_invalid call =
     Mutex.execute call.m (fun () -> call.session_invalid)
+
 
   let wait2 call from_id deadline =
     let timeoutname = Printf.sprintf "event_from_timeout_%Ld" call.index in
@@ -443,22 +447,22 @@ module From = struct
           && (not (session_is_invalid call))
           && Unix.gettimeofday () < deadline
         do
-          Xapi_periodic_scheduler.add_to_queue timeoutname
+          Xapi_periodic_scheduler.add_to_queue
+            timeoutname
             Xapi_periodic_scheduler.OneShot
             (deadline -. Unix.gettimeofday () +. 0.5)
             (fun () -> Condition.broadcast c) ;
           Condition.wait c m ;
           Xapi_periodic_scheduler.remove_from_queue timeoutname
-        done
-    ) ;
-    if session_is_invalid call then (
-      info "%s raising SESSION_INVALID *because* subscription is invalid"
+        done ) ;
+    if session_is_invalid call
+    then (
+      info
+        "%s raising SESSION_INVALID *because* subscription is invalid"
         (Context.trackid_of_session (Some call.session)) ;
       raise
         (Api_errors.Server_error
-           (Api_errors.session_invalid, [Ref.string_of call.session])
-        )
-    )
+           (Api_errors.session_invalid, [ Ref.string_of call.session ]) ) )
 end
 
 (** Register an interest in events generated on objects of class <class_name> *)
@@ -469,6 +473,7 @@ let register ~__context ~classes =
   let sub = Next.get_subscription session in
   Mutex.execute sub.m (fun () -> sub.subs <- subs @ sub.subs)
 
+
 (** Unregister interest in events generated on objects of class <class_name> *)
 let unregister ~__context ~classes =
   let session = Context.get_session_id __context in
@@ -476,8 +481,8 @@ let unregister ~__context ~classes =
   let subs = List.map Subscription.of_string classes in
   let sub = Next.get_subscription session in
   Mutex.execute sub.m (fun () ->
-      sub.subs <- List.filter (fun x -> not (List.mem x subs)) sub.subs
-  )
+      sub.subs <- List.filter (fun x -> not (List.mem x subs)) sub.subs )
+
 
 (** Blocking call which returns the next set of events relevant to this session. *)
 let rec next ~__context =
@@ -495,18 +500,16 @@ let rec next ~__context =
             let last_id = subscription.last_id in
             (* Bump our last_id counter: these events don't have to be looked at again *)
             subscription.last_id <- !id ;
-            (last_id, !id)
-        )
-    )
+            (last_id, !id) ) )
   in
   (* Like grab_range () only guarantees to return a non-empty range by blocking if necessary *)
   let rec grab_nonempty_range () =
     let last_id, end_id = grab_range () in
-    if last_id = end_id then
+    if last_id = end_id
+    then
       let (_ : int64) = wait subscription end_id in
       grab_nonempty_range ()
-    else
-      (last_id, end_id)
+    else (last_id, end_id)
   in
   let last_id, end_id = grab_nonempty_range () in
   (* debug "next examining events in range %Ld <= x < %Ld" last_id end_id; *)
@@ -517,10 +520,8 @@ let rec next ~__context =
     List.filter (fun ev -> Subscription.event_matches subs ev) events
   in
   (* debug "number of relevant events = %d" (List.length relevant); *)
-  if relevant = [] then
-    next ~__context
-  else
-    rpc_of_events relevant
+  if relevant = [] then next ~__context else rpc_of_events relevant
+
 
 let from_inner __context session subs from from_t deadline =
   let open From in
@@ -542,10 +543,9 @@ let from_inner __context session subs from from_t deadline =
   let grab_range t =
     let tableset = Db_cache_types.Database.tableset (Db_ref.get_database t) in
     let msg_gen, messages =
-      if Subscription.table_matches subs "message" then
-        !Message.get_since_for_events ~__context !last_msg_gen
-      else
-        (0L, [])
+      if Subscription.table_matches subs "message"
+      then !Message.get_since_for_events ~__context !last_msg_gen
+      else (0L, [])
     in
     ( msg_gen
     , messages
@@ -554,81 +554,71 @@ let from_inner __context session subs from from_t deadline =
         (fun acc table ->
           (* Fold over the live objects *)
           let acc =
-            Db_cache_types.Table.fold_over_recent !last_generation
-              (fun objref {Db_cache_types.Stat.created; modified; deleted} _
+            Db_cache_types.Table.fold_over_recent
+              !last_generation
+              (fun objref
+                   { Db_cache_types.Stat.created; modified; deleted }
+                   _
                    (creates, mods, deletes, last) ->
-                if
-                  Subscription.object_matches subs
-                    (String.lowercase_ascii table)
-                    objref
+                if Subscription.object_matches
+                     subs
+                     (String.lowercase_ascii table)
+                     objref
                 then
                   let last = max last (max modified deleted) in
                   (* mtime guaranteed to always be larger than ctime *)
-                  ( ( if created > !last_generation then
-                        (table, objref, created) :: creates
-                    else
-                      creates
-                    )
-                  , ( if
-                      modified > !last_generation
-                      && not (created > !last_generation)
-                    then
-                        (table, objref, modified) :: mods
-                    else
-                      mods
-                    )
+                  ( ( if created > !last_generation
+                    then (table, objref, created) :: creates
+                    else creates )
+                  , ( if modified > !last_generation
+                         && not (created > !last_generation)
+                    then (table, objref, modified) :: mods
+                    else mods )
                   , (* Only have a mod event if we don't have a created event *)
                     deletes
-                  , last
-                  )
-                else
-                  (creates, mods, deletes, last)
-                )
+                  , last )
+                else (creates, mods, deletes, last) )
               (Db_cache_types.TableSet.find table tableset)
               acc
           in
           (* Fold over the deleted objects *)
-          Db_cache_types.Table.fold_over_deleted !last_generation
-            (fun objref {Db_cache_types.Stat.created; modified; deleted}
+          Db_cache_types.Table.fold_over_deleted
+            !last_generation
+            (fun objref
+                 { Db_cache_types.Stat.created; modified; deleted }
                  (creates, mods, deletes, last) ->
-              if
-                Subscription.object_matches subs
-                  (String.lowercase_ascii table)
-                  objref
+              if Subscription.object_matches
+                   subs
+                   (String.lowercase_ascii table)
+                   objref
               then
                 let last = max last (max modified deleted) in
                 (* mtime guaranteed to always be larger than ctime *)
-                if created > !last_generation then
+                if created > !last_generation
+                then
                   (creates, mods, deletes, last)
-                (* It was created and destroyed since the last update *)
-                else
-                  (creates, mods, (table, objref, deleted) :: deletes, last)
-              (* It might have been modified, but we can't tell now *)
-              else
-                (creates, mods, deletes, last)
-              )
+                  (* It was created and destroyed since the last update *)
+                else (creates, mods, (table, objref, deleted) :: deletes, last)
+                (* It might have been modified, but we can't tell now *)
+              else (creates, mods, deletes, last) )
             (Db_cache_types.TableSet.find table tableset)
-            acc
-          )
+            acc )
         ([], [], [], !last_generation)
-        tables
-    )
+        tables )
   in
   (* Each event.from should have an independent subscription record *)
   let msg_gen, messages, tableset, (creates, mods, deletes, last) =
     with_call session subs (fun sub ->
         let rec grab_nonempty_range () =
           let ( (msg_gen, messages, tableset, (creates, mods, deletes, last)) as
-              result
-              ) =
+              result ) =
             Db_lock.with_lock (fun () -> grab_range (Db_backend.make ()))
           in
-          if
-            creates = []
-            && mods = []
-            && deletes = []
-            && messages = []
-            && Unix.gettimeofday () < deadline
+          if creates = []
+             && mods = []
+             && deletes = []
+             && messages = []
+             && Unix.gettimeofday () < deadline
           then (
             last_generation := last ;
             (* Cur_id was bumped, but nothing relevent fell out of the db. Therefore the *)
@@ -637,21 +627,18 @@ let from_inner __context session subs from from_t deadline =
             last_msg_gen := msg_gen ;
             wait2 sub last deadline ;
             Thread.delay 0.05 ;
-            grab_nonempty_range ()
-          ) else
-            result
+            grab_nonempty_range () )
+          else result
         in
-        grab_nonempty_range ()
-    )
+        grab_nonempty_range () )
   in
   last_generation := last ;
   let event_of op ?snapshot (table, objref, time) =
-    {
-      id= Int64.to_string time
-    ; ts= "0.0"
-    ; ty= String.lowercase_ascii table
+    { id = Int64.to_string time
+    ; ts = "0.0"
+    ; ty = String.lowercase_ascii table
     ; op
-    ; reference= objref
+    ; reference = objref
     ; snapshot
     }
   in
@@ -659,9 +646,9 @@ let from_inner __context session subs from from_t deadline =
     List.fold_left
       (fun acc x ->
         let ev = event_of `del x in
-        if Subscription.event_matches subs ev then ev :: acc else acc
-        )
-      [] deletes
+        if Subscription.event_matches subs ev then ev :: acc else acc )
+      []
+      deletes
   in
   let events =
     List.fold_left
@@ -671,9 +658,11 @@ let from_inner __context session subs from from_t deadline =
           let xml = serialiser ~__context ~self:objref () in
           let ev = event_of `_mod ?snapshot:xml (table, objref, mtime) in
           if Subscription.event_matches subs ev then ev :: acc else acc
-        with _ -> acc
-        )
-      events mods
+        with
+        | _ ->
+            acc )
+      events
+      mods
   in
   let events =
     List.fold_left
@@ -683,9 +672,11 @@ let from_inner __context session subs from from_t deadline =
           let xml = serialiser ~__context ~self:objref () in
           let ev = event_of `add ?snapshot:xml (table, objref, ctime) in
           if Subscription.event_matches subs ev then ev :: acc else acc
-        with _ -> acc
-        )
-      events creates
+        with
+        | _ ->
+            acc )
+      events
+      creates
   in
   let events =
     List.fold_left
@@ -693,15 +684,16 @@ let from_inner __context session subs from from_t deadline =
         let event =
           match mev with
           | Message.Create (_ref, message) ->
-              event_of `add
+              event_of
+                `add
                 ?snapshot:(Some (API.rpc_of_message_t message))
                 ("message", Ref.string_of _ref, 0L)
           | Message.Del _ref ->
               event_of `del ("message", Ref.string_of _ref, 0L)
         in
-        event :: acc
-        )
-      events messages
+        event :: acc )
+      events
+      messages
   in
   let valid_ref_counts =
     Db_cache_types.TableSet.fold
@@ -709,23 +701,25 @@ let from_inner __context session subs from from_t deadline =
         ( String.lowercase_ascii tablename
         , Db_cache_types.Table.fold (fun r _ _ acc -> Int32.add 1l acc) table 0l
         )
-        :: acc
-        )
-      tableset []
+        :: acc )
+      tableset
+      []
   in
-  {events; valid_ref_counts; token= Token.to_string (last, msg_gen)}
+  { events; valid_ref_counts; token = Token.to_string (last, msg_gen) }
+
 
 let from ~__context ~classes ~token ~timeout =
   let session = Context.get_session_id __context in
   let from, from_t =
-    try Token.of_string token
-    with e ->
-      warn "Failed to parse event.from token: %s (%s)" token
-        (Printexc.to_string e) ;
-      raise
-        (Api_errors.Server_error
-           (Api_errors.event_from_token_parse_failure, [token])
-        )
+    try Token.of_string token with
+    | e ->
+        warn
+          "Failed to parse event.from token: %s (%s)"
+          token
+          (Printexc.to_string e) ;
+        raise
+          (Api_errors.Server_error
+             (Api_errors.event_from_token_parse_failure, [ token ]) )
   in
   let subs = List.map Subscription.of_string classes in
   let deadline = Unix.gettimeofday () +. timeout in
@@ -735,13 +729,14 @@ let from ~__context ~classes ~token ~timeout =
      	   snapshot can't be taken. *)
   let rec loop () =
     let event_from = from_inner __context session subs from from_t deadline in
-    if event_from.events = [] && Unix.gettimeofday () < deadline then (
+    if event_from.events = [] && Unix.gettimeofday () < deadline
+    then (
       debug "suppressing empty event.from" ;
-      loop ()
-    ) else
-      rpc_of_event_from event_from
+      loop () )
+    else rpc_of_event_from event_from
   in
   loop ()
+
 
 let get_current_id ~__context = Mutex.execute Next.m (fun () -> !Next.id)
 
@@ -760,16 +755,18 @@ let inject ~__context ~_class ~_ref =
           | None ->
               false
         in
-        if not ok then
+        if not ok
+        then
           raise
-            (Api_errors.Server_error (Api_errors.handle_invalid, [_class; _ref])) ;
+            (Api_errors.Server_error
+               (Api_errors.handle_invalid, [ _class; _ref ]) ) ;
         Db_cache_impl.touch_row db_ref _class _ref ;
         (* consumes this generation *)
-        g
-    )
+        g )
   in
   let token = (Int64.sub generation 1L, 0L) in
   Token.to_string token
+
 
 (* Internal interface ****************************************************)
 
@@ -780,21 +777,22 @@ let event_add ?snapshot ty op reference =
       (Dm_api.objects_of_api Datamodel.all_api)
   in
   let objs = List.map (fun x -> x.Datamodel_types.name) objs in
-  if List.mem ty objs then (
+  if List.mem ty objs
+  then (
     let ts = string_of_float (Unix.time ()) in
     let op = op_of_string op in
     let ev =
-      {
-        id= Int64.to_string !Next.id
+      { id = Int64.to_string !Next.id
       ; ts
-      ; ty= String.lowercase_ascii ty
+      ; ty = String.lowercase_ascii ty
       ; op
       ; reference
       ; snapshot
       }
     in
-    From.add ev ; Next.add ev
-  )
+    From.add ev ;
+    Next.add ev )
+
 
 let register_hooks () = Db_action_helper.events_register event_add
 
@@ -805,6 +803,7 @@ let on_session_deleted session_id =
   Db_backend.unregister_session (Ref.string_of session_id) ;
   Next.on_session_deleted session_id ;
   From.on_session_deleted session_id
+
 
 (* Inject an unnecessary update as a heartbeat. This will:
     1. hopefully prevent some firewalls from silently closing the connection
@@ -822,8 +821,9 @@ let heartbeat ~__context =
             event_add ~snapshot:pool_xml "pool" "mod" (Ref.string_of pool)
         | None ->
             ()
-        (* no pool object created during initial boot *)
-    )
-  with e ->
-    error "Caught exception sending event heartbeat: %s"
-      (ExnHelper.string_of_exn e)
+        (* no pool object created during initial boot *) )
+  with
+  | e ->
+      error
+        "Caught exception sending event heartbeat: %s"
+        (ExnHelper.string_of_exn e)

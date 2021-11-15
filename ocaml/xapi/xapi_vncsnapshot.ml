@@ -15,7 +15,9 @@
 open Http
 open Forkhelpers
 
-module D = Debug.Make (struct let name = "xapi_vncsnapshot" end)
+module D = Debug.Make (struct
+  let name = "xapi_vncsnapshot"
+end)
 
 open D
 
@@ -26,7 +28,10 @@ let vncsnapshot_handler (req : Request.t) s _ =
   Xapi_http.with_context "Taking snapshot of VM console" req s (fun __context ->
       try
         let console = Console.console_of_request __context req in
-        Console.rbac_check_for_control_domain __context req console
+        Console.rbac_check_for_control_domain
+          __context
+          req
+          console
           Rbac_static.permission_http_get_vncsnapshot_host_console
             .Db_actions.role_name_label ;
         let tmp = Filename.temp_file "snapshot" "jpg" in
@@ -36,9 +41,13 @@ let vncsnapshot_handler (req : Request.t) s _ =
               Int64.to_int (Db.Console.get_port ~__context ~self:console)
             in
             let pid =
-              safe_close_and_exec None None None [] vncsnapshot
-                [
-                  "-quiet"
+              safe_close_and_exec
+                None
+                None
+                None
+                []
+                vncsnapshot
+                [ "-quiet"
                 ; "-allowblank"
                 ; "-encodings"
                 ; "\"raw\""
@@ -47,10 +56,9 @@ let vncsnapshot_handler (req : Request.t) s _ =
                 ]
             in
             waitpid_fail_if_bad_exit pid ;
-            Http_svr.response_file s tmp
-            )
+            Http_svr.response_file s tmp )
           (fun () -> try Unix.unlink tmp with _ -> ())
-      with e ->
-        req.Request.close <- true ;
-        raise e
-  )
+      with
+      | e ->
+          req.Request.close <- true ;
+          raise e )

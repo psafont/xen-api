@@ -15,7 +15,9 @@
 module Unixext = Xapi_stdext_unix.Unixext
 module StringSet = Set.Make (String)
 
-module D = Debug.Make (struct let name = "cert_distrib" end)
+module D = Debug.Make (struct
+  let name = "cert_distrib"
+end)
 
 module XenAPI = Client.Client
 
@@ -31,12 +33,21 @@ module WireProtocol = struct
       Erase_old => existing certs in the trusted certs dir will be removed
       Merge     => merge incoming certs with certs in the trusted certs dir,
                    resolving conflicts by taking the incoming cert *)
-  type conflict_resolution = Erase_old | Merge [@@deriving sexp]
-
-  type certificate = HostPoolCertificate | ApplianceCertificate
+  type conflict_resolution =
+    | Erase_old
+    | Merge
   [@@deriving sexp]
 
-  type certificate_file = {filename: string; content: string} [@@deriving sexp]
+  type certificate =
+    | HostPoolCertificate
+    | ApplianceCertificate
+  [@@deriving sexp]
+
+  type certificate_file =
+    { filename : string
+    ; content : string
+    }
+  [@@deriving sexp]
 
   type command =
     | CollectOne of certificate * string
@@ -55,6 +66,7 @@ module WireProtocol = struct
   let string_of_conflict_resolution x =
     x |> sexp_of_conflict_resolution |> Sexp.to_string
 
+
   let string_of_certificate x = x |> sexp_of_certificate |> Sexp.to_string
 
   let string_of_command x = x |> sexp_of_command |> Sexp.to_string
@@ -62,22 +74,26 @@ module WireProtocol = struct
   let command_of_string x =
     try Some (x |> Sexp.of_string |> command_of_sexp) with _ -> None
 
+
   let dbg_of_command = function
     | CollectOne (typ, _) ->
         Printf.sprintf "CollectOne (%s)" (string_of_certificate typ)
     | CollectMany (typ, _) ->
         Printf.sprintf "CollectMany (%s)" (string_of_certificate typ)
     | Write (typ, resolution, _) ->
-        Printf.sprintf "Write (%s, %s)"
+        Printf.sprintf
+          "Write (%s, %s)"
           (string_of_certificate typ)
           (string_of_conflict_resolution resolution)
     | GenBundle ->
         "GenBundle"
 
+
   let string_of_result x = x |> sexp_of_result |> Sexp.to_string
 
   let result_of_string x =
     try Some (x |> Sexp.of_string |> result_of_sexp) with _ -> None
+
 
   let dbg_of_result = function
     | CollectOneResult _ ->
@@ -89,20 +105,23 @@ module WireProtocol = struct
     | GenBundleResult ->
         "GenBundleResult"
 
-  let pair_of_certificate_file {filename; content} = (filename, content)
 
-  let certificate_file_of_pair (filename, content) = {filename; content}
+  let pair_of_certificate_file { filename; content } = (filename, content)
+
+  let certificate_file_of_pair (filename, content) = { filename; content }
 end
 
 let raise_internal ?e ?details msg : 'a =
   let e =
-    Option.fold ~none:""
+    Option.fold
+      ~none:""
       ~some:(fun e -> e |> Printexc.to_string |> Printf.sprintf "exception: %s")
       e
   in
   let details = Option.value ~default:"" details in
-  [msg; details; e] |> String.concat ". " |> D.error "%s" ;
-  raise Api_errors.(Server_error (internal_error, [msg]))
+  [ msg; details; e ] |> String.concat ". " |> D.error "%s" ;
+  raise Api_errors.(Server_error (internal_error, [ msg ]))
+
 
 module type CertificateProvider = sig
   val store_path : string
@@ -121,7 +140,8 @@ module HostPoolProvider = struct
   let cert_fname_of_host_uuid uuid = uuid ^ ".pem"
 
   let certificate_of_id_content uuid content =
-    WireProtocol.{filename= cert_fname_of_host_uuid uuid; content}
+    WireProtocol.{ filename = cert_fname_of_host_uuid uuid; content }
+
 
   let read_certificate uuid =
     let open Gencertlib.Pem in
@@ -130,7 +150,7 @@ module HostPoolProvider = struct
         raise_internal
           ~details:(Printf.sprintf "reason: %s" reason)
           (Printf.sprintf "failed to parse %s" certificate_path)
-    | Ok {host_cert; _} ->
+    | Ok { host_cert; _ } ->
         certificate_of_id_content uuid host_cert
 end
 
@@ -140,7 +160,8 @@ module ApplianceProvider = struct
   let store_path = !Xapi_globs.trusted_certs_dir
 
   let certificate_of_id_content filename content =
-    WireProtocol.{filename; content}
+    WireProtocol.{ filename; content }
+
 
   let read_certificate filename =
     let content = string_of_file (Filename.concat store_path filename) in
@@ -154,6 +175,7 @@ let provider_of_certificate (typ : WireProtocol.certificate) :
       (module HostPoolProvider : CertificateProvider)
   | ApplianceCertificate ->
       (module ApplianceProvider : CertificateProvider)
+
 
 (* eventually the remote calls should probably become API calls in the datamodel
    but they remain here for quick development *)
@@ -199,6 +221,7 @@ end = struct
     let module P = (val provider_of_certificate typ : CertificateProvider) in
     P.read_certificate id
 
+
   let write_certs_fs typ strategy certs =
     let open Helpers.FileSys in
     let module P = (val provider_of_certificate typ : CertificateProvider) in
@@ -208,43 +231,51 @@ end = struct
     ( try
         Unixext.mkdir_rec pool_certs_bk 0o700 ;
         mv_or_cp ~src:pool_certs ~dest:pool_certs_bk
-      with e ->
+      with
+    | e ->
         D.debug
           "write_certs_fs: ignoring failure, mv_or_cp %s to %s. exception: %s"
-          pool_certs pool_certs_bk (Printexc.to_string e)
-    ) ;
+          pool_certs
+          pool_certs_bk
+          (Printexc.to_string e) ) ;
     ( try
         Unixext.mkdir_rec pool_certs 0o700 ;
         certs
-        |> List.iter (function {filename; content} ->
+        |> List.iter (function { filename; content } ->
                let fname = Filename.concat P.store_path filename in
-               redirect content ~fname
-               )
-      with e ->
+               redirect content ~fname )
+      with
+    | e ->
         (* on fail, try reset to previous cert state *)
-        ( try mv ~src:pool_certs_bk ~dest:pool_certs
-          with e ->
+        ( try mv ~src:pool_certs_bk ~dest:pool_certs with
+        | e ->
             D.debug
               "write_certs_fs: ignoring failure when trying to restore cert \
                state, mv %s to %s. exception: %s"
-              pool_certs_bk pool_certs (Printexc.to_string e)
-        ) ;
-        raise_internal ~e "write_certs_fs: failed to write certs"
-    ) ;
-    try rmrf pool_certs_bk
-    with e ->
-      D.debug "write_certs_fs: ignoring failed to remove %s. exception: %s"
-        pool_certs_bk (Printexc.to_string e)
+              pool_certs_bk
+              pool_certs
+              (Printexc.to_string e) ) ;
+        raise_internal ~e "write_certs_fs: failed to write certs" ) ;
+    try rmrf pool_certs_bk with
+    | e ->
+        D.debug
+          "write_certs_fs: ignoring failed to remove %s. exception: %s"
+          pool_certs_bk
+          (Printexc.to_string e)
+
 
   let regen_bundle () = Helpers.update_ca_bundle ()
 
   let with_log prefix f =
     D.debug "%s: start" prefix ;
     let res = f () in
-    D.debug "%s: end" prefix ; res
+    D.debug "%s: end" prefix ;
+    res
+
 
   let local_exec ~__context ~command =
-    with_log "Worker.local_exec" @@ fun () ->
+    with_log "Worker.local_exec"
+    @@ fun () ->
     let p =
       match command_of_string command with
       | None ->
@@ -265,12 +296,15 @@ end = struct
           write_certs_fs typ strategy certs ;
           WriteResult
       | GenBundle ->
-          regen_bundle () ; GenBundleResult
+          regen_bundle () ;
+          GenBundleResult
     in
     string_of_result r
 
+
   let result_or_fail x =
-    result_of_string x |> function
+    result_of_string x
+    |> function
     | Some x ->
         x
     | None ->
@@ -278,43 +312,51 @@ end = struct
           ~details:(Printf.sprintf "result string: %s" x)
           "result_or_fail: failed to parse result"
 
+
   let remote_call_sync host command rpc session_id =
-    XenAPI.Host.cert_distrib_atom rpc session_id host (string_of_command command)
+    XenAPI.Host.cert_distrib_atom
+      rpc
+      session_id
+      host
+      (string_of_command command)
     |> result_or_fail
+
 
   let unexpected_result name r =
     raise_internal
       ~details:(Printf.sprintf "r = %s" (dbg_of_result r))
       (Printf.sprintf "%s: unexpected result" name)
 
+
   let remote_collect_cert typ id host rpc session_id =
-    remote_call_sync host (CollectOne (typ, id)) rpc session_id |> function
+    remote_call_sync host (CollectOne (typ, id)) rpc session_id
+    |> function
     | CollectOneResult cert ->
         cert
     | r ->
         unexpected_result "remote_collect_cert" r
 
+
   let remote_collect_certs typ ids host rpc session_id =
-    remote_call_sync host (CollectMany (typ, ids)) rpc session_id |> function
+    remote_call_sync host (CollectMany (typ, ids)) rpc session_id
+    |> function
     | CollectManyResult certs ->
         certs
     | r ->
         unexpected_result "remote_collect_certs" r
 
+
   let remote_write_certs_fs typ strategy certs host rpc session_id =
     remote_call_sync host (Write (typ, strategy, certs)) rpc session_id
     |> function
-    | WriteResult ->
-        ()
-    | r ->
-        unexpected_result "remove_write_certs_fs" r
+    | WriteResult -> () | r -> unexpected_result "remove_write_certs_fs" r
+
 
   let remote_regen_bundle host rpc session_id =
-    remote_call_sync host GenBundle rpc session_id |> function
-    | GenBundleResult ->
-        ()
-    | r ->
-        unexpected_result "remote_regen_bundle" r
+    remote_call_sync host GenBundle rpc session_id
+    |> function
+    | GenBundleResult -> () | r -> unexpected_result "remote_regen_bundle" r
+
 
   let local_collect_certs ~__context typ ids =
     let command = string_of_command (CollectMany (typ, ids)) in
@@ -324,6 +366,7 @@ end = struct
     | r ->
         unexpected_result "local_collect_certs" r
 
+
   let local_write_cert_fs ~__context typ strategy certs =
     let command = string_of_command (Write (typ, strategy, certs)) in
     match result_or_fail (local_exec ~__context ~command) with
@@ -331,6 +374,7 @@ end = struct
         ()
     | r ->
         unexpected_result "local_write_certs_fs" r
+
 
   let local_regen_bundle ~__context =
     let command = string_of_command GenBundle in
@@ -348,11 +392,15 @@ let collect_pool_certs ~__context ~rpc ~session_id ~map ~from_hosts =
   |> List.map (fun host ->
          let uuid = Db.Host.get_uuid ~__context ~self:host in
          let cert =
-           Worker.remote_collect_cert HostPoolCertificate uuid host rpc
+           Worker.remote_collect_cert
+             HostPoolCertificate
+             uuid
+             host
+             rpc
              session_id
          in
-         map cert
-     )
+         map cert )
+
 
 let take_and_append n x xs =
   (* take_and_append 3 10 [1;2;3;4] = [1;2;3;10] *)
@@ -363,6 +411,7 @@ let take_and_append n x xs =
         x :: acc |> List.rev
   in
   loop 0 [] xs
+
 
 let exchange_certificates_in_pool ~__context =
   (* here we coordinate the certificate distribution. from a high level
@@ -401,9 +450,7 @@ let exchange_certificates_in_pool ~__context =
                   Api_errors.(
                     Server_error
                       ( internal_error
-                      , ["/tmp/fist_exchange_certificates_in_pool FIST!"]
-                      )
-                  )
+                      , [ "/tmp/fist_exchange_certificates_in_pool FIST!" ] ))
             )
           in
           let ops' = take_and_append rand_i throw_op ops in
@@ -412,34 +459,41 @@ let exchange_certificates_in_pool ~__context =
           ops'
   in
   let all_hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
-  Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+  Helpers.call_api_functions ~__context
+  @@ fun rpc session_id ->
   let certs =
-    collect_pool_certs ~__context ~rpc ~session_id ~from_hosts:all_hosts
+    collect_pool_certs
+      ~__context
+      ~rpc
+      ~session_id
+      ~from_hosts:all_hosts
       ~map:Fun.id
   in
   let operations =
     List.concat
-      [
-        List.map
+      [ List.map
           (fun host ->
             ( Printf.sprintf "send certs to %s" (Ref.short_string_of host)
             , fun () ->
-                Worker.remote_write_certs_fs HostPoolCertificate Erase_old certs
-                  host rpc session_id
-            )
-            )
+                Worker.remote_write_certs_fs
+                  HostPoolCertificate
+                  Erase_old
+                  certs
+                  host
+                  rpc
+                  session_id ) )
           all_hosts
       ; List.map
           (fun host ->
-            ( Printf.sprintf "instruct %s to regen bundle"
+            ( Printf.sprintf
+                "instruct %s to regen bundle"
                 (Ref.short_string_of host)
-            , fun () -> Worker.remote_regen_bundle host rpc session_id
-            )
-            )
+            , fun () -> Worker.remote_regen_bundle host rpc session_id ) )
           all_hosts
       ]
   in
   operations |> maybe_insert_fist |> List.iter @@ fun (_, f) -> f ()
+
 
 let ( (get_local_ca_certs : unit -> WireProtocol.certificate_file list)
     , (get_local_pool_certs : unit -> WireProtocol.certificate_file list) ) =
@@ -453,10 +507,10 @@ let ( (get_local_ca_certs : unit -> WireProtocol.certificate_file list)
     |> List.map (fun filename ->
            let path = Filename.concat path filename in
            let content = string_of_file path in
-           WireProtocol.{filename; content}
-       )
+           WireProtocol.{ filename; content } )
   in
   (g ApplianceProvider.store_path, g HostPoolProvider.store_path)
+
 
 let am_i_missing_certs ~__context : bool =
   (* compare what's in the database with what's on my filesystem *)
@@ -464,24 +518,22 @@ let am_i_missing_certs ~__context : bool =
     let exp = exp_fnames ~__context |> StringSet.of_list in
     let ac = Sys.readdir ac_dir |> Array.to_seq |> StringSet.of_seq in
     let diff = StringSet.diff exp ac in
-    if StringSet.is_empty diff then
-      false
+    if StringSet.is_empty diff
+    then false
     else (
       D.warn
         "am_i_missing_certs: expected to see the following certs in %s but did \
          not: [ %s ]"
         ac_dir
         (diff |> StringSet.elements |> String.concat "; ") ;
-      true
-    )
+      true )
   in
   let missing_pool_certs =
     f
       (fun ~__context ->
         Db.Host.get_all ~__context
         |> List.map (fun self -> Db.Host.get_uuid ~__context ~self)
-        |> List.map HostPoolProvider.cert_fname_of_host_uuid
-        )
+        |> List.map HostPoolProvider.cert_fname_of_host_uuid )
       HostPoolProvider.store_path
   in
   let missing_ca_certs =
@@ -493,65 +545,89 @@ let am_i_missing_certs ~__context : bool =
                | `ca ->
                    Some (Db.Certificate.get_name ~__context ~self)
                | _ ->
-                   None
-           )
-        )
+                   None ) )
       ApplianceProvider.store_path
   in
   missing_pool_certs () || missing_ca_certs ()
 
+
 let copy_certs_to_host ~__context ~host =
-  D.debug "copy_certs_to_host: sending my certs to host %s"
+  D.debug
+    "copy_certs_to_host: sending my certs to host %s"
     (Ref.short_string_of host) ;
-  if am_i_missing_certs ~__context then
+  if am_i_missing_certs ~__context
+  then
     D.error
       "i have been asked to copy my certs to %s but i myself am missing \
        certs... this is bad, but continuing anyway"
       (Ref.short_string_of host) ;
-  Helpers.call_api_functions ~__context @@ fun rpc session_id ->
-  Worker.remote_write_certs_fs HostPoolCertificate Erase_old
-    (get_local_pool_certs ()) host rpc session_id ;
-  Worker.remote_write_certs_fs ApplianceCertificate Erase_old
-    (get_local_ca_certs ()) host rpc session_id ;
+  Helpers.call_api_functions ~__context
+  @@ fun rpc session_id ->
+  Worker.remote_write_certs_fs
+    HostPoolCertificate
+    Erase_old
+    (get_local_pool_certs ())
+    host
+    rpc
+    session_id ;
+  Worker.remote_write_certs_fs
+    ApplianceCertificate
+    Erase_old
+    (get_local_ca_certs ())
+    host
+    rpc
+    session_id ;
   Worker.remote_regen_bundle host rpc session_id
+
 
 (* This function is called on the pool that is incorporating a new host *)
 let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
   let joiner_certificate =
     HostPoolProvider.certificate_of_id_content uuid certificate
   in
-  Worker.local_write_cert_fs ~__context HostPoolCertificate Merge
-    [joiner_certificate] ;
+  Worker.local_write_cert_fs
+    ~__context
+    HostPoolCertificate
+    Merge
+    [ joiner_certificate ] ;
   Worker.local_regen_bundle ~__context ;
   let () =
     (* now that the primary host trusts the joiner, perform best effort
      * distribution to remaining hosts (this is not strictly necessary,
      * as the 'am i missing certs thread' should pick up missing certs) *)
     let secondary_hosts = Xapi_pool_helpers.get_slaves_list ~__context in
-    Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+    Helpers.call_api_functions ~__context
+    @@ fun rpc session_id ->
     secondary_hosts
     |> List.iter (fun host ->
            try
-             Worker.remote_write_certs_fs HostPoolCertificate Merge
-               [joiner_certificate] host rpc session_id
-           with e ->
-             D.warn
-               "exchange_certificates_with_joiner: sending joiner cert to %s \
-                failed. ex: %s"
-               (Ref.short_string_of host) (Printexc.to_string e)
-       ) ;
+             Worker.remote_write_certs_fs
+               HostPoolCertificate
+               Merge
+               [ joiner_certificate ]
+               host
+               rpc
+               session_id
+           with
+           | e ->
+               D.warn
+                 "exchange_certificates_with_joiner: sending joiner cert to %s \
+                  failed. ex: %s"
+                 (Ref.short_string_of host)
+                 (Printexc.to_string e) ) ;
 
     secondary_hosts
     |> List.iter (fun host ->
-           try Worker.remote_regen_bundle host rpc session_id
-           with e ->
-             D.warn
-               "exchange_certificates_with_joiner: failed to regen bundle on \
-                %s. ex: %s"
-               (Ref.short_string_of host) (Printexc.to_string e)
-       )
+           try Worker.remote_regen_bundle host rpc session_id with
+           | e ->
+               D.warn
+                 "exchange_certificates_with_joiner: failed to regen bundle on \
+                  %s. ex: %s"
+                 (Ref.short_string_of host)
+                 (Printexc.to_string e) )
   in
   get_local_pool_certs () |> List.map WireProtocol.pair_of_certificate_file
+
 
 (* This function is called on the host that is joining a pool *)
 let import_joining_pool_certs ~__context ~pool_certs =
@@ -559,9 +635,11 @@ let import_joining_pool_certs ~__context ~pool_certs =
   Worker.local_write_cert_fs ~__context HostPoolCertificate Merge pool_certs ;
   Worker.local_regen_bundle ~__context
 
+
 let collect_ca_certs ~__context ~names =
   Worker.local_collect_certs ApplianceCertificate ~__context names
   |> List.map WireProtocol.pair_of_certificate_file
+
 
 (* This function is called on the pool that is incorporating a new host *)
 let exchange_ca_certificates_with_joiner ~__context ~import ~export =
@@ -570,17 +648,19 @@ let exchange_ca_certificates_with_joiner ~__context ~import ~export =
   (* perform parsing straight away, so we avoid write invalid certs to disk *)
   let parsed =
     List.map
-      (fun WireProtocol.{filename; content} ->
+      (fun WireProtocol.{ filename; content } ->
         let () =
-          if C.(is_unsafe CA_Certificate filename) then
-            C.(raise_name_invalid CA_Certificate filename)
+          if C.(is_unsafe CA_Certificate filename)
+          then C.(raise_name_invalid CA_Certificate filename)
         in
         let cert = C.pem_of_string content in
-        (filename, cert)
-        )
+        (filename, cert) )
       appliance_certs
   in
-  Worker.local_write_cert_fs ~__context ApplianceCertificate Merge
+  Worker.local_write_cert_fs
+    ~__context
+    ApplianceCertificate
+    Merge
     appliance_certs ;
   Worker.local_regen_bundle ~__context ;
   List.iter
@@ -588,30 +668,40 @@ let exchange_ca_certificates_with_joiner ~__context ~import ~export =
       let (_ : API.ref_Certificate) =
         C.Db_util.add_cert ~__context ~type':(`ca name) cert
       in
-      ()
-      )
+      () )
     parsed ;
   collect_ca_certs ~__context ~names:export
+
 
 (* This function is called on the host that is joining a pool *)
 let import_joining_pool_ca_certificates ~__context ~ca_certs =
   let appliance_certs =
     List.map WireProtocol.certificate_file_of_pair ca_certs
   in
-  Worker.local_write_cert_fs ~__context ApplianceCertificate Merge
+  Worker.local_write_cert_fs
+    ~__context
+    ApplianceCertificate
+    Merge
     appliance_certs ;
   Worker.local_regen_bundle ~__context
+
 
 let distribute_new_host_cert ~__context ~host ~content =
   let hosts = Db.Host.get_all ~__context in
   let uuid = Db.Host.get_uuid ~__context ~self:host in
   let file =
-    WireProtocol.{filename= Printf.sprintf "%s.new.pem" uuid; content}
+    WireProtocol.{ filename = Printf.sprintf "%s.new.pem" uuid; content }
   in
   let job rpc session_id host =
-    Worker.remote_write_certs_fs HostPoolCertificate Merge [file] host rpc
+    Worker.remote_write_certs_fs
+      HostPoolCertificate
+      Merge
+      [ file ]
+      host
+      rpc
       session_id
   in
-  Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+  Helpers.call_api_functions ~__context
+  @@ fun rpc session_id ->
   List.iter (fun host -> job rpc session_id host) hosts ;
   List.iter (fun host -> Worker.remote_regen_bundle host rpc session_id) hosts

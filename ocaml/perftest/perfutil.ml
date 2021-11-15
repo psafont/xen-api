@@ -17,17 +17,23 @@ open Client
 
 let rpc xml =
   let open Xmlrpc_client in
-  XMLRPC_protocol.rpc ~srcstr:"perftest" ~dststr:"xapi"
+  XMLRPC_protocol.rpc
+    ~srcstr:"perftest"
+    ~dststr:"xapi"
     ~transport:(Unix (Filename.concat "/var/lib/xcp" "xapi"))
     ~http:(xmlrpc ~version:"1.0" "/")
     xml
 
+
 let remoterpc host xml =
   let open Xmlrpc_client in
-  XMLRPC_protocol.rpc ~srcstr:"perftest" ~dststr:"remotexapi"
+  XMLRPC_protocol.rpc
+    ~srcstr:"perftest"
+    ~dststr:"remotexapi"
     ~transport:(SSL (SSL.make ~verify_cert:None (), host, 443))
     ~http:(xmlrpc ~version:"1.1" "/")
     xml
+
 
 (* Rewrite the provisioning XML fragment to create all disks on a new, specified SR. This is cut-n-pasted from cli_util.ml *)
 let rewrite_provisioning_xml rpc session_id new_vm sr_uuid =
@@ -39,8 +45,7 @@ let rewrite_provisioning_xml rpc session_id new_vm sr_uuid =
             , List.map
                 (fun (x, y) -> if x <> "sr" then (x, y) else ("sr", newsrname))
                 params
-            , []
-            )
+            , [] )
       | x ->
           x
     in
@@ -51,13 +56,18 @@ let rewrite_provisioning_xml rpc session_id new_vm sr_uuid =
         x
   in
   let other_config = Client.VM.get_other_config rpc session_id new_vm in
-  if List.mem_assoc "disks" other_config then (
+  if List.mem_assoc "disks" other_config
+  then (
     let xml = Xml.parse_string (List.assoc "disks" other_config) in
     Client.VM.remove_from_other_config rpc session_id new_vm "disks" ;
     let newdisks = rewrite_xml xml sr_uuid in
-    Client.VM.add_to_other_config rpc session_id new_vm "disks"
-      (Xml.to_string newdisks)
-  )
+    Client.VM.add_to_other_config
+      rpc
+      session_id
+      new_vm
+      "disks"
+      (Xml.to_string newdisks) )
+
 
 let parse_sr_probe_for_iqn (xml : string) : string list =
   match Xml.parse_string xml with
@@ -65,7 +75,7 @@ let parse_sr_probe_for_iqn (xml : string) : string list =
       let parse_tgts = function
         | Xml.Element ("TGT", _, children) ->
             let parse_kv = function
-              | Xml.Element (key, _, [Xml.PCData v]) ->
+              | Xml.Element (key, _, [ Xml.PCData v ]) ->
                   (key, String.trim v)
               | _ ->
                   failwith "Malformed key/value pair"
@@ -79,13 +89,14 @@ let parse_sr_probe_for_iqn (xml : string) : string list =
   | _ ->
       failwith "Missing <iscsi-target-iqns> element"
 
+
 let parse_sr_probe_for_scsiids (xml : string) : string list =
   match Xml.parse_string xml with
   | Xml.Element ("iscsi-target", _, children) ->
       let parse_luns = function
         | Xml.Element ("LUN", _, children) ->
             let parse_kv = function
-              | Xml.Element (key, _, [Xml.PCData v]) ->
+              | Xml.Element (key, _, [ Xml.PCData v ]) ->
                   (key, String.trim v)
               | _ ->
                   failwith "Malformed key/value pair"

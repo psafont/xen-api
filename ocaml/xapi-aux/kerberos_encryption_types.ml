@@ -18,7 +18,10 @@
  * *)
 
 module Winbind = struct
-  type t = Strong | Legacy | All
+  type t =
+    | Strong
+    | Legacy
+    | All
 
   let to_string = function
     | Strong ->
@@ -27,6 +30,7 @@ module Winbind = struct
         "legacy"
     | All ->
         "all"
+
 
   let of_string = function
     | "all" ->

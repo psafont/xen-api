@@ -54,51 +54,68 @@ let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
   Hashtbl.add table "tot bytes" (pages_to_string_bytes x.total_memory_pages) ;
   Hashtbl.add table "tot pages" (pages_to_string_pages x.total_memory_pages) ;
   Hashtbl.add table "tot MiB" (pages_to_string_mib_used x.total_memory_pages) ;
-  Hashtbl.add table "max bytes"
+  Hashtbl.add
+    table
+    "max bytes"
     (if x.domid = 0 then "N/A" else pages_to_string_bytes x.max_memory_pages) ;
-  Hashtbl.add table "max pages"
+  Hashtbl.add
+    table
+    "max pages"
     (if x.domid = 0 then "N/A" else pages_to_string_pages x.max_memory_pages) ;
-  Hashtbl.add table "max MiB"
+  Hashtbl.add
+    table
+    "max MiB"
     (if x.domid = 0 then "N/A" else pages_to_string_mib_used x.max_memory_pages) ;
   Hashtbl.add table "sif" (int64 x.shared_info_frame) ;
   Hashtbl.add table "cpu time" (int64 x.cpu_time) ;
   Hashtbl.add table "vcpus online" (int x.nr_online_vcpus) ;
   Hashtbl.add table "max vcpu id" (int x.max_vcpu_id) ;
   Hashtbl.add table "ssidref" (int32 x.ssidref) ;
-  Hashtbl.add table "uuid"
+  Hashtbl.add
+    table
+    "uuid"
     (Uuidm.to_string (Ez_xenctrl_uuid.uuid_of_handle x.handle)) ;
   (* Ask for shadow allocation separately *)
   let shadow_mib =
-    try Some (Int64.of_int (Xenctrl.shadow_allocation_get xc_handle x.domid))
-    with _ -> None
+    try
+      Some (Int64.of_int (Xenctrl.shadow_allocation_get xc_handle x.domid))
+    with
+    | _ ->
+        None
   in
   let shadow_bytes = Option.map Memory.bytes_of_mib shadow_mib in
   let shadow_pages = Option.map Memory.pages_of_mib shadow_mib in
-  Hashtbl.add table "shadow bytes"
+  Hashtbl.add
+    table
+    "shadow bytes"
     (Option.value ~default:"N/A" (Option.map Int64.to_string shadow_bytes)) ;
-  Hashtbl.add table "shadow pages"
+  Hashtbl.add
+    table
+    "shadow pages"
     (Option.value ~default:"N/A" (Option.map Int64.to_string shadow_pages)) ;
-  Hashtbl.add table "shadow MiB"
+  Hashtbl.add
+    table
+    "shadow MiB"
     (Option.value ~default:"N/A" (Option.map Int64.to_string shadow_mib)) ;
   table
+
 
 let select table keys =
   List.map
     (fun key ->
-      if not (Hashtbl.mem table key) then
-        failwith (Printf.sprintf "Failed to find key: %s" key) ;
-      Hashtbl.find table key
-      )
+      if not (Hashtbl.mem table key)
+      then failwith (Printf.sprintf "Failed to find key: %s" key) ;
+      Hashtbl.find table key )
     keys
 
+
 let columns () =
-  let common = ["id"; "uuid"; "state"] in
-  let mem_mib = ["tot MiB"; "max MiB"; "shadow MiB"] in
-  let mem_bytes = ["tot bytes"; "max bytes"; "shadow bytes"] in
-  let mem_pages = ["tot pages"; "max pages"; "shadow pages"] in
+  let common = [ "id"; "uuid"; "state" ] in
+  let mem_mib = [ "tot MiB"; "max MiB"; "shadow MiB" ] in
+  let mem_bytes = [ "tot bytes"; "max bytes"; "shadow bytes" ] in
+  let mem_pages = [ "tot pages"; "max pages"; "shadow pages" ] in
   let rest =
-    [
-      "shutdown code"
+    [ "shutdown code"
     ; "sif"
     ; "cpu time"
     ; "vcpus online"
@@ -106,8 +123,8 @@ let columns () =
     ; "ssidref"
     ]
   in
-  if !minimal then
-    ["uuid"]
+  if !minimal
+  then [ "uuid" ]
   else
     common
     @ ( match (!memory, !bytes, !pages) with
@@ -120,13 +137,9 @@ let columns () =
       | true, _, _ ->
           mem_mib
       | _ ->
-          []
-      )
-    @
-    if !all_the_rest then
-      rest
-    else
-      []
+          [] )
+    @ if !all_the_rest then rest else []
+
 
 open Table
 
@@ -135,28 +148,24 @@ let print (rows : string list list) =
   let sll = List.map (List.map2 right widths) rows in
   List.iter (fun line -> print_endline (String.concat " | " line)) sll
 
+
 let _ =
   Arg.parse
     (Arg.align
-       [
-         ( "-all"
+       [ ( "-all"
          , Arg.Unit
              (fun () ->
                memory := true ;
-               all_the_rest := true
-               )
-         , " show all available stats (needs a wide window!)"
-         )
+               all_the_rest := true )
+         , " show all available stats (needs a wide window!)" )
        ; ("-bytes", Arg.Set bytes, " use bytes for memory values")
        ; ( "-domid"
          , Arg.Int (fun i -> domid := Some i)
-         , " show only a particular domain"
-         )
+         , " show only a particular domain" )
        ; ("-memory", Arg.Set memory, " show memory statistics")
        ; ("-minimal", Arg.Set minimal, " show only domain UUID")
        ; ("-pages", Arg.Set pages, " use pages for memory values")
-       ]
-    )
+       ] )
     (fun x -> Printf.printf "Warning, ignoring unknown argument: %s" x)
     "List domains" ;
   let cols = columns () in
@@ -165,12 +174,9 @@ let _ =
     | None ->
         Xenctrl.domain_getinfolist xc_handle 0
     | Some d ->
-        [Xenctrl.domain_getinfo xc_handle d]
+        [ Xenctrl.domain_getinfo xc_handle d ]
   in
   let infos =
     List.map (fun di -> select (hashtbl_of_domaininfo di) cols) list
   in
-  if !minimal then
-    print infos
-  else
-    print (cols :: infos)
+  if !minimal then print infos else print (cols :: infos)

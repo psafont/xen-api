@@ -24,7 +24,9 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 module XenAPI = Client.Client
 
-module D = Debug.Make (struct let name = "xapi_vm_helpers" end)
+module D = Debug.Make (struct
+  let name = "xapi_vm_helpers"
+end)
 
 open D
 open Workload_balancing
@@ -39,47 +41,57 @@ let compute_memory_overhead ~__context ~vm =
   let vm_record = Db.VM.get_record ~__context ~self:vm in
   Memory_check.vm_compute_memory_overhead vm_record
 
+
 let update_memory_overhead ~__context ~vm =
-  Db.VM.set_memory_overhead ~__context ~self:vm
+  Db.VM.set_memory_overhead
+    ~__context
+    ~self:vm
     ~value:(compute_memory_overhead ~__context ~vm)
+
 
 (* To support clients that are not aware of the newer domain_type field yet and
  * have set (only) the old HVM_boot_policy field. *)
 let derive_domain_type ~hVM_boot_policy =
-  if hVM_boot_policy = "" then
-    `pv
-  else
-    `hvm
+  if hVM_boot_policy = "" then `pv else `hvm
+
 
 (* Ensure that the domain-type is specified; upgrade from boot policy if needed *)
 let ensure_domain_type_is_specified ~__context ~self =
-  if Db.VM.get_domain_type ~__context ~self = `unspecified then
-    Db.VM.get_HVM_boot_policy ~__context ~self |> fun hbp ->
-    derive_domain_type ~hVM_boot_policy:hbp |> fun value ->
-    Db.VM.set_domain_type ~__context ~self ~value
+  if Db.VM.get_domain_type ~__context ~self = `unspecified
+  then
+    Db.VM.get_HVM_boot_policy ~__context ~self
+    |> fun hbp ->
+    derive_domain_type ~hVM_boot_policy:hbp
+    |> fun value -> Db.VM.set_domain_type ~__context ~self ~value
+
 
 let derive_hvm_boot_policy ~domain_type =
-  if domain_type = `hvm then
-    Constants.hvm_default_boot_policy
-  else
-    ""
+  if domain_type = `hvm then Constants.hvm_default_boot_policy else ""
+
 
 (* Overrides for database set functions: ************************************************)
 let set_actions_after_crash ~__context ~self ~value =
   Db.VM.set_actions_after_crash ~__context ~self ~value
 
+
 let set_is_a_template ~__context ~self ~value =
   (* We define a 'set_is_a_template false' as 'install time' *)
   info "VM.set_is_a_template('%b')" value ;
-  if Db.VM.get_has_vendor_device ~__context ~self then
-    Pool_features.assert_enabled ~__context
+  if Db.VM.get_has_vendor_device ~__context ~self
+  then
+    Pool_features.assert_enabled
+      ~__context
       ~f:Features.PCI_device_for_auto_update ;
   let m = Db.VM.get_metrics ~__context ~self in
-  ( if not value then
-      try
-        Db.VM_metrics.set_install_time ~__context ~self:m
-          ~value:(Date.of_float (Unix.gettimeofday ()))
-      with _ ->
+  ( if not value
+  then
+    try
+      Db.VM_metrics.set_install_time
+        ~__context
+        ~self:m
+        ~value:(Date.of_float (Unix.gettimeofday ()))
+    with
+    | _ ->
         warn
           "Could not update VM install time because metrics object was missing"
   else
@@ -93,18 +105,17 @@ let set_is_a_template ~__context ~self ~value =
     let ha_enabled =
       Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context)
     in
-    if ha_enabled && Helpers.is_xha_protected ~__context ~self then
+    if ha_enabled && Helpers.is_xha_protected ~__context ~self
+    then
       raise
         (Api_errors.Server_error
-           (Api_errors.vm_is_protected, [Ref.string_of self])
-        )
-    (* If the VM is not protected then we can convert the VM to a template,
-       		 * but we should clear the ha_always_run flag
-       		 * (which will be true if the VM has ha_restart_priority = "restart" and was shut down from inside).
-       		 *
-       		 * We don't want templates to have this flag, or HA will try to start them. *)
-    else
-      Db.VM.set_ha_always_run ~__context ~self ~value:false ;
+           (Api_errors.vm_is_protected, [ Ref.string_of self ]) )
+      (* If the VM is not protected then we can convert the VM to a template,
+         		 * but we should clear the ha_always_run flag
+         		 * (which will be true if the VM has ha_restart_priority = "restart" and was shut down from inside).
+         		 *
+         		 * We don't want templates to have this flag, or HA will try to start them. *)
+    else Db.VM.set_ha_always_run ~__context ~self ~value:false ;
     (* Detach all VUSBs before set VM as a template *)
     let vusbs = Db.VM.get_VUSBs ~__context ~self in
     List.iter
@@ -113,66 +124,70 @@ let set_is_a_template ~__context ~self ~value =
     (* Destroy any attached pvs proxies *)
     Db.VM.get_VIFs ~__context ~self
     |> List.filter_map (fun vif ->
-           Pvs_proxy_control.find_proxy_for_vif ~__context ~vif
-       )
+           Pvs_proxy_control.find_proxy_for_vif ~__context ~vif )
     |> List.rev
     |> List.iter (fun p -> Db.PVS_proxy.destroy ~__context ~self:p) ;
     (* delete the vm metrics associated with the vm if it exists, when we templat'ize it *)
     finally
       (fun () -> Db.VM_metrics.destroy ~__context ~self:m)
-      (fun () -> Db.VM.set_metrics ~__context ~self ~value:Ref.null)
-  ) ;
+      (fun () -> Db.VM.set_metrics ~__context ~self ~value:Ref.null) ) ;
   Db.VM.set_is_a_template ~__context ~self ~value
+
 
 let set_is_default_template ~__context ~self ~value =
   info "VM.set_is_default_template('%b')" value ;
   (* A default template is a template but not viceversa *)
-  if value && not (Db.VM.get_is_a_template ~__context ~self) then
-    set_is_a_template ~__context ~self ~value ;
+  if value && not (Db.VM.get_is_a_template ~__context ~self)
+  then set_is_a_template ~__context ~self ~value ;
   (* update other_config flag for backward compatibility *)
   let other_config =
     Db.VM.get_other_config ~__context ~self
     |> List.remove_assoc Xapi_globs.default_template_key
-    |> List.append [(Xapi_globs.default_template_key, string_of_bool value)]
+    |> List.append [ (Xapi_globs.default_template_key, string_of_bool value) ]
   in
   Db.VM.set_other_config ~__context ~self ~value:other_config ;
   Db.VM.set_is_default_template ~__context ~self ~value
+
 
 let update_vm_virtual_hardware_platform_version ~__context ~vm =
   let vm_record = Db.VM.get_record ~__context ~self:vm in
   (* Deduce what we can, but the guest VM might need a higher version. *)
   let visibly_required_version =
-    if vm_record.API.vM_has_vendor_device then
-      Xapi_globs.has_vendor_device
-    else
-      0L
+    if vm_record.API.vM_has_vendor_device
+    then Xapi_globs.has_vendor_device
+    else 0L
   in
   let current_version = vm_record.API.vM_hardware_platform_version in
-  if visibly_required_version > current_version then
-    Db.VM.set_hardware_platform_version ~__context ~self:vm
+  if visibly_required_version > current_version
+  then
+    Db.VM.set_hardware_platform_version
+      ~__context
+      ~self:vm
       ~value:visibly_required_version
+
 
 let create_from_record_without_checking_licence_feature_for_vendor_device
     ~__context rpc session_id vm_record =
   let mk_vm r =
-    Client.Client.VM.create_from_record rpc session_id
-      {r with API.vM_suspend_VDI= Ref.null; API.vM_power_state= `Halted}
+    Client.Client.VM.create_from_record
+      rpc
+      session_id
+      { r with API.vM_suspend_VDI = Ref.null; API.vM_power_state = `Halted }
   in
   let has_vendor_device = vm_record.API.vM_has_vendor_device in
-  if
-    has_vendor_device
-    && not
-         (Pool_features.is_enabled ~__context
-            Features.PCI_device_for_auto_update
-         )
+  if has_vendor_device
+     && not
+          (Pool_features.is_enabled
+             ~__context
+             Features.PCI_device_for_auto_update )
   then (
     (* Avoid the licence feature check which is enforced in VM.create (and create_from_record). *)
-    let vm = mk_vm {vm_record with API.vM_has_vendor_device= false} in
+    let vm = mk_vm { vm_record with API.vM_has_vendor_device = false } in
     Db.VM.set_has_vendor_device ~__context ~self:vm ~value:true ;
     update_vm_virtual_hardware_platform_version ~__context ~vm ;
-    vm
-  ) else
-    mk_vm vm_record
+    vm )
+  else mk_vm vm_record
+
 
 let destroy ~__context ~self =
   (* Used to be a call to hard shutdown here, but this will be redundant *)
@@ -187,29 +202,29 @@ let destroy ~__context ~self =
     (fun (_, self) -> try Xapi_blob.destroy ~__context ~self with _ -> ())
     blobs ;
   let other_config = Db.VM.get_other_config ~__context ~self in
-  if
-    List.mem_assoc Xapi_globs.default_template_key other_config
-    && List.assoc Xapi_globs.default_template_key other_config = "true"
+  if List.mem_assoc Xapi_globs.default_template_key other_config
+     && List.assoc Xapi_globs.default_template_key other_config = "true"
   then
     raise
       (Api_errors.Server_error (Api_errors.vm_cannot_delete_default_template, [])
       ) ;
   let appliance = Db.VM.get_appliance ~__context ~self in
-  if Db.is_valid_ref __context appliance then (
+  if Db.is_valid_ref __context appliance
+  then (
     Db.VM.set_appliance ~__context ~self ~value:Ref.null ;
-    Xapi_vm_appliance_lifecycle.update_allowed_operations ~__context
-      ~self:appliance
-  ) ;
+    Xapi_vm_appliance_lifecycle.update_allowed_operations
+      ~__context
+      ~self:appliance ) ;
   let vbds = Db.VM.get_VBDs ~__context ~self in
   List.iter
     (fun vbd ->
       ( try
           let metrics = Db.VBD.get_metrics ~__context ~self:vbd in
           Db.VBD_metrics.destroy ~__context ~self:metrics
-        with _ -> ()
-      ) ;
-      try Db.VBD.destroy ~__context ~self:vbd with _ -> ()
-      )
+        with
+      | _ ->
+          () ) ;
+      try Db.VBD.destroy ~__context ~self:vbd with _ -> () )
     vbds ;
   let vifs = Db.VM.get_VIFs ~__context ~self in
   List.iter
@@ -217,10 +232,10 @@ let destroy ~__context ~self =
       ( try
           let metrics = Db.VIF.get_metrics ~__context ~self:vif in
           Db.VIF_metrics.destroy ~__context ~self:metrics
-        with _ -> ()
-      ) ;
-      try Db.VIF.destroy ~__context ~self:vif with _ -> ()
-      )
+        with
+      | _ ->
+          () ) ;
+      try Db.VIF.destroy ~__context ~self:vif with _ -> () )
     vifs ;
   let vgpus = Db.VM.get_VGPUs ~__context ~self in
   List.iter
@@ -229,39 +244,46 @@ let destroy ~__context ~self =
   let pcis = Db.VM.get_attached_PCIs ~__context ~self in
   List.iter
     (fun pci ->
-      try Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self
-      with _ -> ()
-      )
+      try Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self with
+      | _ ->
+          () )
     pcis ;
   let vm_metrics = Db.VM.get_metrics ~__context ~self in
   (try Db.VM_metrics.destroy ~__context ~self:vm_metrics with _ -> ()) ;
   let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
-  ( try Db.VM_guest_metrics.destroy ~__context ~self:vm_guest_metrics
-    with _ -> ()
-  ) ;
+  ( try Db.VM_guest_metrics.destroy ~__context ~self:vm_guest_metrics with
+  | _ ->
+      () ) ;
   let vusbs = Db.VM.get_VUSBs ~__context ~self in
   List.iter
     (fun vusb -> try Db.VUSB.destroy ~__context ~self:vusb with _ -> ())
     vusbs ;
   Db.VM.destroy ~__context ~self
 
+
 (* Validation and assertion functions *)
 
 let invalid_value x y =
-  raise (Api_errors.Server_error (Api_errors.invalid_value, [x; y]))
+  raise (Api_errors.Server_error (Api_errors.invalid_value, [ x; y ]))
+
 
 let value_not_supported fld v reason =
   raise
-    (Api_errors.Server_error (Api_errors.value_not_supported, [fld; v; reason]))
+    (Api_errors.Server_error (Api_errors.value_not_supported, [ fld; v; reason ])
+    )
+
 
 let validate_vcpus ~__context ~vCPUs_max ~vCPUs_at_startup =
   if vCPUs_max < 1L then invalid_value "VCPUs_max" (Int64.to_string vCPUs_max) ;
-  if vCPUs_at_startup < 1L then
-    invalid_value "VCPUs-at-startup" (Int64.to_string vCPUs_at_startup) ;
-  if vCPUs_at_startup > vCPUs_max then
-    value_not_supported "VCPUs-at-startup"
+  if vCPUs_at_startup < 1L
+  then invalid_value "VCPUs-at-startup" (Int64.to_string vCPUs_at_startup) ;
+  if vCPUs_at_startup > vCPUs_max
+  then
+    value_not_supported
+      "VCPUs-at-startup"
       (Int64.to_string vCPUs_at_startup)
       "value greater than VCPUs-max"
+
 
 let validate_memory ~__context ~snapshot:vm_record =
   let constraints = Vm_memory_constraints.extract ~vm_record in
@@ -278,23 +300,32 @@ let validate_memory ~__context ~snapshot:vm_record =
       raise
         (Api_errors.Server_error (Api_errors.memory_constraint_violation, []))
 
+
 let validate_shadow_multiplier ~hVM_shadow_multiplier =
-  if hVM_shadow_multiplier < 1. then
-    invalid_value "HVM_shadow_multiplier" (string_of_float hVM_shadow_multiplier)
+  if hVM_shadow_multiplier < 1.
+  then
+    invalid_value
+      "HVM_shadow_multiplier"
+      (string_of_float hVM_shadow_multiplier)
+
 
 let validate_actions_after_crash ~__context ~self ~value =
   let fld = "VM.actions_after_crash" in
   let hvm_cannot_coredump v =
     match Helpers.domain_type ~__context ~self with
     | `hvm | `pv_in_pvh ->
-        value_not_supported fld v
+        value_not_supported
+          fld
+          v
           "cannot invoke a coredump of an HVM or PV-in-PVH domain"
     | `pv ->
         ()
   in
   match value with
   | `rename_restart ->
-      value_not_supported fld "rename_restart"
+      value_not_supported
+        fld
+        "rename_restart"
         "option would leak a domain; VMs and not domains are managed by this \
          API"
   | `coredump_and_destroy ->
@@ -304,49 +335,52 @@ let validate_actions_after_crash ~__context ~self ~value =
   | `destroy | `restart | `preserve ->
       ()
 
+
 (* Used to sanity-check parameters before VM start *)
 let validate_basic_parameters ~__context ~self ~snapshot:x =
-  validate_vcpus ~__context ~vCPUs_max:x.API.vM_VCPUs_max
+  validate_vcpus
+    ~__context
+    ~vCPUs_max:x.API.vM_VCPUs_max
     ~vCPUs_at_startup:x.API.vM_VCPUs_at_startup ;
   validate_memory ~__context ~snapshot:x ;
   validate_shadow_multiplier
     ~hVM_shadow_multiplier:x.API.vM_HVM_shadow_multiplier ;
-  validate_actions_after_crash ~__context ~self
+  validate_actions_after_crash
+    ~__context
+    ~self
     ~value:x.API.vM_actions_after_crash
+
 
 let assert_vm_supports_quiesce_snapshot ~__context ~self =
   let vmr = Db.VM.get_record_internal ~__context ~self in
-  if
-    List.exists
-      (fun vbd ->
-        try
-          let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-          let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
-          List.assoc_opt "on_boot" sm_config = Some "reset"
-        with _ -> false
-        )
-      vmr.Db_actions.vM_VBDs
+  if List.exists
+       (fun vbd ->
+         try
+           let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+           let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
+           List.assoc_opt "on_boot" sm_config = Some "reset"
+         with
+         | _ ->
+             false )
+       vmr.Db_actions.vM_VBDs
   then
     raise
       (Api_errors.Server_error
-         (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
-      ) ;
+         (Api_errors.vdi_on_boot_mode_incompatible_with_operation, []) ) ;
   let vmgmr =
-    Xapi_vm_lifecycle.maybe_get_guest_metrics ~__context
+    Xapi_vm_lifecycle.maybe_get_guest_metrics
+      ~__context
       ~ref:vmr.Db_actions.vM_guest_metrics
   in
-  if
-    not
-      (Xapi_vm_lifecycle.has_feature ~vmgmr ~feature:"feature-snapshot"
-      || Xapi_vm_lifecycle.has_feature ~vmgmr ~feature:"feature-quiesce"
-      )
+  if not
+       ( Xapi_vm_lifecycle.has_feature ~vmgmr ~feature:"feature-snapshot"
+       || Xapi_vm_lifecycle.has_feature ~vmgmr ~feature:"feature-quiesce" )
   then
     raise
       (Api_errors.Server_error
          ( Api_errors.vm_snapshot_with_quiesce_not_supported
-         , [Ref.string_of self]
-         )
-      )
+         , [ Ref.string_of self ] ) )
+
 
 let assert_hardware_platform_support ~__context ~vm ~host =
   let vm_hardware_platform_version =
@@ -356,21 +390,24 @@ let assert_hardware_platform_support ~__context ~vm ~host =
     try
       match host with
       | Helpers.LocalObject host_ref ->
-          Db.Host.get_virtual_hardware_platform_versions ~__context
+          Db.Host.get_virtual_hardware_platform_versions
+            ~__context
             ~self:host_ref
       | Helpers.RemoteObject (rpc, session_id, host_ref) ->
-          XenAPI.Host.get_virtual_hardware_platform_versions ~rpc ~session_id
+          XenAPI.Host.get_virtual_hardware_platform_versions
+            ~rpc
+            ~session_id
             ~self:host_ref
-    with Not_found ->
-      (* An old host that does not understand the concept
-         			 * has implicit support for version 0 *)
-      [0L]
+    with
+    | Not_found ->
+        (* An old host that does not understand the concept
+           			 * has implicit support for version 0 *)
+        [ 0L ]
   in
-  if
-    not
-      (List.mem vm_hardware_platform_version
-         host_virtual_hardware_platform_versions
-      )
+  if not
+       (List.mem
+          vm_hardware_platform_version
+          host_virtual_hardware_platform_versions )
   then
     let host_r =
       match host with
@@ -382,36 +419,43 @@ let assert_hardware_platform_support ~__context ~vm ~host =
     raise
       (Api_errors.Server_error
          ( Api_errors.vm_host_incompatible_virtual_hardware_platform_version
-         , [
-             Ref.string_of host_r
+         , [ Ref.string_of host_r
            ; "["
-             ^ String.concat "; "
-                 (List.map Int64.to_string
-                    host_virtual_hardware_platform_versions
-                 )
+             ^ String.concat
+                 "; "
+                 (List.map
+                    Int64.to_string
+                    host_virtual_hardware_platform_versions )
              ^ "]"
            ; Ref.string_of vm
            ; Int64.to_string vm_hardware_platform_version
-           ]
-         )
-      )
+           ] ) )
+
 
 let assert_host_is_enabled ~__context ~host =
   (* Check the host is enabled first *)
-  if not (Db.Host.get_enabled ~__context ~self:host) then
+  if not (Db.Host.get_enabled ~__context ~self:host)
+  then
     raise
-      (Api_errors.Server_error (Api_errors.host_disabled, [Ref.string_of host]))
+      (Api_errors.Server_error (Api_errors.host_disabled, [ Ref.string_of host ])
+      )
+
 
 let is_host_live ~__context host =
   try
-    Db.Host_metrics.get_live ~__context
+    Db.Host_metrics.get_live
+      ~__context
       ~self:(Db.Host.get_metrics ~__context ~self:host)
-  with _ -> false
+  with
+  | _ ->
+      false
+
 
 let assert_host_is_live ~__context ~host =
   let host_is_live = is_host_live ~__context host in
-  if not host_is_live then
-    raise (Api_errors.Server_error (Api_errors.host_not_live, []))
+  if not host_is_live
+  then raise (Api_errors.Server_error (Api_errors.host_not_live, []))
+
 
 let which_specified_SRs_not_available_on_host ~__context ~reqd_srs ~host =
   let available_srs =
@@ -426,16 +470,16 @@ let which_specified_SRs_not_available_on_host ~__context ~reqd_srs ~host =
   in
   List.iter
     (fun sr ->
-      warn "Host %s cannot see SR %s (%s)"
+      warn
+        "Host %s cannot see SR %s (%s)"
         (Helpers.checknull (fun () ->
-             Db.Host.get_name_label ~__context ~self:host
-         )
-        )
+             Db.Host.get_name_label ~__context ~self:host ) )
         (Helpers.checknull (fun () -> Db.SR.get_uuid ~__context ~self:sr))
         (Helpers.checknull (fun () -> Db.SR.get_name_label ~__context ~self:sr))
       )
     not_available ;
   not_available
+
 
 exception Host_cannot_see_all_SRs
 
@@ -443,8 +487,8 @@ let assert_can_see_specified_SRs ~__context ~reqd_srs ~host =
   let not_available =
     which_specified_SRs_not_available_on_host ~__context ~reqd_srs ~host
   in
-  if not_available <> [] then
-    raise Host_cannot_see_all_SRs
+  if not_available <> [] then raise Host_cannot_see_all_SRs
+
 
 let assert_can_see_SRs ~__context ~self ~host =
   let vbds = Db.VM.get_VBDs ~__context ~self in
@@ -456,11 +500,11 @@ let assert_can_see_SRs ~__context ~self ~host =
   (* If VM is currently suspended then consider the suspend_VDI. Note both power_state and the suspend VDI
      	   are stored in R/O fields, not the last_boot_record *)
   let suspend_vdi =
-    if Db.VM.get_power_state ~__context ~self = `Suspended then
+    if Db.VM.get_power_state ~__context ~self = `Suspended
+    then
       let vdi = Db.VM.get_suspend_VDI ~__context ~self in
-      if vdi = Ref.null then [] else [vdi]
-    else
-      []
+      if vdi = Ref.null then [] else [ vdi ]
+    else []
   in
   let reqd_srs =
     List.map (fun self -> Db.VDI.get_SR ~__context ~self) (vdis @ suspend_vdi)
@@ -468,13 +512,13 @@ let assert_can_see_SRs ~__context ~self ~host =
   let not_available =
     which_specified_SRs_not_available_on_host ~__context ~reqd_srs ~host
   in
-  if not_available <> [] then
+  if not_available <> []
+  then
     raise
       (Api_errors.Server_error
          ( Api_errors.vm_requires_sr
-         , [Ref.string_of self; Ref.string_of (List.hd not_available)]
-         )
-      )
+         , [ Ref.string_of self; Ref.string_of (List.hd not_available) ] ) )
+
 
 let assert_can_see_networks ~__context ~self ~host =
   let vifs = Db.VM.get_VIFs ~__context ~self in
@@ -483,6 +527,7 @@ let assert_can_see_networks ~__context ~self ~host =
   in
   assert_can_see_named_networks ~__context ~vm:self ~host reqd_nets
 
+
 (* IOMMU (VT-d) is required iff the VM has any vGPUs which require PCI
  * passthrough. *)
 let vm_needs_iommu ~__context ~self =
@@ -490,22 +535,24 @@ let vm_needs_iommu ~__context ~self =
     (fun vgpu -> Xapi_vgpu.requires_passthrough ~__context ~self:vgpu <> None)
     (Db.VM.get_VGPUs ~__context ~self)
 
+
 let assert_host_has_iommu ~__context ~host =
   let chipset_info = Db.Host.get_chipset_info ~__context ~self:host in
-  if List.assoc "iommu" chipset_info <> "true" then
+  if List.assoc "iommu" chipset_info <> "true"
+  then
     raise
       (Api_errors.Server_error
-         (Api_errors.vm_requires_iommu, [Ref.string_of host])
-      )
+         (Api_errors.vm_requires_iommu, [ Ref.string_of host ]) )
+
 
 (* Check if there are vgpus not allocated, since we may check the mem/vgpu after reservation *)
 let has_non_allocated_vgpus ~__context ~self =
   Db.VM.get_VGPUs ~__context ~self
   |> List.map (fun vgpu ->
-         Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
-     )
+         Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu )
   |> List.filter (fun pgpu -> not (Db.is_valid_ref __context pgpu))
   |> ( <> ) []
+
 
 (* This function assert the host has enough gpu resource for the VM
  * The detailed method as follows
@@ -524,11 +571,16 @@ let assert_gpus_available ~__context ~self ~host =
   ignore
     (List.fold_left
        (fun pre_allocate_list vgpu ->
-         Vgpuops.allocate_vgpu_to_gpu ~dry_run:true ~pre_allocate_list
-           ~__context self host vgpu
-         )
-       [] vGPU_structs
-    )
+         Vgpuops.allocate_vgpu_to_gpu
+           ~dry_run:true
+           ~pre_allocate_list
+           ~__context
+           self
+           host
+           vgpu )
+       []
+       vGPU_structs )
+
 
 let assert_usbs_available ~__context ~self ~host =
   Db.VM.get_VUSBs ~__context ~self
@@ -540,17 +592,17 @@ let assert_usbs_available ~__context ~self ~host =
            in
            let usb_host = Db.PUSB.get_host ~__context ~self:pusb in
            assert (usb_host = host)
-         with _ ->
-           raise
-             (Api_errors.Server_error
-                ( Api_errors.operation_not_allowed
-                , [
-                    Printf.sprintf "VUSB %s is not available on Host %s"
-                      (Ref.string_of vusb) (Ref.string_of host)
-                  ]
-                )
-             )
-     )
+         with
+         | _ ->
+             raise
+               (Api_errors.Server_error
+                  ( Api_errors.operation_not_allowed
+                  , [ Printf.sprintf
+                        "VUSB %s is not available on Host %s"
+                        (Ref.string_of vusb)
+                        (Ref.string_of host)
+                    ] ) ) )
+
 
 (* 1.To avoid redundant checks,for each VF if it was reserved, then it's no need to check remaining capacity again.
    2.Get SR-IOV Vifs by return a list of [(network1,(required_num1,PCI1));(network2,(required_num2,PCI2))....]
@@ -560,24 +612,25 @@ let assert_netsriov_available ~__context ~self ~host =
     List.fold_left
       (fun acc vif ->
         let reserved_pci = Db.VIF.get_reserved_pci ~__context ~self:vif in
-        if Db.is_valid_ref __context reserved_pci then
-          acc
+        if Db.is_valid_ref __context reserved_pci
+        then acc
         else
           let network = Db.VIF.get_network ~__context ~self:vif in
           try
             let required, pif = List.assoc network acc in
             (network, (required + 1, pif)) :: List.remove_assoc network acc
-          with Not_found -> (
-            match
-              Xapi_network_sriov_helpers.get_local_underlying_pif ~__context
-                ~network ~host
-            with
+          with
+          | Not_found ->
+            ( match
+                Xapi_network_sriov_helpers.get_local_underlying_pif
+                  ~__context
+                  ~network
+                  ~host
+              with
             | Some pif ->
                 (network, (1, pif)) :: acc
             | None ->
-                acc
-          )
-        )
+                acc ) )
       []
       (Db.VM.get_VIFs ~__context ~self)
   in
@@ -589,22 +642,24 @@ let assert_netsriov_available ~__context ~self ~host =
         raise
           (Api_errors.Server_error
              ( Api_errors.network_sriov_insufficient_capacity
-             , [Ref.string_of network]
-             )
-          )
-      )
+             , [ Ref.string_of network ] ) ) )
     sriov_networks
 
+
 let assert_host_supports_hvm ~__context ~self ~host =
-  if not (Helpers.host_supports_hvm ~__context host) then
+  if not (Helpers.host_supports_hvm ~__context host)
+  then
     raise
-      (Api_errors.Server_error (Api_errors.vm_hvm_required, [Ref.string_of self])
-      )
+      (Api_errors.Server_error
+         (Api_errors.vm_hvm_required, [ Ref.string_of self ]) )
+
 
 let assert_enough_memory_available ~__context ~self ~host ~snapshot =
   let host_mem_available =
-    Memory_check.host_compute_free_memory_with_maximum_compression ~__context
-      ~host (Some self)
+    Memory_check.host_compute_free_memory_with_maximum_compression
+      ~__context
+      ~host
+      (Some self)
   in
   let policy =
     match Helpers.check_domain_type snapshot.API.vM_domain_type with
@@ -617,20 +672,25 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
     Memory_check.vm_compute_start_memory ~__context ~policy snapshot
   in
   let mem_reqd_for_vm = Int64.add main shadow in
-  debug "host %s; available_memory = %Ld; memory_required = %Ld"
+  debug
+    "host %s; available_memory = %Ld; memory_required = %Ld"
     (Db.Host.get_name_label ~self:host ~__context)
-    host_mem_available mem_reqd_for_vm ;
-  if host_mem_available < mem_reqd_for_vm then
+    host_mem_available
+    mem_reqd_for_vm ;
+  if host_mem_available < mem_reqd_for_vm
+  then
     raise
       (Api_errors.Server_error
          ( Api_errors.host_not_enough_free_memory
-         , [Int64.to_string mem_reqd_for_vm; Int64.to_string host_mem_available]
-         )
-      )
+         , [ Int64.to_string mem_reqd_for_vm
+           ; Int64.to_string host_mem_available
+           ] ) )
+
 
 (* CA-233580: prevent starting a control domain on a host different from its affinity*)
 let assert_matches_control_domain_affinity ~__context ~self ~host =
-  if Db.VM.get_is_control_domain ~__context ~self then
+  if Db.VM.get_is_control_domain ~__context ~self
+  then
     match Db.VM.get_affinity ~__context ~self with
     | x when x = Ref.null || x = host ->
         ()
@@ -638,12 +698,10 @@ let assert_matches_control_domain_affinity ~__context ~self ~host =
         raise
           (Api_errors.Server_error
              ( Api_errors.operation_not_allowed
-             , [
-                 "Cannot boot a control domain on a host different from its \
+             , [ "Cannot boot a control domain on a host different from its \
                   affinity"
-               ]
-             )
-          )
+               ] ) )
+
 
 let assert_enough_pcpus ~__context ~self ~host ?remote () =
   let vcpus = Db.VM.get_VCPUs_max ~__context ~self in
@@ -652,20 +710,24 @@ let assert_enough_pcpus ~__context ~self ~host ?remote () =
     |> Map_check.getf Cpuid_helpers.cpu_count
     |> Int64.of_int
   in
-  if vcpus > pcpus then
+  if vcpus > pcpus
+  then
     let platformdata = Db.VM.get_platform ~__context ~self in
     if Vm_platform.(is_true ~key:vcpu_unrestricted ~platformdata ~default:false)
     then
       warn
         "Allowing VM %s to run on host %s, even though #vCPUs > #pCPUs (%Ld > \
          %Ld), because platform:vcpu-unrestricted is set"
-        (Ref.string_of self) (Ref.string_of host) vcpus pcpus
+        (Ref.string_of self)
+        (Ref.string_of host)
+        vcpus
+        pcpus
     else
       raise
         Api_errors.(
           Server_error
-            (host_not_enough_pcpus, List.map Int64.to_string [vcpus; pcpus])
-        )
+            (host_not_enough_pcpus, List.map Int64.to_string [ vcpus; pcpus ]))
+
 
 (** Checks to see if a VM can boot on a particular host, throws an error if not.
  * Criteria:
@@ -689,9 +751,18 @@ let assert_enough_pcpus ~__context ~self ~host ?remote () =
 
  * XXX: we ought to lock this otherwise we may violate our constraints under load
 *)
-let assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check
-    ?(do_sr_check = true) ?(do_memory_check = true) () =
-  debug "Checking whether VM %s can run on host %s" (Ref.string_of self)
+let assert_can_boot_here
+    ~__context
+    ~self
+    ~host
+    ~snapshot
+    ~do_cpuid_check
+    ?(do_sr_check = true)
+    ?(do_memory_check = true)
+    () =
+  debug
+    "Checking whether VM %s can run on host %s"
+    (Ref.string_of self)
     (Ref.string_of host) ;
   validate_basic_parameters ~__context ~self ~snapshot ;
   assert_host_is_live ~__context ~host ;
@@ -701,53 +772,60 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check
     && Db.VM.get_resident_on ~__context ~self = host
   in
   (* CA-233580: allow control domains to start on the host even if the latter is disabled *)
-  if
-    (not (Db.VM.get_is_control_domain ~__context ~self))
-    && not is_local_live_migration
-  then
-    assert_host_is_enabled ~__context ~host ;
+  if (not (Db.VM.get_is_control_domain ~__context ~self))
+     && not is_local_live_migration
+  then assert_host_is_enabled ~__context ~host ;
   (* Check the host can support the VM's required version of virtual hardware platform *)
-  assert_hardware_platform_support ~__context ~vm:self
+  assert_hardware_platform_support
+    ~__context
+    ~vm:self
     ~host:(Helpers.LocalObject host) ;
-  if do_cpuid_check then
-    Cpuid_helpers.assert_vm_is_compatible ~__context ~vm:self ~host () ;
-  if do_sr_check then
-    assert_can_see_SRs ~__context ~self ~host ;
+  if do_cpuid_check
+  then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm:self ~host () ;
+  if do_sr_check then assert_can_see_SRs ~__context ~self ~host ;
   assert_can_see_networks ~__context ~self ~host ;
-  if vm_needs_iommu ~__context ~self then
-    assert_host_has_iommu ~__context ~host ;
+  if vm_needs_iommu ~__context ~self then assert_host_has_iommu ~__context ~host ;
   (* Assumption: a VM can have only one vGPU *)
-  if has_non_allocated_vgpus ~__context ~self then
-    assert_gpus_available ~__context ~self ~host ;
+  if has_non_allocated_vgpus ~__context ~self
+  then assert_gpus_available ~__context ~self ~host ;
   assert_usbs_available ~__context ~self ~host ;
   assert_netsriov_available ~__context ~self ~host ;
   ( match Helpers.domain_type ~__context ~self with
   | `hvm | `pv_in_pvh ->
       assert_host_supports_hvm ~__context ~self ~host
   | `pv ->
-      ()
-  ) ;
-  if do_memory_check then
-    assert_enough_memory_available ~__context ~self ~host ~snapshot ;
+      () ) ;
+  if do_memory_check
+  then assert_enough_memory_available ~__context ~self ~host ~snapshot ;
   assert_enough_pcpus ~__context ~self ~host () ;
-  debug "All fine, VM %s can run on host %s!" (Ref.string_of self)
+  debug
+    "All fine, VM %s can run on host %s!"
+    (Ref.string_of self)
     (Ref.string_of host)
 
-let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
-  let module HostMap = Map.Make (struct
-    type t = API.ref_host
 
-    let compare = Stdlib.compare
-  end) in
+let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
+  let module HostMap =
+    Map.Make (struct
+      type t = API.ref_host
+
+      let compare = Stdlib.compare
+    end)
+  in
   let compatible_vm_or_impossible (host, recommendation) =
     let recommendation =
       match recommendation with
-      | Recommendation {source; id; score} -> (
-        try
-          assert_can_boot_here ~__context ~self:vm ~host ~snapshot
-            ~do_cpuid_check:true () ;
-          recommendation
-        with
+      | Recommendation { source; id; score } ->
+        ( try
+            assert_can_boot_here
+              ~__context
+              ~self:vm
+              ~host
+              ~snapshot
+              ~do_cpuid_check:true
+              () ;
+            recommendation
+          with
         (* CPUID checks are being removed from WLB, this will become the responsibility of XAPI
          * (and ultimately Xen/libxc). Previously WLB would've assigned a score of 0.0 and a reason
          * of "HostCPUFeaturesIncompatible" to hosts that can't boot a VM due to CPU features missing.
@@ -759,11 +837,10 @@ let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
          *)
         | Api_errors.Server_error (x, _)
           when x = Api_errors.vm_incompatible_with_this_host ->
-            Impossible {source; id; reason= "HostCPUFeaturesIncompatible"}
+            Impossible { source; id; reason = "HostCPUFeaturesIncompatible" }
         | Api_errors.Server_error (x, y) ->
             let reason = String.concat ";" (x :: y) in
-            Impossible {source; id; reason}
-      )
+            Impossible { source; id; reason } )
       | impossible_load ->
           impossible_load
     in
@@ -773,12 +850,13 @@ let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
     (* Recommendations cannot have hosts that are not active and there must
        at least one per active host *)
     let live_hosts = Helpers.get_live_hosts ~__context in
-    if HostMap.cardinal recs <> List.length live_hosts then
-      raise_malformed_response' "VMGetRecommendations"
+    if HostMap.cardinal recs <> List.length live_hosts
+    then
+      raise_malformed_response'
+        "VMGetRecommendations"
         "VM recommendations must only target live hosts and target all of them"
         "Unknown"
-    else
-      () ;
+    else () ;
     recs
   in
   (* Make sure a single recommendation is present per host. *)
@@ -789,6 +867,7 @@ let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
   |> HostMap.to_seq
   |> Seq.map compatible_vm_or_impossible
   |> List.of_seq
+
 
 (** Returns the subset of all hosts to which the given function [choose_fn]
     can be applied without raising an exception. If the optional [vm] argument is
@@ -805,28 +884,27 @@ let possible_hosts ~__context ?vm ~choose_fn () =
           (choose_fn ~host : unit) ;
           assert_host_is_live ~__context ~host ;
           true
-        with _ -> false
-        )
+        with
+        | _ ->
+            false )
       all_hosts
   in
   ( match vm with
   | Some vm ->
-      warn "VM %s could run on any of these hosts: [ %s ]"
+      warn
+        "VM %s could run on any of these hosts: [ %s ]"
         (Helpers.checknull (fun () -> Db.VM.get_name_label ~__context ~self:vm))
-        (String.concat "; "
+        (String.concat
+           "; "
            (List.map
               (fun self ->
                 Helpers.checknull (fun () ->
-                    Db.Host.get_name_label ~__context ~self
-                )
-                )
-              choices
-           )
-        )
+                    Db.Host.get_name_label ~__context ~self ) )
+              choices ) )
   | None ->
-      ()
-  ) ;
+      () ) ;
   choices
+
 
 (** Returns a single host (from the set of all hosts) to which the given
     function [choose_fn] can be applied without raising an exception. Raises
@@ -839,45 +917,51 @@ let choose_host ~__context ?vm ~choose_fn ?(prefer_slaves = false) () =
   match choices with
   | [] ->
       raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
-  | [h] ->
+  | [ h ] ->
       h
   | _ ->
       let choices =
-        if prefer_slaves then
+        if prefer_slaves
+        then
           let master = Helpers.get_master ~__context in
           List.filter (( <> ) master) choices
-        else
-          choices
+        else choices
       in
       List.nth choices (Random.int (List.length choices))
+
 
 (* Compute all SRs required for shutting down suspended domains *)
 let compute_required_SRs_for_shutting_down_suspended_domains ~__context ~vm =
   let all_vm_vdis =
     List.filter_map
       (fun vbd ->
-        if Db.VBD.get_empty ~__context ~self:vbd then
-          None
-        else
-          Some (Db.VBD.get_VDI ~__context ~self:vbd)
-        )
+        if Db.VBD.get_empty ~__context ~self:vbd
+        then None
+        else Some (Db.VBD.get_VDI ~__context ~self:vbd) )
       (Db.VM.get_VBDs ~__context ~self:vm)
   in
   List.map (fun vdi -> Db.VDI.get_SR ~self:vdi ~__context) all_vm_vdis
+
 
 (** Returns the subset of all hosts on which the given [vm] can boot. This
     function also prints a debug message identifying the given [vm] and hosts. *)
 let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
   let host = Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm in
-  if host <> Ref.null then
-    [host]
+  if host <> Ref.null
+  then [ host ]
   else
-    possible_hosts ~__context ~vm
+    possible_hosts
+      ~__context
+      ~vm
       ~choose_fn:
-        (assert_can_boot_here ~__context ~self:vm ~snapshot
-           ~do_cpuid_check:false ()
-        )
+        (assert_can_boot_here
+           ~__context
+           ~self:vm
+           ~snapshot
+           ~do_cpuid_check:false
+           () )
       ()
+
 
 (** Performs an expensive and comprehensive check to determine whether the
     given [guest] can run on the given [host]. Returns true if and only if the
@@ -885,11 +969,12 @@ let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
 let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
   let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
   let host_has_proper_version () =
-    if Helpers.rolling_upgrade_in_progress ~__context then
-      Helpers.host_has_highest_version_in_pool ~__context
+    if Helpers.rolling_upgrade_in_progress ~__context
+    then
+      Helpers.host_has_highest_version_in_pool
+        ~__context
         ~host:(Helpers.LocalObject host)
-    else
-      true
+    else true
   in
   let host_enabled () = Db.Host.get_enabled ~__context ~self:host in
   let host_live () =
@@ -897,8 +982,14 @@ let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
     Db.Host_metrics.get_live ~__context ~self:host_metrics
   in
   let host_can_run_vm () =
-    assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check
-      ~do_cpuid_check:true () ;
+    assert_can_boot_here
+      ~__context
+      ~self:vm
+      ~host
+      ~snapshot
+      ~do_memory_check
+      ~do_cpuid_check:true
+      () ;
     true
   in
   let host_evacuate_in_progress =
@@ -909,7 +1000,9 @@ let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
           (Db.Host.get_current_operations ~__context ~self:host)
       in
       false
-    with _ -> true
+    with
+    | _ ->
+        true
   in
   try
     host_has_proper_version ()
@@ -918,7 +1011,10 @@ let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
     && host_live ()
     && host_can_run_vm ()
     && host_evacuate_in_progress
-  with _ -> false
+  with
+  | _ ->
+      false
+
 
 let vm_has_vgpu ~__context ~vm =
   match Db.VM.get_VGPUs ~__context ~self:vm with
@@ -926,6 +1022,7 @@ let vm_has_vgpu ~__context ~vm =
       None
   | vgpu :: _ ->
       Some (`VGPU vgpu)
+
 
 let vm_has_sriov ~__context ~vm =
   match
@@ -936,6 +1033,7 @@ let vm_has_sriov ~__context ~vm =
   | network :: _ ->
       Some (`Netsriov network)
 
+
 let ( >>= ) opt f = match opt with Some _ as v -> v | None -> f
 
 let get_group_key ~__context ~vm =
@@ -944,6 +1042,7 @@ let get_group_key ~__context ~vm =
       x
   | None ->
       `Other
+
 
 (* Rank the provided hosts (visible_hosts) by the remainding capacity for the
  * give vGPU. The vGPU has an associated vGPU group
@@ -967,7 +1066,8 @@ let rank_hosts_by_best_vgpu ~__context vgpu visible_hosts =
         | `breadth_first ->
             `descending
       in
-      Helpers.group_by ~ordering
+      Helpers.group_by
+        ~ordering
         (fun host ->
           (* For every host
            * 1. get all the pGPUs in the associated gpu_group
@@ -977,15 +1077,17 @@ let rank_hosts_by_best_vgpu ~__context vgpu visible_hosts =
           |> Listext.List.intersect pgpus_in_group
           |> List.fold_left
                (fun count self ->
-                 Int64.add count
-                   (Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self
-                      ~vgpu_type ~pre_allocate_list:[]
-                   )
-                 )
-               0L
-          )
+                 Int64.add
+                   count
+                   (Xapi_pgpu_helpers.get_remaining_capacity
+                      ~__context
+                      ~self
+                      ~vgpu_type
+                      ~pre_allocate_list:[] ) )
+               0L )
         hosts
       |> List.map (fun g -> List.map (fun (h, _) -> h) g)
+
 
 (* Selects a single host from the set of all hosts on which the given [vm] can boot.
    Raises [Api_errors.no_hosts_available] if no such host exists.
@@ -1001,59 +1103,61 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
   let host_lists =
     match group_key with
     | `Other ->
-        [all_hosts]
+        [ all_hosts ]
     | `VGPU vgpu ->
         let can_host_vm ~__context host vm =
           try
             assert_gpus_available ~__context ~self:vm ~host ;
             true
-          with _ -> false
+          with
+          | _ ->
+              false
         in
         all_hosts
         |> List.filter (fun self -> can_host_vm ~__context self vm)
         |> rank_hosts_by_best_vgpu ~__context vgpu
     | `Netsriov network ->
         let host_group =
-          Xapi_network_sriov_helpers.group_hosts_by_best_sriov ~__context
+          Xapi_network_sriov_helpers.group_hosts_by_best_sriov
+            ~__context
             ~network
           |> List.map (fun g -> List.map (fun (h, _) -> h) g)
         in
-        if host_group <> [] then
-          host_group
+        if host_group <> []
+        then host_group
         else
           raise
             (Api_errors.Server_error
                ( Api_errors.network_sriov_insufficient_capacity
-               , [Ref.string_of network]
-               )
-            )
+               , [ Ref.string_of network ] ) )
   in
   let rec select_host_from = function
     | [] ->
         raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
-    | hosts :: less_optimal_groups_of_hosts -> (
+    | hosts :: less_optimal_groups_of_hosts ->
         debug
           "Attempting to start VM (%s) on one of equally optimal hosts [ %s ]"
           (Ref.string_of vm)
           (String.concat ";" (List.map Ref.string_of hosts)) ;
-        try Xapi_vm_placement.select_host __context vm validate_host hosts
-        with _ ->
-          info "Failed to start VM (%s) on any of [ %s ]" (Ref.string_of vm)
-            (String.concat ";" (List.map Ref.string_of hosts)) ;
-          select_host_from less_optimal_groups_of_hosts
-      )
+        ( try Xapi_vm_placement.select_host __context vm validate_host hosts with
+        | _ ->
+            info
+              "Failed to start VM (%s) on any of [ %s ]"
+              (Ref.string_of vm)
+              (String.concat ";" (List.map Ref.string_of hosts)) ;
+            select_host_from less_optimal_groups_of_hosts )
   in
-  try select_host_from host_lists
-  with
+  try select_host_from host_lists with
   | Api_errors.Server_error (x, []) when x = Api_errors.no_hosts_available ->
-    debug
-      "No hosts guaranteed to satisfy VM constraints. Trying again ignoring \
-       memory checks" ;
-    let validate_host =
-      vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:false
-    in
-    List.flatten host_lists
-    |> Xapi_vm_placement.select_host __context vm validate_host
+      debug
+        "No hosts guaranteed to satisfy VM constraints. Trying again ignoring \
+         memory checks" ;
+      let validate_host =
+        vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:false
+      in
+      List.flatten host_lists
+      |> Xapi_vm_placement.select_host __context vm validate_host
+
 
 (** choose_host_for_vm will use WLB as long as it is enabled and there
     is no pool.other_config["wlb_choose_host_disable"] = "true". *)
@@ -1064,20 +1168,21 @@ let choose_host_uses_wlb ~__context =
           (fun (k, v) ->
             k = "wlb_choose_host_disable" && String.lowercase_ascii v = "true"
             )
-          (Db.Pool.get_other_config ~__context
-             ~self:(Helpers.get_pool ~__context)
-          )
-       )
+          (Db.Pool.get_other_config
+             ~__context
+             ~self:(Helpers.get_pool ~__context) ) )
+
 
 (** Given a virtual machine, returns a host it can boot on, giving
     priority to an affinity host if one is present. WARNING: called
     while holding the global lock from the message forwarding layer. *)
 let choose_host_for_vm ~__context ~vm ~snapshot =
-  if choose_host_uses_wlb ~__context then (
+  if choose_host_uses_wlb ~__context
+  then (
     try
       let possible_rec (host, recommendation) =
         match recommendation with
-        | Recommendation {source; id; score} ->
+        | Recommendation { source; id; score } ->
             Some (host, score, id)
         | _ ->
             None
@@ -1092,31 +1197,34 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
         let hostname = Db.Host.get_name_label ~__context ~self:host in
         Printf.sprintf "%s %f" hostname score
       in
-      debug "Hosts sorted by priority: %s"
+      debug
+        "Hosts sorted by priority: %s"
         (all_hosts |> List.map pp_host |> String.concat "; ") ;
       match all_hosts with
       | (h, s, r) :: _ ->
-          debug "Wlb has recommended host %s"
+          debug
+            "Wlb has recommended host %s"
             (Db.Host.get_name_label ~__context ~self:h) ;
           let action =
-            Db.Task.get_name_label ~__context
+            Db.Task.get_name_label
+              ~__context
               ~self:(Context.get_task_id __context)
           in
           let oc =
-            Db.Pool.get_other_config ~__context
+            Db.Pool.get_other_config
+              ~__context
               ~self:(Helpers.get_pool ~__context)
           in
-          Db.Task.set_other_config ~__context
+          Db.Task.set_other_config
+            ~__context
             ~self:(Context.get_task_id __context)
             ~value:
-              ([
-                 ("wlb_advised", r)
-               ; ("wlb_action", action)
-               ; ("wlb_action_obj_type", "VM")
-               ; ("wlb_action_obj_ref", Ref.string_of vm)
-               ]
-              @ oc
-              ) ;
+              ( [ ("wlb_advised", r)
+                ; ("wlb_action", action)
+                ; ("wlb_action_obj_type", "VM")
+                ; ("wlb_action_obj_ref", Ref.string_of vm)
+                ]
+              @ oc ) ;
           h
       | _ ->
           debug "Wlb has no recommendations. Using original algorithm" ;
@@ -1134,38 +1242,47 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
               Printf.sprintf
                 "Wlb consultation for VM '%s' failed (pool uuid: %s)"
                 (Db.VM.get_name_label ~__context ~self:vm)
-                (Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context))
+                (Db.Pool.get_uuid
+                   ~__context
+                   ~self:(Helpers.get_pool ~__context) )
             in
             let name, priority = Api_messages.wlb_failed in
             ignore
-              (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body
-              )
-          with _ -> ()
-        ) ;
+              (Xapi_message.create
+                 ~__context
+                 ~name
+                 ~priority
+                 ~cls:`VM
+                 ~obj_uuid:uuid
+                 ~body:message_body )
+          with
+        | _ ->
+            () ) ;
         choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
     | _ ->
         debug
           "Encountered an unknown error when using wlb for choosing host. \
            Using original algorithm" ;
-        choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-  ) else (
+        choose_host_for_vm_no_wlb ~__context ~vm ~snapshot )
+  else (
     debug
       "Using wlb recommendations for choosing a host has been disabled or wlb \
        is not available. Using original algorithm" ;
-    choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-  )
+    choose_host_for_vm_no_wlb ~__context ~vm ~snapshot )
+
 
 type set_cpus_number_fn =
   __context:Context.t -> self:API.ref_VM -> int -> API.vM_t -> int64 -> unit
 
 let validate_HVM_shadow_multiplier multiplier =
-  if multiplier < 1. then
-    invalid_value "multiplier" (string_of_float multiplier)
+  if multiplier < 1.
+  then invalid_value "multiplier" (string_of_float multiplier)
+
 
 (** Sets the HVM shadow multiplier for a {b Halted} VM. Runs on the master. *)
 let set_HVM_shadow_multiplier ~__context ~self ~value =
-  if Db.VM.get_power_state ~__context ~self <> `Halted then
+  if Db.VM.get_power_state ~__context ~self <> `Halted
+  then
     failwith
       "assertion_failed: set_HVM_shadow_multiplier should only be called when \
        the VM is Halted" ;
@@ -1173,10 +1290,12 @@ let set_HVM_shadow_multiplier ~__context ~self ~value =
   Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value ;
   update_memory_overhead ~__context ~vm:self
 
+
 let inclusive_range a b = List.init (b - a + 1) (fun k -> a + k)
 
 let vbd_inclusive_range hvm a b =
   List.map (Device_number.of_disk_number hvm) (inclusive_range a b)
+
 
 let vif_inclusive_range a b = List.map string_of_int (inclusive_range a b)
 
@@ -1198,6 +1317,7 @@ let allowed_VBD_devices_HVM_floppy =
     (fun x -> Device_number.make (Device_number.Floppy, x, 0))
     (inclusive_range 0 1)
 
+
 let allowed_VIF_devices_HVM = vif_inclusive_range 0 6
 
 let allowed_VIF_devices_PV = vif_inclusive_range 0 6
@@ -1207,7 +1327,8 @@ let allowed_VIF_devices_PV = vif_inclusive_range 0 6
 let possible_VBD_devices_of_string s =
   (* NB userdevice fields are arbitrary strings and device fields may be "" *)
   let parse hvm x = try Some (Device_number.of_string hvm x) with _ -> None in
-  Listext.List.unbox_list [parse true s; parse false s]
+  Listext.List.unbox_list [ parse true s; parse false s ]
+
 
 (** [all_used_VBD_devices __context self] returns a list of Device_number.t
     	which are considered to be already in-use in the VM *)
@@ -1223,6 +1344,7 @@ let all_used_VBD_devices ~__context ~self =
     all_devices @ all_devices2
   in
   List.concat (List.map possible_VBD_devices_of_string existing_devices)
+
 
 let allowed_VBD_devices ~__context ~vm ~_type =
   let will_have_qemu = Helpers.will_have_qemu ~__context ~self:vm in
@@ -1243,8 +1365,8 @@ let allowed_VBD_devices ~__context ~vm ~_type =
   (* Filter out those we've already got VBDs for *)
   let used_devices = all_used_VBD_devices ~__context ~self:vm in
   ( supported
-  , List.filter (fun dev -> not (List.mem dev used_devices)) all_devices
-  )
+  , List.filter (fun dev -> not (List.mem dev used_devices)) all_devices )
+
 
 let allowed_VIF_devices ~__context ~vm =
   let will_have_qemu = Helpers.will_have_qemu ~__context ~self:vm in
@@ -1258,90 +1380,99 @@ let allowed_VIF_devices ~__context ~vm =
   in
   List.filter (fun dev -> not (List.mem dev used_devices)) all_devices
 
+
 let delete_guest_metrics ~__context ~self:vm =
   (* Delete potentially stale guest metrics object *)
   let guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
   Db.VM.set_guest_metrics ~__context ~self:vm ~value:Ref.null ;
   try Db.VM_guest_metrics.destroy ~__context ~self:guest_metrics with _ -> ()
 
+
 let copy_metrics ~__context ~vm =
   (* Copy the old metrics if available, otherwise generate a fresh one *)
   let m =
     let mref = Db.VM.get_metrics ~__context ~self:vm in
-    if Db.is_valid_ref __context mref then
-      Some (Db.VM_metrics.get_record_internal ~__context ~self:mref)
-    else
-      None
+    if Db.is_valid_ref __context mref
+    then Some (Db.VM_metrics.get_record_internal ~__context ~self:mref)
+    else None
   in
   let metrics = Ref.make ()
   and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-  Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
+  Db.VM_metrics.create
+    ~__context
+    ~ref:metrics
+    ~uuid:metrics_uuid
     ~memory_actual:
-      (Option.fold ~none:0L
+      (Option.fold
+         ~none:0L
          ~some:(fun x -> x.Db_actions.vM_metrics_memory_actual)
-         m
-      )
+         m )
     ~vCPUs_number:
-      (Option.fold ~none:0L
+      (Option.fold
+         ~none:0L
          ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_number)
-         m
-      )
+         m )
     ~vCPUs_utilisation:
-      (Option.fold ~none:[(0L, 0.)]
+      (Option.fold
+         ~none:[ (0L, 0.) ]
          ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_utilisation)
-         m
-      )
+         m )
     ~vCPUs_CPU:
-      (Option.fold ~none:[] ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_CPU) m)
+      (Option.fold
+         ~none:[]
+         ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_CPU)
+         m )
     ~vCPUs_params:
-      (Option.fold ~none:[]
+      (Option.fold
+         ~none:[]
          ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_params)
-         m
-      )
+         m )
     ~vCPUs_flags:
-      (Option.fold ~none:[]
+      (Option.fold
+         ~none:[]
          ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_flags)
-         m
-      )
+         m )
     ~start_time:
-      (Option.fold ~none:Date.never
+      (Option.fold
+         ~none:Date.never
          ~some:(fun x -> x.Db_actions.vM_metrics_start_time)
-         m
-      )
+         m )
     ~install_time:
-      (Option.fold ~none:Date.never
+      (Option.fold
+         ~none:Date.never
          ~some:(fun x -> x.Db_actions.vM_metrics_install_time)
-         m
-      )
+         m )
     ~state:
       (Option.fold ~none:[] ~some:(fun x -> x.Db_actions.vM_metrics_state) m)
     ~last_updated:
-      (Option.fold ~none:Date.never
+      (Option.fold
+         ~none:Date.never
          ~some:(fun x -> x.Db_actions.vM_metrics_last_updated)
-         m
-      )
+         m )
     ~other_config:
-      (Option.fold ~none:[]
+      (Option.fold
+         ~none:[]
          ~some:(fun x -> x.Db_actions.vM_metrics_other_config)
-         m
-      )
+         m )
     ~nomigrate:
-      (Option.fold ~none:false
+      (Option.fold
+         ~none:false
          ~some:(fun x -> x.Db_actions.vM_metrics_nomigrate)
-         m
-      )
-    ~hvm:(Option.fold ~none:false ~some:(fun x -> x.Db_actions.vM_metrics_hvm) m)
+         m )
+    ~hvm:
+      (Option.fold ~none:false ~some:(fun x -> x.Db_actions.vM_metrics_hvm) m)
     ~nested_virt:
-      (Option.fold ~none:false
+      (Option.fold
+         ~none:false
          ~some:(fun x -> x.Db_actions.vM_metrics_nested_virt)
-         m
-      )
+         m )
     ~current_domain_type:
-      (Option.fold ~none:`unspecified
+      (Option.fold
+         ~none:`unspecified
          ~some:(fun x -> x.Db_actions.vM_metrics_current_domain_type)
-         m
-      ) ;
+         m ) ;
   metrics
+
 
 let copy_guest_metrics ~__context ~vm =
   (* Copy the old metrics if available, otherwise return Ref.null *)
@@ -1349,7 +1480,9 @@ let copy_guest_metrics ~__context ~vm =
     let gm = Db.VM.get_guest_metrics ~__context ~self:vm in
     let all = Db.VM_guest_metrics.get_record ~__context ~self:gm in
     let ref = Ref.make () in
-    Db.VM_guest_metrics.create ~__context ~ref
+    Db.VM_guest_metrics.create
+      ~__context
+      ~ref
       ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
       ~os_version:all.API.vM_guest_metrics_os_version
       ~pV_drivers_version:all.API.vM_guest_metrics_PV_drivers_version
@@ -1365,15 +1498,20 @@ let copy_guest_metrics ~__context ~vm =
       ~can_use_hotplug_vbd:all.API.vM_guest_metrics_can_use_hotplug_vbd
       ~can_use_hotplug_vif:all.API.vM_guest_metrics_can_use_hotplug_vif ;
     ref
-  with _ -> Ref.null
+  with
+  | _ ->
+      Ref.null
+
 
 let start_delay ~__context ~vm =
   let start_delay = Db.VM.get_start_delay ~__context ~self:vm in
   Thread.delay (Int64.to_float start_delay)
 
+
 let shutdown_delay ~__context ~vm =
   let shutdown_delay = Db.VM.get_shutdown_delay ~__context ~self:vm in
   Thread.delay (Int64.to_float shutdown_delay)
+
 
 let list_required_vdis ~__context ~self =
   let vbds = Db.VM.get_VBDs ~__context ~self in
@@ -1381,6 +1519,7 @@ let list_required_vdis ~__context ~self =
     List.filter (fun vbd -> Db.VBD.get_type ~__context ~self:vbd <> `CD) vbds
   in
   List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) vbds_excluding_cd
+
 
 (* Find the SRs of all VDIs which have VBDs attached to the VM. *)
 let list_required_SRs ~__context ~self =
@@ -1390,6 +1529,7 @@ let list_required_SRs ~__context ~self =
   |> Seq.filter (fun self -> Db.SR.get_content_type ~__context ~self <> "iso")
   |> SRSet.of_seq
   |> SRSet.elements
+
 
 (* Check if the database referenced by session_to *)
 (* contains the SRs required to recover the VM. *)
@@ -1401,8 +1541,10 @@ let assert_can_be_recovered ~__context ~self ~session_to =
   in
   (* Try to look up the SRs by uuid in the local database. *)
   try
-    Server_helpers.exec_with_new_task ~session_id:session_to
-      "Looking for required SRs" (fun __context_to ->
+    Server_helpers.exec_with_new_task
+      ~session_id:session_to
+      "Looking for required SRs"
+      (fun __context_to ->
         List.iter
           (fun sr_uuid ->
             let sr = Db.SR.get_by_uuid ~__context:__context_to ~uuid:sr_uuid in
@@ -1411,33 +1553,34 @@ let assert_can_be_recovered ~__context ~self ~session_to =
             let attached_pbds =
               List.filter
                 (fun pbd ->
-                  Db.PBD.get_currently_attached ~__context:__context_to
-                    ~self:pbd
-                  )
+                  Db.PBD.get_currently_attached
+                    ~__context:__context_to
+                    ~self:pbd )
                 pbds
             in
-            if attached_pbds = [] then
+            if attached_pbds = []
+            then
               raise
                 (Api_errors.Server_error
                    ( Api_errors.vm_requires_sr
-                   , [Ref.string_of self; Ref.string_of sr]
-                   )
-                )
-            )
-          required_SR_uuids
-    )
-  with Db_exn.Read_missing_uuid (_, _, sr_uuid) ->
-    (* Throw exception containing the ref of the first SR which wasn't found. *)
-    let sr = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
-    raise
-      (Api_errors.Server_error
-         (Api_errors.vm_requires_sr, [Ref.string_of self; Ref.string_of sr])
-      )
+                   , [ Ref.string_of self; Ref.string_of sr ] ) ) )
+          required_SR_uuids )
+  with
+  | Db_exn.Read_missing_uuid (_, _, sr_uuid) ->
+      (* Throw exception containing the ref of the first SR which wasn't found. *)
+      let sr = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
+      raise
+        (Api_errors.Server_error
+           (Api_errors.vm_requires_sr, [ Ref.string_of self; Ref.string_of sr ])
+        )
+
 
 let get_SRs_required_for_recovery ~__context ~self ~session_to =
   let required_SR_list = list_required_SRs ~__context ~self in
-  Server_helpers.exec_with_new_task ~session_id:session_to
-    "Looking for the required SRs" (fun __context_to ->
+  Server_helpers.exec_with_new_task
+    ~session_id:session_to
+    "Looking for the required SRs"
+    (fun __context_to ->
       List.filter
         (fun sr_ref ->
           let sr_uuid = Db.SR.get_uuid ~__context ~self:sr_ref in
@@ -1447,16 +1590,17 @@ let get_SRs_required_for_recovery ~__context ~self ~session_to =
             let attached_pbds =
               List.filter
                 (fun pbd ->
-                  Db.PBD.get_currently_attached ~__context:__context_to
-                    ~self:pbd
-                  )
+                  Db.PBD.get_currently_attached
+                    ~__context:__context_to
+                    ~self:pbd )
                 pbds
             in
             if attached_pbds = [] then true else false
-          with Db_exn.Read_missing_uuid (_, _, sr_uuid) -> true
-          )
-        required_SR_list
-  )
+          with
+          | Db_exn.Read_missing_uuid (_, _, sr_uuid) ->
+              true )
+        required_SR_list )
+
 
 (* BIOS strings *)
 let assert_valid_bios_strings ~__context ~value =
@@ -1465,41 +1609,44 @@ let assert_valid_bios_strings ~__context ~value =
   (* Validate value chars are printable ASCII characters *)
   value
   |> List.iter (fun (k, v) ->
-         if not (List.mem k Constants.settable_vm_bios_string_keys) then
+         if not (List.mem k Constants.settable_vm_bios_string_keys)
+         then
            raise
              (Api_errors.Server_error
-                (Api_errors.invalid_value, [k; "Unknown key"])
-             ) ;
+                (Api_errors.invalid_value, [ k; "Unknown key" ]) ) ;
          match String.length v with
          | 0 ->
              raise
                (Api_errors.Server_error
-                  (Api_errors.invalid_value, [k; "Value provided is empty"])
+                  (Api_errors.invalid_value, [ k; "Value provided is empty" ])
                )
          | len when len > Constants.bios_string_limit_size ->
              let err =
-               Printf.sprintf "%s has length more than %d characters" v
+               Printf.sprintf
+                 "%s has length more than %d characters"
+                 v
                  Constants.bios_string_limit_size
              in
-             raise (Api_errors.Server_error (Api_errors.invalid_value, [k; err]))
+             raise
+               (Api_errors.Server_error (Api_errors.invalid_value, [ k; err ]))
          | _ ->
              String.iter
                (fun c ->
-                 if c < Char.chr 32 || c >= Char.chr 127 then
+                 if c < Char.chr 32 || c >= Char.chr 127
+                 then
                    raise
                      (Api_errors.Server_error
                         ( Api_errors.invalid_value
-                        , [k; v ^ " has non-printable ASCII characters"]
-                        )
-                     )
+                        , [ k; v ^ " has non-printable ASCII characters" ] ) )
                  )
-               v
-     )
+               v )
+
 
 let copy_bios_strings ~__context ~vm ~host =
   (* only allow to fill in BIOS strings if they are not yet set *)
   let current_strings = Db.VM.get_bios_strings ~__context ~self:vm in
-  if List.length current_strings > 0 then
+  if List.length current_strings > 0
+  then
     raise (Api_errors.Server_error (Api_errors.vm_bios_strings_already_set, []))
   else
     let bios_strings = Db.Host.get_bios_strings ~__context ~self:host in
@@ -1507,26 +1654,32 @@ let copy_bios_strings ~__context ~vm ~host =
     (* also set the affinity field to push the VM to start on this host *)
     Db.VM.set_affinity ~__context ~self:vm ~value:host
 
+
 let consider_generic_bios_strings ~__context ~vm =
   (* check BIOS strings: set to generic values if empty *)
   let bios_strings = Db.VM.get_bios_strings ~__context ~self:vm in
-  if bios_strings = [] then (
+  if bios_strings = []
+  then (
     info
       "The VM's BIOS strings were not yet filled in. The VM is now made \
        BIOS-generic." ;
-    Db.VM.set_bios_strings ~__context ~self:vm
-      ~value:Constants.generic_bios_strings
-  )
+    Db.VM.set_bios_strings
+      ~__context
+      ~self:vm
+      ~value:Constants.generic_bios_strings )
+
 
 (* Windows VM Generation ID *)
 
 let fresh_genid ?(current_genid = "0:0") () =
-  if current_genid = "" then
-    ""
+  if current_genid = ""
+  then ""
   else
-    Printf.sprintf "%Ld:%Ld"
+    Printf.sprintf
+      "%Ld:%Ld"
       (Random.int64 Int64.max_int)
       (Random.int64 Int64.max_int)
+
 
 let vm_fresh_genid ~__context ~self =
   let current_genid = Db.VM.get_generation_id ~__context ~self in
@@ -1536,6 +1689,7 @@ let vm_fresh_genid ~__context ~self =
   Db.VM.set_generation_id ~__context ~self ~value:new_genid ;
   new_genid
 
+
 (** Add to the VM's current operations, call a function and then remove from the
     	current operations. Ensure the allowed_operations are kept up to date. *)
 let with_vm_operation ~__context ~self ~doc ~op ?(strict = true) ?policy f =
@@ -1543,28 +1697,33 @@ let with_vm_operation ~__context ~self ~doc ~op ?(strict = true) ?policy f =
   Helpers.retry_with_global_lock ~__context ~doc ?policy (fun () ->
       Xapi_vm_lifecycle.assert_operation_valid ~__context ~self ~op ~strict ;
       Db.VM.add_to_current_operations ~__context ~self ~key:task_id ~value:op ;
-      Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
-  ) ;
+      Xapi_vm_lifecycle.update_allowed_operations ~__context ~self ) ;
   (* Then do the action with the lock released *)
   finally f (* Make sure to clean up at the end *) (fun () ->
       try
         Db.VM.remove_from_current_operations ~__context ~self ~key:task_id ;
         Xapi_vm_lifecycle.update_allowed_operations ~__context ~self ;
         Helpers.Early_wakeup.broadcast (Datamodel_common._vm, Ref.string_of self)
-      with _ -> ()
-  )
+      with
+      | _ ->
+          () )
+
 
 (* Device Model Profiles *)
-let ensure_device_model_profile_present ~__context ~domain_type ~is_a_template
-    ?(default_value = Vm_platform.fallback_device_model_default_value) platform
-    =
+let ensure_device_model_profile_present
+    ~__context
+    ~domain_type
+    ~is_a_template
+    ?(default_value = Vm_platform.fallback_device_model_default_value)
+    platform =
   let needs_qemu = Helpers.needs_qemu_from_domain_type domain_type in
   let default = Vm_platform.(device_model, default_value) in
   let trad = Vm_platform.(device_model, fallback_device_model_stage_1) in
-  if is_a_template then
-    platform
+  if is_a_template
+  then platform
   else if (not needs_qemu) || List.mem_assoc Vm_platform.device_model platform
-  then (* upgrade existing Device Model entry *)
+  then
+    (* upgrade existing Device Model entry *)
     platform |> List.map (fun entry -> if entry = trad then default else entry)
   else
     (* only add device-model to an HVM VM platform if it is not already there *)

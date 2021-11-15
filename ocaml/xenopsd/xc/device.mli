@@ -63,7 +63,9 @@ end
 
 (** Represent an IPC endpoint *)
 module Socket : sig
-  type t = Unix of string | Port of int
+  type t =
+    | Unix of string
+    | Port of int
 end
 
 module Generic : sig
@@ -75,13 +77,20 @@ module Generic : sig
 end
 
 module Vbd : sig
-  type mode = ReadOnly | ReadWrite
+  type mode =
+    | ReadOnly
+    | ReadWrite
 
   val string_of_mode : mode -> string
 
   val mode_of_string : string -> mode
 
-  type physty = File | Phys | Qcow | Vhd | Aio
+  type physty =
+    | File
+    | Phys
+    | Qcow
+    | Vhd
+    | Aio
 
   val string_of_physty : physty -> string
 
@@ -89,25 +98,28 @@ module Vbd : sig
 
   val uses_blktap : phystype:physty -> bool
 
-  type devty = CDROM | Disk | Floppy
+  type devty =
+    | CDROM
+    | Disk
+    | Floppy
 
   val string_of_devty : devty -> string
 
   val devty_of_string : string -> devty
 
-  type t = {
-      mode: mode
-    ; device_number: Device_number.t option
-    ; phystype: physty
-    ; params: string
-    ; dev_type: devty
-    ; unpluggable: bool
-    ; protocol: protocol option
-    ; kind: Device_common.kind
-    ; extra_backend_keys: (string * string) list
-    ; extra_private_keys: (string * string) list
-    ; backend_domid: int
-  }
+  type t =
+    { mode : mode
+    ; device_number : Device_number.t option
+    ; phystype : physty
+    ; params : string
+    ; dev_type : devty
+    ; unpluggable : bool
+    ; protocol : protocol option
+    ; kind : Device_common.kind
+    ; extra_backend_keys : (string * string) list
+    ; extra_private_keys : (string * string) list
+    ; backend_domid : int
+    }
 
   val add :
        Xenops_task.task_handle
@@ -280,22 +292,25 @@ end
 module PCI : sig
   open Xenops_interface.Pci
 
-  type t = {
-      address: address
-    ; irq: int
-    ; resources: (int64 * int64 * int64) list
-    ; driver: string
-  }
+  type t =
+    { address : address
+    ; irq : int
+    ; resources : (int64 * int64 * int64) list
+    ; driver : string
+    }
 
-  type supported_driver = I915 | Nvidia | Pciback
+  type supported_driver =
+    | I915
+    | Nvidia
+    | Pciback
 
   type index = int
 
-  type device' = {
-      host: Xenops_interface.Pci.address
-    ; guest: index * Xenops_interface.Pci.address option
-    ; qmp_add: bool  (** false: don't issue Device_add command *)
-  }
+  type device' =
+    { host : Xenops_interface.Pci.address
+    ; guest : index * Xenops_interface.Pci.address option
+    ; qmp_add : bool  (** false: don't issue Device_add command *)
+    }
 
   val add :
        xc:Xenctrl.handle
@@ -346,7 +361,9 @@ module Vkbd : sig
 end
 
 module Dm : sig
-  type usb_opt = Enabled of (string * int) list | Disabled
+  type usb_opt =
+    | Enabled of (string * int) list
+    | Disabled
 
   type disp_intf_opt =
     | Std_vga
@@ -363,35 +380,38 @@ module Dm : sig
   (* X11 display *)
 
   module Media : sig
-    type t = Disk | Cdrom | Floppy
+    type t =
+      | Disk
+      | Cdrom
+      | Floppy
   end
 
-  type info = {
-      memory: int64
-    ; boot: string
-    ; firmware: Xenops_types.Vm.firmware_type
-    ; serial: string option
-    ; monitor: string option
-    ; vcpus: int
+  type info =
+    { memory : int64
+    ; boot : string
+    ; firmware : Xenops_types.Vm.firmware_type
+    ; serial : string option
+    ; monitor : string option
+    ; vcpus : int
     ; (* vcpus max *)
-      vcpus_current: int
-    ; usb: usb_opt
-    ; parallel: string option
-    ; nics: (string * string * int) list
-    ; disks: (int * string * Media.t) list
-    ; acpi: bool
-    ; disp: disp_opt
-    ; pci_emulations: string list
-    ; pci_passthrough: bool
-    ; video_mib: int
-    ; xen_platform: (int * int) option
-    ; extras: (string * string option) list
-  }
+      vcpus_current : int
+    ; usb : usb_opt
+    ; parallel : string option
+    ; nics : (string * string * int) list
+    ; disks : (int * string * Media.t) list
+    ; acpi : bool
+    ; disp : disp_opt
+    ; pci_emulations : string list
+    ; pci_passthrough : bool
+    ; video_mib : int
+    ; xen_platform : (int * int) option
+    ; extras : (string * string option) list
+    }
 
-  type qemu_args = {
-      argv: string list  (** command line args *)
-    ; fd_map: (string * Unix.file_descr) list  (** open files *)
-  }
+  type qemu_args =
+    { argv : string list  (** command line args *)
+    ; fd_map : (string * Unix.file_descr) list  (** open files *)
+    }
 
   val get_vnc_port :
     xs:Xenstore.Xs.xsh -> dm:Profile.t -> Xenctrl.domid -> Socket.t option

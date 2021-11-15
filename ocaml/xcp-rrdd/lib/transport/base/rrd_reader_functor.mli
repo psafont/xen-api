@@ -24,10 +24,10 @@ module type TRANSPORT = sig
   val expose : state_t -> Cstruct.t
 end
 
-type reader = {
-    read_payload: unit -> Rrd_protocol.payload
-  ; cleanup: unit -> unit
-}
+type reader =
+  { read_payload : unit -> Rrd_protocol.payload
+  ; cleanup : unit -> unit
+  }
 
 module Make (T : TRANSPORT) : sig
   val create : T.id_t -> Rrd_protocol.protocol -> reader

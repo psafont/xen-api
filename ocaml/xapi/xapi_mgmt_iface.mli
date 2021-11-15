@@ -29,7 +29,7 @@ val on_dom0_networking_change : __context:Context.t -> unit
 (** Called anywhere we suspect dom0's networking (hostname, IP address) has been changed
     underneath us (eg by dhclient) *)
 
-val change : string -> [< `IPv4 | `IPv6] -> unit
+val change : string -> [< `IPv4 | `IPv6 ] -> unit
 (** Update the inventory file with the given interface (used for management traffic). *)
 
 val run : __context:Context.t -> ?mgmt_enabled:bool -> unit -> unit

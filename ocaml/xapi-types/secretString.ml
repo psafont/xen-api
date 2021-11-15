@@ -21,8 +21,9 @@ let json_rpc_of_t s = Jsonrpc.of_string ~strict:true s
 let _pool_secret = "pool_secret"
 
 let with_cookie t request =
-  let cookie = [(_pool_secret, t)] in
-  {request with Http.Request.cookie}
+  let cookie = [ (_pool_secret, t) ] in
+  { request with Http.Request.cookie }
+
 
 let write_to_file = Xapi_stdext_unix.Unixext.write_string_to_file
 

@@ -14,7 +14,9 @@
 open Xenops_utils
 open Xenops_task
 
-module D = Debug.Make (struct let name = "xenguesthelper" end)
+module D = Debug.Make (struct
+  let name = "xenguesthelper"
+end)
 
 open D
 
@@ -49,8 +51,9 @@ type t =
 
 (** Fork and run a xenguest helper with particular args, leaving 'fds' open (in
     addition to internal control I/O fds) *)
-let connect path domid (args : string list)
-    (fds : (string * Unix.file_descr) list) : t =
+let connect
+    path domid (args : string list) (fds : (string * Unix.file_descr) list) : t
+    =
   debug "connect: args = [ %s ]" (String.concat " " args) ;
   (* Need to send commands and receive responses from the slave process *)
   let slave_to_server_w_uuid = Uuidm.to_string (Uuidm.create `V4) in
@@ -58,8 +61,7 @@ let connect path domid (args : string list)
   let slave_to_server_r, slave_to_server_w = Unix.pipe () in
   let server_to_slave_r, server_to_slave_w = Unix.pipe () in
   let args =
-    [
-      "-controloutfd"
+    [ "-controloutfd"
     ; slave_to_server_w_uuid
     ; "-controlinfd"
     ; server_to_slave_r_uuid
@@ -67,14 +69,16 @@ let connect path domid (args : string list)
     @ args
   in
   let pid =
-    Forkhelpers.safe_close_and_exec None None None
-      ([
-         (slave_to_server_w_uuid, slave_to_server_w)
-       ; (server_to_slave_r_uuid, server_to_slave_r)
-       ]
-      @ fds
-      )
-      path args
+    Forkhelpers.safe_close_and_exec
+      None
+      None
+      None
+      ( [ (slave_to_server_w_uuid, slave_to_server_w)
+        ; (server_to_slave_r_uuid, server_to_slave_r)
+        ]
+      @ fds )
+      path
+      args
   in
   Unix.close slave_to_server_w ;
   Unix.close server_to_slave_r ;
@@ -82,8 +86,8 @@ let connect path domid (args : string list)
   , Unix.out_channel_of_descr server_to_slave_w
   , slave_to_server_r
   , server_to_slave_w
-  , pid
-  )
+  , pid )
+
 
 (** Wait for the (hopefully dead) child process *)
 let disconnect (_, _, r, w, pid) =
@@ -91,25 +95,35 @@ let disconnect (_, _, r, w, pid) =
   Unix.close w ;
   ignore (Forkhelpers.waitpid pid)
 
+
 let supports_feature path feat =
   let open Forkhelpers in
   try
-    execute_command_get_output path ["-supports"; feat]
+    execute_command_get_output path [ "-supports"; feat ]
     |> fst
     |> String.trim
     |> String.lowercase_ascii
     = "true"
-  with Spawn_internal_error _ -> false
+  with
+  | Spawn_internal_error _ ->
+      false
 
-let with_connection (task : Xenops_task.task_handle) path domid
-    (args : string list) (fds : (string * Unix.file_descr) list) f =
+
+let with_connection
+    (task : Xenops_task.task_handle)
+    path
+    domid
+    (args : string list)
+    (fds : (string * Unix.file_descr) list)
+    f =
   let t = connect path domid args fds in
   let cancelled = ref false in
   let cancel_cb () =
     let _, _, _, _, pid = t in
     let pid = Forkhelpers.getpid pid in
     cancelled := true ;
-    info "Cancelling task %s by killing xenguest subprocess pid: %d"
+    info
+      "Cancelling task %s by killing xenguest subprocess pid: %d"
       (Xenops_task.id_of_handle task)
       pid ;
     try Unix.kill pid Sys.sigkill with _ -> ()
@@ -117,18 +131,18 @@ let with_connection (task : Xenops_task.task_handle) path domid
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
       Xenops_task.with_cancel task cancel_cb (fun () ->
-          try f t
-          with e ->
-            if !cancelled then
-              Xenops_task.raise_cancelled task
-            else
-              raise e
-      )
+          try f t with
+          | e ->
+              if !cancelled then Xenops_task.raise_cancelled task else raise e )
       )
     (fun () -> disconnect t)
 
+
 (** immediately write a command to the control channel *)
-let send (_, out, _, _, _) txt = output_string out txt ; flush out
+let send (_, out, _, _, _) txt =
+  output_string out txt ;
+  flush out
+
 
 (** Keep this in sync with xenguest_main *)
 type message =
@@ -155,8 +169,10 @@ let string_of_message = function
   | Result x ->
       "result:" ^ String.escaped x
 
+
 let message_of_string x =
-  if not (String.contains x ':') then
+  if not (String.contains x ':')
+  then
     failwith
       (Printf.sprintf "Failed to parse message from xenguesthelper [%s]" x) ;
   let i = String.index x ':' in
@@ -178,6 +194,7 @@ let message_of_string x =
   | _ ->
       Error "uncaught exception"
 
+
 (** return the next output line from the control channel *)
 let receive (infd, _, _, _, _) = message_of_string (input_line infd)
 
@@ -196,6 +213,7 @@ let rec non_debug_receive ?(debug_callback = fun s -> debug "%s" s) cnx =
   | x ->
       x
 
+
 (* Error or Result or Suspend *)
 
 (* Dump memory statistics on failure *)
@@ -206,28 +224,34 @@ let non_debug_receive ?debug_callback cnx =
         let open Int64 in
         let open Xenctrl in
         let p = Xenctrl.physinfo xc in
-        error "Memory F %Ld KiB S %Ld KiB T %Ld MiB"
+        error
+          "Memory F %Ld KiB S %Ld KiB T %Ld MiB"
           (p.free_pages |> of_nativeint |> kib_of_pages)
           (p.scrub_pages |> of_nativeint |> kib_of_pages)
-          (p.total_pages |> of_nativeint |> mib_of_pages_free)
-    )
+          (p.total_pages |> of_nativeint |> mib_of_pages_free) )
   in
   try
     match non_debug_receive ?debug_callback cnx with
     | Error y as x ->
-        error "Received: %s" y ; debug_memory () ; x
+        error "Received: %s" y ;
+        debug_memory () ;
+        x
     | x ->
         x
-  with e -> debug_memory () ; raise e
+  with
+  | e ->
+      debug_memory () ;
+      raise e
+
 
 (** For the simple case where we just want the successful result, return it. If
     we get an error message (or suspend) then throw an exception. *)
 let receive_success ?(debug_callback = fun s -> debug "%s" s) cnx =
   match non_debug_receive ~debug_callback cnx with
-  | Error x -> (
+  | Error x ->
       (* These error strings match those in xenguest_stubs.c *)
       let pp msg = Astring.String.concat ~sep:" " msg in
-      match Astring.String.cuts ~sep:" " x with
+      ( match Astring.String.cuts ~sep:" " x with
       | "hvm_build" :: code :: msg ->
           raise (Domain_builder_error ("hvm_build", int_of_string code, pp msg))
       | "xc_dom_allocate" :: code :: msg ->
@@ -237,8 +261,7 @@ let receive_success ?(debug_callback = fun s -> debug "%s" s) cnx =
       | "hvm_build_params" :: code :: msg ->
           raise
             (Domain_builder_error
-               ("hvm_build_params", int_of_string code, pp msg)
-            )
+               ("hvm_build_params", int_of_string code, pp msg) )
       | "hvm_build_mem" :: code :: msg ->
           raise
             (Domain_builder_error ("hvm_build_mem", int_of_string code, pp msg))
@@ -249,8 +272,7 @@ let receive_success ?(debug_callback = fun s -> debug "%s" s) cnx =
       | "xc_domain_restore" :: code :: msg ->
           raise (Xenctrl_domain_restore_failure (int_of_string code, pp msg))
       | _ ->
-          failwith (Printf.sprintf "Error from xenguesthelper: " ^ x)
-    )
+          failwith (Printf.sprintf "Error from xenguesthelper: " ^ x) )
   | Suspend ->
       failwith "xenguesthelper protocol failure; not expecting Suspend"
   | Result x ->

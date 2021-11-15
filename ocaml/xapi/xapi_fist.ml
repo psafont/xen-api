@@ -17,7 +17,9 @@
 
 module Unixext = Xapi_stdext_unix.Unixext
 
-module D = Debug.Make (struct let name = "xapi_fist" end)
+module D = Debug.Make (struct
+  let name = "xapi_fist"
+end)
 
 open D
 
@@ -27,25 +29,31 @@ let path_for name =
   let prefix = "/tmp/fist_" in
   Printf.sprintf "%s%s" prefix name
 
+
 let fistpoint name =
   try
-    Unix.access (path_for name) [Unix.F_OK] ;
+    Unix.access (path_for name) [ Unix.F_OK ] ;
     true
-  with _ -> false
+  with
+  | _ ->
+      false
+
 
 let hang_while name =
   let rec go ctr =
-    if fistpoint name then (
+    if fistpoint name
+    then (
       Thread.delay 1.0 ;
-      if ctr mod 10 = 0 then
-        debug "hang_while: waiting for fist '%s' to be removed" name ;
-      (go [@tailcall]) (ctr + 1)
-    )
+      if ctr mod 10 = 0
+      then debug "hang_while: waiting for fist '%s' to be removed" name ;
+      (go [@tailcall]) (ctr + 1) )
   in
   go 1
 
+
 let fistpoint_read name =
   try Some (Unixext.string_of_file (path_for name)) with _ -> None
+
 
 let delete name = Unixext.unlink_safe (path_for name)
 
@@ -119,34 +127,36 @@ let hang_psr psr_checkpoint =
   | `notify_send ->
       "psr_notify_send"
   | `cleanup ->
-      "psr_cleanup"
-  )
+      "psr_cleanup" )
   |> hang_while
+
 
 (* extract integer seed from fist file, if it exists.
  * raises if fist file exists but does not contain an integer *)
 let int_seed name : int option =
-  let ex msg = Api_errors.(Server_error (internal_error, [msg])) in
+  let ex msg = Api_errors.(Server_error (internal_error, [ msg ])) in
   match fistpoint name with
   | false ->
       D.debug "fistpoint=%s is not being used" name ;
       None
-  | true -> (
-    match fistpoint_read name with
+  | true ->
+    ( match fistpoint_read name with
     | None ->
         Printf.sprintf "fistpoint=%s exists but has no seed" name |> ex |> raise
-    | Some seed -> (
-      try
-        let seed = seed |> String.trim |> int_of_string in
-        D.debug "fistpoint=%s using seed=%i" name seed ;
-        Some seed
-      with _ ->
-        Printf.sprintf "fistpoint=%s exists but seed='%s' is not an integer"
-          name seed
-        |> ex
-        |> raise
-    )
-  )
+    | Some seed ->
+      ( try
+          let seed = seed |> String.trim |> int_of_string in
+          D.debug "fistpoint=%s using seed=%i" name seed ;
+          Some seed
+        with
+      | _ ->
+          Printf.sprintf
+            "fistpoint=%s exists but seed='%s' is not an integer"
+            name
+            seed
+          |> ex
+          |> raise ) )
+
 
 let exchange_certificates_in_pool () : int option =
   let name = "exchange_certificates_in_pool" in

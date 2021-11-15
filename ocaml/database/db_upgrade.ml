@@ -26,7 +26,8 @@ let generic_database_upgrade db =
   in
   let schema_table_names = Schema.table_names (Database.schema db) in
   let created_table_names =
-    Xapi_stdext_std.Listext.List.set_difference schema_table_names
+    Xapi_stdext_std.Listext.List.set_difference
+      schema_table_names
       existing_table_names
   in
   let g = Manifest.generation (Database.manifest db) in
@@ -36,10 +37,9 @@ let generic_database_upgrade db =
         List.fold_left
           (fun ts tblname ->
             debug "Adding new database table: '%s'" tblname ;
-            TableSet.add g tblname Table.empty ts
-            )
-          ts created_table_names
-        )
+            TableSet.add g tblname Table.empty ts )
+          ts
+          created_table_names )
       db
   in
   (* for each table, go through and fill in missing default values *)
@@ -58,6 +58,6 @@ let generic_database_upgrade db =
         |> TableSet.update g tblname Table.empty
         |> Database.update
       in
-      perform_update db
-      )
-    db schema_table_names
+      perform_update db )
+    db
+    schema_table_names

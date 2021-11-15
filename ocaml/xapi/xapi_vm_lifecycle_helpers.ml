@@ -12,7 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "xapi_vm_lifecycle_helpers" end)
+module D = Debug.Make (struct
+  let name = "xapi_vm_lifecycle_helpers"
+end)
 
 open D
 

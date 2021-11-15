@@ -60,13 +60,13 @@ let map2_unlikely f s =
     incr i
   done ;
   (* process the last character *)
-  if !i = length_s - 1 then
-    aux s.[!i] None ;
-  if !changed then (
+  if !i = length_s - 1 then aux s.[!i] None ;
+  if !changed
+  then (
     Buffer.add_substring buf s !m (String.length s - !m) ;
-    Buffer.contents buf
-  ) else
-    s
+    Buffer.contents buf )
+  else s
+
 
 let protect_fn = function
   | ' ', _ ->
@@ -81,6 +81,7 @@ let protect_fn = function
       Expand (protect_char, protect_char)
   | _, _ ->
       No_change
+
 
 let unprotect_fn = function
   (* CA-268761: this is only for backward compatibility *)
@@ -98,6 +99,7 @@ let unprotect_fn = function
       Compress protect_char
   | _, _ ->
       No_change
+
 
 let protect = map2_unlikely protect_fn
 

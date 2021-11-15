@@ -44,11 +44,11 @@ type flag =
   | Hidden
   | Deprecated of string list
 
-type cmd_spec = {
-    reqd: string list
-  ; optn: string list
+type cmd_spec =
+  { reqd : string list
+  ; optn : string list
   ; (* optional arguments *)
-    help: string
-  ; implementation: imp
-  ; flags: flag list
-}
+    help : string
+  ; implementation : imp
+  ; flags : flag list
+  }

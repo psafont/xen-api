@@ -14,7 +14,9 @@
 
 module Unixext = Xapi_stdext_unix.Unixext
 
-module D = Debug.Make (struct let name = "repository" end)
+module D = Debug.Make (struct
+  let name = "repository"
+end)
 
 open D
 open Repository_helpers
@@ -28,39 +30,44 @@ let reposync_mutex = Mutex.create ()
 let updates_in_cache : (API.ref_host, Yojson.Basic.t) Hashtbl.t =
   Hashtbl.create 64
 
-let introduce ~__context ~name_label ~name_description ~binary_url ~source_url
-    ~update =
+
+let introduce
+    ~__context ~name_label ~name_description ~binary_url ~source_url ~update =
   assert_url_is_valid ~url:binary_url ;
   assert_url_is_valid ~url:source_url ;
   Db.Repository.get_all ~__context
   |> List.iter (fun ref ->
-         if
-           name_label = Db.Repository.get_name_label ~__context ~self:ref
-           || binary_url = Db.Repository.get_binary_url ~__context ~self:ref
+         if name_label = Db.Repository.get_name_label ~__context ~self:ref
+            || binary_url = Db.Repository.get_binary_url ~__context ~self:ref
          then
            raise
              Api_errors.(
-               Server_error (repository_already_exists, [Ref.string_of ref])
-             )
-     ) ;
-  create_repository_record ~__context ~name_label ~name_description ~binary_url
-    ~source_url ~update
+               Server_error (repository_already_exists, [ Ref.string_of ref ])) ) ;
+  create_repository_record
+    ~__context
+    ~name_label
+    ~name_description
+    ~binary_url
+    ~source_url
+    ~update
+
 
 let forget ~__context ~self =
   let pool = Helpers.get_pool ~__context in
   let enabled = Db.Pool.get_repositories ~__context ~self:pool in
-  if List.mem self enabled then
-    raise Api_errors.(Server_error (repository_is_in_use, []))
-  else
-    Db.Repository.destroy ~__context ~self
+  if List.mem self enabled
+  then raise Api_errors.(Server_error (repository_is_in_use, []))
+  else Db.Repository.destroy ~__context ~self
+
 
 let with_reposync_lock f =
-  if Mutex.try_lock reposync_mutex then
+  if Mutex.try_lock reposync_mutex
+  then
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () -> f ())
       (fun () -> Mutex.unlock reposync_mutex)
-  else
-    raise Api_errors.(Server_error (reposync_in_progress, []))
+  else raise Api_errors.(Server_error (reposync_in_progress, []))
+
 
 let cleanup_all_pool_repositories () =
   try
@@ -69,15 +76,18 @@ let cleanup_all_pool_repositories () =
     Sys.readdir !Xapi_globs.yum_repos_config_dir
     |> Array.iter (fun file ->
            let open Astring.String in
-           if is_prefix ~affix:prefix file && is_suffix ~affix:".repo" file then
+           if is_prefix ~affix:prefix file && is_suffix ~affix:".repo" file
+           then
              let path = Filename.concat !Xapi_globs.yum_repos_config_dir file in
-             Unixext.unlink_safe path
-       ) ;
+             Unixext.unlink_safe path ) ;
     Helpers.rmtree !Xapi_globs.local_pool_repo_dir
-  with e ->
-    error "Failed to clean up all pool repositories: %s"
-      (ExnHelper.string_of_exn e) ;
-    raise Api_errors.(Server_error (repository_cleanup_failed, []))
+  with
+  | e ->
+      error
+        "Failed to clean up all pool repositories: %s"
+        (ExnHelper.string_of_exn e) ;
+      raise Api_errors.(Server_error (repository_cleanup_failed, []))
+
 
 let cleanup_pool_repo ~__context ~self =
   let repo_name = get_remote_repository_name ~__context ~self in
@@ -86,10 +96,14 @@ let cleanup_pool_repo ~__context ~self =
     Unixext.unlink_safe
       (Filename.concat !Xapi_globs.yum_repos_config_dir (repo_name ^ ".repo")) ;
     Helpers.rmtree (Filename.concat !Xapi_globs.local_pool_repo_dir repo_name)
-  with e ->
-    error "Failed to clean up pool repository %s: %s" repo_name
-      (ExnHelper.string_of_exn e) ;
-    raise Api_errors.(Server_error (repository_cleanup_failed, []))
+  with
+  | e ->
+      error
+        "Failed to clean up pool repository %s: %s"
+        repo_name
+        (ExnHelper.string_of_exn e) ;
+      raise Api_errors.(Server_error (repository_cleanup_failed, []))
+
 
 let sync ~__context ~self ~token ~token_id =
   try
@@ -98,7 +112,8 @@ let sync ~__context ~self ~token ~token_id =
     let binary_url = Db.Repository.get_binary_url ~__context ~self in
     let source_url = Db.Repository.get_source_url ~__context ~self in
     write_yum_config ~source_url:(Some source_url) binary_url repo_name ;
-    with_access_token ~token ~token_id @@ fun token_path ->
+    with_access_token ~token ~token_id
+    @@ fun token_path ->
     let token_param =
       match token_path with
       | Some p ->
@@ -107,22 +122,19 @@ let sync ~__context ~self ~token ~token_id =
           ""
     in
     let config_params =
-      [
-        "--save"
-      ; ( if !Xapi_globs.repository_gpgcheck then
-            "--setopt=repo_gpgcheck=1"
-        else
-          "--setopt=repo_gpgcheck=0"
-        )
+      [ "--save"
+      ; ( if !Xapi_globs.repository_gpgcheck
+        then "--setopt=repo_gpgcheck=1"
+        else "--setopt=repo_gpgcheck=0" )
       ; token_param
       ; repo_name
       ]
     in
-    ignore (Helpers.call_script !Xapi_globs.yum_config_manager_cmd config_params) ;
+    ignore
+      (Helpers.call_script !Xapi_globs.yum_config_manager_cmd config_params) ;
     (* sync with remote repository *)
     let sync_params =
-      [
-        "-p"
+      [ "-p"
       ; !Xapi_globs.local_pool_repo_dir
       ; "--downloadcomps"
       ; "--download-metadata"
@@ -135,22 +147,33 @@ let sync ~__context ~self ~token ~token_id =
     Unixext.mkdir_rec !Xapi_globs.local_pool_repo_dir 0o700 ;
     clean_yum_cache repo_name ;
     ignore (Helpers.call_script !Xapi_globs.reposync_cmd sync_params)
-  with e ->
-    error "Failed to sync with remote YUM repository: %s"
-      (ExnHelper.string_of_exn e) ;
-    raise Api_errors.(Server_error (reposync_failed, []))
+  with
+  | e ->
+      error
+        "Failed to sync with remote YUM repository: %s"
+        (ExnHelper.string_of_exn e) ;
+      raise Api_errors.(Server_error (reposync_failed, []))
+
 
 let http_get_host_updates_in_json ~__context ~host ~installed =
   let host_session_id =
-    Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:true
-      ~is_local_superuser:true ~subject:Ref.null ~auth_user_sid:""
-      ~auth_user_name:"" ~rbac_permissions:[]
+    Xapi_session.login_no_password
+      ~__context
+      ~uname:None
+      ~host
+      ~pool:true
+      ~is_local_superuser:true
+      ~subject:Ref.null
+      ~auth_user_sid:""
+      ~auth_user_name:""
+      ~rbac_permissions:[]
   in
   let request =
     Xapi_http.http_request
-      ~cookie:[("session_id", Ref.string_of host_session_id)]
-      ~query:[("installed", string_of_bool installed)]
-      Http.Get Constants.get_host_updates_uri
+      ~cookie:[ ("session_id", Ref.string_of host_session_id) ]
+      ~query:[ ("installed", string_of_bool installed) ]
+      Http.Get
+      Constants.get_host_updates_uri
   in
   let host_name = Db.Host.get_hostname ~__context ~self:host in
   let host_addr = Db.Host.get_address ~__context ~self:host in
@@ -159,29 +182,31 @@ let http_get_host_updates_in_json ~__context ~host ~installed =
     SSL
       ( SSL.make () ~verify_cert:(Stunnel_client.pool ())
       , host_addr
-      , !Constants.https_port
-      )
+      , !Constants.https_port )
   in
   debug "getting host updates on %s (addr %s) by HTTP GET" host_name host_addr ;
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
       try
         let json_str =
-          with_transport transport
+          with_transport
+            transport
             (with_http request (fun (response, fd) ->
-                 Xapi_stdext_unix.Unixext.string_of_fd fd
-             )
-            )
+                 Xapi_stdext_unix.Unixext.string_of_fd fd ) )
         in
         debug "host %s returned updates: %s" host_name json_str ;
         Yojson.Basic.from_string json_str
-      with e ->
-        let host' = Ref.string_of host in
-        error "Failed to get updates from host ref='%s': %s" host'
-          (ExnHelper.string_of_exn e) ;
-        raise Api_errors.(Server_error (get_host_updates_failed, [host']))
+      with
+      | e ->
+          let host' = Ref.string_of host in
+          error
+            "Failed to get updates from host ref='%s': %s"
+            host'
+            (ExnHelper.string_of_exn e) ;
+          raise Api_errors.(Server_error (get_host_updates_failed, [ host' ]))
       )
     (fun () -> Xapi_session.destroy_db_session ~__context ~self:host_session_id)
+
 
 let group_host_updates_by_repository ~__context enabled host updates_of_host =
   (* Return updates grouped by repository. Example:
@@ -202,27 +227,32 @@ let group_host_updates_by_repository ~__context enabled host updates_of_host =
               append_by_key acc repository upd
           | repository when not (List.mem repository enabled) ->
               let msg =
-                Printf.sprintf "Found update (%s) from a disabled repository"
+                Printf.sprintf
+                  "Found update (%s) from a disabled repository"
                   (Update.to_string upd)
               in
-              raise Api_errors.(Server_error (internal_error, [msg]))
+              raise Api_errors.(Server_error (internal_error, [ msg ]))
           | _ | (exception _) ->
               let msg =
-                Printf.sprintf "Found update (%s) from an unmanaged repository"
+                Printf.sprintf
+                  "Found update (%s) from an unmanaged repository"
                   (Update.to_string upd)
               in
-              raise Api_errors.(Server_error (internal_error, [msg]))
-          )
-        [] updates
+              raise Api_errors.(Server_error (internal_error, [ msg ])) )
+        []
+        updates
   | _ ->
       let host' = Ref.string_of host in
       error "Invalid updates from host ref='%s': No 'updates'" host' ;
-      raise Api_errors.(Server_error (get_host_updates_failed, [host']))
+      raise Api_errors.(Server_error (get_host_updates_failed, [ host' ]))
   | exception e ->
       let host' = Ref.string_of host in
-      error "Invalid updates from host ref='%s': %s" host'
+      error
+        "Invalid updates from host ref='%s': %s"
+        host'
         (ExnHelper.string_of_exn e) ;
-      raise Api_errors.(Server_error (get_host_updates_failed, [host']))
+      raise Api_errors.(Server_error (get_host_updates_failed, [ host' ]))
+
 
 let set_available_updates ~__context =
   ignore (get_single_enabled_update_repository ~__context) ;
@@ -236,25 +266,23 @@ let set_available_updates ~__context =
   in
   let rets =
     with_pool_repositories (fun () ->
-        Helpers.run_in_parallel funs capacity_in_parallel
-    )
+        Helpers.run_in_parallel funs capacity_in_parallel )
   in
   let enabled = get_enabled_repositories ~__context in
   (* Group updates by repository for each host *)
   let updates_of_hosts =
     List.map
       (fun (h, updates_of_host) ->
-        group_host_updates_by_repository ~__context enabled h updates_of_host
-        )
+        group_host_updates_by_repository ~__context enabled h updates_of_host )
       rets
   in
   (* Group updates by repository for all hosts *)
   let updates_by_repository =
     List.fold_left
       (fun acc l ->
-        List.fold_left (fun acc' (x, y) -> append_by_key acc' x y) acc l
-        )
-      [] updates_of_hosts
+        List.fold_left (fun acc' (x, y) -> append_by_key acc' x y) acc l )
+      []
+      updates_of_hosts
   in
   let checksums =
     List.filter_map
@@ -266,9 +294,12 @@ let set_available_updates ~__context =
           | _ ->
               true
         in
-        Db.Repository.set_up_to_date ~__context ~self:repository
+        Db.Repository.set_up_to_date
+          ~__context
+          ~self:repository
           ~value:up_to_date ;
-        if Db.Repository.get_update ~__context ~self:repository then (
+        if Db.Repository.get_update ~__context ~self:repository
+        then (
           let repo_name =
             get_remote_repository_name ~__context ~self:repository
           in
@@ -278,62 +309,66 @@ let set_available_updates ~__context =
             |> Filename.concat !Xapi_globs.local_pool_repo_dir
           in
           let md = UpdateInfoMetaData.of_xml_file xml_path in
-          Db.Repository.set_hash ~__context ~self:repository
+          Db.Repository.set_hash
+            ~__context
+            ~self:repository
             ~value:md.UpdateInfoMetaData.checksum ;
-          Some md.UpdateInfoMetaData.checksum
-        ) else
-          None
-        )
+          Some md.UpdateInfoMetaData.checksum )
+        else None )
       enabled
   in
   Hashtbl.clear updates_in_cache ;
   Hashtbl.add_seq updates_in_cache (List.to_seq rets) ;
   get_singleton checksums
 
+
 let create_pool_repository ~__context ~self =
   let repo_name = get_remote_repository_name ~__context ~self in
   let repo_dir = Filename.concat !Xapi_globs.local_pool_repo_dir repo_name in
   match Sys.file_exists repo_dir with
-  | true -> (
-    try
-      ignore (Helpers.call_script !Xapi_globs.createrepo_cmd [repo_dir]) ;
-      if Db.Repository.get_update ~__context ~self then
-        let cachedir = get_cachedir repo_name in
-        let md =
-          UpdateInfoMetaData.of_xml_file (Filename.concat cachedir "repomd.xml")
-        in
-        let updateinfo_xml_gz_path =
-          Filename.concat repo_dir
-            (md.UpdateInfoMetaData.checksum ^ "-updateinfo.xml.gz")
-        in
-        match Sys.file_exists updateinfo_xml_gz_path with
-        | true ->
-            with_updateinfo_xml updateinfo_xml_gz_path (fun xml_file_path ->
-                let repodata_dir = Filename.concat repo_dir "repodata" in
-                ignore
-                  (Helpers.call_script !Xapi_globs.modifyrepo_cmd
-                     ["--remove"; "updateinfo"; repodata_dir]
-                  ) ;
-                ignore
-                  (Helpers.call_script !Xapi_globs.modifyrepo_cmd
-                     ["--mdtype"; "updateinfo"; xml_file_path; repodata_dir]
-                  )
-            )
-        | false ->
-            error "No updateinfo.xml.gz found: %s" updateinfo_xml_gz_path ;
-            raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-    with
+  | true ->
+    ( try
+        ignore (Helpers.call_script !Xapi_globs.createrepo_cmd [ repo_dir ]) ;
+        if Db.Repository.get_update ~__context ~self
+        then
+          let cachedir = get_cachedir repo_name in
+          let md =
+            UpdateInfoMetaData.of_xml_file
+              (Filename.concat cachedir "repomd.xml")
+          in
+          let updateinfo_xml_gz_path =
+            Filename.concat
+              repo_dir
+              (md.UpdateInfoMetaData.checksum ^ "-updateinfo.xml.gz")
+          in
+          match Sys.file_exists updateinfo_xml_gz_path with
+          | true ->
+              with_updateinfo_xml updateinfo_xml_gz_path (fun xml_file_path ->
+                  let repodata_dir = Filename.concat repo_dir "repodata" in
+                  ignore
+                    (Helpers.call_script
+                       !Xapi_globs.modifyrepo_cmd
+                       [ "--remove"; "updateinfo"; repodata_dir ] ) ;
+                  ignore
+                    (Helpers.call_script
+                       !Xapi_globs.modifyrepo_cmd
+                       [ "--mdtype"; "updateinfo"; xml_file_path; repodata_dir ] ) )
+          | false ->
+              error "No updateinfo.xml.gz found: %s" updateinfo_xml_gz_path ;
+              raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+      with
     | Api_errors.(Server_error (code, _)) as e
       when code <> Api_errors.internal_error ->
         raise e
     | e ->
-        error "Creating local pool repository failed: %s"
+        error
+          "Creating local pool repository failed: %s"
           (ExnHelper.string_of_exn e) ;
-        raise Api_errors.(Server_error (createrepo_failed, []))
-  )
+        raise Api_errors.(Server_error (createrepo_failed, [])) )
   | false ->
       error "local pool repository directory '%s' does not exist" repo_dir ;
       raise Api_errors.(Server_error (reposync_failed, []))
+
 
 let get_host_updates_in_json ~__context ~installed =
   try
@@ -354,25 +389,28 @@ let get_host_updates_in_json ~__context ~installed =
           |> List.map (get_update_in_json ~installed_pkgs:[])
         in
         let accumulative_updates_in_json =
-          prune_accumulative_updates ~accumulative_updates ~latest_updates
+          prune_accumulative_updates
+            ~accumulative_updates
+            ~latest_updates
             ~installed_pkgs
           |> List.map (get_update_in_json ~installed_pkgs)
         in
         `Assoc
-          [
-            ("updates", `List latest_updates_in_json)
+          [ ("updates", `List latest_updates_in_json)
           ; ("accumulative_updates", `List accumulative_updates_in_json)
-          ]
-    )
+          ] )
   with
   | Api_errors.(Server_error (code, _)) as e
     when code <> Api_errors.internal_error ->
       raise e
   | e ->
       let ref = Ref.string_of (Helpers.get_localhost ~__context) in
-      error "Failed to get host updates on host ref=%s: %s" ref
+      error
+        "Failed to get host updates on host ref=%s: %s"
+        ref
         (ExnHelper.string_of_exn e) ;
-      raise Api_errors.(Server_error (get_host_updates_failed, [ref]))
+      raise Api_errors.(Server_error (get_host_updates_failed, [ ref ]))
+
 
 (* This handler hosts HTTP endpoint '/repository' which will be available iif
  * 'is_local_pool_repo_enabled' returns true with 'with_pool_repositories' being called by
@@ -383,9 +421,10 @@ let get_repository_handler (req : Http.Request.t) s _ =
   let open Xapi_stdext_std.Xstringext in
   debug "Repository.get_repository_handler URL %s" req.Request.uri ;
   req.Request.close <- true ;
-  if Fileserver.access_forbidden req s then
-    Http_svr.response_forbidden ~req s
-  else if is_local_pool_repo_enabled () then (
+  if Fileserver.access_forbidden req s
+  then Http_svr.response_forbidden ~req s
+  else if is_local_pool_repo_enabled ()
+  then (
     try
       let len = String.length Constants.get_repository_uri in
       match String.sub_to_end req.Request.uri len with
@@ -394,18 +433,22 @@ let get_repository_handler (req : Http.Request.t) s _ =
           Fileserver.response_file s (Helpers.resolve_uri_path ~root ~uri_path)
       | exception e ->
           let msg =
-            Printf.sprintf "Failed to get path from uri': %s"
+            Printf.sprintf
+              "Failed to get path from uri': %s"
               (ExnHelper.string_of_exn e)
           in
-          raise Api_errors.(Server_error (internal_error, [msg]))
-    with e ->
-      error "Failed to serve for request on uri %s: %s" req.Request.uri
-        (ExnHelper.string_of_exn e) ;
-      Http_svr.response_forbidden ~req s
-  ) else (
+          raise Api_errors.(Server_error (internal_error, [ msg ]))
+    with
+    | e ->
+        error
+          "Failed to serve for request on uri %s: %s"
+          req.Request.uri
+          (ExnHelper.string_of_exn e) ;
+        Http_svr.response_forbidden ~req s )
+  else (
     error "Rejecting request: local pool repository is not enabled" ;
-    Http_svr.response_forbidden ~req s
-  )
+    Http_svr.response_forbidden ~req s )
+
 
 let parse_updateinfo ~__context ~self =
   let hash = Db.Repository.get_hash ~__context ~self in
@@ -414,16 +457,17 @@ let parse_updateinfo ~__context ~self =
   let repodata_dir = Filename.concat repo_dir "repodata" in
   let repomd_xml_path = Filename.concat repodata_dir "repomd.xml" in
   let md = UpdateInfoMetaData.of_xml_file repomd_xml_path in
-  if hash <> md.UpdateInfoMetaData.checksum then (
+  if hash <> md.UpdateInfoMetaData.checksum
+  then (
     let msg =
       Printf.sprintf
         "Unexpected mismatch between XAPI DB (%s) and YUM DB (%s). Need to do \
          pool.sync-updates again."
-        hash md.UpdateInfoMetaData.checksum
+        hash
+        md.UpdateInfoMetaData.checksum
     in
     error "%s: %s" repo_name msg ;
-    raise Api_errors.(Server_error (internal_error, [msg]))
-  ) ;
+    raise Api_errors.(Server_error (internal_error, [ msg ])) ) ;
   let updateinfo_xml_gz_path =
     Filename.concat repo_dir md.UpdateInfoMetaData.location
   in
@@ -434,41 +478,41 @@ let parse_updateinfo ~__context ~self =
   | true ->
       with_updateinfo_xml updateinfo_xml_gz_path UpdateInfo.of_xml_file
 
+
 let get_pool_updates_in_json ~__context ~hosts =
   try
     let repository = get_single_enabled_update_repository ~__context in
-    if Hashtbl.length updates_in_cache > 0 then
+    if Hashtbl.length updates_in_cache > 0
+    then
       let repository_name = get_repository_name ~__context ~self:repository in
       let updates_info = parse_updateinfo ~__context ~self:repository in
       let updates_of_hosts, ids_of_updates =
         Hashtbl.fold
           (fun host updates_of_host (acc1, acc2) ->
-            if List.mem host hosts then
+            if List.mem host hosts
+            then
               let json_of_host, uids =
-                consolidate_updates_of_host ~repository_name ~updates_info
-                  (Ref.string_of host) updates_of_host
+                consolidate_updates_of_host
+                  ~repository_name
+                  ~updates_info
+                  (Ref.string_of host)
+                  updates_of_host
               in
               (json_of_host :: acc1, UpdateIdSet.union uids acc2)
-            else
-              (acc1, acc2)
-            )
-          updates_in_cache ([], UpdateIdSet.empty)
+            else (acc1, acc2) )
+          updates_in_cache
+          ([], UpdateIdSet.empty)
       in
       `Assoc
-        [
-          ("hosts", `List updates_of_hosts)
+        [ ("hosts", `List updates_of_hosts)
         ; ( "updates"
           , `List
-              (UpdateIdSet.elements ids_of_updates
+              ( UpdateIdSet.elements ids_of_updates
               |> List.map (fun uid ->
-                     UpdateInfo.to_json (List.assoc uid updates_info)
-                 )
-              )
-          )
+                     UpdateInfo.to_json (List.assoc uid updates_info) ) ) )
         ; ("hash", `String (Db.Repository.get_hash ~__context ~self:repository))
         ]
-    else
-      raise Api_errors.(Server_error (updates_require_sync, []))
+    else raise Api_errors.(Server_error (updates_require_sync, []))
   with
   | Api_errors.(Server_error (code, _)) as e
     when code <> Api_errors.internal_error ->
@@ -477,24 +521,26 @@ let get_pool_updates_in_json ~__context ~hosts =
       error "getting updates for pool failed: %s" (ExnHelper.string_of_exn e) ;
       raise Api_errors.(Server_error (get_updates_failed, []))
 
+
 let apply ~__context ~host =
   (* This function runs on slave host *)
   with_local_repositories ~__context (fun repositories ->
       let params =
-        [
-          "-y"
+        [ "-y"
         ; "--disablerepo=*"
         ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
         ; "upgrade"
         ]
       in
-      try ignore (Helpers.call_script !Xapi_globs.yum_cmd params)
-      with e ->
-        let host' = Ref.string_of host in
-        error "Failed to apply updates on host ref='%s': %s" host'
-          (ExnHelper.string_of_exn e) ;
-        raise Api_errors.(Server_error (apply_updates_failed, [host']))
-  )
+      try ignore (Helpers.call_script !Xapi_globs.yum_cmd params) with
+      | e ->
+          let host' = Ref.string_of host in
+          error
+            "Failed to apply updates on host ref='%s': %s"
+            host'
+            (ExnHelper.string_of_exn e) ;
+          raise Api_errors.(Server_error (apply_updates_failed, [ host' ])) )
+
 
 let do_with_device_models ~__context ~host ~action_label f =
   (* Call f with device models of all running HVM VMs on the host *)
@@ -507,7 +553,8 @@ let do_with_device_models ~__context ~host ~action_label f =
       ()
   | _ :: _ ->
       let host' = Ref.string_of host in
-      raise Api_errors.(Server_error (cannot_restart_device_model, [host']))
+      raise Api_errors.(Server_error (cannot_restart_device_model, [ host' ]))
+
 
 let set_pending_restart_device_models ~__context ~host =
   (* Set pending restart device models of all running HVM VMs on the host *)
@@ -517,12 +564,15 @@ let set_pending_restart_device_models ~__context ~host =
     (record.API.vM_power_state, Helpers.has_qemu_currently ~__context ~self:ref)
   with
   | `Running, true | `Paused, true ->
-      Db.VM.add_pending_guidances ~__context ~self:ref
+      Db.VM.add_pending_guidances
+        ~__context
+        ~self:ref
         ~value:`restart_device_model ;
       None
   | _ ->
       (* No device models are running for this VM *)
       None
+
 
 let restart_device_models ~__context ~host =
   (* Restart device models of all running HVM VMs on the host by doing
@@ -534,17 +584,22 @@ let restart_device_models ~__context ~host =
   with
   | `Running, true ->
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.VM.pool_migrate rpc session_id ref host
-            [("live", "true")]
-      ) ;
+          Client.Client.VM.pool_migrate
+            rpc
+            session_id
+            ref
+            host
+            [ ("live", "true") ] ) ;
       None
   | `Paused, true ->
-      error "VM 'ref=%s' is paused, can't restart device models for it"
+      error
+        "VM 'ref=%s' is paused, can't restart device models for it"
         (Ref.string_of ref) ;
       Some ref
   | _ ->
       (* No device models are running for this VM *)
       None
+
 
 let apply_immediate_guidances ~__context ~host ~guidances =
   (* This function runs on master host *)
@@ -555,16 +610,16 @@ let apply_immediate_guidances ~__context ~host ~guidances =
         match guidances with
         | [] ->
             ()
-        | [RebootHost] ->
+        | [ RebootHost ] ->
             Client.Host.reboot ~rpc ~session_id ~host
-        | [EvacuateHost] ->
+        | [ EvacuateHost ] ->
             (* EvacuatHost should be done before applying updates by XAPI users.
              * Here only the guidances to be applied after applying updates are handled.
              *)
             ()
-        | [RestartDeviceModel] ->
+        | [ RestartDeviceModel ] ->
             restart_device_models ~__context ~host
-        | [RestartToolstack] ->
+        | [ RestartToolstack ] ->
             Client.Host.restart_agent ~rpc ~session_id ~host
         | l when GuidanceSet.eq_set1 l ->
             (* EvacuateHost and RestartToolstack *)
@@ -580,38 +635,45 @@ let apply_immediate_guidances ~__context ~host ~guidances =
                ref='%s': %s"
               host'
               (String.concat ";" (List.map Guidance.to_string l)) ;
-            raise Api_errors.(Server_error (apply_guidance_failed, [host']))
-    )
-  with e ->
-    let host' = Ref.string_of host in
-    error "applying immediate guidances on host ref='%s' failed: %s" host'
-      (ExnHelper.string_of_exn e) ;
-    raise Api_errors.(Server_error (apply_guidance_failed, [host']))
+            raise Api_errors.(Server_error (apply_guidance_failed, [ host' ])) )
+  with
+  | e ->
+      let host' = Ref.string_of host in
+      error
+        "applying immediate guidances on host ref='%s' failed: %s"
+        host'
+        (ExnHelper.string_of_exn e) ;
+      raise Api_errors.(Server_error (apply_guidance_failed, [ host' ]))
+
 
 let set_pending_guidances ~__context ~host ~guidances =
   let open Guidance in
   guidances
   |> List.iter (function
-       | RebootHost ->
-           Db.Host.add_pending_guidances ~__context ~self:host
-             ~value:`reboot_host
-       | RestartToolstack ->
-           Db.Host.add_pending_guidances ~__context ~self:host
-             ~value:`restart_toolstack
-       | RestartDeviceModel ->
-           set_pending_restart_device_models ~__context ~host
-       | g ->
-           warn "Unsupported pending guidance %s, ignore it."
-             (Guidance.to_string g)
-       )
+         | RebootHost ->
+             Db.Host.add_pending_guidances
+               ~__context
+               ~self:host
+               ~value:`reboot_host
+         | RestartToolstack ->
+             Db.Host.add_pending_guidances
+               ~__context
+               ~self:host
+               ~value:`restart_toolstack
+         | RestartDeviceModel ->
+             set_pending_restart_device_models ~__context ~host
+         | g ->
+             warn
+               "Unsupported pending guidance %s, ignore it."
+               (Guidance.to_string g) )
+
 
 let apply_updates ~__context ~host ~hash =
   (* This function runs on master host *)
   try
     let repository = get_single_enabled_update_repository ~__context in
     if hash = "" || hash <> Db.Repository.get_hash ~__context ~self:repository
-    then
-      raise Api_errors.(Server_error (updateinfo_hash_mismatch, [])) ;
+    then raise Api_errors.(Server_error (updateinfo_hash_mismatch, [])) ;
     with_pool_repositories (fun () ->
         let host_updates =
           http_get_host_updates_in_json ~__context ~host ~installed:true
@@ -653,23 +715,25 @@ let apply_updates ~__context ~host ~hash =
             in
             GuidanceSet.assert_valid_guidances immediate_guidances ;
             Helpers.call_api_functions ~__context (fun rpc session_id ->
-                Client.Client.Repository.apply ~rpc ~session_id ~host
-            ) ;
-            Hashtbl.replace updates_in_cache host
+                Client.Client.Repository.apply ~rpc ~session_id ~host ) ;
+            Hashtbl.replace
+              updates_in_cache
+              host
               (`Assoc
-                [("updates", `List []); ("accumulative_updates", `List [])]
-                ) ;
+                [ ("updates", `List []); ("accumulative_updates", `List []) ] ) ;
             set_pending_guidances ~__context ~host ~guidances:pending_guidances ;
-            immediate_guidances
-    )
+            immediate_guidances )
   with
   | Api_errors.(Server_error (code, _)) as e
     when code <> Api_errors.internal_error ->
       raise e
   | e ->
       let host' = Ref.string_of host in
-      error "applying updates on host ref='%s' failed: %s" host'
+      error
+        "applying updates on host ref='%s' failed: %s"
+        host'
         (ExnHelper.string_of_exn e) ;
-      raise Api_errors.(Server_error (apply_updates_failed, [host']))
+      raise Api_errors.(Server_error (apply_updates_failed, [ host' ]))
+
 
 let reset_updates_in_cache () = Hashtbl.clear updates_in_cache

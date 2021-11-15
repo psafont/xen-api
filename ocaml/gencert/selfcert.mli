@@ -16,7 +16,7 @@ val fist_path : string
 (** Path to a file; if this file exists, newly created certificates will
 be backdated to 2008-07-01 and any [valid_from] ignored *)
 
-val write_certs : string -> string -> (unit, [> Rresult.R.msg]) result
+val write_certs : string -> string -> (unit, [> Rresult.R.msg ]) result
 (** [write_certs path pkcs12] writes [pkcs12] to [path] atomically.
 [pkcs12] should contain a components of a PKCS12 Certificate *)
 

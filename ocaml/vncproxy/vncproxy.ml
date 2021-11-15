@@ -21,18 +21,15 @@ let _ =
   let password = ref "" in
   let ip = ref "127.0.0.1" in
   Arg.parse
-    [
-      ("-vm", Arg.Set_string vm, "VM uuid or name-label")
+    [ ("-vm", Arg.Set_string vm, "VM uuid or name-label")
     ; ( "-s"
       , Arg.Set_string server
-      , "server hostname or IP (default unix domain socket)"
-      )
+      , "server hostname or IP (default unix domain socket)" )
     ; ("-u", Arg.Set_string username, "username")
     ; ("-pw", Arg.Set_string password, "password")
     ; ( "-v"
       , Arg.Set_string ip
-      , Printf.sprintf "IP address to listen on (default %s)" !ip
-      )
+      , Printf.sprintf "IP address to listen on (default %s)" !ip )
     ]
     (fun x -> Printf.fprintf stderr "Ignoring: %s\n" x)
     "Proxy VNC traffic" ;
@@ -59,35 +56,42 @@ let _ =
   let pid = Unix.fork () in
   if pid <> 0 then exit 0 ;
   (* child *)
-  if Unix.setsid () <> Unix.getpid () then
-    Printf.fprintf stderr "Unix.setsid() failed" ;
+  if Unix.setsid () <> Unix.getpid ()
+  then Printf.fprintf stderr "Unix.setsid() failed" ;
   Unix.chdir "/" ;
   ignore (Unix.umask 0) ;
-  Xapi_stdext_unix.Unixext.close_all_fds_except [sock] ;
+  Xapi_stdext_unix.Unixext.close_all_fds_except [ sock ] ;
   let s, _ = Unix.accept sock in
   let rpc xml =
     let open Xmlrpc_client in
     let http = xmlrpc ~version:"1.0" "/" in
     match !server with
     | "" ->
-        XMLRPC_protocol.rpc ~srcstr:"vncproxy" ~dststr:"xapi"
+        XMLRPC_protocol.rpc
+          ~srcstr:"vncproxy"
+          ~dststr:"xapi"
           ~transport:(Unix (Filename.concat "/var/lib/xcp" "xapi"))
-          ~http xml
+          ~http
+          xml
     | host ->
-        XMLRPC_protocol.rpc ~srcstr:"vncproxy" ~dststr:"xapi"
+        XMLRPC_protocol.rpc
+          ~srcstr:"vncproxy"
+          ~dststr:"xapi"
           ~transport:
             (SSL
-               ( SSL.make ~verify_cert:(Stunnel_client.pool ())
-                   ~use_fork_exec_helper:false ()
+               ( SSL.make
+                   ~verify_cert:(Stunnel_client.pool ())
+                   ~use_fork_exec_helper:false
+                   ()
                , host
-               , 443
-               )
-            )
-          ~http xml
+               , 443 ) )
+          ~http
+          xml
   in
   let find_vm rpc session_id vm =
-    try Client.VM.get_by_uuid rpc session_id vm
-    with _ -> List.hd (Client.VM.get_by_name_label rpc session_id vm)
+    try Client.VM.get_by_uuid rpc session_id vm with
+    | _ ->
+        List.hd (Client.VM.get_by_name_label rpc session_id vm)
   in
   let session_id =
     Client.Session.login_with_password rpc !username !password "1.1" "vncproxy"
@@ -99,22 +103,22 @@ let _ =
       let address = Client.Host.get_address rpc session_id resident_on in
       let open Xmlrpc_client in
       let http =
-        connect ~session_id:(Ref.string_of session_id)
+        connect
+          ~session_id:(Ref.string_of session_id)
           (Printf.sprintf "%s?ref=%s" Constants.console_uri (Ref.string_of vm))
       in
       let transport =
         SSL
-          ( SSL.make ~verify_cert:(Stunnel_client.pool ())
-              ~use_fork_exec_helper:false ()
+          ( SSL.make
+              ~verify_cert:(Stunnel_client.pool ())
+              ~use_fork_exec_helper:false
+              ()
           , address
-          , 443
-          )
+          , 443 )
       in
-      with_transport transport
+      with_transport
+        transport
         (with_http http (fun (response, fd) ->
              (* NB this will double-close [fd] *)
-             Xapi_stdext_unix.Unixext.proxy s fd
-         )
-        )
-      )
+             Xapi_stdext_unix.Unixext.proxy s fd ) ) )
     (fun () -> Client.Session.logout rpc session_id)

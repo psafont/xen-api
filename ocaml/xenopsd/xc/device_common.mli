@@ -12,7 +12,15 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string | NetSriovVf
+type kind =
+  | Vif
+  | Tap
+  | Pci
+  | Vfs
+  | Vfb
+  | Vkbd
+  | Vbd of string
+  | NetSriovVf
 
 val vbd_kind_of_string : string -> kind
 
@@ -21,10 +29,17 @@ val default_vbd_frontend_kind : kind
 type devid = int
 
 (** Represents one end of a device *)
-type endpoint = {domid: int; kind: kind; devid: int}
+type endpoint =
+  { domid : int
+  ; kind : kind
+  ; devid : int
+  }
 
 (** Represent a device as a pair of endpoints *)
-type device = {frontend: endpoint; backend: endpoint}
+type device =
+  { frontend : endpoint
+  ; backend : endpoint
+  }
 
 val typ_of_device : device Rpc.Types.typ
 
@@ -117,7 +132,10 @@ val add_backend_keys :
 val remove_backend_keys :
   xs:Xenstore.Xs.xsh -> device -> string -> string list -> unit
 
-type protocol = Protocol_Native | Protocol_X86_32 | Protocol_X86_64
+type protocol =
+  | Protocol_Native
+  | Protocol_X86_32
+  | Protocol_X86_64
 
 val string_of_protocol : protocol -> string
 

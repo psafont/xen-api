@@ -18,7 +18,9 @@ open Xenops_helpers
 open Xenops_task
 open Device_common
 
-module D = Debug.Make (struct let name = "xenops" end)
+module D = Debug.Make (struct
+  let name = "xenops"
+end)
 
 open D
 
@@ -44,6 +46,7 @@ let string_of = function
   | TestPath x ->
       x
 
+
 let root = "/xenops/tasks"
 
 let path_of domid = Printf.sprintf "%s/%d" root domid
@@ -51,7 +54,9 @@ let path_of domid = Printf.sprintf "%s/%d" root domid
 let cancel_path_of ~xs = function
   | Device x ->
       (* Device operations can be cancelled separately *)
-      Printf.sprintf "%s/%s/%d/cancel" (path_of x.frontend.domid)
+      Printf.sprintf
+        "%s/%s/%d/cancel"
+        (path_of x.frontend.domid)
         (string_of_kind x.backend.kind)
         x.backend.devid
   | Domain domid ->
@@ -66,9 +71,12 @@ let cancel_path_of ~xs = function
   | TestPath x ->
       x
 
+
 let shutdown_path_of ~xs = function
   | Device x ->
-      Printf.sprintf "%s/%s/%d/shutdown" (path_of x.frontend.domid)
+      Printf.sprintf
+        "%s/%s/%d/shutdown"
+        (path_of x.frontend.domid)
         (string_of_kind x.backend.kind)
         x.backend.devid
   | Domain domid ->
@@ -84,28 +92,31 @@ let shutdown_path_of ~xs = function
   | TestPath x ->
       x
 
+
 let cleanup_for_domain ~xs domid =
-  try xs.Xs.rm (path_of domid)
-  with _ ->
-    warn "Failed to clean up xenstore cancellation paths for domain %d" domid
+  try xs.Xs.rm (path_of domid) with
+  | _ ->
+      warn "Failed to clean up xenstore cancellation paths for domain %d" domid
+
 
 let watches_of ~xs key =
-  [
-    Watch.key_to_disappear (cancel_path_of ~xs key)
+  [ Watch.key_to_disappear (cancel_path_of ~xs key)
   ; Watch.value_to_become (shutdown_path_of ~xs key) ""
   ]
 
+
 let cancel ~xs key =
   let path = cancel_path_of ~xs key in
-  if
-    try
-      ignore (xs.Xs.read path) ;
-      true
-    with _ -> false
+  if try
+       ignore (xs.Xs.read path) ;
+       true
+     with
+     | _ ->
+         false
   then (
     info "Cancelling operation on device: %s" (string_of key) ;
-    xs.Xs.rm path
-  )
+    xs.Xs.rm path )
+
 
 let on_shutdown ~xs domid =
   let path = shutdown_path_of ~xs (Domain domid) in
@@ -116,53 +127,64 @@ let on_shutdown ~xs domid =
         try
           ignore (t.Xst.read domainpath) ;
           true
-        with _ -> false
+        with
+        | _ ->
+            false
       in
-      if exists then
+      if exists
+      then
         let control_path = Printf.sprintf "%s/control/shutdown" domainpath in
         let shutdown_in_progress =
           try t.Xst.read control_path <> "" with _ -> false
         in
-        if shutdown_in_progress then
-          t.Xst.rm control_path
-        else
-          t.Xst.write path ""
+        if shutdown_in_progress
+        then t.Xst.rm control_path
+        else t.Xst.write path ""
       else
         info
           "Not cancelling watches associated with domid: %d- domain nolonger \
            exists"
-          domid
-  )
+          domid )
+
 
 let with_path ~xs key f =
   let path = cancel_path_of ~xs key in
   Xapi_stdext_pervasives.Pervasiveext.finally
-    (fun () -> xs.Xs.write path "" ; f ())
     (fun () ->
-      try xs.Xs.rm path
-      with _ ->
-        debug "ignoring cancel request: operation has already terminated" ;
-        (* This means a cancel happened just as we succeeded; it was too late
-           and we ignore it. *)
-        ()
-      )
+      xs.Xs.write path "" ;
+      f () )
+    (fun () ->
+      try xs.Xs.rm path with
+      | _ ->
+          debug "ignoring cancel request: operation has already terminated" ;
+          (* This means a cancel happened just as we succeeded; it was too late
+             and we ignore it. *)
+          () )
 
-let cancellable_watch key good_watches error_watches
-    (task : Xenops_task.task_handle) ~xs ~timeout () =
+
+let cancellable_watch
+    key
+    good_watches
+    error_watches
+    (task : Xenops_task.task_handle)
+    ~xs
+    ~timeout
+    () =
   with_path ~xs key (fun () ->
-      Xenops_task.with_cancel task
+      Xenops_task.with_cancel
+        task
         (fun () -> with_xs (fun xs -> cancel ~xs key))
         (fun () ->
           let cancel_watches = watches_of ~xs key in
           let rec loop () =
             let _, _ =
-              Watch.wait_for ~xs ~timeout
+              Watch.wait_for
+                ~xs
+                ~timeout
                 (Watch.any_of
                    (List.map
                       (fun w -> ((), w))
-                      (good_watches @ error_watches @ cancel_watches)
-                   )
-                )
+                      (good_watches @ error_watches @ cancel_watches) ) )
             in
             let any_have_fired ws =
               List.fold_left ( || ) false (List.map (Watch.has_fired ~xs) ws)
@@ -174,8 +196,7 @@ let cancellable_watch key good_watches error_watches
             match
               ( any_have_fired good_watches
               , any_have_fired error_watches
-              , any_have_fired cancel_watches
-              )
+              , any_have_fired cancel_watches )
             with
             | true, _, _ ->
                 true
@@ -187,6 +208,4 @@ let cancellable_watch key good_watches error_watches
                 (* they must have fired and then fired again: retest *)
                 loop ()
           in
-          loop ()
-          )
-  )
+          loop () ) )

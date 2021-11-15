@@ -15,18 +15,18 @@
 open Cmdliner
 
 let help_secs =
-  [
-    `S "MORE HELP"
+  [ `S "MORE HELP"
   ; `P "Use `$(mname) $(i,command) --help' for help on a single command."
   ; `Noblank
   ]
+
 
 let default_cmd =
   let doc = "RRD protocol reader" in
   let man = help_secs in
   ( Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ pure ()))
-  , Term.info "reader" ~version:"0.1" ~doc ~man
-  )
+  , Term.info "reader" ~version:"0.1" ~doc ~man )
+
 
 let read_file_cmd =
   let path =
@@ -39,19 +39,18 @@ let read_file_cmd =
   in
   let once =
     let doc = "If set, only read data once rather than in a loop." in
-    Arg.(value & flag & info ["once"] ~docv:"ONCE" ~doc)
+    Arg.(value & flag & info [ "once" ] ~docv:"ONCE" ~doc)
   in
   let doc = "read from a file" in
   let man =
-    [
-      `S "DESCRIPTION"
+    [ `S "DESCRIPTION"
     ; `P "Read rrd data from a file, using the specified protocol"
     ]
     @ help_secs
   in
   ( Term.(pure Reader_commands.read_file $ once $ path $ protocol)
-  , Term.info "file" ~doc ~man
-  )
+  , Term.info "file" ~doc ~man )
+
 
 let read_page_cmd =
   let domid =
@@ -70,8 +69,7 @@ let read_page_cmd =
   in
   let doc = "read from a page of shared memory" in
   let man =
-    [
-      `S "DESCRIPTION"
+    [ `S "DESCRIPTION"
     ; `P
         "Read rrd data from a page of shared memory, using the specified \
          protocol"
@@ -79,10 +77,10 @@ let read_page_cmd =
     @ help_secs
   in
   ( Term.(pure Reader_commands.read_page $ domid $ grantref $ protocol)
-  , Term.info "page" ~doc ~man
-  )
+  , Term.info "page" ~doc ~man )
 
-let cmds = [read_file_cmd; read_page_cmd]
+
+let cmds = [ read_file_cmd; read_page_cmd ]
 
 let () =
   match Term.eval_choice default_cmd cmds with

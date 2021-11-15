@@ -15,13 +15,13 @@
 open Datamodel_types
 open Printf
 
-let keywords = ["mod"; "type"; "class"; "ref"; "and"]
+let keywords = [ "mod"; "type"; "class"; "ref"; "and" ]
 
 let escape x =
-  if List.mem x keywords then
-    "_" ^ x
-  else
-    match x.[0] with 'a' .. 'z' | '_' -> x | _ -> "_" ^ x
+  if List.mem x keywords
+  then "_" ^ x
+  else match x.[0] with 'a' .. 'z' | '_' -> x | _ -> "_" ^ x
+
 
 (** Escape enum names to make them readable polymorphic variant type
     constructors. *)
@@ -42,6 +42,7 @@ let constructor_of string =
   in
   String.concat "" list
 
+
 (* generates: vM *)
 let ocaml_of_record_name x = escape (String.uncapitalize_ascii x)
 
@@ -58,11 +59,13 @@ let ocaml_of_record_field = function
   | h :: t ->
       ocaml_of_record_field_rpc (String.uncapitalize_ascii h :: t)
 
+
 let ocaml_of_module_name x = String.capitalize_ascii x
 
 (** Convert an IDL enum into a polymorhic variant. *)
 let ocaml_of_enum list =
   "[ " ^ String.concat " | " (List.map constructor_of list) ^ " ]"
+
 
 (** Convert an IDL type to a function name; we need to generate functions to
     marshal/unmarshal from XML for each unique IDL type *)
@@ -91,6 +94,7 @@ let rec alias_of_ty ?(prefix = "") = function
       sprintf "%s_t" (ocaml_of_record_name x)
   | Option x ->
       sprintf "%s_option" (alias_of_ty x)
+
 
 (** Convert an IDL type into a string containing OCaml code representing the
     type. *)
@@ -123,10 +127,11 @@ let rec ocaml_of_ty = function
   | Record x ->
       failwith "ocaml_of_ty got a record"
 
+
 (** Take an object name and return the corresponding ocaml name *)
 let ocaml_of_obj_name x =
-  if x = "" then
-    failwith "Empty object name"
+  if x = ""
+  then failwith "Empty object name"
   else
     match x.[0] with
     | 'A' .. 'Z' | 'a' .. 'z' ->

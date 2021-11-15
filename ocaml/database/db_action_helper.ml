@@ -18,6 +18,7 @@ let __callback :
     (?snapshot:Rpc.t -> string -> string -> string -> unit) option ref =
   ref None
 
+
 let events_register f = __callback := Some f
 
 let events_unregister () = __callback := None

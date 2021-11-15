@@ -12,7 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "license" end)
+module D = Debug.Make (struct
+  let name = "license"
+end)
 
 open D
 
@@ -27,14 +29,11 @@ and lst4 (_, _, _, i) = i
 
 let find_min_edition allowed_editions =
   List.fold_left
-    (fun a b ->
-      if lst4 a < lst4 b then
-        a
-      else
-        b
-      )
-    ("", "", "", max_int) allowed_editions
+    (fun a b -> if lst4 a < lst4 b then a else b)
+    ("", "", "", max_int)
+    allowed_editions
   |> fst4
+
 
 let initialise_host_editions ~__context ~host =
   let dbg = Context.string_of_task __context in
@@ -42,6 +41,7 @@ let initialise_host_editions ~__context ~host =
     List.map V6_interface.(fun ed -> ed.title) (V6_client.get_editions dbg)
   in
   Db.Host.set_editions ~__context ~self:host ~value:editions
+
 
 (* xapi calls this function upon startup *)
 let initialise ~__context ~host =
@@ -55,8 +55,11 @@ let initialise ~__context ~host =
   in
   try
     let edition = Db.Host.get_edition ~__context ~self:host in
-    Xapi_host.apply_edition_internal ~__context ~host ~edition
-      ~additional:[("force", "true")]
+    Xapi_host.apply_edition_internal
+      ~__context
+      ~host
+      ~edition
+      ~additional:[ ("force", "true") ]
   with
   | Api_errors.Server_error (code, []) when code = Api_errors.v6d_failure ->
       (* Couldn't communicate with v6d, so fall back to running in free/libre

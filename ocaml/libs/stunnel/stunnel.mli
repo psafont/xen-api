@@ -34,26 +34,28 @@ val debug_conf_of_bool : bool -> string
 
 val debug_conf_of_env : unit -> string
 
-type verify = VerifyPeer | CheckHost
+type verify =
+  | VerifyPeer
+  | CheckHost
 
-type verification_config = {
-    sni: string option
-  ; verify: verify
-  ; cert_bundle_path: string
-}
+type verification_config =
+  { sni : string option
+  ; verify : verify
+  ; cert_bundle_path : string
+  }
 
 (** Represents an active stunnel connection *)
-type t = {
-    mutable pid: pid
-  ; fd: Safe_resources.Unixfd.t
-  ; host: string
-  ; port: int
-  ; connected_time: float
+type t =
+  { mutable pid : pid
+  ; fd : Safe_resources.Unixfd.t
+  ; host : string
+  ; port : int
+  ; connected_time : float
         (** time when the connection opened, for 'early retirement' *)
-  ; unique_id: int option
-  ; mutable logfile: string
-  ; verified: verification_config option
-}
+  ; unique_id : int option
+  ; mutable logfile : string
+  ; verified : verification_config option
+  }
 
 val appliance : verification_config
 

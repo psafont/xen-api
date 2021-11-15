@@ -23,11 +23,15 @@
 open Db_exn
 open Db_lock
 
-module D = Debug.Make (struct let name = "sql" end)
+module D = Debug.Make (struct
+  let name = "sql"
+end)
 
 open D
 
-module W = Debug.Make (struct let name = "db_write" end)
+module W = Debug.Make (struct
+  let name = "db_write"
+end)
 
 open Db_cache_types
 open Db_ref
@@ -39,22 +43,30 @@ let initialise () = ()
 
 (* This fn is part of external interface, so need to take lock *)
 let get_table_from_ref t objref =
-  try Some (Database.table_of_ref objref (get_database t))
-  with Not_found -> None
+  try Some (Database.table_of_ref objref (get_database t)) with
+  | Not_found ->
+      None
+
 
 let is_valid_ref t objref =
   match get_table_from_ref t objref with Some _ -> true | None -> false
 
+
 let read_field_internal _ tblname fldname objref db =
   try
-    Row.find fldname
+    Row.find
+      fldname
       (Table.find objref (TableSet.find tblname (Database.tableset db)))
-  with Not_found -> raise (DBCache_NotFound ("missing row", tblname, objref))
+  with
+  | Not_found ->
+      raise (DBCache_NotFound ("missing row", tblname, objref))
+
 
 (* Read field from cache *)
 let read_field t tblname fldname objref =
   Schema.Value.marshal
     (read_field_internal t tblname fldname objref (get_database t))
+
 
 (** Finds the longest XML-compatible UTF-8 prefix of the given
     string, by truncating the string at the first incompatible
@@ -65,26 +77,26 @@ let ensure_utf8_xml string =
   let prefix =
     Xapi_stdext_encodings.Encodings.UTF8_XML.longest_valid_prefix string
   in
-  if length > String.length prefix then
-    warn "string truncated to: '%s'." prefix ;
+  if length > String.length prefix then warn "string truncated to: '%s'." prefix ;
   prefix
+
 
 (* Write field in cache *)
 let write_field_locked t tblname objref fldname newval =
   let current_val = get_field tblname objref fldname (get_database t) in
-  if current_val <> newval then (
+  if current_val <> newval
+  then (
     ( match newval with
     | Schema.Value.String s ->
-        if not (Xapi_stdext_encodings.Encodings.UTF8_XML.is_valid s) then
-          raise Invalid_value
+        if not (Xapi_stdext_encodings.Encodings.UTF8_XML.is_valid s)
+        then raise Invalid_value
     | _ ->
-        ()
-    ) ;
+        () ) ;
     update_database t (set_field tblname objref fldname newval) ;
     Database.notify
       (WriteField (tblname, objref, fldname, current_val, newval))
-      (get_database t)
-  )
+      (get_database t) )
+
 
 let write_field t tblname objref fldname newval =
   let db = get_database t in
@@ -93,9 +105,11 @@ let write_field t tblname objref fldname newval =
   let newval = Schema.Value.unmarshal column.Schema.Column.ty newval in
   with_lock (fun () -> write_field_locked t tblname objref fldname newval)
 
+
 let touch_row t tblname objref =
   update_database t (touch tblname objref) ;
   Database.notify (RefreshRow (tblname, objref)) (get_database t)
+
 
 (* setrefs contain the relationships from tbl to other tables in the form:
    local-classname, local-fieldname, remote-classname, remote-fieldname.
@@ -111,10 +125,9 @@ let read_record_internal db tblname objref =
     (* the set_ref fields must be converted back into lists *)
     let map_setref_opt k v =
       let column = Schema.Table.find k schema in
-      if column.Schema.Column.issetref then
-        Some (Schema.Value.Unsafe_cast.set v)
-      else
-        None
+      if column.Schema.Column.issetref
+      then Some (Schema.Value.Unsafe_cast.set v)
+      else None
     in
     let map_fvlist v = Schema.Value.marshal v in
     (* Unfortunately the interface distinguishes between Set(Ref _) types and
@@ -129,10 +142,13 @@ let read_record_internal db tblname objref =
               accum_setref
         in
         let accum_fvlist = (k, map_fvlist d) :: accum_fvlist in
-        (accum_fvlist, accum_setref)
-        )
-      row ([], [])
-  with Not_found -> raise (DBCache_NotFound ("missing row", tblname, objref))
+        (accum_fvlist, accum_setref) )
+      row
+      ([], [])
+  with
+  | Not_found ->
+      raise (DBCache_NotFound ("missing row", tblname, objref))
+
 
 let read_record t = read_record_internal (get_database t)
 
@@ -149,10 +165,14 @@ let delete_row_locked t tblname objref =
       (Delete (tblname, objref, Row.fold (fun k _ v acc -> (k, v) :: acc) row [])
       )
       (get_database t)
-  with Not_found -> raise (DBCache_NotFound ("missing row", tblname, objref))
+  with
+  | Not_found ->
+      raise (DBCache_NotFound ("missing row", tblname, objref))
+
 
 let delete_row t tblname objref =
   with_lock (fun () -> delete_row_locked t tblname objref)
+
 
 (* Create new row in tbl containing specified k-v pairs *)
 let create_row_locked t tblname kvs' new_objref =
@@ -163,8 +183,7 @@ let create_row_locked t tblname kvs' new_objref =
       (fun (key, value) ->
         let value = ensure_utf8_xml value in
         let column = Schema.Table.find key schema in
-        (key, Schema.Value.unmarshal column.Schema.Column.ty value)
-        )
+        (key, Schema.Value.unmarshal column.Schema.Column.ty value) )
       kvs'
   in
   (* we add the reference to the row itself so callers can use read_field_where to
@@ -177,14 +196,20 @@ let create_row_locked t tblname kvs' new_objref =
   let schema = Schema.table tblname (Database.schema (get_database t)) in
   (* fill in default values if kv pairs for these are not supplied already *)
   let row = Row.add_defaults g schema row in
-  W.debug "create_row %s (%s) [%s]" tblname new_objref
-    (String.concat "," (List.map (fun (k, _) -> Printf.sprintf "(%s,v)" k) kvs')) ;
+  W.debug
+    "create_row %s (%s) [%s]"
+    tblname
+    new_objref
+    (String.concat
+       ","
+       (List.map (fun (k, _) -> Printf.sprintf "(%s,v)" k) kvs') ) ;
   update_database t (add_row tblname new_objref row) ;
   Database.notify
     (Create
        (tblname, new_objref, Row.fold (fun k _ v acc -> (k, v) :: acc) row [])
     )
     (get_database t)
+
 
 let fld_check t tblname objref (fldname, value) =
   let v =
@@ -193,9 +218,11 @@ let fld_check t tblname objref (fldname, value) =
   in
   (v = value, fldname, v)
 
+
 let create_row t tblname kvs' new_objref =
   with_lock (fun () ->
-      if is_valid_ref t new_objref then
+      if is_valid_ref t new_objref
+      then
         let uniq_check_list = List.map (fld_check t tblname new_objref) kvs' in
         let failure_opt =
           List.find_opt (fun (tf, _, _) -> not tf) uniq_check_list
@@ -205,9 +232,8 @@ let create_row t tblname kvs' new_objref =
             raise (Integrity_violation (tblname, f, v))
         | _ ->
             ()
-      else
-        create_row_locked t tblname kvs' new_objref
-  )
+      else create_row_locked t tblname kvs' new_objref )
+
 
 (* Do linear scan to find field values which match where clause *)
 let read_field_where t rcd =
@@ -216,48 +242,51 @@ let read_field_where t rcd =
   Table.fold
     (fun _ _ row acc ->
       let field = Schema.Value.marshal (Row.find rcd.where_field row) in
-      if field = rcd.where_value then
-        Schema.Value.marshal (Row.find rcd.return row) :: acc
-      else
-        acc
-      )
-    tbl []
+      if field = rcd.where_value
+      then Schema.Value.marshal (Row.find rcd.return row) :: acc
+      else acc )
+    tbl
+    []
+
 
 let db_get_by_uuid t tbl uuid_val =
   match
-    read_field_where t
-      {
-        table= tbl
-      ; return= Db_names.ref
-      ; where_field= Db_names.uuid
-      ; where_value= uuid_val
+    read_field_where
+      t
+      { table = tbl
+      ; return = Db_names.ref
+      ; where_field = Db_names.uuid
+      ; where_value = uuid_val
       }
   with
   | [] ->
       raise (Read_missing_uuid (tbl, "", uuid_val))
-  | [r] ->
+  | [ r ] ->
       r
   | _ ->
       raise (Too_many_values (tbl, "", uuid_val))
 
+
 (** Return reference fields from tbl that matches specified name_label field *)
 let db_get_by_name_label t tbl label =
-  read_field_where t
-    {
-      table= tbl
-    ; return= Db_names.ref
-    ; where_field= "name__label"
-    ; where_value= label
+  read_field_where
+    t
+    { table = tbl
+    ; return = Db_names.ref
+    ; where_field = "name__label"
+    ; where_value = label
     }
+
 
 (* Read references from tbl *)
 let read_refs t tblname =
   let tbl = TableSet.find tblname (Database.tableset (get_database t)) in
   Table.fold (fun r _ _ acc -> r :: acc) tbl []
 
+
 (* Return a list of all the refs for which the expression returns true. *)
-let find_refs_with_filter_internal db (tblname : string)
-    (expr : Db_filter_types.expr) =
+let find_refs_with_filter_internal
+    db (tblname : string) (expr : Db_filter_types.expr) =
   let tbl = TableSet.find tblname (Database.tableset db) in
   let eval_val row = function
     | Db_filter_types.Literal x ->
@@ -267,12 +296,12 @@ let find_refs_with_filter_internal db (tblname : string)
   in
   Table.fold
     (fun _ _ row acc ->
-      if Db_filter.eval_expr (eval_val row) expr then
-        Schema.Value.Unsafe_cast.string (Row.find Db_names.ref row) :: acc
-      else
-        acc
-      )
-    tbl []
+      if Db_filter.eval_expr (eval_val row) expr
+      then Schema.Value.Unsafe_cast.string (Row.find Db_names.ref row) :: acc
+      else acc )
+    tbl
+    []
+
 
 let find_refs_with_filter t = find_refs_with_filter_internal (get_database t)
 
@@ -282,8 +311,9 @@ let read_records_where t tbl expr =
   if !fist_delay_read_records_where then Thread.delay 0.5 ;
   List.map (fun ref -> (ref, read_record_internal db tbl ref)) reqd_refs
 
-let process_structured_field_locked t (key, value) tblname fld objref
-    proc_fn_selector =
+
+let process_structured_field_locked
+    t (key, value) tblname fld objref proc_fn_selector =
   (* Ensure that both keys and values are valid for UTF-8-encoded XML. *)
   let key = ensure_utf8_xml key in
   let value = ensure_utf8_xml value in
@@ -297,36 +327,47 @@ let process_structured_field_locked t (key, value) tblname fld objref
           add_to_set key existing_str
       | RemoveSet ->
           remove_from_set key existing_str
-      | AddMap | AddMapLegacy -> (
-        try
-          (* We use the idempotent map add if we're using the non-legacy
-             process function, or if the global field 'idempotent_map' has
-             been set. By default, the Db calls on the master use the
-             legacy functions, but those on the slave use the new one.
-             This means xapi code should always assume idempotent_map is
-             true *)
-          let idempotent =
-            proc_fn_selector = AddMap || !Db_globs.idempotent_map
-          in
-          add_to_map ~idempotent key value existing_str
-        with Duplicate ->
-          error
-            "Duplicate key in set or map: table %s; field %s; ref %s; key %s"
-            tblname fld objref key ;
-          raise (Duplicate_key (tblname, fld, objref, key))
-      )
+      | AddMap | AddMapLegacy ->
+        ( try
+            (* We use the idempotent map add if we're using the non-legacy
+               process function, or if the global field 'idempotent_map' has
+               been set. By default, the Db calls on the master use the
+               legacy functions, but those on the slave use the new one.
+               This means xapi code should always assume idempotent_map is
+               true *)
+            let idempotent =
+              proc_fn_selector = AddMap || !Db_globs.idempotent_map
+            in
+            add_to_map ~idempotent key value existing_str
+          with
+        | Duplicate ->
+            error
+              "Duplicate key in set or map: table %s; field %s; ref %s; key %s"
+              tblname
+              fld
+              objref
+              key ;
+            raise (Duplicate_key (tblname, fld, objref, key)) )
       | RemoveMap ->
           remove_from_map key existing_str
     in
     write_field_locked t tblname objref fld newval
-  with Not_found -> raise (DBCache_NotFound ("missing row", tblname, objref))
+  with
+  | Not_found ->
+      raise (DBCache_NotFound ("missing row", tblname, objref))
+
 
 let process_structured_field t (key, value) tblname fld objref proc_fn_selector
     =
   with_lock (fun () ->
-      process_structured_field_locked t (key, value) tblname fld objref
-        proc_fn_selector
-  )
+      process_structured_field_locked
+        t
+        (key, value)
+        tblname
+        fld
+        objref
+        proc_fn_selector )
+
 
 (* -------------------------------------------------------------------- *)
 
@@ -349,8 +390,7 @@ let load connections default_schema =
     Database.update_manifest
       (Manifest.update_schema (fun _ ->
            Some
-             (default_schema.Schema.major_vsn, default_schema.Schema.minor_vsn)
-       )
+             (default_schema.Schema.major_vsn, default_schema.Schema.minor_vsn) )
       )
       (Database.make default_schema)
   in
@@ -359,16 +399,19 @@ let load connections default_schema =
   |> Db_upgrade.generic_database_upgrade
   |> Db_backend.blow_away_non_persistent_fields default_schema
 
+
 let sync conns db =
   (* Flush the in-memory cache to the redo-log *)
   Redo_log.flush_db_to_all_active_redo_logs db ;
   (* and then to the filesystem *)
   List.iter (fun c -> Db_connections.flush c db) conns
 
+
 let flush_dirty dbconn = Db_connections.flush_dirty_and_maybe_exit dbconn None
 
 let flush_and_exit dbconn ret_code =
   ignore (Db_connections.flush_dirty_and_maybe_exit dbconn (Some ret_code))
+
 
 let spawn_db_flush_threads () =
   (* Spawn threads that flush cache to db connections at regular intervals *)
@@ -394,13 +437,14 @@ let spawn_db_flush_threads () =
                    float_of_int (5 * 60)
                    (* coallesce writes for 5 minutes to avoid serializing db to disk all the time. *)
                  in
-                 debug "In memory DB flushing thread created [%s]. %s" db_path
-                   ( if dbconn.Parse_db_conf.mode <> Parse_db_conf.No_limit then
-                       "Write limited with coallesce_time="
-                       ^ string_of_float coallesce_time
-                   else
-                     ""
-                   ) ;
+                 debug
+                   "In memory DB flushing thread created [%s]. %s"
+                   db_path
+                   ( if dbconn.Parse_db_conf.mode <> Parse_db_conf.No_limit
+                   then
+                     "Write limited with coallesce_time="
+                     ^ string_of_float coallesce_time
+                   else "" ) ;
                  (* check if we are currently in a coallescing_period *)
                  let in_coallescing_period () =
                    Unix.gettimeofday () -. !coallesce_period_start
@@ -415,54 +459,50 @@ let spawn_db_flush_threads () =
                         								   set (by a signal handler) we want to do a flush whether or not our write limit has been
                         								   exceeded.
                      *)
-                     ( if
-                       !Db_connections.exit_on_next_flush
-                       (* always flush straight away; this request is urgent *)
-                       || (* otherwise, we only write if (i) "coalesscing period has come to an end"; and (ii) "write limiting requirements are met": *)
-                       (not (in_coallescing_period ()))
-                       (* see (i) above *)
-                       && (!my_writes_this_period
-                           < dbconn.Parse_db_conf.write_limit_write_cycles
-                          || dbconn.Parse_db_conf.mode = Parse_db_conf.No_limit
-                             (* (ii) above *)
-                          )
-                     then (* debug "[%s] considering flush" db_path; *)
-                         let was_anything_flushed =
-                           Xapi_stdext_threads.Threadext.Mutex.execute
-                             Db_lock.global_flush_mutex (fun () ->
-                               flush_dirty dbconn
-                           )
-                         in
-                         if was_anything_flushed then (
-                           my_writes_this_period := !my_writes_this_period + 1 ;
-                           (* when we do a write, reset the coallesce_period_start to now -- recall that this
-                              												   variable tracks the time since last write *)
-                           coallesce_period_start := Unix.gettimeofday ()
-                         )
-                     ) ;
+                     ( if !Db_connections.exit_on_next_flush
+                          (* always flush straight away; this request is urgent *)
+                          || (* otherwise, we only write if (i) "coalesscing period has come to an end"; and (ii) "write limiting requirements are met": *)
+                          (not (in_coallescing_period ()))
+                          (* see (i) above *)
+                          && ( !my_writes_this_period
+                               < dbconn.Parse_db_conf.write_limit_write_cycles
+                             || dbconn.Parse_db_conf.mode
+                                = Parse_db_conf.No_limit
+                                (* (ii) above *) )
+                     then
+                       (* debug "[%s] considering flush" db_path; *)
+                       let was_anything_flushed =
+                         Xapi_stdext_threads.Threadext.Mutex.execute
+                           Db_lock.global_flush_mutex
+                           (fun () -> flush_dirty dbconn)
+                       in
+                       if was_anything_flushed
+                       then (
+                         my_writes_this_period := !my_writes_this_period + 1 ;
+                         (* when we do a write, reset the coallesce_period_start to now -- recall that this
+                            												   variable tracks the time since last write *)
+                         coallesce_period_start := Unix.gettimeofday () ) ) ;
                      (* else debug "[%s] not flushing because write-limit exceeded" db_path; *)
                      (* Check to see if the current write period has finished yet.. *)
-                     if
-                       Unix.gettimeofday () -. !period_start
-                       > float_of_int dbconn.Parse_db_conf.write_limit_period
+                     if Unix.gettimeofday () -. !period_start
+                        > float_of_int dbconn.Parse_db_conf.write_limit_period
                      then (
                        (* debug "[%s] resetting write-limit counters: start of new period" db_path; *)
                        (* We're at the start of a new writing period! *)
                        period_start := Unix.gettimeofday () ;
                        my_writes_this_period := 0
                        (* else debug "[%s] not resetting write-limit counters: not in new period yet" db_path *)
-                     )
-                   with e ->
-                     debug "Exception in DB flushing thread: %s"
-                       (Printexc.to_string e)
-                 done
-                 )
-               ()
-             )
-           ()
-        )
-      )
+                       )
+                   with
+                   | e ->
+                       debug
+                         "Exception in DB flushing thread: %s"
+                         (Printexc.to_string e)
+                 done )
+               () )
+           () ) )
     (Db_conn_store.read_db_connections ())
+
 
 (* Called by server at start-of-day to initialiase cache. Populates cache and starts flushing threads *)
 let make t connections default_schema =
@@ -471,12 +511,12 @@ let make t connections default_schema =
   update_database t (fun _ -> db) ;
   spawn_db_flush_threads ()
 
+
 (** Return an association list of table name * record count *)
 let stats t =
   TableSet.fold
     (fun name _ tbl acc ->
       let size = Table.fold (fun _ _ _ acc -> acc + 1) tbl 0 in
-      (name, size) :: acc
-      )
+      (name, size) :: acc )
     (Database.tableset (get_database t))
     []

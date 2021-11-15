@@ -15,7 +15,9 @@
 open Xenops_interface
 open Xenops_utils
 
-module D = Debug.Make (struct let name = "xenops_hooks" end)
+module D = Debug.Make (struct
+  let name = "xenops_hooks"
+end)
 
 open D
 
@@ -73,45 +75,52 @@ let exitcode_log_and_continue = 1
 
 let list_individual_hooks ~script_name =
   let script_dir = hooks_dir ^ script_name ^ "/" in
-  if
-    try
-      Unix.access script_dir [Unix.F_OK] ;
-      true
-    with _ -> false
+  if try
+       Unix.access script_dir [ Unix.F_OK ] ;
+       true
+     with
+     | _ ->
+         false
   then (
     let scripts = Sys.readdir script_dir in
     Array.stable_sort compare scripts ;
-    scripts
-  ) else
-    [||]
+    scripts )
+  else [||]
+
 
 let execute_vm_hook ~script_name ~id ~reason ~extra_args =
-  let args = ["-vmuuid"; id; "-reason"; reason] @ extra_args in
+  let args = [ "-vmuuid"; id; "-reason"; reason ] @ extra_args in
   let scripts = list_individual_hooks ~script_name in
   let script_dir = hooks_dir ^ script_name ^ "/" in
   Array.iter
     (fun script ->
       try
-        debug "Executing hook '%s/%s' with args [ %s ]" script_name script
+        debug
+          "Executing hook '%s/%s' with args [ %s ]"
+          script_name
+          script
           (String.concat "; " args) ;
         ignore
           (Forkhelpers.execute_command_get_output (script_dir ^ script) args)
       with
       | Forkhelpers.Spawn_internal_error (_, stdout, Unix.WEXITED i)
-      (* i<>0 since that case does not generate exn *)
-      ->
-        if i = exitcode_log_and_continue then
-          debug "Hook '%s/%s' with args [ %s ] logged '%s'" script_name script
-            (String.concat "; " args) (String.escaped stdout)
-        else
-          raise
-            (Xenopsd_error
-               (Errors.Hook_failed
-                  (script_name ^ "/" ^ script, reason, stdout, string_of_int i)
-               )
-            )
-      )
+      (* i<>0 since that case does not generate exn *) ->
+          if i = exitcode_log_and_continue
+          then
+            debug
+              "Hook '%s/%s' with args [ %s ] logged '%s'"
+              script_name
+              script
+              (String.concat "; " args)
+              (String.escaped stdout)
+          else
+            raise
+              (Xenopsd_error
+                 (Errors.Hook_failed
+                    (script_name ^ "/" ^ script, reason, stdout, string_of_int i)
+                 ) ) )
     scripts
+
 
 type script =
   | VM_pre_destroy

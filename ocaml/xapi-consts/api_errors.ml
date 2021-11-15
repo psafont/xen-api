@@ -15,19 +15,22 @@ exception Server_error of string * string list
 
 let to_string = function
   | Server_error (name, args) ->
-      Printf.sprintf "Server_error(%s, [ %a ])" name
+      Printf.sprintf
+        "Server_error(%s, [ %a ])"
+        name
         (fun () -> String.concat "; ")
         args
   | e ->
       Printexc.to_string e
 
+
 let _ =
   Printexc.register_printer (function
-    | Server_error (_, _) as e ->
-        Some (to_string e)
-    | _ ->
-        None
-    )
+      | Server_error (_, _) as e ->
+          Some (to_string e)
+      | _ ->
+          None )
+
 
 let message_deprecated = "MESSAGE_DEPRECATED"
 
@@ -177,8 +180,10 @@ let network_incompatible_with_sriov = "NETWORK_INCOMPATIBLE_WITH_SRIOV"
 let network_incompatible_with_vlan_on_bridge =
   "NETWORK_INCOMPATIBLE_WITH_VLAN_ON_BRIDGE"
 
+
 let network_incompatible_with_vlan_on_sriov =
   "NETWORK_INCOMPATIBLE_WITH_VLAN_ON_SRIOV"
+
 
 let network_incompatible_with_bond = "NETWORK_INCOMPATIBLE_WITH_BOND"
 
@@ -188,6 +193,7 @@ let network_has_incompatible_sriov_pifs = "NETWORK_HAS_INCOMPATIBLE_SRIOV_PIFS"
 
 let network_has_incompatible_vlan_on_sriov_pifs =
   "NETWORK_HAS_INCOMPATIBLE_VLAN_ON_SRIOV_PIFS"
+
 
 let operation_not_allowed = "OPERATION_NOT_ALLOWED"
 
@@ -232,6 +238,7 @@ let pif_is_management_iface = "PIF_IS_MANAGEMENT_INTERFACE"
 let pif_incompatible_primary_address_type =
   "PIF_INCOMPATIBLE_PRIMARY_ADDRESS_TYPE"
 
+
 let required_pif_is_unplugged = "REQUIRED_PIF_IS_UNPLUGGED"
 
 let pif_not_present = "PIF_NOT_PRESENT"
@@ -259,6 +266,7 @@ let cannot_add_tunnel_to_sriov_logical = "CANNOT_ADD_TUNNEL_TO_SRIOV_LOGICAL"
 let cannot_add_tunnel_to_vlan_on_sriov_logical =
   "CANNOT_ADD_TUNNEL_TO_VLAN_ON_SRIOV_LOGICAL"
 
+
 let cannot_change_pif_properties = "CANNOT_CHANGE_PIF_PROPERTIES"
 
 let cannot_forget_sriov_logical = "CANNOT_FORGET_SRIOV_LOGICAL"
@@ -282,6 +290,7 @@ let duplicate_pif_device_name = "DUPLICATE_PIF_DEVICE_NAME"
 let could_not_find_network_interface_with_specified_device_name_and_mac_address
     =
   "COULD_NOT_FIND_NETWORK_INTERFACE_WITH_SPECIFIED_DEVICE_NAME_AND_MAC_ADDRESS"
+
 
 let openvswitch_not_active = "OPENVSWITCH_NOT_ACTIVE"
 
@@ -328,8 +337,10 @@ let vm_snapshot_with_quiesce_timeout = "VM_SNAPSHOT_WITH_QUIESCE_TIMEOUT"
 let vm_snapshot_with_quiesce_plugin_does_not_respond =
   "VM_SNAPSHOT_WITH_QUIESCE_PLUGIN_DEOS_NOT_RESPOND"
 
+
 let vm_snapshot_with_quiesce_not_supported =
   "VM_SNAPSHOT_WITH_QUIESCE_NOT_SUPPORTED"
+
 
 let xen_vss_req_error_init_failed = "XEN_VSS_REQ_ERROR_INIT_FAILED"
 
@@ -338,11 +349,14 @@ let xen_vss_req_error_prov_not_loaded = "XEN_VSS_REQ_ERROR_PROV_NOT_LOADED"
 let xen_vss_req_error_no_volumes_supported =
   "XEN_VSS_REQ_ERROR_NO_VOLUMES_SUPPORTED"
 
+
 let xen_vss_req_error_start_snapshot_set_failed =
   "XEN_VSS_REQ_ERROR_START_SNAPSHOT_SET_FAILED"
 
+
 let xen_vss_req_error_adding_volume_to_snapset_failed =
   "XEN_VSS_REQ_ERROR_ADDING_VOLUME_TO_SNAPSET_FAILED"
+
 
 let xen_vss_req_error_preparing_writers = "XEN_VSS_REQ_ERROR_PREPARING_WRITERS"
 
@@ -350,6 +364,7 @@ let xen_vss_req_error_creating_snapshot = "XEN_VSS_REQ_ERROR_CREATING_SNAPSHOT"
 
 let xen_vss_req_error_creating_snapshot_xml_string =
   "XEN_VSS_REQ_ERROR_CREATING_SNAPSHOT_XML_STRING"
+
 
 let vm_revert_failed = "VM_REVERT_FAILED"
 
@@ -374,10 +389,12 @@ let vm_requires_iommu = "VM_REQUIRES_IOMMU"
 let vm_host_incompatible_version_migrate =
   "VM_HOST_INCOMPATIBLE_VERSION_MIGRATE"
 
+
 let vm_host_incompatible_version = "VM_HOST_INCOMPATIBLE_VERSION"
 
 let vm_host_incompatible_virtual_hardware_platform_version =
   "VM_HOST_INCOMPATIBLE_VIRTUAL_HARDWARE_PLATFORM_VERSION"
+
 
 let vm_has_pci_attached = "VM_HAS_PCI_ATTACHED"
 
@@ -397,6 +414,7 @@ let vm_migrate_failed = "VM_MIGRATE_FAILED"
 
 let vm_migrate_contact_remote_service_failed =
   "VM_MIGRATE_CONTACT_REMOTE_SERVICE_FAILED"
+
 
 let vm_missing_pv_drivers = "VM_MISSING_PV_DRIVERS"
 
@@ -440,6 +458,7 @@ let vm_halted = "VM_HALTED"
 
 let vm_attached_to_more_than_one_vdi_with_timeoffset_marked_as_reset_on_boot =
   "VM_ATTACHED_TO_MORE_THAN_ONE_VDI_WITH_TIMEOFFSET_MARKED_AS_RESET_ON_BOOT"
+
 
 let vms_failed_to_cooperate = "VMS_FAILED_TO_COOPERATE"
 
@@ -520,6 +539,7 @@ let vdi_io_error = "VDI_IO_ERROR"
 
 let vdi_on_boot_mode_incompatible_with_operation =
   "VDI_ON_BOOT_MODE_INCOMPATIBLE_WITH_OPERATION"
+
 
 let vdi_not_in_map = "VDI_NOT_IN_MAP"
 
@@ -606,6 +626,7 @@ let vgpu_type_not_supported = "VGPU_TYPE_NOT_SUPPORTED"
 let vgpu_type_not_compatible_with_running_type =
   "VGPU_TYPE_NOT_COMPATIBLE_WITH_RUNNING_TYPE"
 
+
 let vgpu_type_not_compatible = "VGPU_TYPE_NOT_COMPATIBLE"
 
 let vgpu_destination_incompatible = "VGPU_DESTINATION_INCOMPATIBLE"
@@ -633,6 +654,7 @@ let import_error_failed_to_find_object = "IMPORT_ERROR_FAILED_TO_FIND_OBJECT"
 let import_error_attached_disks_not_found =
   "IMPORT_ERROR_ATTACHED_DISKS_NOT_FOUND"
 
+
 let import_error_unexpected_file = "IMPORT_ERROR_UNEXPECTED_FILE"
 
 let import_incompatible_version = "IMPORT_INCOMPATIBLE_VERSION"
@@ -644,6 +666,7 @@ let restore_target_missing_device = "RESTORE_TARGET_MISSING_DEVICE"
 let restore_target_mgmt_if_not_in_backup =
   "RESTORE_TARGET_MGMT_IF_NOT_IN_BACKUP"
 
+
 let pool_not_in_emergency_mode = "NOT_IN_EMERGENCY_MODE"
 
 let pool_hosts_not_compatible = "HOSTS_NOT_COMPATIBLE"
@@ -653,17 +676,22 @@ let pool_hosts_not_homogeneous = "HOSTS_NOT_HOMOGENEOUS"
 let pool_joining_host_cannot_contain_shared_SRs =
   "JOINING_HOST_CANNOT_CONTAIN_SHARED_SRS"
 
+
 let pool_joining_host_cannot_have_running_or_suspended_VMs =
   "JOINING_HOST_CANNOT_HAVE_RUNNING_OR_SUSPENDED_VMS"
+
 
 let pool_joining_host_cannot_have_running_VMs =
   "JOINING_HOST_CANNOT_HAVE_RUNNING_VMS"
 
+
 let pool_joining_host_cannot_have_vms_with_current_operations =
   "JOINING_HOST_CANNOT_HAVE_VMS_WITH_CURRENT_OPERATIONS"
 
+
 let pool_joining_host_cannot_be_master_of_other_hosts =
   "JOINING_HOST_CANNOT_BE_MASTER_OF_OTHER_HOSTS"
+
 
 let pool_joining_host_connection_failed = "JOINING_HOST_CONNECTION_FAILED"
 
@@ -672,25 +700,32 @@ let pool_joining_host_service_failed = "JOINING_HOST_SERVICE_FAILED"
 let pool_joining_host_must_have_physical_management_nic =
   "POOL_JOINING_HOST_MUST_HAVE_PHYSICAL_MANAGEMENT_NIC"
 
+
 let pool_joining_external_auth_mismatch = "POOL_JOINING_EXTERNAL_AUTH_MISMATCH"
 
 let pool_joining_host_must_have_same_product_version =
   "POOL_JOINING_HOST_MUST_HAVE_SAME_PRODUCT_VERSION"
 
+
 let pool_joining_host_must_have_same_api_version =
   "POOL_JOINING_HOST_MUST_HAVE_SAME_API_VERSION"
+
 
 let pool_joining_host_must_have_same_db_schema =
   "POOL_JOINING_HOST_MUST_HAVE_SAME_DB_SCHEMA"
 
+
 let pool_joining_host_must_only_have_physical_pifs =
   "POOL_JOINING_HOST_MUST_ONLY_HAVE_PHYSICAL_PIFS"
+
 
 let pool_joining_host_management_vlan_does_not_match =
   "POOL_JOINING_HOST_MANAGEMENT_VLAN_DOES_NOT_MATCH"
 
+
 let pool_joining_host_has_non_management_vlans =
   "POOL_JOINING_HOST_HAS_NON_MANAGEMENT_VLANS"
+
 
 let pool_joining_host_has_bonds = "POOL_JOINING_HOST_HAS_BONDS"
 
@@ -699,11 +734,14 @@ let pool_joining_host_has_tunnels = "POOL_JOINING_HOST_HAS_TUNNELS"
 let pool_joining_host_has_network_sriovs =
   "POOL_JOINING_HOST_HAS_NETWORK_SRIOVS"
 
+
 let pool_joining_host_tls_verification_mismatch =
   "POOL_JOINING_HOST_TLS_VERIFICATION_MISMATCH"
 
+
 let pool_joining_host_ca_certificates_conflict =
   "POOL_JOINING_HOST_CA_CERTIFICATES_CONFLICT"
+
 
 (*workload balancing*)
 let wlb_not_initialized = "WLB_NOT_INITIALIZED"
@@ -781,33 +819,42 @@ let update_pool_apply_failed = "UPDATE_POOL_APPLY_FAILED"
 let could_not_update_igmp_snooping_everywhere =
   "COULD_NOT_UPDATE_IGMP_SNOOPING_EVERYWHERE"
 
+
 let update_apply_failed = "UPDATE_APPLY_FAILED"
 
 let update_precheck_failed_unknown_error =
   "UPDATE_PRECHECK_FAILED_UNKNOWN_ERROR"
 
+
 let update_precheck_failed_prerequisite_missing =
   "UPDATE_PRECHECK_FAILED_PREREQUISITE_MISSING"
+
 
 let update_precheck_failed_conflict_present =
   "UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT"
 
+
 let update_precheck_failed_wrong_server_version =
   "UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION"
 
+
 let update_precheck_failed_gpgkey_not_imported =
   "UPDATE_PRECHECK_FAILED_GPGKEY_NOT_IMPORTED"
+
 
 let patch_precheck_failed_unknown_error = "PATCH_PRECHECK_FAILED_UNKNOWN_ERROR"
 
 let patch_precheck_failed_prerequisite_missing =
   "PATCH_PRECHECK_FAILED_PREREQUISITE_MISSING"
 
+
 let patch_precheck_failed_wrong_server_version =
   "PATCH_PRECHECK_FAILED_WRONG_SERVER_VERSION"
 
+
 let patch_precheck_failed_wrong_server_build =
   "PATCH_PRECHECK_FAILED_WRONG_SERVER_BUILD"
+
 
 let patch_precheck_failed_vm_running = "PATCH_PRECHECK_FAILED_VM_RUNNING"
 
@@ -821,6 +868,7 @@ let patch_apply_failed = "PATCH_APPLY_FAILED"
 
 let patch_apply_failed_backup_files_exist =
   "PATCH_APPLY_FAILED_BACKUP_FILES_EXIST"
+
 
 let cannot_find_oem_backup_partition = "CANNOT_FIND_OEM_BACKUP_PARTITION"
 
@@ -901,6 +949,7 @@ let ha_lost_statefile = "HA_LOST_STATEFILE"
 let ha_pool_is_enabled_but_host_is_disabled =
   "HA_POOL_IS_ENABLED_BUT_HOST_IS_DISABLED"
 
+
 let ha_heartbeat_daemon_startup_failed = "HA_HEARTBEAT_DAEMON_STARTUP_FAILED"
 
 let ha_host_cannot_access_statefile = "HA_HOST_CANNOT_ACCESS_STATEFILE"
@@ -910,15 +959,19 @@ let ha_failed_to_form_liveset = "HA_FAILED_TO_FORM_LIVESET"
 let ha_cannot_change_bond_status_of_mgmt_iface =
   "HA_CANNOT_CHANGE_BOND_STATUS_OF_MGMT_IFACE"
 
+
 (* CA-16480: prevent configuration errors which nullify xHA goodness *)
 let ha_constraint_violation_sr_not_shared =
   "HA_CONSTRAINT_VIOLATION_SR_NOT_SHARED"
 
+
 let ha_constraint_violation_network_not_shared =
   "HA_CONSTRAINT_VIOLATION_NETWORK_NOT_SHARED"
 
+
 let ha_operation_would_break_failover_plan =
   "HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN"
+
 
 let incompatible_statefile_sr = "INCOMPATIBLE_STATEFILE_SR"
 
@@ -969,27 +1022,34 @@ let auth_enable_failed = "AUTH_ENABLE_FAILED"
 let auth_enable_failed_wrong_credentials =
   auth_enable_failed ^ auth_suffix_wrong_credentials
 
+
 let auth_enable_failed_permission_denied =
   auth_enable_failed ^ auth_suffix_permission_denied
+
 
 let auth_enable_failed_domain_lookup_failed =
   auth_enable_failed ^ auth_suffix_domain_lookup_failed
 
+
 let auth_enable_failed_unavailable =
   auth_enable_failed ^ auth_suffix_unavailable
+
 
 let auth_enable_failed_invalid_ou = auth_enable_failed ^ auth_suffix_invalid_ou
 
 let auth_enable_failed_invalid_account =
   auth_enable_failed ^ auth_suffix_invalid_account
 
+
 let auth_disable_failed = "AUTH_DISABLE_FAILED"
 
 let auth_disable_failed_wrong_credentials =
   auth_disable_failed ^ auth_suffix_wrong_credentials
 
+
 let auth_disable_failed_permission_denied =
   auth_disable_failed ^ auth_suffix_permission_denied
+
 
 let pool_auth_already_enabled = "POOL_AUTH_ALREADY_ENABLED"
 
@@ -1000,34 +1060,44 @@ let pool_auth_enable_failed = pool_auth_prefix ^ auth_enable_failed
 let pool_auth_enable_failed_wrong_credentials =
   pool_auth_enable_failed ^ auth_suffix_wrong_credentials
 
+
 let pool_auth_enable_failed_permission_denied =
   pool_auth_enable_failed ^ auth_suffix_permission_denied
+
 
 let pool_auth_enable_failed_domain_lookup_failed =
   pool_auth_enable_failed ^ auth_suffix_domain_lookup_failed
 
+
 let pool_auth_enable_failed_unavailable =
   pool_auth_enable_failed ^ auth_suffix_unavailable
+
 
 let pool_auth_enable_failed_invalid_ou =
   pool_auth_enable_failed ^ auth_suffix_invalid_ou
 
+
 let pool_auth_enable_failed_invalid_account =
   pool_auth_enable_failed ^ auth_suffix_invalid_account
 
+
 let pool_auth_enable_failed_duplicate_hostname =
   pool_auth_enable_failed ^ "_DUPLICATE_HOSTNAME"
+
 
 let pool_auth_disable_failed = pool_auth_prefix ^ auth_disable_failed
 
 let pool_auth_disable_failed_wrong_credentials =
   pool_auth_disable_failed ^ auth_suffix_wrong_credentials
 
+
 let pool_auth_disable_failed_permission_denied =
   pool_auth_disable_failed ^ auth_suffix_permission_denied
 
+
 let pool_auth_disable_failed_invalid_account =
   pool_auth_disable_failed ^ auth_suffix_invalid_account
+
 
 let subject_cannot_be_resolved = "SUBJECT_CANNOT_BE_RESOLVED"
 
@@ -1064,11 +1134,14 @@ let server_certificate_key_invalid = "SERVER_CERTIFICATE_KEY_INVALID"
 let server_certificate_key_algorithm_not_supported =
   "SERVER_CERTIFICATE_KEY_ALGORITHM_NOT_SUPPORTED"
 
+
 let server_certificate_key_rsa_length_not_supported =
   "SERVER_CERTIFICATE_KEY_RSA_LENGTH_NOT_SUPPORTED"
 
+
 let server_certificate_key_rsa_multi_not_supported =
   "SERVER_CERTIFICATE_KEY_RSA_MULTI_NOT_SUPPORTED"
+
 
 let server_certificate_invalid = "SERVER_CERTIFICATE_INVALID"
 
@@ -1087,12 +1160,14 @@ let ca_certificate_expired = "CA_CERTIFICATE_EXPIRED"
 let server_certificate_signature_not_supported =
   "SERVER_CERTIFICATE_SIGNATURE_NOT_SUPPORTED"
 
+
 let server_certificate_chain_invalid = "SERVER_CERTIFICATE_CHAIN_INVALID"
 
 let vmpp_has_vm = "VMPP_HAS_VM"
 
 let vmpp_archive_more_frequent_than_backup =
   "VMPP_ARCHIVE_MORE_FREQUENT_THAN_BACKUP"
+
 
 let vm_assigned_to_protection_policy = "VM_ASSIGNED_TO_PROTECTION_POLICY"
 
@@ -1126,12 +1201,14 @@ let vm_incompatible_with_this_host = "VM_INCOMPATIBLE_WITH_THIS_HOST"
 let cannot_destroy_disaster_recovery_task =
   "CANNOT_DESTROY_DISASTER_RECOVERY_TASK"
 
+
 let vm_is_part_of_an_appliance = "VM_IS_PART_OF_AN_APPLIANCE"
 
 let vm_to_import_is_not_newer_version = "VM_TO_IMPORT_IS_NOT_NEWER_VERSION"
 
 let suspend_vdi_replacement_is_not_identical =
   "SUSPEND_VDI_REPLACEMENT_IS_NOT_IDENTICAL"
+
 
 let vdi_copy_failed = "VDI_COPY_FAILED"
 
@@ -1215,6 +1292,7 @@ let xen_incompatible = "XEN_INCOMPATIBLE"
 let vcpu_max_not_cores_per_socket_multiple =
   "VCPU_MAX_NOT_CORES_PER_SOCKET_MULTIPLE"
 
+
 let designate_new_master_in_progress = "DESIGNATE_NEW_MASTER_IN_PROGRESS"
 
 let pool_secret_rotation_pending = "POOL_SECRET_ROTATION_PENDING"
@@ -1239,6 +1317,7 @@ let no_repository_enabled = "NO_REPOSITORY_ENABLED"
 
 let multiple_update_repositories_enabled =
   "MULTIPLE_UPDATE_REPOSITORIES_ENABLED"
+
 
 let sync_updates_in_progress = "SYNC_UPDATES_IN_PROGRESS"
 

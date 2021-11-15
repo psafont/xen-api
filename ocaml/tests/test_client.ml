@@ -7,6 +7,7 @@ let setup_test () =
   let __context = Test_common.make_test_database () in
   Test_common.make_client_params ~__context
 
+
 (* Here we should have a unit test for each different type of method, such as
    X.create, X.destroy, getters, and setters, to ensure that these are
    generated correctly.
@@ -16,12 +17,17 @@ let setup_test () =
 let test_create () =
   let rpc, session_id = setup_test () in
   let self =
-    Client.Client.Task.create ~rpc ~session_id ~label:"task_label"
+    Client.Client.Task.create
+      ~rpc
+      ~session_id
+      ~label:"task_label"
       ~description:"task_description"
   in
   Alcotest.(check string)
-    "task label" "task_label"
+    "task label"
+    "task_label"
     (Client.Client.Task.get_name_label ~rpc ~session_id ~self)
+
 
 let test_get_alls () =
   let rpc, session_id = setup_test () in
@@ -40,20 +46,23 @@ let test_get_alls () =
   let labels =
     Client.Client.Task.get_all ~rpc ~session_id
     |> List.map (fun self ->
-           Client.Client.Task.get_name_label ~rpc ~session_id ~self
-       )
+           Client.Client.Task.get_name_label ~rpc ~session_id ~self )
   in
   Alcotest.(check (slist string String.compare))
-    "task labels from get_all" ["t1"; "t2"; "t3"; "t4"] labels ;
+    "task labels from get_all"
+    [ "t1"; "t2"; "t3"; "t4" ]
+    labels ;
   let labels =
     Client.Client.Task.get_all_records ~rpc ~session_id
     |> List.map (fun (_, r) -> r.API.task_name_label)
   in
   Alcotest.(check (slist string String.compare))
-    "task labels from get_all_records" ["t1"; "t2"; "t3"; "t4"] labels
+    "task labels from get_all_records"
+    [ "t1"; "t2"; "t3"; "t4" ]
+    labels
+
 
 let test =
-  [
-    ("test_create", `Quick, test_create)
+  [ ("test_create", `Quick, test_create)
   ; ("test_get_alls", `Quick, test_get_alls)
   ]

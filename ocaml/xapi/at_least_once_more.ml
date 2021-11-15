@@ -19,34 +19,43 @@
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 
-module D = Debug.Make (struct let name = "at_least_once_more" end)
+module D = Debug.Make (struct
+  let name = "at_least_once_more"
+end)
 
 open D
 
 (** Type of the function executed in the background *)
 type operation = unit -> unit
 
-type manager = {
-    f: operation  (** called in a background thread when 'something' changes *)
-  ; name: string  (** human-readable name for logging *)
-  ; m: Mutex.t
-  ; mutable needs_doing_again: bool
+type manager =
+  { f : operation  (** called in a background thread when 'something' changes *)
+  ; name : string  (** human-readable name for logging *)
+  ; m : Mutex.t
+  ; mutable needs_doing_again : bool
         (** if true a further request arrived during an execution *)
-  ; mutable in_progress: bool  (** thread is currently servicing a request *)
-}
+  ; mutable in_progress : bool  (** thread is currently servicing a request *)
+  }
 
 let name_of_t (x : manager) = x.name
 
 (** Make an instance of this kind of background operation *)
 let make name f =
-  {f; name; m= Mutex.create (); needs_doing_again= false; in_progress= false}
+  { f
+  ; name
+  ; m = Mutex.create ()
+  ; needs_doing_again = false
+  ; in_progress = false
+  }
+
 
 (** Signal that 'something' has changed and so the operation needs re-executed. *)
 let again (x : manager) =
   Mutex.execute x.m (fun () ->
-      if x.in_progress then
+      if x.in_progress
+      then
         x.needs_doing_again <- true
-      (* existing thread will go around the loop again *)
+        (* existing thread will go around the loop again *)
       else (
         (* no existing thread so we need to start one off *)
         x.in_progress <- true ;
@@ -58,21 +67,17 @@ let again (x : manager) =
               x.f () ;
               while
                 Mutex.execute x.m (fun () ->
-                    if x.needs_doing_again then (
+                    if x.needs_doing_again
+                    then (
                       x.needs_doing_again <- false ;
                       true
-                      (* another request came in while we were processing *)
-                    ) else (
+                      (* another request came in while we were processing *) )
+                    else (
                       x.in_progress <- false ;
-                      false (* no more requests: thread will shutdown *)
-                    )
-                )
+                      false (* no more requests: thread will shutdown *) ) )
               do
                 x.f ()
-              done
-              )
+              done )
             ()
         in
-        ()
-      )
-  )
+        () ) )

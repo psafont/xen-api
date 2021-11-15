@@ -52,21 +52,28 @@ module Make (Bindings : Xxhash_bindings.BINDINGS) = struct
     |> Bindings.hash input length
     |> Bindings.hash_of_internal
 
+
   let create () = Bindings.create ()
 
   let reset ?(seed = Bindings.default_seed) state =
     Bindings.internal_of_hash seed |> Bindings.reset state |> check
 
+
   let update state input =
     let length = String.length input |> Unsigned.Size_t.of_int in
     Bindings.update state input length |> check
+
 
   let digest state = Bindings.digest state |> Bindings.hash_of_internal
 
   let free state = Bindings.free state |> check
 
   let with_state ?(seed = Bindings.default_seed) f =
-    let with_state_unsafe state = reset ~seed state ; f state ; digest state in
+    let with_state_unsafe state =
+      reset ~seed state ;
+      f state ;
+      digest state
+    in
     let state = create () in
     let output =
       Xapi_stdext_pervasives.Pervasiveext.finally

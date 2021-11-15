@@ -184,7 +184,7 @@ let ha_restart = "restart"
 
 let ha_restart_best_effort = "best-effort"
 
-let ha_valid_restart_priorities = [ha_restart; ha_restart_best_effort; ""]
+let ha_valid_restart_priorities = [ ha_restart; ha_restart_best_effort; "" ]
 
 let ha_base_t = "ha_base_t"
 
@@ -198,7 +198,7 @@ let ha_cluster_stack = "ha_cluster_stack"
 let default_smapiv3_cluster_stack = "corosync"
 
 (* Note: default without clustering is in !Xapi_globs.default_cluster_stack *)
-let supported_smapiv3_cluster_stacks = ["corosync"]
+let supported_smapiv3_cluster_stacks = [ "corosync" ]
 
 (* Set in the local db to cause us to emit an alert when we come up as a master after
    a transition or HA failover *)
@@ -293,15 +293,14 @@ let https_port = ref default_ssl_port
 
 (** Type 11 strings that are always included *)
 let standard_type11_strings =
-  [
-    ("oem-1", "Xen")
+  [ ("oem-1", "Xen")
   ; ("oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d")
   ]
 
+
 (** Generic BIOS strings *)
 let generic_bios_strings =
-  [
-    ("bios-vendor", "Xen")
+  [ ("bios-vendor", "Xen")
   ; ("bios-version", "")
   ; ("system-manufacturer", "Xen")
   ; ("system-product-name", "HVM domU")
@@ -318,6 +317,7 @@ let generic_bios_strings =
   ]
   @ standard_type11_strings
 
+
 (* bios_string length is limited to 512 characters *)
 
 (** {2 BIOS strings} *)
@@ -325,8 +325,7 @@ let bios_string_limit_size = 512
 
 (** List of user-settable VM BIOS strings keys *)
 let settable_vm_bios_string_keys =
-  [
-    "bios-vendor"
+  [ "bios-vendor"
   ; "bios-version"
   ; "system-manufacturer"
   ; "system-product-name"
@@ -341,10 +340,10 @@ let settable_vm_bios_string_keys =
   ; "enclosure-asset-tag"
   ]
 
+
 (** BIOS strings of the old (XS 5.5) Dell Edition *)
 let old_dell_bios_strings =
-  [
-    ("bios-vendor", "Dell Inc.")
+  [ ("bios-vendor", "Dell Inc.")
   ; ("bios-version", "1.9.9")
   ; ("system-manufacturer", "Dell Inc.")
   ; ("system-product-name", "PowerEdge")
@@ -356,10 +355,10 @@ let old_dell_bios_strings =
   ; ("hp-rombios", "")
   ]
 
+
 (** BIOS strings of the old (XS 5.5) HP Edition *)
 let old_hp_bios_strings =
-  [
-    ("bios-vendor", "Xen")
+  [ ("bios-vendor", "Xen")
   ; ("bios-version", "3.3.1")
   ; ("system-manufacturer", "HP")
   ; ("system-product-name", "ProLiant Virtual Platform")
@@ -369,6 +368,7 @@ let old_hp_bios_strings =
   ; ("oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d")
   ; ("hp-rombios", "COMPAQ")
   ]
+
 
 (* the time taken to wait before restarting after restoring db backup *)
 let db_restore_fuse_time = ref 30.
@@ -385,6 +385,7 @@ let version_minor = Xapi_version.xapi_version_minor
 
 let xapi_user_agent =
   "xapi/" ^ string_of_int version_major ^ "." ^ string_of_int version_minor
+
 
 (* Path to the pool configuration file. *)
 let pool_config_file = ref (Filename.concat "/etc/xensource" "pool.conf")

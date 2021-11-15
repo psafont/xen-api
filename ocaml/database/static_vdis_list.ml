@@ -18,17 +18,17 @@
 open Xapi_stdext_unix
 
 (** Represents the configuration of a static (ie attached on boot) vdi *)
-type vdi = {
-    uuid: string
+type vdi =
+  { uuid : string
   ; (* VDI.uuid *)
-    reason: string
+    reason : string
   ; (* describes why this disk was attached for debugging *)
-    delete_next_boot: bool
+    delete_next_boot : bool
   ; (* indicates this disk configuration will be forgotten on reboot *)
-    currently_attached: bool
+    currently_attached : bool
   ; (* indicates this disk is attached now in dom0 *)
-    path: string option (* path in dom0 *)
-}
+    path : string option (* path in dom0 *)
+  }
 
 (** Returns a list of vdi records, one for each VDI statically configured on this host *)
 let list () =
@@ -45,17 +45,20 @@ let list () =
         try
           ignore (Unix.stat (Filename.concat path "delete-next-boot")) ;
           true
-        with _ -> false
+        with
+        | _ ->
+            false
       in
       let currently_attached =
         try
           ignore (Unix.stat (Filename.concat path "disk")) ;
           true
-        with _ -> false
+        with
+        | _ ->
+            false
       in
       let path =
         try Some (Unix.readlink (Filename.concat path "disk")) with _ -> None
       in
-      {uuid; reason; delete_next_boot; currently_attached; path}
-      )
+      { uuid; reason; delete_next_boot; currently_attached; path } )
     all

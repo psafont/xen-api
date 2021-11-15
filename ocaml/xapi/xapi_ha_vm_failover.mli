@@ -38,15 +38,15 @@ type plan_status =
 
 (** Passed to the planner to reason about other possible configurations, used to block operations which would
     destroy the HA VM restart plan. *)
-type configuration_change = {
-    old_vms_leaving: (API.ref_host * (API.ref_VM * API.vM_t)) list
+type configuration_change =
+  { old_vms_leaving : (API.ref_host * (API.ref_VM * API.vM_t)) list
         (** existing VMs which are leaving *)
-  ; old_vms_arriving: (API.ref_host * (API.ref_VM * API.vM_t)) list
+  ; old_vms_arriving : (API.ref_host * (API.ref_VM * API.vM_t)) list
         (** existing VMs which are arriving *)
-  ; hosts_to_disable: API.ref_host list  (** hosts to pretend to disable *)
-  ; num_failures: int option  (** new number of failures to consider *)
-  ; new_vms_to_protect: API.ref_VM list  (** new VMs to restart *)
-}
+  ; hosts_to_disable : API.ref_host list  (** hosts to pretend to disable *)
+  ; num_failures : int option  (** new number of failures to consider *)
+  ; new_vms_to_protect : API.ref_VM list  (** new VMs to restart *)
+  }
 
 val no_configuration_change : configuration_change
 

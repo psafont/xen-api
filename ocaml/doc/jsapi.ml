@@ -26,14 +26,13 @@ let destdir = ref "."
 
 let parse_args () =
   Arg.parse
-    [
-      ( "-destdir"
+    [ ( "-destdir"
       , Arg.Set_string destdir
-      , "the destination directory for the generated files"
-      )
+      , "the destination directory for the generated files" )
     ]
     (fun x -> Printf.printf "Ignoring anonymous argument %s" x)
     "Generates documentation for the datamodel classes. See -help."
+
 
 let generate_files api_dir =
   let api = Datamodel.all_api in
@@ -66,29 +65,23 @@ let generate_files api_dir =
           (fun (transition, release, doc) ->
             ( transition
             , obj.name
-            , if doc = "" && transition = Published then
-                obj.description
-              else
-                doc
-            )
-            )
+            , if doc = "" && transition = Published
+              then obj.description
+              else doc ) )
           changes
       in
       let changes_for_msg m =
         let changes =
           List.filter
             (fun (transition, release, doc) ->
-              release = code_name_of_release rel
-              )
+              release = code_name_of_release rel )
             m.msg_lifecycle
         in
         List.map
           (fun (transition, release, doc) ->
             ( transition
             , m.msg_name
-            , if doc = "" && transition = Published then m.msg_doc else doc
-            )
-            )
+            , if doc = "" && transition = Published then m.msg_doc else doc ) )
           changes
       in
       let msgs = List.filter (fun m -> not m.msg_hide_from_docs) obj.messages in
@@ -99,8 +92,7 @@ let generate_files api_dir =
         let changes =
           List.filter
             (fun (transition, release, doc) ->
-              release = code_name_of_release rel
-              )
+              release = code_name_of_release rel )
             f.lifecycle
         in
         let field_name = String.concat "_" f.full_name in
@@ -108,12 +100,9 @@ let generate_files api_dir =
           (fun (transition, release, doc) ->
             ( transition
             , field_name
-            , if doc = "" && transition = Published then
-                f.field_description
-              else
-                doc
-            )
-            )
+            , if doc = "" && transition = Published
+              then f.field_description
+              else doc ) )
           changes
       in
       let rec flatten_contents contents =
@@ -122,9 +111,9 @@ let generate_files api_dir =
             | Field f ->
                 f :: l
             | Namespace (name, contents) ->
-                flatten_contents contents @ l
-            )
-          [] contents
+                flatten_contents contents @ l )
+          []
+          contents
       in
       let fields = flatten_contents obj.contents in
       let fields = List.filter (fun f -> not f.internal_only) fields in
@@ -149,24 +138,26 @@ let generate_files api_dir =
   in
   List.iter changes_in_release release_order ;
   let release_list =
-    String.concat ", "
+    String.concat
+      ", "
       (List.map (fun s -> "'" ^ code_name_of_release s ^ "'") release_order)
   in
   Unixext.write_string_to_file
     (Filename.concat api_dir "releases.json")
     ("releases = [" ^ release_list ^ "]")
 
+
 let json_releases =
   let json_of_rel x =
     `O
-      [
-        ("code_name", `String (code_name_of_release x))
+      [ ("code_name", `String (code_name_of_release x))
       ; ("version_major", `Float (float_of_int x.version_major))
       ; ("version_minor", `Float (float_of_int x.version_minor))
       ; ("branding", `String x.branding)
       ]
   in
-  `O [("releases", `A (List.map json_of_rel release_order))]
+  `O [ ("releases", `A (List.map json_of_rel release_order)) ]
+
 
 let render_template template_file json output_file =
   let templ = Unixext.string_of_file template_file |> Mustache.of_string in
@@ -176,10 +167,13 @@ let render_template template_file json output_file =
     (fun () -> output_string out_chan rendered)
     (fun () -> close_out out_chan)
 
+
 let _ =
   parse_args () ;
   let api_dir = Filename.concat !destdir "api" in
   Unixext.mkdir_rec api_dir 0o755 ;
   generate_files api_dir ;
-  render_template "templates/branding.mustache" json_releases
+  render_template
+    "templates/branding.mustache"
+    json_releases
     (Filename.concat !destdir "branding.js")

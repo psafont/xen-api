@@ -19,7 +19,11 @@ open Xenops_utils
    interface name (e.g. "tapX.Y" or "fooUUID"?) *)
 
 module Interface = struct
-  type t = {name: string; vif: Vif.id} [@@deriving rpcty]
+  type t =
+    { name : string
+    ; vif : Vif.id
+    }
+  [@@deriving rpcty]
 
   let rpc_of_t x = Rpcmarshal.marshal t.Rpc.Types.ty x
 
@@ -38,5 +42,5 @@ module DB = TypedTable (struct
 
   type key = string
 
-  let key x = [x]
+  let key x = [ x ]
 end)

@@ -30,7 +30,10 @@ module Actions = struct
   module Event = Xapi_event
   module Alert = Xapi_alert
 
-  module VM = struct include Xapi_vm include Xapi_vm_migrate end
+  module VM = struct
+    include Xapi_vm
+    include Xapi_vm_migrate
+  end
 
   module VM_metrics = struct end
 
@@ -81,7 +84,8 @@ module Actions = struct
   module Data_source = struct end
 
   let not_implemented x =
-    raise (Api_errors.Server_error (Api_errors.not_implemented, [x]))
+    raise (Api_errors.Server_error (Api_errors.not_implemented, [ x ]))
+
 
   module VTPM = struct
     let create ~__context ~vM ~backend = not_implemented "VTPM.create"
@@ -152,13 +156,16 @@ let forward req call is_json =
     SSL
       ( SSL.make ~use_stunnel_cache:true ~verify_cert:(Stunnel_client.pool ()) ()
       , Pool_role.get_master_address ()
-      , !Constants.https_port
-      )
+      , !Constants.https_port )
   in
   let rpc = if is_json then JSONRPC_protocol.rpc else XMLRPC_protocol.rpc in
-  rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport
-    ~http:{req with Http.Request.frame= true}
+  rpc
+    ~srcstr:"xapi"
+    ~dststr:"xapi"
+    ~transport
+    ~http:{ req with Http.Request.frame = true }
     call
+
 
 (* Whitelist of functions that do *not* get forwarded to the master (e.g. session.login_with_password) *)
 (* !!! Note, this only blocks synchronous calls. As is it happens, all the calls we want to block right now are only
@@ -168,22 +175,24 @@ let whitelist =
     (fun (obj, msg) -> Datamodel_utils.wire_name ~sync:true obj msg)
     Datamodel.whitelist
 
+
 let emergency_call_list =
   List.map
     (fun (obj, msg) -> Datamodel_utils.wire_name ~sync:true obj msg)
     Datamodel.emergency_calls
 
+
 let is_himn_req req =
   match req.Http.Request.host with
-  | Some h -> (
-    match Xapi_mgmt_iface.himn_addr () with
+  | Some h ->
+    ( match Xapi_mgmt_iface.himn_addr () with
     | Some himn ->
         himn = h
     | None ->
-        false
-  )
+        false )
   | None ->
       false
+
 
 (* The API does not use the error.code and only retains it for compliance with
   the JSON-RPC v2.0 specs. We set this always to a non-zero value because
@@ -191,9 +200,10 @@ let is_himn_req req =
 let error_code_lit = 1L
 
 let json_of_error_object ?(data = None) code message =
-  let data_json = match data with Some d -> [("data", d)] | None -> [] in
+  let data_json = match data with Some d -> [ ("data", d) ] | None -> [] in
   Rpc.Dict
-    ([("code", Rpc.Int code); ("message", Rpc.String message)] @ data_json)
+    ([ ("code", Rpc.Int code); ("message", Rpc.String message) ] @ data_json)
+
 
 (* This bit is called directly by the fake_rpc callback *)
 let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
@@ -204,23 +214,19 @@ let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
   let whitelisted = List.mem call.Rpc.name whitelist in
   let emergency_call = List.mem call.Rpc.name emergency_call_list in
   let is_slave = not (Pool_role.is_master ()) in
-  if !Xapi_globs.slave_emergency_mode && not emergency_call then
-    raise !Xapi_globs.emergency_mode_error ;
-  if
-    is_slave
-    && ((Context.is_unix_socket fd && not whitelisted)
-       || (is_himn_req req && not emergency_call)
-       )
-  then
-    forward req call is_json
+  if !Xapi_globs.slave_emergency_mode && not emergency_call
+  then raise !Xapi_globs.emergency_mode_error ;
+  if is_slave
+     && ( (Context.is_unix_socket fd && not whitelisted)
+        || (is_himn_req req && not emergency_call) )
+  then forward req call is_json
   else
     let response = Server.dispatch_call req fd call in
     let translated =
-      if
-        is_json
-        && json_rpc_version = Jsonrpc.V2
-        && (not response.Rpc.success)
-        && call.Rpc.name <> "system.listMethods"
+      if is_json
+         && json_rpc_version = Jsonrpc.V2
+         && (not response.Rpc.success)
+         && call.Rpc.name <> "system.listMethods"
       then
         let message, data =
           match response.Rpc.contents with
@@ -229,15 +235,14 @@ let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
           | _ ->
               ("", response.Rpc.contents)
         in
-        {
-          response with
-          Rpc.contents=
+        { response with
+          Rpc.contents =
             json_of_error_object ~data:(Some data) error_code_lit message
         }
-      else
-        response
+      else response
     in
     translated
+
 
 (* debug(fmt "response = %s" response); *)
 
@@ -254,19 +259,19 @@ let callback is_json req bio _ =
     let rpc = Xmlrpc.call_of_string body in
     let response = callback1 is_json req fd rpc in
     let response_str =
-      if rpc.Rpc.name = "system.listMethods" then
+      if rpc.Rpc.name = "system.listMethods"
+      then
         let inner = Xmlrpc.to_string response.Rpc.contents in
         Printf.sprintf
           "<?xml \
            version=\"1.0\"?><methodResponse><params><param>%s</param></params></methodResponse>"
           inner
-      else
-        Xmlrpc.string_of_response response
+      else Xmlrpc.string_of_response response
     in
-    Http_svr.response_fct req
+    Http_svr.response_fct
+      req
       ~hdrs:
-        [
-          (Http.Hdr.content_type, "text/xml")
+        [ (Http.Hdr.content_type, "text/xml")
         ; ("Access-Control-Allow-Origin", "*")
         ; ("Access-Control-Allow-Headers", "X-Requested-With")
         ]
@@ -275,16 +280,17 @@ let callback is_json req bio _ =
       (fun fd -> Unixext.really_write_string fd response_str |> ignore)
   with
   | Api_errors.Server_error (err, params) ->
-      Http_svr.response_str req
-        ~hdrs:[(Http.Hdr.content_type, "text/xml")]
+      Http_svr.response_str
+        req
+        ~hdrs:[ (Http.Hdr.content_type, "text/xml") ]
         fd
         (Xmlrpc.string_of_response
            (Rpc.failure
-              (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))
-           )
-        )
+              (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params))) ) )
   | e ->
-      Backtrace.is_important e ; raise e
+      Backtrace.is_important e ;
+      raise e
+
 
 (** HTML callback that dispatches an RPC and returns the response. *)
 let jsoncallback req bio _ =
@@ -298,28 +304,31 @@ let jsoncallback req bio _ =
       Jsonrpc.version_id_and_call_of_string body
     in
     let response =
-      Jsonrpc.string_of_response ~id ~version:json_rpc_version
+      Jsonrpc.string_of_response
+        ~id
+        ~version:json_rpc_version
         (callback1 ~json_rpc_version true req fd rpc)
     in
-    Http_svr.response_fct req
+    Http_svr.response_fct
+      req
       ~hdrs:
-        [
-          (Http.Hdr.content_type, "application/json")
+        [ (Http.Hdr.content_type, "application/json")
         ; ("Access-Control-Allow-Origin", "*")
         ; ("Access-Control-Allow-Headers", "X-Requested-With")
         ]
       fd
       (Int64.of_int @@ String.length response)
       (fun fd -> Unixext.really_write_string fd response |> ignore)
-  with Api_errors.Server_error (err, params) ->
-    Http_svr.response_str req
-      ~hdrs:[(Http.Hdr.content_type, "application/json")]
-      fd
-      (Jsonrpc.string_of_response
-         (Rpc.failure
-            (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))
-         )
-      )
+  with
+  | Api_errors.Server_error (err, params) ->
+      Http_svr.response_str
+        req
+        ~hdrs:[ (Http.Hdr.content_type, "application/json") ]
+        fd
+        (Jsonrpc.string_of_response
+           (Rpc.failure
+              (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params))) ) )
+
 
 let options_callback req bio _ =
   let fd = Buf_io.fd_of bio in

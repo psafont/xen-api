@@ -23,6 +23,7 @@ let is_valid ~key ~platformdata =
   | _ ->
       false
 
+
 let is_true ~key ~platformdata ~default =
   try
     match List.assoc key platformdata |> String.lowercase_ascii with
@@ -33,4 +34,6 @@ let is_true ~key ~platformdata ~default =
     | _ ->
         default
     (* Check for validity using is_valid if required *)
-  with Not_found -> default
+  with
+  | Not_found ->
+      default

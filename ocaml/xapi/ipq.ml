@@ -13,17 +13,21 @@
  *)
 (* Imperative priority queue *)
 
-type 'a event = {ev: 'a; time: Mtime.t}
+type 'a event =
+  { ev : 'a
+  ; time : Mtime.t
+  }
 
-type 'a t = {mutable size: int; mutable data: 'a event array}
+type 'a t =
+  { mutable size : int
+  ; mutable data : 'a event array
+  }
 
 exception EmptyHeap
 
 let create n =
-  if n <= 0 then
-    invalid_arg "create"
-  else
-    {size= -n; data= [||]}
+  if n <= 0 then invalid_arg "create" else { size = -n; data = [||] }
+
 
 let is_empty h = h.size <= 0
 
@@ -36,12 +40,13 @@ let resize h =
   Array.blit d 0 d' 0 n ;
   h.data <- d'
 
+
 let add h x =
   (* first addition: we allocate the array *)
-  if h.size < 0 then (
+  if h.size < 0
+  then (
     h.data <- Array.make (-h.size) x ;
-    h.size <- 0
-  ) ;
+    h.size <- 0 ) ;
   let n = h.size in
   (* resizing if needed *)
   if n = Array.length h.data then resize h ;
@@ -50,18 +55,20 @@ let add h x =
   let rec moveup i =
     let ( >> ) = Mtime.is_later in
     let fi = (i - 1) / 2 in
-    if i > 0 && d.(fi).time >> x.time then (
+    if i > 0 && d.(fi).time >> x.time
+    then (
       d.(i) <- d.(fi) ;
-      moveup fi
-    ) else
-      d.(i) <- x
+      moveup fi )
+    else d.(i) <- x
   in
   moveup n ;
   h.size <- n + 1
 
+
 let maximum h =
   if h.size <= 0 then raise EmptyHeap ;
   h.data.(0)
+
 
 let remove h s =
   if h.size <= 0 then raise EmptyHeap ;
@@ -73,52 +80,48 @@ let remove h s =
   let rec movedown i =
     let j = (2 * i) + 1 in
     let ( << ) = Mtime.is_earlier in
-    if j < n then
+    if j < n
+    then
       let j =
         let j' = j + 1 in
         if j' < n && d.(j').time < d.(j).time then j' else j
       in
-      if d.(j).time << x.time then (
+      if d.(j).time << x.time
+      then (
         d.(i) <- d.(j) ;
-        movedown j
-      ) else
-        d.(i) <- x
-    else
-      d.(i) <- x
+        movedown j )
+      else d.(i) <- x
+    else d.(i) <- x
   in
   movedown s
 
+
 let find h ev =
   let rec iter n =
-    if n < 0 then
-      -1
-    else if ev = h.data.(n).ev then
-      n
-    else
-      iter (n - 1)
+    if n < 0 then -1 else if ev = h.data.(n).ev then n else iter (n - 1)
   in
   iter (h.size - 1)
+
 
 let find_p h f =
   let rec iter n =
-    if n < 0 then
-      -1
-    else if f h.data.(n).ev then
-      n
-    else
-      iter (n - 1)
+    if n < 0 then -1 else if f h.data.(n).ev then n else iter (n - 1)
   in
   iter (h.size - 1)
 
+
 let pop_maximum h =
   let m = maximum h in
-  remove h 0 ; m
+  remove h 0 ;
+  m
+
 
 let iter f h =
   let d = h.data in
   for i = 0 to h.size - 1 do
     f d.(i)
   done
+
 
 let fold f h x0 =
   let n = h.size in

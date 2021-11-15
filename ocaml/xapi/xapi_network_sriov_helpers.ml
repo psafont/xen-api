@@ -16,7 +16,9 @@ open Network
 open Db_filter_types
 open Xapi_stdext_std
 
-module D = Debug.Make (struct let name = "xapi_network_sriov" end)
+module D = Debug.Make (struct
+  let name = "xapi_network_sriov"
+end)
 
 open D
 
@@ -29,12 +31,11 @@ let get_sriov_of ~__context ~sriov_logical_pif =
         Api_errors.(
           Server_error
             ( internal_error
-            , [
-                Printf.sprintf "Cannot find sriov object in sriov logical PIF %s"
+            , [ Printf.sprintf
+                  "Cannot find sriov object in sriov logical PIF %s"
                   (Ref.string_of sriov_logical_pif)
-              ]
-            )
-        )
+              ] ))
+
 
 let sriov_bring_up ~__context ~self =
   let update_sriov_with_result result =
@@ -54,12 +55,15 @@ let sriov_bring_up ~__context ~self =
     let physical_pif =
       Db.Network_sriov.get_physical_PIF ~__context ~self:sriov
     in
-    info "Enable network sriov on PIF %s successful, mode: %s need_reboot: %b"
+    info
+      "Enable network sriov on PIF %s successful, mode: %s need_reboot: %b"
       (Ref.string_of physical_pif)
       (Record_util.network_sriov_configuration_mode_to_string mode)
       require_reboot ;
     Db.Network_sriov.set_configuration_mode ~__context ~self:sriov ~value:mode ;
-    Db.Network_sriov.set_requires_reboot ~__context ~self:sriov
+    Db.Network_sriov.set_requires_reboot
+      ~__context
+      ~self:sriov
       ~value:require_reboot ;
     Db.PIF.set_currently_attached ~__context ~self ~value:(not require_reboot)
   in
@@ -73,10 +77,9 @@ let sriov_bring_up ~__context ~self =
        raise
          Api_errors.(
            Server_error
-             (network_sriov_enable_failed, [Ref.string_of self; error])
-         )
-  ) ;
+             (network_sriov_enable_failed, [ Ref.string_of self; error ])) ) ;
   Xapi_pci.update_pcis ~__context
+
 
 let require_operation_on_pci_device ~__context ~sriov ~self =
   let is_sriov_enabled ~pif_rec =
@@ -88,7 +91,8 @@ let require_operation_on_pci_device ~__context ~sriov ~self =
         || Db.Network_sriov.get_requires_reboot ~__context ~self:sriov
   in
   let pif_rec = Db.PIF.get_record ~__context ~self in
-  if is_sriov_enabled ~pif_rec then
+  if is_sriov_enabled ~pif_rec
+  then
     match Db.Network_sriov.get_configuration_mode ~__context ~self:sriov with
     | `sysfs ->
         true
@@ -108,13 +112,12 @@ let require_operation_on_pci_device ~__context ~sriov ~self =
         (* 1. has same driver name with me *)
         (* 2. PIF.currently_attached = `true` or Network_sriov.requires_reboot = `true`. Aka the PIF that enabled SR-IOV or will enable SR-IOV after reboot *)
         (* If the final list just contains me, should call networkd to disable SR-IOV for the device. *)
-        Db.PIF.get_records_where ~__context
+        Db.PIF.get_records_where
+          ~__context
           ~expr:
             (And
                ( Eq (Field "host", Literal (Ref.string_of host))
-               , Not (Eq (Field "sriov_logical_PIF_of", Literal "()"))
-               )
-            )
+               , Not (Eq (Field "sriov_logical_PIF_of", Literal "()")) ) )
         |> List.filter (fun (_, pif_rec) ->
                let sriov =
                  match pif_rec.API.pIF_sriov_logical_PIF_of with
@@ -125,31 +128,28 @@ let require_operation_on_pci_device ~__context ~sriov ~self =
                        Api_errors.(
                          Server_error
                            ( internal_error
-                           , [
-                               Printf.sprintf
+                           , [ Printf.sprintf
                                  "Cannot find sriov object in sriov logical \
                                   PIF %s"
                                  pif_rec.API.pIF_uuid
-                             ]
-                           )
-                       )
+                             ] ))
                in
                let physical_pif =
                  Db.Network_sriov.get_physical_PIF ~__context ~self:sriov
                in
                let pci = Db.PIF.get_PCI ~__context ~self:physical_pif in
-               Db.PCI.get_driver_name ~__context ~self:pci = driver_name
-           )
+               Db.PCI.get_driver_name ~__context ~self:pci = driver_name )
         |> List.filter (fun (_, pif_rec) -> is_sriov_enabled ~pif_rec)
         |> List.map (fun (pif_ref, _) -> pif_ref)
-        |> ( = ) [self]
-  else
-    false
+        |> ( = ) [ self ]
+  else false
+
 
 let sriov_bring_down ~__context ~self =
   let sriov = get_sriov_of ~__context ~sriov_logical_pif:self in
   let physical_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
-  if require_operation_on_pci_device ~__context ~sriov ~self then (
+  if require_operation_on_pci_device ~__context ~sriov ~self
+  then (
     debug "Disable network sriov on pci device. PIF: %s" (Ref.string_of self) ;
     let dbg = Context.string_of_task __context in
     let device = Db.PIF.get_device ~__context ~self in
@@ -160,18 +160,18 @@ let sriov_bring_down ~__context ~self =
         raise
           Api_errors.(
             Server_error
-              (network_sriov_disable_failed, [Ref.string_of self; error])
-          )
-  ) ;
+              (network_sriov_disable_failed, [ Ref.string_of self; error ])) ) ;
   info "Disable network sriov on PIF %s successful" (Ref.string_of physical_pif) ;
   Db.PIF.set_currently_attached ~__context ~self ~value:false ;
   Db.Network_sriov.set_requires_reboot ~__context ~self:sriov ~value:false ;
   Xapi_pci.update_pcis ~__context
 
+
 let get_remaining_capacity_on_sriov ~__context ~self =
   let physical_PIF = Db.Network_sriov.get_physical_PIF ~__context ~self in
   let pci = Db.PIF.get_PCI ~__context ~self:physical_PIF in
   Xapi_pci.get_idle_vf_nums ~__context ~self:pci
+
 
 (*Returns physical PIF underlying the given PIF, return None if the given PIF is not (a VLAN on) a SR-IOV logical PIF *)
 let get_underlying_pif ~__context ~pif =
@@ -182,6 +182,7 @@ let get_underlying_pif ~__context ~pif =
       Some (Db.Network_sriov.get_physical_PIF ~__context ~self:sriov)
   | _ ->
       None
+
 
 (* 3 type pif of sr-iov can be quickly up without a reboot:
    1. sysfs mode
@@ -200,6 +201,7 @@ let can_be_up_without_reboot ~__context sriov =
       Db.PIF.get_currently_attached ~__context ~self:pif
       || get_remaining_capacity_on_sriov ~__context ~self:sriov > 0L
 
+
 (* Just take one pif from the network and check if it has an underlying_pif, if so it's a SR-IOV network. 
 Note, get_underlying_pif only matches a (VLAN on) SR-IOV type of PIF. *)
 let is_sriov_network ~__context ~self =
@@ -209,6 +211,7 @@ let is_sriov_network ~__context ~self =
   | pif :: _ ->
       get_underlying_pif ~__context ~pif <> None
 
+
 let get_sriov_networks_from_vm ~__context ~vm =
   let networks =
     Db.VM.get_VIFs ~__context ~self:vm
@@ -217,6 +220,7 @@ let get_sriov_networks_from_vm ~__context ~vm =
   List.filter
     (fun network -> is_sriov_network ~__context ~self:network)
     networks
+
 
 (* Get localhost underlying pif with for the sr-iov network *)
 let get_local_underlying_pif ~__context ~network ~host =
@@ -228,6 +232,7 @@ let get_local_underlying_pif ~__context ~network ~host =
   | pif :: _ ->
       get_underlying_pif ~__context ~pif
 
+
 (* Get remaining capacity for localhost on the given network, return None if no underlying_pif found or capacity = 0L *)
 let get_remaining_capacity_on_host ~__context ~host ~network =
   let local_pifs =
@@ -237,10 +242,9 @@ let get_remaining_capacity_on_host ~__context ~host ~network =
   | [] ->
       raise
         Api_errors.(
-          Server_error (internal_error, ["Cannot get local pif on network"])
-        )
-  | local_pif :: _ -> (
-    match get_underlying_pif ~__context ~pif:local_pif with
+          Server_error (internal_error, [ "Cannot get local pif on network" ]))
+  | local_pif :: _ ->
+    ( match get_underlying_pif ~__context ~pif:local_pif with
     | Some underlying_pif ->
         let pci = Db.PIF.get_PCI ~__context ~self:underlying_pif in
         Xapi_pci.get_idle_vf_nums ~__context ~self:pci
@@ -248,9 +252,9 @@ let get_remaining_capacity_on_host ~__context ~host ~network =
         raise
           Api_errors.(
             Server_error
-              (internal_error, ["Cannot get underlying pif on sriov network"])
-          )
-  )
+              (internal_error, [ "Cannot get underlying pif on sriov network" ]))
+    )
+
 
 (* Partition hosts by attached and unattached pifs, the network input is a SR-IOV type.
   1.For attached pifs, check the free capacity > 0   
@@ -266,7 +270,8 @@ let group_hosts_by_best_sriov ~__context ~network =
       (fun (l1, l2) pif ->
         let pif_rec = Db.PIF.get_record ~__context ~self:pif in
         let host = pif_rec.API.pIF_host in
-        if pif_rec.API.pIF_currently_attached then
+        if pif_rec.API.pIF_currently_attached
+        then
           let num = get_remaining_capacity_on_host ~__context ~host ~network in
           if num = 0L then (l1, l2) else ((host, num) :: l1, l2)
         else
@@ -280,30 +285,28 @@ let group_hosts_by_best_sriov ~__context ~network =
                   Api_errors.(
                     Server_error
                       ( internal_error
-                      , [
-                          Printf.sprintf "Cannot find sriov object in PIF %s"
+                      , [ Printf.sprintf
+                            "Cannot find sriov object in PIF %s"
                             (Ref.string_of pif)
-                        ]
-                      )
-                  )
+                        ] ))
           in
-          if can_be_up_without_reboot ~__context sriov then
-            (l1, (host, 0L) :: l2)
-          else
-            (l1, l2)
-        )
-      ([], []) pifs
+          if can_be_up_without_reboot ~__context sriov
+          then (l1, (host, 0L) :: l2)
+          else (l1, l2) )
+      ([], [])
+      pifs
   in
   let host_lists =
-    Helpers.group_by `descending
+    Helpers.group_by
+      `descending
       (fun (_, num) -> num)
       (Listext.List.setify attached_hosts)
     |> List.map (fun hl -> List.map (fun ((h, num), _) -> (h, num)) hl)
   in
-  if unattached_hosts <> [] then
-    host_lists @ [unattached_hosts]
-  else
-    host_lists
+  if unattached_hosts <> []
+  then host_lists @ [ unattached_hosts ]
+  else host_lists
+
 
 (* If exn happens during vifs reservation ,reserved vfs will be cleared. Nothing will be done while cannot get underlying pif *)
 let reserve_sriov_vfs ~__context ~host ~vm =
@@ -314,17 +317,14 @@ let reserve_sriov_vfs ~__context ~host ~vm =
       match get_local_underlying_pif ~__context ~network ~host with
       | None ->
           ()
-      | Some pif -> (
+      | Some pif ->
           let pci = Db.PIF.get_PCI ~__context ~self:pif in
-          match Pciops.reserve_free_virtual_function ~__context vm pci with
+          ( match Pciops.reserve_free_virtual_function ~__context vm pci with
           | Some vf ->
               Db.VIF.set_reserved_pci ~__context ~self:vif ~value:vf
           | None ->
               raise
                 Api_errors.(
                   Server_error
-                    (internal_error, ["No free virtual function found"])
-                )
-        )
-      )
+                    (internal_error, [ "No free virtual function found" ])) ) )
     vifs

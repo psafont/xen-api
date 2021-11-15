@@ -26,10 +26,10 @@ module type TRANSPORT = sig
   val get_allocator : state_t -> int -> Cstruct.t
 end
 
-type writer = {
-    write_payload: Rrd_protocol.payload -> unit
-  ; cleanup: unit -> unit
-}
+type writer =
+  { write_payload : Rrd_protocol.payload -> unit
+  ; cleanup : unit -> unit
+  }
 
 module Make (T : TRANSPORT) : sig
   val create : T.id_t -> Rrd_protocol.protocol -> T.info_t * writer

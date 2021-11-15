@@ -8,19 +8,21 @@ let is_prefix a b =
   && String.length b >= String.length a
   && String.sub b 0 (String.length a) = a
 
+
 let common_prefix a b =
   let j = ref 0 in
   (* length of common prefix *)
   let skip = ref false in
   for i = 0 to min (String.length a) (String.length b) - 1 do
-    if not !skip then
-      if a.[i] = b.[i] then incr j else skip := true
+    if not !skip then if a.[i] = b.[i] then incr j else skip := true
   done ;
   String.sub a 0 !j
+
 
 let sub b a =
   let length = String.length b - String.length a in
   String.sub b (String.length b - length) length
+
 
 let string = function Node (s, _, _) -> s
 
@@ -32,12 +34,13 @@ exception Duplicate_key of string
    one child with the same initial character as the key we're looking up. *)
 let choose remaining ns =
   match List.partition (fun x -> (string x).[0] = remaining.[0]) ns with
-  | [n], rest ->
+  | [ n ], rest ->
       Some (n, rest)
   | [], _ ->
       None
   | _ :: _, _ ->
       assert false
+
 
 let rec insert k v = function
   (* k could be equal to s *)
@@ -48,38 +51,39 @@ let rec insert k v = function
   (* k could be a prefix of s *)
   | Node (s, v', ns) when is_prefix k s ->
       assert (sub s k <> "") ;
-      Node (k, Some v, [Node (sub s k, v', ns)])
+      Node (k, Some v, [ Node (sub s k, v', ns) ])
   (* s could be a prefix of k *)
-  | Node (s, v', ns) when is_prefix s k -> (
+  | Node (s, v', ns) when is_prefix s k ->
       let remaining = sub k s in
       assert (remaining <> "") ;
-      match choose remaining ns with
+      ( match choose remaining ns with
       | Some (n, rest) ->
           Node (s, v', insert remaining v n :: rest)
       | None ->
-          Node (s, v', Node (remaining, Some v, []) :: ns)
-    )
+          Node (s, v', Node (remaining, Some v, []) :: ns) )
   (* s and k could share a non-empty common prefix *)
   | Node (s, v', ns) ->
       let p = common_prefix s k in
-      let s' = sub s p and k' = sub k p in
+      let s' = sub s p
+      and k' = sub k p in
       assert (s' <> "") ;
       assert (k' <> "") ;
-      Node (p, None, [Node (s', v', ns); Node (k', Some v, [])])
+      Node (p, None, [ Node (s', v', ns); Node (k', Some v, []) ])
+
 
 let rec fold_over_path f str acc = function
   | Node (p, v, _) when p = str ->
       f acc v
-  | Node (p, v, ns) when is_prefix p str -> (
+  | Node (p, v, ns) when is_prefix p str ->
       let remaining = sub str p in
-      match choose remaining ns with
+      ( match choose remaining ns with
       | Some (n, _) ->
           fold_over_path f remaining (f acc v) n
       | None ->
-          f acc v
-    )
+          f acc v )
   | _ ->
       acc
+
 
 let better acc = function None -> acc | Some x -> Some x
 

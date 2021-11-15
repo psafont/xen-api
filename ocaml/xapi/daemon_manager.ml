@@ -20,7 +20,9 @@ module IntSet = Set.Make (struct
   let compare = compare
 end)
 
-type daemon_check = Pidfile of string | Function of (unit -> bool)
+type daemon_check =
+  | Pidfile of string
+  | Function of (unit -> bool)
 
 (** Tristate value for representing the state of a daemon we want to manage. *)
 type daemon_state =
@@ -48,11 +50,14 @@ module Make (D : DAEMON) = struct
   let register_thread_nolock id =
     registered_threads := IntSet.add id !registered_threads
 
+
   let deregister_thread_nolock id =
     registered_threads := IntSet.remove id !registered_threads
 
+
   let are_threads_registered_nolock () =
     not (IntSet.is_empty !registered_threads)
+
 
   let daemon_state : daemon_state ref = ref `unmanaged
 
@@ -60,34 +65,37 @@ module Make (D : DAEMON) = struct
 
   let is_running () =
     match D.check with
-    | Pidfile file -> (
-      try
-        let pid =
-          Xapi_stdext_unix.Unixext.string_of_file file
-          |> String.trim
-          |> int_of_string
-        in
-        Unix.kill pid 0 ; true
-      with _ -> false
-    )
+    | Pidfile file ->
+      ( try
+          let pid =
+            Xapi_stdext_unix.Unixext.string_of_file file
+            |> String.trim
+            |> int_of_string
+          in
+          Unix.kill pid 0 ;
+          true
+        with
+      | _ ->
+          false )
     | Function f ->
         f ()
+
 
   let start = D.start
 
   let stop ?timeout () =
     match timeout with
-    | Some t -> (
+    | Some t ->
         let start = Unix.gettimeofday () in
-        try D.stop ()
-        with e ->
-          while Unix.gettimeofday () -. start < t && is_running () do
-            Thread.delay 1.0
-          done ;
-          if is_running () then raise e
-      )
+        ( try D.stop () with
+        | e ->
+            while Unix.gettimeofday () -. start < t && is_running () do
+              Thread.delay 1.0
+            done ;
+            if is_running () then raise e )
     | None ->
         D.stop ()
+
 
   let with_daemon_stopped ?timeout f =
     let thread_id = Thread.(id (self ())) in
@@ -100,11 +108,10 @@ module Make (D : DAEMON) = struct
         | false, `unmanaged ->
             daemon_state := `should_not_start
         | false, _ ->
-            ()
-        ) ;
-        register_thread_nolock thread_id
-    ) ;
-    Xapi_stdext_pervasives.Pervasiveext.finally f
+            () ) ;
+        register_thread_nolock thread_id ) ;
+    Xapi_stdext_pervasives.Pervasiveext.finally
+      f
       (* Deregister this thread, and if there are no more threads registered,
          			 * start the daemon if it was running in the first place. *)
       (fun () ->
@@ -117,7 +124,5 @@ module Make (D : DAEMON) = struct
                 start () ;
                 daemon_state := `unmanaged
             | false, _ ->
-                daemon_state := `unmanaged
-        )
-    )
+                daemon_state := `unmanaged ) )
 end

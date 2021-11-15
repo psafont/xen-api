@@ -55,7 +55,12 @@ val ip_of : __context:Context.t -> API.ref_VM -> string
 (** [ip_of __context vm] returns the IP of the given VM on the internal management network *)
 
 (** One of many service running in a driver domain *)
-type service = {uuid: string; ty: string; instance: string; url: string}
+type service =
+  { uuid : string
+  ; ty : string
+  ; instance : string
+  ; url : string
+  }
 
 val rpc_of_service : service -> Rpc.t
 

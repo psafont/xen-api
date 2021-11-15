@@ -29,7 +29,10 @@ end
 
 module NUMAResource : sig
   (** A NUMA node providing CPU and memory resources *)
-  type t = private {affinity: CPUSet.t; memfree: int64}
+  type t = private
+    { affinity : CPUSet.t
+    ; memfree : int64
+    }
 
   val make : affinity:CPUSet.t -> memfree:int64 -> t
   (** [make ~affinity ~memfree] constructs a resource requiring affinity to be
@@ -51,7 +54,10 @@ end
 
 module NUMARequest : sig
   (** A (VM) requesting resources *)
-  type t = private {memory: int64; vcpus: int}
+  type t = private
+    { memory : int64
+    ; vcpus : int
+    }
 
   val make : memory:int64 -> vcpus:int -> t
   (**[make ~memory ~vcpus] constructs a request. [memory] and [vcpus] must be

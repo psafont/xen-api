@@ -18,13 +18,13 @@ module type T = sig
       	  * are in valid order if (and only if) they satisfy the following:
       	  * static_min <= dynamic_min <= dynamic_max <= static_max
       	  *)
-  type t = {
-      static_min: Int64.t
-    ; dynamic_min: Int64.t
-    ; target: Int64.t
-    ; dynamic_max: Int64.t
-    ; static_max: Int64.t
-  }
+  type t =
+    { static_min : Int64.t
+    ; dynamic_min : Int64.t
+    ; target : Int64.t
+    ; dynamic_max : Int64.t
+    ; static_max : Int64.t
+    }
 
   val are_pinned : constraints:t -> bool
   (** Given a set of constraints [c], returns [true] if and only if
@@ -87,46 +87,50 @@ let ( ** ) = Int64.mul
 let ( // ) = Int64.div
 
 module Vm_memory_constraints : T = struct
-  type t = {
-      static_min: Int64.t
-    ; dynamic_min: Int64.t
-    ; target: Int64.t
-    ; dynamic_max: Int64.t
-    ; static_max: Int64.t
-  }
+  type t =
+    { static_min : Int64.t
+    ; dynamic_min : Int64.t
+    ; target : Int64.t
+    ; dynamic_max : Int64.t
+    ; static_max : Int64.t
+    }
 
   let create (static_min, dynamic_min, target, dynamic_max, static_max) =
-    {static_min; dynamic_min; target; dynamic_max; static_max}
+    { static_min; dynamic_min; target; dynamic_max; static_max }
+
 
   let transform ~constraints:c =
     (* Constrains a value between two limits. *)
     let constrain value minimum maximum =
-      if value < minimum then
-        minimum
-      else if value > maximum then
-        maximum
-      else
-        value
+      if value < minimum
+      then minimum
+      else if value > maximum
+      then maximum
+      else value
     in
     (* Fail if either maximum is less than its corresponding minimum. *)
-    if c.static_max < c.static_min then
-      None
-    else if c.dynamic_max < c.dynamic_min then
-      None
-    else (* Ensure dynamic constraints are within static constraints. *)
+    if c.static_max < c.static_min
+    then None
+    else if c.dynamic_max < c.dynamic_min
+    then None
+    else
+      (* Ensure dynamic constraints are within static constraints. *)
       let dynamic_min = constrain c.dynamic_min c.static_min c.static_max in
       let dynamic_max = constrain c.dynamic_max c.static_min c.static_max in
       (* Ensure target is within dynamic constraints. *)
       let target = constrain c.target dynamic_min dynamic_max in
-      Some {c with dynamic_min; target; dynamic_max}
+      Some { c with dynamic_min; target; dynamic_max }
+
 
   let are_pinned ~constraints =
     constraints.dynamic_min = constraints.dynamic_max
+
 
   let are_pinned_at_static_max ~constraints =
     true
     && constraints.dynamic_max = constraints.static_max
     && are_pinned constraints
+
 
   let are_valid ~constraints =
     true
@@ -134,19 +138,20 @@ module Vm_memory_constraints : T = struct
     && constraints.dynamic_min <= constraints.dynamic_max
     && constraints.dynamic_max <= constraints.static_max
 
+
   let are_valid_and_pinned_at_static_max ~constraints =
     true
     && constraints.static_min <= constraints.dynamic_min
     && are_pinned_at_static_max constraints
 
+
   let reset_to_safe_defaults ~constraints =
     let max = constraints.static_max in
     let min = constraints.static_min in
-    {
-      static_max= max
-    ; dynamic_max= max
-    ; target= max
-    ; dynamic_min= max
-    ; static_min= (if min < max then min else max)
+    { static_max = max
+    ; dynamic_max = max
+    ; target = max
+    ; dynamic_min = max
+    ; static_min = (if min < max then min else max)
     }
 end

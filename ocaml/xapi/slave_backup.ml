@@ -19,10 +19,14 @@
     then the backup is flushed to those connections; if no flush spec is given then the backup is flushed to all
     db conections.
 *)
-type write_entry = {period_start_time: float; writes_this_period: int}
+type write_entry =
+  { period_start_time : float
+  ; writes_this_period : int
+  }
 
 let backup_write_table : (Parse_db_conf.db_connection, write_entry) Hashtbl.t =
   Hashtbl.create 20
+
 
 let backup_m = Mutex.create ()
 
@@ -32,13 +36,14 @@ let with_backup_lock f = Xapi_stdext_threads.Threadext.Mutex.execute backup_m f
    log it in table and return that *)
 (* IMPORTANT: must be holding backup_m mutex when you call this function.. *)
 let lookup_write_entry dbconn =
-  try Hashtbl.find backup_write_table dbconn
-  with _ ->
-    let new_write_entry =
-      {period_start_time= Unix.gettimeofday (); writes_this_period= 0}
-    in
-    Hashtbl.replace backup_write_table dbconn new_write_entry ;
-    new_write_entry
+  try Hashtbl.find backup_write_table dbconn with
+  | _ ->
+      let new_write_entry =
+        { period_start_time = Unix.gettimeofday (); writes_this_period = 0 }
+      in
+      Hashtbl.replace backup_write_table dbconn new_write_entry ;
+      new_write_entry
+
 
 (* Reset period_start_time, writes_this_period if period has expired *)
 let tick_backup_write_table () =
@@ -47,21 +52,20 @@ let tick_backup_write_table () =
         (fun dbconn write_entry ->
           match dbconn.Parse_db_conf.mode with
           | Parse_db_conf.Write_limit ->
-              if
-                int_of_float
-                  (Unix.gettimeofday () -. write_entry.period_start_time)
-                > dbconn.Parse_db_conf.write_limit_period
+              if int_of_float
+                   (Unix.gettimeofday () -. write_entry.period_start_time)
+                 > dbconn.Parse_db_conf.write_limit_period
               then
-                Hashtbl.replace backup_write_table dbconn
-                  {
-                    period_start_time= Unix.gettimeofday ()
-                  ; writes_this_period= 0
+                Hashtbl.replace
+                  backup_write_table
+                  dbconn
+                  { period_start_time = Unix.gettimeofday ()
+                  ; writes_this_period = 0
                   }
           | _ ->
-              ()
-          )
-        backup_write_table
-  )
+              () )
+        backup_write_table )
+
 
 (* Can we write to specified connection *)
 let can_we_write dbconn =
@@ -73,20 +77,21 @@ let can_we_write dbconn =
           let write_entry = lookup_write_entry dbconn in
           (* we can write if we haven't used up all our write-cycles for this period: *)
           write_entry.writes_this_period
-          < dbconn.Parse_db_conf.write_limit_write_cycles
-  )
+          < dbconn.Parse_db_conf.write_limit_write_cycles )
+
 
 (* Update writes_this_period for dbconn *)
 let notify_write dbconn =
   with_backup_lock (fun () ->
       let write_entry = lookup_write_entry dbconn in
       (* will create fresh one if reqd *)
-      Hashtbl.replace backup_write_table dbconn
-        {
-          write_entry with
-          writes_this_period= write_entry.writes_this_period + 1
-        }
-  )
+      Hashtbl.replace
+        backup_write_table
+        dbconn
+        { write_entry with
+          writes_this_period = write_entry.writes_this_period + 1
+        } )
+
 
 (* Read connections and gen counts and find if any are behind. If they are behind then figure out if we're allowed to
    write to them. Return list of connections that satisfy both these properties *)

@@ -19,16 +19,15 @@ module File = struct
   type state_t = Cstruct.t
 
   let init path =
-    let fd = Unix.openfile path [Unix.O_RDONLY] 0o400 in
-    if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
-      failwith "lseek" ;
+    let fd = Unix.openfile path [ Unix.O_RDONLY ] 0o400 in
+    if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then failwith "lseek" ;
     let mapping =
       Bigarray.(
-        array1_of_genarray @@ Unix.map_file fd char c_layout false [|-1|]
-      )
+        array1_of_genarray @@ Unix.map_file fd char c_layout false [| -1 |])
     in
     Unix.close fd ;
     Cstruct.of_bigarray mapping
+
 
   let cleanup _ _ = ()
 

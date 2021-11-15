@@ -28,7 +28,11 @@ val supported_bootloaders : string list
 (** Bootloaders which are known to the system *)
 
 (** Parsed representation of bootloader's stdout, as used by xend *)
-type t = {kernel_path: string; initrd_path: string option; kernel_args: string}
+type t =
+  { kernel_path : string
+  ; initrd_path : string option
+  ; kernel_args : string
+  }
 
 val extract :
      Xenops_task.Xenops_task.task_handle

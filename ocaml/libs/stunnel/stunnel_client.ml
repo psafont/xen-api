@@ -12,7 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "Stunnel_client" end)
+module D = Debug.Make (struct
+  let name = "Stunnel_client"
+end)
 
 let verify = ref false
 
@@ -25,6 +27,7 @@ let set_verify_by_default = function
   | true ->
       D.info "enabling default tls verification" ;
       verify := true
+
 
 let pool () = match !verify with true -> Some Stunnel.pool | false -> None
 

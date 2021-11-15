@@ -19,7 +19,9 @@ open Http
 open Forkhelpers
 open Helpers
 
-module D = Debug.Make (struct let name = "xapi_host_backup" end)
+module D = Debug.Make (struct
+  let name = "xapi_host_backup"
+end)
 
 open D
 
@@ -27,8 +29,13 @@ let host_backup_handler_core ~__context s =
   match
     with_logfile_fd "host-backup" (fun log_fd ->
         let pid =
-          safe_close_and_exec None (Some s) (Some log_fd) []
-            !Xapi_globs.host_backup []
+          safe_close_and_exec
+            None
+            (Some s)
+            (Some log_fd)
+            []
+            !Xapi_globs.host_backup
+            []
         in
         let waitpid () =
           match Forkhelpers.waitpid_nohang pid with
@@ -47,22 +54,22 @@ let host_backup_handler_core ~__context s =
           t := !t -. 0.1 ;
           let progress = 0.9 *. (1.0 -. exp !t) in
           TaskHelper.set_progress ~__context progress
-        done
-    )
+        done )
   with
   | Success (log, ()) ->
       debug "host_backup succeeded - returned: %s" log ;
       ()
   | Failure (log, e) ->
       debug "host_backup failed - host_backup returned: %s" log ;
-      raise (Api_errors.Server_error (Api_errors.backup_script_failed, [log]))
+      raise (Api_errors.Server_error (Api_errors.backup_script_failed, [ log ]))
+
 
 let host_backup_handler (req : Request.t) s _ =
   req.Request.close <- true ;
   Xapi_http.with_context "Downloading host backup" req s (fun __context ->
       Http_svr.headers s (Http.http_200_ok ()) ;
-      host_backup_handler_core ~__context s
-  )
+      host_backup_handler_core ~__context s )
+
 
 (** Helper function to prevent double-closes of file descriptors
     		TODO: this function was copied from util/sha1sum.ml, and should
@@ -72,13 +79,14 @@ let close to_close fd =
   if List.mem fd !to_close then Unix.close fd ;
   to_close := List.filter (fun x -> fd <> x) !to_close
 
+
 let host_restore_handler (req : Request.t) s _ =
   req.Request.close <- true ;
   Xapi_http.with_context "Uploading host backup" req s (fun __context ->
       Http_svr.headers s (Http.http_200_ok ()) ;
       let out_pipe, in_pipe = Unix.pipe () in
       Unix.set_close_on_exec in_pipe ;
-      let to_close = ref [out_pipe; in_pipe] in
+      let to_close = ref [ out_pipe; in_pipe ] in
       let close = close to_close in
       (* Lets be paranoid about closing fds *)
       finally
@@ -87,8 +95,13 @@ let host_restore_handler (req : Request.t) s _ =
           let result =
             with_logfile_fd "host-restore-log" (fun log_fd ->
                 let pid =
-                  safe_close_and_exec (Some out_pipe) (Some log_fd)
-                    (Some log_fd) [] !Xapi_globs.host_restore []
+                  safe_close_and_exec
+                    (Some out_pipe)
+                    (Some log_fd)
+                    (Some log_fd)
+                    []
+                    !Xapi_globs.host_restore
+                    []
                 in
                 close out_pipe ;
                 finally
@@ -102,14 +115,12 @@ let host_restore_handler (req : Request.t) s _ =
                       | None ->
                           Unixext.copy_file s in_pipe
                     in
-                    debug "Host restore: read %s bytes of backup..."
-                      (Int64.to_string copied_bytes)
-                    )
+                    debug
+                      "Host restore: read %s bytes of backup..."
+                      (Int64.to_string copied_bytes) )
                   (fun () ->
                     close in_pipe ;
-                    waitpid_fail_if_bad_exit pid
-                    )
-            )
+                    waitpid_fail_if_bad_exit pid ) )
           in
           match result with
           | Success _ ->
@@ -118,8 +129,5 @@ let host_restore_handler (req : Request.t) s _ =
               debug "host-restore script failed with output: %s" log ;
               raise
                 (Api_errors.Server_error
-                   (Api_errors.restore_script_failed, [log])
-                )
-          )
-        (fun () -> List.iter close !to_close)
-  )
+                   (Api_errors.restore_script_failed, [ log ]) ) )
+        (fun () -> List.iter close !to_close) )

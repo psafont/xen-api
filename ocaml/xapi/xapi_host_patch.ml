@@ -15,7 +15,9 @@
  * @group Host Management
 *)
 
-module D = Debug.Make (struct let name = "xapi_host_patch" end)
+module D = Debug.Make (struct
+  let name = "xapi_host_patch"
+end)
 
 open D
 

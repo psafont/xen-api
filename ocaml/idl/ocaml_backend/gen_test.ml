@@ -36,7 +36,8 @@ let rec gen_test_type highapi ty =
     | DT.Enum (_, (x, _) :: _) ->
         Printf.sprintf "(%s)" (OU.constructor_of x)
     | DT.Set (DT.Enum (x, y)) ->
-        Printf.sprintf "[ %s ]"
+        Printf.sprintf
+          "[ %s ]"
           (String.concat ";" (List.map (fun (x, y) -> OU.constructor_of x) y))
     | DT.Set x ->
         Printf.sprintf "[ %s ]" (aux x)
@@ -50,6 +51,7 @@ let rec gen_test_type highapi ty =
         failwith "Invalid type"
   in
   aux ty
+
 
 (** Generate a list of modules for each record kind *)
 and gen_record_type highapi record =
@@ -66,20 +68,22 @@ and gen_record_type highapi record =
   in
   sprintf "{ %s }" (map_fields regular_def)
 
+
 let gen_test highapi =
   let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
   let all_types = Gen_api.add_set_enums all_types in
   ignore all_types ;
-  List.iter (List.iter print)
-    (Listext.between [""]
-       [
-         ["open API"]
-       ; ["let _ ="]
+  List.iter
+    (List.iter print)
+    (Listext.between
+       [ "" ]
+       [ [ "open API" ]
+       ; [ "let _ =" ]
        ; List.concat
            (List.map
               (fun ty ->
-                [
-                  sprintf "let oc = open_out \"rpc-light_%s.xml\" in"
+                [ sprintf
+                    "let oc = open_out \"rpc-light_%s.xml\" in"
                     (OU.alias_of_ty ty)
                 ; sprintf "let x = %s in" (gen_test_type highapi ty)
                 ; sprintf
@@ -87,7 +91,8 @@ let gen_test highapi =
                      (API.rpc_of_%s x));"
                     (OU.alias_of_ty ty)
                 ; "close_out oc;"
-                ; sprintf "let oc = open_out \"xml-light2_%s.xml\" in"
+                ; sprintf
+                    "let oc = open_out \"xml-light2_%s.xml\" in"
                     (OU.alias_of_ty ty)
                 ; sprintf
                     "Printf.fprintf oc \"%%s\" (Xml.to_string \
@@ -96,9 +101,6 @@ let gen_test highapi =
                 ; "close_out oc;"
                   (*					sprintf "let s = Xml.to_string (API.Legacy.To.%s x) in" (OU.alias_of_ty ty);*)
                   (*					sprintf "let y =" *)
-                ]
-                )
-              all_types
-           )
-       ]
-    )
+                ] )
+              all_types )
+       ] )

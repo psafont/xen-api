@@ -31,14 +31,14 @@ val create_or_get_host_on_master :
      Context.t
   -> (Rpc.call -> Rpc.response)
   -> API.ref_session
-  -> [`host] Ref.t * API.host_t
+  -> [ `host ] Ref.t * API.host_t
   -> API.ref_host
 
 val create_or_get_sr_on_master :
      Context.t
   -> (Rpc.call -> Rpc.response)
   -> API.ref_session
-  -> [`SR] Ref.t * API.sR_t
+  -> [ `SR ] Ref.t * API.sR_t
   -> API.ref_SR
 
 val create_or_get_pbd_on_master :
@@ -52,7 +52,7 @@ val create_or_get_vdi_on_master :
      Context.t
   -> (Rpc.call -> Rpc.response)
   -> API.ref_session
-  -> [`VDI] Ref.t * API.vDI_t
+  -> [ `VDI ] Ref.t * API.vDI_t
   -> API.ref_VDI
 
 val create_or_get_network_on_master :
@@ -121,7 +121,7 @@ exception Cannot_eject_master
 
 val no_exn : (unit -> unit) -> unit
 
-val unplug_pbds : __context:Context.t -> [`host] Ref.t -> unit
+val unplug_pbds : __context:Context.t -> [ `host ] Ref.t -> unit
 
 val eject : __context:Context.t -> host:API.ref_host -> unit
 
@@ -142,7 +142,7 @@ val hello :
      __context:Context.t
   -> host_uuid:string
   -> host_address:string
-  -> [> `cannot_talk_back | `ok | `unknown_host]
+  -> [> `cannot_talk_back | `ok | `unknown_host ]
 
 val create_VLAN :
      __context:Context.t
@@ -153,10 +153,10 @@ val create_VLAN :
 
 val create_VLAN_from_PIF :
      __context:Context.t
-  -> pif:[`PIF] Ref.t
+  -> pif:[ `PIF ] Ref.t
   -> network:API.ref_network
   -> vLAN:int64
-  -> [`PIF] Ref.t list
+  -> [ `PIF ] Ref.t list
 
 (** {2 High availability (HA)} *)
 
@@ -187,14 +187,14 @@ val ha_compute_vm_failover_plan :
 
 val create_new_blob :
      __context:Context.t
-  -> pool:[`pool] Ref.t
+  -> pool:[ `pool ] Ref.t
   -> name:string
   -> mime_type:string
   -> public:bool
-  -> [`blob] Ref.t
+  -> [ `blob ] Ref.t
 
 val set_ha_host_failures_to_tolerate :
-  __context:Context.t -> self:[`pool] Ref.t -> value:int64 -> unit
+  __context:Context.t -> self:[ `pool ] Ref.t -> value:int64 -> unit
 
 val ha_schedule_plan_recomputation : __context:'a -> unit
 
@@ -205,8 +205,7 @@ val call_fn_on_host :
   -> (   rpc:(Rpc.call -> Rpc.response)
       -> session_id:API.ref_session
       -> host:'a Ref.t
-      -> 'b
-     )
+      -> 'b )
   -> 'a Ref.t
   -> 'b
 
@@ -233,7 +232,7 @@ val send_wlb_configuration :
 val retrieve_wlb_configuration : __context:Context.t -> (string * string) list
 
 val retrieve_wlb_recommendations :
-  __context:Context.t -> ([`VM] Ref.t * string list) list
+  __context:Context.t -> ([ `VM ] Ref.t * string list) list
 
 (** {2 (Fill in Title!)} *)
 
@@ -282,7 +281,7 @@ val detect_nonhomogeneous_external_auth : __context:'a -> pool:'b -> unit
 
 (** {2 Redo log} *)
 
-val enable_redo_log : __context:Context.t -> sr:[`SR] Ref.t -> unit
+val enable_redo_log : __context:Context.t -> sr:[ `SR ] Ref.t -> unit
 (** Enable redo log, independently from HA *)
 
 val disable_redo_log : __context:Context.t -> unit
@@ -338,19 +337,19 @@ val enable_tls_verification : __context:Context.t -> unit
 val set_repositories :
      __context:Context.t
   -> self:API.ref_pool
-  -> value:[`Repository] API.Ref.t list
+  -> value:[ `Repository ] API.Ref.t list
   -> unit
 
 val add_repository :
      __context:Context.t
   -> self:API.ref_pool
-  -> value:[`Repository] API.Ref.t
+  -> value:[ `Repository ] API.Ref.t
   -> unit
 
 val remove_repository :
      __context:Context.t
   -> self:API.ref_pool
-  -> value:[`Repository] API.Ref.t
+  -> value:[ `Repository ] API.Ref.t
   -> unit
 
 val sync_updates :

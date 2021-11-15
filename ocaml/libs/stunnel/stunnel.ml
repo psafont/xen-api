@@ -13,7 +13,9 @@
  *)
 (* Copyright (C) 2007 XenSource Inc *)
 
-module D = Debug.Make (struct let name = "stunnel" end)
+module D = Debug.Make (struct
+  let name = "stunnel"
+end)
 
 open Printf
 open Xapi_stdext_pervasives.Pervasiveext
@@ -35,35 +37,36 @@ let stunnel_logger = ref ignore
 let timeoutidle = ref None
 
 let init_stunnel_path () =
-  try cached_stunnel_path := Some (Unix.getenv "XE_STUNNEL")
-  with Not_found ->
-    let choices =
-      [
-        "/opt/xensource/libexec/stunnel/stunnel"
-      ; "/usr/sbin/stunnel4"
-      ; "/usr/sbin/stunnel"
-      ; "/usr/bin/stunnel4"
-      ; "/usr/bin/stunnel"
-      ]
-    in
-    let rec choose l =
-      match l with
-      | [] ->
-          raise Stunnel_binary_missing
-      | p :: ps -> (
-        try
-          Unix.access p [Unix.X_OK] ;
-          p
-        with _ -> choose ps
-      )
-    in
-    let path = choose choices in
-    cached_stunnel_path := Some path
+  try cached_stunnel_path := Some (Unix.getenv "XE_STUNNEL") with
+  | Not_found ->
+      let choices =
+        [ "/opt/xensource/libexec/stunnel/stunnel"
+        ; "/usr/sbin/stunnel4"
+        ; "/usr/sbin/stunnel"
+        ; "/usr/bin/stunnel4"
+        ; "/usr/bin/stunnel"
+        ]
+      in
+      let rec choose l =
+        match l with
+        | [] ->
+            raise Stunnel_binary_missing
+        | p :: ps ->
+          ( try
+              Unix.access p [ Unix.X_OK ] ;
+              p
+            with
+          | _ ->
+              choose ps )
+      in
+      let path = choose choices in
+      cached_stunnel_path := Some path
+
 
 let stunnel_path () =
-  if Option.is_none !cached_stunnel_path then
-    init_stunnel_path () ;
+  if Option.is_none !cached_stunnel_path then init_stunnel_path () ;
   Option.get !cached_stunnel_path
+
 
 module Unsafe = struct
   (** These functions are not safe in a multithreaded program *)
@@ -75,7 +78,8 @@ module Unsafe = struct
     let args = Array.of_list cmdline in
     let argv0 = List.hd cmdline in
     let pid = Unix.fork () in
-    if pid = 0 then
+    if pid = 0
+    then
       try
         pre_exec () ;
         (* CA-18955: xapi now runs with priority -3. We then set his sons priority to 0. *)
@@ -86,9 +90,11 @@ module Unsafe = struct
             Unix.execv argv0 args
         | Some env ->
             Unix.execve argv0 args env
-      with _ -> exit 1
-    else
-      pid
+      with
+      | _ ->
+          exit 1
+    else pid
+
 
   (* File descriptor operations to be performed after a fork.
    * These are all safe in the presence of threads *)
@@ -122,67 +128,80 @@ let getpid ty =
   | Nopid ->
       failwith "No pid!"
 
-type verify = VerifyPeer | CheckHost
 
-type verification_config = {
-    sni: string option
-  ; verify: verify
-  ; cert_bundle_path: string
-}
+type verify =
+  | VerifyPeer
+  | CheckHost
 
-type t = {
-    mutable pid: pid
-  ; fd: Unixfd.t
-  ; host: string
-  ; port: int
-  ; connected_time: float
-  ; unique_id: int option
-  ; mutable logfile: string
-  ; verified: verification_config option
-}
+type verification_config =
+  { sni : string option
+  ; verify : verify
+  ; cert_bundle_path : string
+  }
+
+type t =
+  { mutable pid : pid
+  ; fd : Unixfd.t
+  ; host : string
+  ; port : int
+  ; connected_time : float
+  ; unique_id : int option
+  ; mutable logfile : string
+  ; verified : verification_config option
+  }
 
 let appliance =
-  {
-    sni= None
-  ; verify= CheckHost
-  ; cert_bundle_path= "/etc/stunnel/xapi-stunnel-ca-bundle.pem"
+  { sni = None
+  ; verify = CheckHost
+  ; cert_bundle_path = "/etc/stunnel/xapi-stunnel-ca-bundle.pem"
   }
 
+
 let pool =
-  {
-    sni= Some "pool"
-  ; verify= VerifyPeer
-  ; cert_bundle_path= "/etc/stunnel/xapi-pool-ca-bundle.pem"
+  { sni = Some "pool"
+  ; verify = VerifyPeer
+  ; cert_bundle_path = "/etc/stunnel/xapi-pool-ca-bundle.pem"
   }
+
 
 let debug_conf_of_bool verbose : string =
   if verbose then "debug=authpriv.7" else "debug=authpriv.5"
 
+
 let debug_conf_of_env () : string =
-  (try Unix.getenv "debug_stunnel" with _ -> "") |> String.lowercase_ascii
-  |> fun x -> List.mem x ["yes"; "true"; "1"] |> debug_conf_of_bool
+  (try Unix.getenv "debug_stunnel" with _ -> "")
+  |> String.lowercase_ascii
+  |> fun x -> List.mem x [ "yes"; "true"; "1" ] |> debug_conf_of_bool
+
 
 let config_file config host port =
   ( match config with
   | None ->
       D.debug "client cert verification %s:%d: None" host port
-  | Some {sni= Some x; cert_bundle_path; _} ->
-      D.debug "client cert verification %s:%d: SNI=%s path=%s" host port x
+  | Some { sni = Some x; cert_bundle_path; _ } ->
+      D.debug
+        "client cert verification %s:%d: SNI=%s path=%s"
+        host
+        port
+        x
         cert_bundle_path
-  | Some {sni= None; cert_bundle_path; _} ->
-      D.debug "client cert verification %s:%d: path=%s" host port
-        cert_bundle_path
-  ) ;
+  | Some { sni = None; cert_bundle_path; _ } ->
+      D.debug
+        "client cert verification %s:%d: path=%s"
+        host
+        port
+        cert_bundle_path ) ;
   let is_fips =
     Inventory.inventory_filename := "/etc/xensource-inventory" ;
-    try bool_of_string (Inventory.lookup ~default:"false" "CC_PREPARATIONS")
-    with _ -> false
+    try
+      bool_of_string (Inventory.lookup ~default:"false" "CC_PREPARATIONS")
+    with
+    | _ ->
+        false
   in
   String.concat "\n"
   @@ List.concat
-       [
-         [
-           "client=yes"
+       [ [ "client=yes"
          ; "foreground=yes"
          ; "socket = r:TCP_NODELAY=1"
          ; "socket = r:SO_KEEPALIVE=1"
@@ -191,23 +210,20 @@ let config_file config host port =
            | None ->
                ""
            | Some x ->
-               Printf.sprintf "TIMEOUTidle = %d" x
-           )
+               Printf.sprintf "TIMEOUTidle = %d" x )
          ; Printf.sprintf "connect=%s:%d" host port
          ]
-       ; (if is_fips then ["fips=yes"] else ["fips=no"])
-       ; [debug_conf_of_env ()]
-       ; [
-           "sslVersion = TLSv1.2"
+       ; (if is_fips then [ "fips=yes" ] else [ "fips=no" ])
+       ; [ debug_conf_of_env () ]
+       ; [ "sslVersion = TLSv1.2"
          ; "ciphers = " ^ Xcp_const.good_ciphersuites
          ; "curve = secp384r1"
          ]
        ; ( match config with
          | None ->
              []
-         | Some {sni; verify; cert_bundle_path} ->
-             [
-               ""
+         | Some { sni; verify; cert_bundle_path } ->
+             [ ""
              ; "# use SNI to request a specific cert. CAfile contains"
              ; "# public certs of all hosts in the pool and must contain"
              ; "# the cert of the server we connect to"
@@ -216,8 +232,7 @@ let config_file config host port =
                | VerifyPeer ->
                    ""
                | CheckHost ->
-                   sprintf "checkHost=%s" host
-               )
+                   sprintf "checkHost=%s" host )
              ; "verifyPeer=yes"
              ; sprintf "CAfile=%s" cert_bundle_path
              ; ( match Sys.readdir crl_path with
@@ -226,12 +241,11 @@ let config_file config host port =
                | _ ->
                    sprintf "CRLpath=%s" crl_path
                | exception _ ->
-                   ""
-               )
-             ]
-         )
-       ; [""]
+                   "" )
+             ] )
+       ; [ "" ]
        ]
+
 
 let ignore_exn f x = try f x with _ -> ()
 
@@ -239,14 +253,15 @@ let disconnect ?(wait = true) ?(force = false) x =
   ignore_exn Unixfd.safe_close x.fd ;
   let do_disc waiter pid =
     let res =
-      try waiter ()
-      with Unix.Unix_error (Unix.ECHILD, _, _) -> (pid, Unix.WEXITED 0)
+      try waiter () with
+      | Unix.Unix_error (Unix.ECHILD, _, _) ->
+          (pid, Unix.WEXITED 0)
     in
     match res with
-    | 0, _ when force -> (
-      try Unix.kill pid Sys.sigkill
-      with Unix.Unix_error (Unix.ESRCH, _, _) -> ()
-    )
+    | 0, _ when force ->
+      ( try Unix.kill pid Sys.sigkill with
+      | Unix.Unix_error (Unix.ESRCH, _, _) ->
+          () )
     | _ ->
         ()
   in
@@ -255,31 +270,21 @@ let disconnect ?(wait = true) ?(force = false) x =
       let pid_int = Forkhelpers.getpid fpid in
       do_disc
         (fun () ->
-          ( if wait then
-              Forkhelpers.waitpid
-          else
-            Forkhelpers.waitpid_nohang
-          )
-            fpid
-          )
+          (if wait then Forkhelpers.waitpid else Forkhelpers.waitpid_nohang)
+            fpid )
         pid_int
   | StdFork pid ->
       do_disc
         (fun () ->
-          ( if wait then
-              Unix.waitpid []
-          else
-            Unix.waitpid [Unix.WNOHANG]
-          )
-            pid
+          (if wait then Unix.waitpid [] else Unix.waitpid [ Unix.WNOHANG ]) pid
           )
         pid
   | Nopid ->
-      ()
-  ) ;
+      () ) ;
   (* make disconnect idempotent, need to do it here,
      due to the recursive call *)
   x.pid <- Nopid
+
 
 (* With some probability, stunnel fails during its startup code before it reads
    the config data from us. Therefore we get a SIGPIPE writing the config data.
@@ -288,64 +293,72 @@ let disconnect ?(wait = true) ?(force = false) x =
 exception Stunnel_initialisation_failed
 
 (* Internal function which may throw Stunnel_initialisation_failed *)
-let with_attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
-    ?(write_to_log = fun _ -> ()) verify_cert extended_diagnosis host port f =
-  Unixfd.with_pipe () ~loc:__LOC__ @@ fun config_out config_in ->
+let with_attempt_one_connect
+    ?unique_id
+    ?(use_fork_exec_helper = true)
+    ?(write_to_log = fun _ -> ())
+    verify_cert
+    extended_diagnosis
+    host
+    port
+    f =
+  Unixfd.with_pipe () ~loc:__LOC__
+  @@ fun config_out config_in ->
   let config_out_uuid = Uuidm.to_string (Uuidm.create `V4) in
   let config_out_fd =
     string_of_int (Unixext.int_of_file_descr Unixfd.(!config_out))
   in
   let fds_needed =
-    [Unixfd.(!config_out); Unix.stdin; Unix.stdout; Unix.stderr]
+    [ Unixfd.(!config_out); Unix.stdin; Unix.stdout; Unix.stderr ]
   in
-  let configs = [(config_out_uuid, Unixfd.(!config_out))] in
+  let configs = [ (config_out_uuid, Unixfd.(!config_out)) ] in
   let args =
-    ["-fd"; (if use_fork_exec_helper then config_out_uuid else config_out_fd)]
+    [ "-fd"; (if use_fork_exec_helper then config_out_uuid else config_out_fd) ]
   in
   Unixfd.with_socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 ~loc:__LOC__
   @@ fun data_in data_out ->
   (* Dereference just once to ensure we are consistent in t and config_file *)
   let t =
-    {
-      pid= Nopid
-    ; fd= data_out
+    { pid = Nopid
+    ; fd = data_out
     ; host
     ; port
-    ; connected_time= Unix.gettimeofday ()
+    ; connected_time = Unix.gettimeofday ()
     ; unique_id
-    ; logfile= ""
-    ; verified= verify_cert
+    ; logfile = ""
+    ; verified = verify_cert
     }
   in
   let result =
-    Forkhelpers.with_logfile_fd "stunnel" ~delete:(not extended_diagnosis)
+    Forkhelpers.with_logfile_fd
+      "stunnel"
+      ~delete:(not extended_diagnosis)
       (fun logfd ->
         let path = stunnel_path () in
         let fdops =
-          [
-            Unsafe.Dup2 (Unixfd.(!data_in), Unix.stdin)
+          [ Unsafe.Dup2 (Unixfd.(!data_in), Unix.stdin)
           ; Unsafe.Dup2 (Unixfd.(!data_in), Unix.stdout)
           ; Unsafe.Dup2 (logfd, Unix.stderr)
           ]
         in
         t.pid <-
-          ( if use_fork_exec_helper then
-              FEFork
-                (Forkhelpers.safe_close_and_exec
-                   (Some Unixfd.(!data_in))
-                   (Some Unixfd.(!data_in))
-                   (Some logfd) configs path args
-                )
+          ( if use_fork_exec_helper
+          then
+            FEFork
+              (Forkhelpers.safe_close_and_exec
+                 (Some Unixfd.(!data_in))
+                 (Some Unixfd.(!data_in))
+                 (Some logfd)
+                 configs
+                 path
+                 args )
           else
             StdFork
               (Unsafe.fork_and_exec
                  ~pre_exec:(fun _ ->
                    List.iter Unsafe.do_fd_operation fdops ;
-                   Unixext.close_all_fds_except fds_needed
-                   )
-                 (path :: args)
-              )
-          ) ;
+                   Unixext.close_all_fds_except fds_needed )
+                 (path :: args) ) ) ;
         Unixfd.safe_close config_out ;
         Unixfd.safe_close data_in ;
         let config = config_file verify_cert host port in
@@ -357,48 +370,57 @@ let with_attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
           in
           if n < len then raise Stunnel_initialisation_failed ;
           Unixfd.safe_close config_in
-        with Unix.Unix_error (err, fn, arg) ->
-          write_to_log
-            (Printf.sprintf
-               "Caught Unix.Unix_error(%s, %s, %s); raising \
-                Stunnel_initialisation_failed"
-               (Unix.error_message err) fn arg
-            ) ;
-          raise Stunnel_initialisation_failed
-    )
+        with
+        | Unix.Unix_error (err, fn, arg) ->
+            write_to_log
+              (Printf.sprintf
+                 "Caught Unix.Unix_error(%s, %s, %s); raising \
+                  Stunnel_initialisation_failed"
+                 (Unix.error_message err)
+                 fn
+                 arg ) ;
+            raise Stunnel_initialisation_failed )
   in
   (* Tidy up any remaining unclosed fds *)
   match result with
   | Forkhelpers.Success (log, _) ->
-      if extended_diagnosis then (
+      if extended_diagnosis
+      then (
         write_to_log "stunnel start" ;
-        t.logfile <- log
-      ) ;
+        t.logfile <- log ) ;
       f t
   | Forkhelpers.Failure (log, exn) ->
       write_to_log ("stunnel abort: Log from stunnel: [" ^ log ^ "]") ;
       disconnect t ;
       raise exn
 
+
 (** To cope with a slightly unreliable stunnel, attempt to retry to make
     the connection a number of times. *)
 let rec retry f = function
   | 0 ->
       raise Stunnel_initialisation_failed
-  | n -> (
-    try f ()
-    with Stunnel_initialisation_failed ->
-      (* Leave a few seconds between each attempt *)
-      ignore (Unix.select [] [] [] 3.) ;
-      retry f (n - 1)
-  )
+  | n ->
+    ( try f () with
+    | Stunnel_initialisation_failed ->
+        (* Leave a few seconds between each attempt *)
+        ignore (Unix.select [] [] [] 3.) ;
+        retry f (n - 1) )
+
 
 (** Establish a fresh stunnel to a (host, port)
     @param extended_diagnosis If true, the stunnel log file will not be
     deleted.  Instead, it is the caller's responsibility to delete it.  This
     allows the caller to use diagnose_failure below if stunnel fails.  *)
-let with_connect ?unique_id ?use_fork_exec_helper ?write_to_log ~verify_cert
-    ?(extended_diagnosis = false) host port f =
+let with_connect
+    ?unique_id
+    ?use_fork_exec_helper
+    ?write_to_log
+    ~verify_cert
+    ?(extended_diagnosis = false)
+    host
+    port
+    f =
   let _ =
     match write_to_log with
     | Some logger ->
@@ -408,10 +430,17 @@ let with_connect ?unique_id ?use_fork_exec_helper ?write_to_log ~verify_cert
   in
   retry
     (fun () ->
-      with_attempt_one_connect ?unique_id ?use_fork_exec_helper ?write_to_log
-        verify_cert extended_diagnosis host port f
-      )
+      with_attempt_one_connect
+        ?unique_id
+        ?use_fork_exec_helper
+        ?write_to_log
+        verify_cert
+        extended_diagnosis
+        host
+        port
+        f )
     5
+
 
 let check_verify_error line =
   let sub_after i s =
@@ -421,21 +450,21 @@ let check_verify_error line =
   let split_1 c s =
     match Astring.String.cut ~sep:c s with Some (x, _) -> x | None -> s
   in
-  if Astring.String.is_infix ~affix:"VERIFY ERROR: " line then
+  if Astring.String.is_infix ~affix:"VERIFY ERROR: " line
+  then
     match Astring.String.find_sub ~sub:"error=" line with
     | Some e ->
         raise
           (Stunnel_verify_error
-             (split_1 "," (sub_after (e + String.length "error=") line))
-          )
+             (split_1 "," (sub_after (e + String.length "error=") line)) )
     | None ->
         raise (Stunnel_verify_error "")
-  else
-    ()
+  else ()
+
 
 let check_error s line =
-  if Astring.String.is_infix ~affix:line s then
-    raise (Stunnel_error s)
+  if Astring.String.is_infix ~affix:line s then raise (Stunnel_error s)
+
 
 let diagnose_failure st_proc =
   let check_line line =
@@ -448,6 +477,7 @@ let diagnose_failure st_proc =
   in
   Unixext.readfile_line check_line st_proc.logfile
 
+
 (* If we reach here the whole stunnel log should have been gone through
    (possibly printed/logged somewhere. No necessity to raise an exception,
    since when this function being called, there is usually some exception
@@ -458,18 +488,24 @@ let diagnose_failure st_proc =
 let test host port =
   let counter = ref 0 in
   while true do
-    with_connect ~write_to_log:print_endline host ~verify_cert:None port
+    with_connect
+      ~write_to_log:print_endline
+      host
+      ~verify_cert:None
+      port
       disconnect ;
     incr counter ;
-    if !counter mod 100 = 0 then (
+    if !counter mod 100 = 0
+    then (
       Printf.printf "Ran stunnel %d times\n" !counter ;
-      flush stdout
-    )
+      flush stdout )
   done
 
-let move_out_exn t = {t with fd= Safe.move_exn t.fd}
+
+let move_out_exn t = { t with fd = Safe.move_exn t.fd }
 
 let with_moved_exn t f =
-  Safe.within (Safe.move_exn t.fd) @@ fun fd -> f {t with fd}
+  Safe.within (Safe.move_exn t.fd) @@ fun fd -> f { t with fd }
+
 
 let safe_release t = disconnect ~wait:false ~force:true t

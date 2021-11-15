@@ -38,7 +38,12 @@ val extract_ou_config :
 val domainify_uname : domain:string -> string -> string
 
 module Wbinfo : sig
-  type uid_info = {user_name: string; uid: int; gid: int; gecos: string}
+  type uid_info =
+    { user_name : string
+    ; uid : int
+    ; gid : int
+    ; gecos : string
+    }
 
   val string_of_uid_info : uid_info -> string
 
@@ -48,15 +53,15 @@ module Wbinfo : sig
 end
 
 module Ldap : sig
-  type user = {
-      name: string
-    ; display_name: string
-    ; upn: string
-    ; account_disabled: bool
-    ; account_expired: bool
-    ; account_locked: bool
-    ; password_expired: bool
-  }
+  type user =
+    { name : string
+    ; display_name : string
+    ; upn : string
+    ; account_disabled : bool
+    ; account_expired : bool
+    ; account_locked : bool
+    ; password_expired : bool
+    }
 
   val string_of_user : user -> string
 

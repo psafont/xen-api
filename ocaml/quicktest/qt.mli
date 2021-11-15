@@ -4,12 +4,12 @@ type rpc = Rpc.call -> Rpc.response
 
 (** This is the information we collect for each SR for selecting and running
     the storage quicktests. *)
-type sr_info = {
-    sr: API.ref_SR
-  ; allowed_operations: API.storage_operations_set
-  ; capabilities: string list
-  ; required_sm_api_version: string
-}
+type sr_info =
+  { sr : API.ref_SR
+  ; allowed_operations : API.storage_operations_set
+  ; capabilities : string list
+  ; required_sm_api_version : string
+  }
 
 val init_session : rpc -> string -> string -> API.ref_session
 
@@ -79,7 +79,12 @@ module VDI : sig
       function. *)
 
   val with_attached :
-    rpc -> API.ref_session -> API.ref_VDI -> [`RO | `RW] -> (string -> 'a) -> 'a
+       rpc
+    -> API.ref_session
+    -> API.ref_VDI
+    -> [ `RO | `RW ]
+    -> (string -> 'a)
+    -> 'a
   (** Attaches the VDI to dom0 and passes the block device path to the given
       function *)
 
@@ -87,14 +92,14 @@ module VDI : sig
        rpc
     -> API.ref_session
     -> API.ref_VDI
-    -> [`RO | `RW]
+    -> [ `RO | `RW ]
     -> (Unix.file_descr -> 'a)
     -> 'a
   (** Attaches the VDI to dom0, opens the block device, and passes the file
       descriptor to the given function *)
 
   val check_fields :
-       ([`Same | `Different] * string * (API.vDI_t -> string)) list
+       ([ `Same | `Different ] * string * (API.vDI_t -> string)) list
     -> API.vDI_t
     -> API.vDI_t
     -> unit
@@ -107,7 +112,7 @@ end
 
 module SR : sig
   val check_fields :
-       ([`Same | `Different] * string * (API.sR_t -> string)) list
+       ([ `Same | `Different ] * string * (API.sR_t -> string)) list
     -> API.sR_t
     -> API.sR_t
     -> unit

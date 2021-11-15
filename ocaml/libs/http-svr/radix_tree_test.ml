@@ -1,8 +1,7 @@
 open Radix_tree
 
 let test_strings =
-  [
-    "/import_vdi"
+  [ "/import_vdi"
   ; "/import_raw_vdi"
   ; "/export"
   ; "/export_metadata"
@@ -39,6 +38,7 @@ let test_strings =
   ; "/"
   ]
 
+
 let t = List.fold_left (fun t x -> insert x x t) empty test_strings
 
 (* Check that each string can be found in the structure and maps to
@@ -46,15 +46,15 @@ let t = List.fold_left (fun t x -> insert x x t) empty test_strings
 let check1 () =
   List.iter
     (fun x ->
-      if longest_prefix x t <> Some x then
-        failwith (Printf.sprintf "x = %s" x)
+      if longest_prefix x t <> Some x then failwith (Printf.sprintf "x = %s" x)
       )
     test_strings
 
+
 let check2 () =
   let all = fold (fun k _ acc -> k :: acc) [] t in
-  if List.length all <> List.length test_strings then
-    failwith "fold"
+  if List.length all <> List.length test_strings then failwith "fold"
+
 
 let previous_longest_prefix x =
   let uris =
@@ -63,6 +63,7 @@ let previous_longest_prefix x =
       test_strings
   in
   try Some (List.find (fun uri -> is_prefix uri x) uris) with _ -> None
+
 
 let _ =
   check1 () ;

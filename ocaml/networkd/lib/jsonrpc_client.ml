@@ -14,7 +14,9 @@
 
 (* JSON-RPC Client *)
 
-module D = Debug.Make (struct let name = "jsonrpc_client" end)
+module D = Debug.Make (struct
+  let name = "jsonrpc_client"
+end)
 
 open D
 
@@ -43,11 +45,10 @@ let timeout_read fd timeout =
   in
   let rec inner max_time max_bytes =
     let ready_to_read, _, _ =
-      try Unix.select [fd] [] [] (to_s max_time)
-      with
+      try Unix.select [ fd ] [] [] (to_s max_time) with
       (* in case the unix.select call fails in situation like interrupt *)
       | Unix.Unix_error (Unix.EINTR, _, _) ->
-        ([], [], [])
+          ([], [], [])
     in
     (* This is not accurate the calculate time just for the select part.
        However, we think the read time will be minor comparing to the scale of
@@ -56,33 +57,35 @@ let timeout_read fd timeout =
       let used_time = get_total_used_time () in
       Int64.sub timeout used_time
     in
-    if remain_time < 0L then (
+    if remain_time < 0L
+    then (
       debug "Timeout after read %d" (Buffer.length buf) ;
-      raise Timeout
-    ) ;
-    if List.mem fd ready_to_read then
+      raise Timeout ) ;
+    if List.mem fd ready_to_read
+    then
       let bytes = Bytes.make 4096 '\000' in
       match Unix.read fd bytes 0 4096 with
       | 0 ->
           Buffer.contents buf (* EOF *)
       | n ->
-          if n > max_bytes then (
-            debug "exceeding maximum read limit %d, clear buffer"
+          if n > max_bytes
+          then (
+            debug
+              "exceeding maximum read limit %d, clear buffer"
               !json_rpc_max_len ;
             Buffer.clear buf ;
-            raise Read_error
-          ) else (
+            raise Read_error )
+          else (
             Buffer.add_subbytes buf bytes 0 n ;
-            inner remain_time (max_bytes - n)
-          )
+            inner remain_time (max_bytes - n) )
       | exception
           Unix.Unix_error ((Unix.EAGAIN | Unix.EWOULDBLOCK | Unix.EINTR), _, _)
         ->
           inner remain_time max_bytes
-    else
-      inner remain_time max_bytes
+    else inner remain_time max_bytes
   in
   inner timeout !json_rpc_max_len
+
 
 (* Write as many bytes to a file descriptor as possible from data before a given
    clock time. *)
@@ -96,38 +99,34 @@ let timeout_write filedesc total_length data response_time =
   in
   let rec inner_write offset max_time =
     let _, ready_to_write, _ =
-      try Unix.select [] [filedesc] [] (to_s max_time)
-      with
+      try Unix.select [] [ filedesc ] [] (to_s max_time) with
       (* in case the unix.select call fails in situation like interrupt *)
       | Unix.Unix_error (Unix.EINTR, _, _) ->
-        ([], [], [])
+          ([], [], [])
     in
     let remain_time =
       let used_time = get_total_used_time () in
       Int64.sub response_time used_time
     in
-    if remain_time < 0L then (
+    if remain_time < 0L
+    then (
       debug "Timeout to write %d at offset %d" total_length offset ;
-      raise Timeout
-    ) ;
-    if List.mem filedesc ready_to_write then
+      raise Timeout ) ;
+    if List.mem filedesc ready_to_write
+    then
       let length = total_length - offset in
       let bytes_written =
-        try Unix.single_write filedesc data offset length
-        with
+        try Unix.single_write filedesc data offset length with
         | Unix.Unix_error ((Unix.EAGAIN | Unix.EWOULDBLOCK | Unix.EINTR), _, _)
-        ->
-          0
+          ->
+            0
       in
       let new_offset = offset + bytes_written in
-      if length = bytes_written then
-        ()
-      else
-        inner_write new_offset remain_time
-    else
-      inner_write offset remain_time
+      if length = bytes_written then () else inner_write new_offset remain_time
+    else inner_write offset remain_time
   in
   inner_write 0 response_time
+
 
 let with_rpc ?(version = Jsonrpc.V2) ~path ~call () =
   let uri = Uri.of_string (Printf.sprintf "file://%s" path) in
@@ -137,5 +136,4 @@ let with_rpc ?(version = Jsonrpc.V2) ~path ~call () =
       timeout_write s (Bytes.length req) req !json_rpc_write_timeout ;
       let res = timeout_read s !json_rpc_read_timeout in
       debug "Response: %s" res ;
-      Jsonrpc.response_of_string ~strict:false res
-  )
+      Jsonrpc.response_of_string ~strict:false res )

@@ -28,7 +28,9 @@
 
     4) xapi occasionally sends data to rrdd through rrdd's interface. *)
 
-module D = Debug.Make (struct let name = "rrdd_main" end)
+module D = Debug.Make (struct
+  let name = "rrdd_main"
+end)
 
 open D
 open Xapi_stdext_pervasives.Pervasiveext
@@ -42,12 +44,15 @@ let xmlrpc_handler process req bio context =
     let result = process context rpc in
     let str = Xmlrpc.string_of_response result in
     Http_svr.response_str req s str
-  with e ->
-    debug "Caught %s" (Printexc.to_string e) ;
-    debug "Backtrace: %s" (Printexc.get_backtrace ()) ;
-    Http_svr.response_unauthorised ~req
-      (Printf.sprintf "Go away: %s" (Printexc.to_string e))
-      s
+  with
+  | e ->
+      debug "Caught %s" (Printexc.to_string e) ;
+      debug "Backtrace: %s" (Printexc.get_backtrace ()) ;
+      Http_svr.response_unauthorised
+        ~req
+        (Printf.sprintf "Go away: %s" (Printexc.to_string e))
+        s
+
 
 (* Bind the service interface to the server implementation. *)
 (* A helper function for processing HTTP requests on a socket. *)
@@ -62,35 +67,52 @@ let accept_forever sock f =
                 (fun _ ->
                   finally
                     (fun _ -> f this_connection)
-                    (fun _ -> Unix.close this_connection)
-                  )
-                ()
-             )
-         done
-         )
-       ()
-    )
+                    (fun _ -> Unix.close this_connection) )
+                () )
+         done )
+       () )
+
 
 (* Bind server to the file descriptor. *)
 let start (xmlrpc_path, http_fwd_path) process =
   let server = Http_svr.Server.empty () in
   Http_svr.Server.enable_fastpath server ;
   let open Rrdd_http_handler in
-  Http_svr.Server.add_handler server Http.Post "/"
+  Http_svr.Server.add_handler
+    server
+    Http.Post
+    "/"
     (Http_svr.BufIO (xmlrpc_handler process)) ;
-  Http_svr.Server.add_handler server Http.Get Rrdd_libs.Constants.get_vm_rrd_uri
+  Http_svr.Server.add_handler
+    server
+    Http.Get
+    Rrdd_libs.Constants.get_vm_rrd_uri
     (Http_svr.FdIO get_vm_rrd_handler) ;
-  Http_svr.Server.add_handler server Http.Get
-    Rrdd_libs.Constants.get_host_rrd_uri (Http_svr.FdIO get_host_rrd_handler) ;
-  Http_svr.Server.add_handler server Http.Get Rrdd_libs.Constants.get_sr_rrd_uri
+  Http_svr.Server.add_handler
+    server
+    Http.Get
+    Rrdd_libs.Constants.get_host_rrd_uri
+    (Http_svr.FdIO get_host_rrd_handler) ;
+  Http_svr.Server.add_handler
+    server
+    Http.Get
+    Rrdd_libs.Constants.get_sr_rrd_uri
     (Http_svr.FdIO get_sr_rrd_handler) ;
-  Http_svr.Server.add_handler server Http.Get
+  Http_svr.Server.add_handler
+    server
+    Http.Get
     Rrdd_libs.Constants.get_rrd_updates_uri
     (Http_svr.FdIO get_rrd_updates_handler) ;
-  Http_svr.Server.add_handler server Http.Put Rrdd_libs.Constants.put_rrd_uri
+  Http_svr.Server.add_handler
+    server
+    Http.Put
+    Rrdd_libs.Constants.put_rrd_uri
     (Http_svr.FdIO put_rrd_handler) ;
-  Http_svr.Server.add_handler server Http.Post
-    Rrdd_libs.Constants.rrd_unarchive_uri (Http_svr.FdIO unarchive_rrd_handler) ;
+  Http_svr.Server.add_handler
+    server
+    Http.Post
+    Rrdd_libs.Constants.rrd_unarchive_uri
+    (Http_svr.FdIO unarchive_rrd_handler) ;
   Xapi_stdext_unix.Unixext.mkdir_safe (Filename.dirname xmlrpc_path) 0o700 ;
   Xapi_stdext_unix.Unixext.unlink_safe xmlrpc_path ;
   let xmlrpc_socket = Http_svr.bind (Unix.ADDR_UNIX xmlrpc_path) "unix_rpc" in
@@ -113,11 +135,10 @@ let start (xmlrpc_path, http_fwd_path) process =
             |> Http.Request.t_of_rpc
           in
           req.Http.Request.close <- true ;
-          ignore_bool (Http_svr.handle_one server received_fd () req)
-          )
-        (fun _ -> Unix.close received_fd)
-  ) ;
+          ignore_bool (Http_svr.handle_one server received_fd () req) )
+        (fun _ -> Unix.close received_fd) ) ;
   ()
+
 
 (* Monitoring code --- START. *)
 
@@ -128,7 +149,9 @@ module Thread = Xapi_stdext_threads.Threadext.Thread
 (* xenstore related code                             *)
 (*****************************************************)
 
-module XSW_Debug = Debug.Make (struct let name = "xenstore_watch" end)
+module XSW_Debug = Debug.Make (struct
+  let name = "xenstore_watch"
+end)
 
 module Watch = Ez_xenstore_watch.Make (XSW_Debug)
 
@@ -154,15 +177,16 @@ let current_meminfofree_values = ref Watch.IntMap.empty
 let meminfo_path domid =
   Printf.sprintf "/local/domain/%d/data/meminfo_free" domid
 
+
 module Meminfo = struct
   let watch_token domid = Printf.sprintf "xcp-rrdd:domain-%d" domid
 
-  let interesting_paths_for_domain domid _uuid = [meminfo_path domid]
+  let interesting_paths_for_domain domid _uuid = [ meminfo_path domid ]
 
   let fire_event_on_vm domid domains =
     let d = int_of_string domid in
-    if not (Watch.IntMap.mem d domains) then
-      info "Ignoring watch on shutdown domain %d" d
+    if not (Watch.IntMap.mem d domains)
+    then info "Ignoring watch on shutdown domain %d" d
     else
       let path = meminfo_path d in
       try
@@ -174,22 +198,26 @@ module Meminfo = struct
         info "memfree has changed to %Ld in domain %d" meminfo_free d ;
         current_meminfofree_values :=
           Watch.IntMap.add d meminfo_free !current_meminfofree_values
-      with Xs_protocol.Enoent _hint ->
-        info
-          "Couldn't read path %s; forgetting last known memfree value for \
-           domain %d"
-          path d ;
-        current_meminfofree_values :=
-          Watch.IntMap.remove d !current_meminfofree_values
+      with
+      | Xs_protocol.Enoent _hint ->
+          info
+            "Couldn't read path %s; forgetting last known memfree value for \
+             domain %d"
+            path
+            d ;
+          current_meminfofree_values :=
+            Watch.IntMap.remove d !current_meminfofree_values
+
 
   let watch_fired _ _xc path domains _ =
     match
       List.filter (fun x -> x <> "") Astring.String.(cuts ~sep:"/" path)
     with
-    | ["local"; "domain"; domid; "data"; "meminfo_free"] ->
+    | [ "local"; "domain"; domid; "data"; "meminfo_free" ] ->
         fire_event_on_vm domid domains
     | _ ->
         debug "Ignoring unexpected watch: %s" path
+
 
   let unmanaged_domain _ _ = false
 
@@ -214,26 +242,30 @@ let dss_vcpus xc doms =
     (fun dss (dom, uuid, domid) ->
       let maxcpus = dom.Xenctrl.max_vcpu_id + 1 in
       let rec cpus i dss =
-        if i >= maxcpus then
-          dss
+        if i >= maxcpus
+        then dss
         else
           let vcpuinfo = Xenctrl.domain_get_vcpuinfo xc domid i in
           (* Workaround for Xen leaking the flag XEN_RUNSTATE_UPDATE; using a
              mask of its complement ~(1 << 63) *)
           let cpu_time =
             Int64.(
-              to_float @@ logand vcpuinfo.Xenctrl.cputime xen_flag_complement
-            )
+              to_float @@ logand vcpuinfo.Xenctrl.cputime xen_flag_complement)
           in
           (* Convert from nanoseconds to seconds *)
           let cpu_time = cpu_time /. 1.0e9 in
           let cputime_rrd =
             ( Rrd.VM uuid
-            , Ds.ds_make ~name:(Printf.sprintf "cpu%d" i) ~units:"(fraction)"
+            , Ds.ds_make
+                ~name:(Printf.sprintf "cpu%d" i)
+                ~units:"(fraction)"
                 ~description:(Printf.sprintf "CPU%d usage" i)
-                ~value:(Rrd.VT_Float cpu_time) ~ty:Rrd.Derive ~default:true
-                ~min:0.0 ~max:1.0 ()
-            )
+                ~value:(Rrd.VT_Float cpu_time)
+                ~ty:Rrd.Derive
+                ~default:true
+                ~min:0.0
+                ~max:1.0
+                () )
           in
           cpus (i + 1) (cputime_rrd :: dss)
       in
@@ -242,115 +274,153 @@ let dss_vcpus xc doms =
         try
           let ri = Xenctrl.domain_get_runstate_info xc domid in
           ( Rrd.VM uuid
-          , Ds.ds_make ~name:"runstate_fullrun" ~units:"(fraction)"
+          , Ds.ds_make
+              ~name:"runstate_fullrun"
+              ~units:"(fraction)"
               ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time0 /. 1.0e9))
               ~description:"Fraction of time that all VCPUs are running"
-              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
-          )
+              ~ty:Rrd.Derive
+              ~default:false
+              ~min:0.0
+              () )
           ::
           ( Rrd.VM uuid
-          , Ds.ds_make ~name:"runstate_full_contention" ~units:"(fraction)"
+          , Ds.ds_make
+              ~name:"runstate_full_contention"
+              ~units:"(fraction)"
               ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time1 /. 1.0e9))
               ~description:
                 "Fraction of time that all VCPUs are runnable (i.e., waiting \
                  for CPU)"
-              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
-          )
+              ~ty:Rrd.Derive
+              ~default:false
+              ~min:0.0
+              () )
           ::
           ( Rrd.VM uuid
-          , Ds.ds_make ~name:"runstate_concurrency_hazard" ~units:"(fraction)"
+          , Ds.ds_make
+              ~name:"runstate_concurrency_hazard"
+              ~units:"(fraction)"
               ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time2 /. 1.0e9))
               ~description:
                 "Fraction of time that some VCPUs are running and some are \
                  runnable"
-              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
-          )
+              ~ty:Rrd.Derive
+              ~default:false
+              ~min:0.0
+              () )
           ::
           ( Rrd.VM uuid
-          , Ds.ds_make ~name:"runstate_blocked" ~units:"(fraction)"
+          , Ds.ds_make
+              ~name:"runstate_blocked"
+              ~units:"(fraction)"
               ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time3 /. 1.0e9))
               ~description:
                 "Fraction of time that all VCPUs are blocked or offline"
-              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
-          )
+              ~ty:Rrd.Derive
+              ~default:false
+              ~min:0.0
+              () )
           ::
           ( Rrd.VM uuid
-          , Ds.ds_make ~name:"runstate_partial_run" ~units:"(fraction)"
+          , Ds.ds_make
+              ~name:"runstate_partial_run"
+              ~units:"(fraction)"
               ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time4 /. 1.0e9))
               ~description:
                 "Fraction of time that some VCPUs are running, and some are \
                  blocked"
-              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
-          )
+              ~ty:Rrd.Derive
+              ~default:false
+              ~min:0.0
+              () )
           ::
           ( Rrd.VM uuid
-          , Ds.ds_make ~name:"runstate_partial_contention" ~units:"(fraction)"
+          , Ds.ds_make
+              ~name:"runstate_partial_contention"
+              ~units:"(fraction)"
               ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time5 /. 1.0e9))
               ~description:
                 "Fraction of time that some VCPUs are runnable and some are \
                  blocked"
-              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
-          )
+              ~ty:Rrd.Derive
+              ~default:false
+              ~min:0.0
+              () )
           :: dss
-        with _ -> dss
+        with
+        | _ ->
+            dss
       in
-      try cpus 0 dss with _ -> dss
-      )
-    [] doms
+      try cpus 0 dss with _ -> dss )
+    []
+    doms
+
 
 let physcpus = ref [||]
 
 let dss_pcpus xc =
   let len = Array.length !physcpus in
   let newinfos =
-    if len = 0 then (
+    if len = 0
+    then (
       let physinfo = Xenctrl.physinfo xc in
       let pcpus = physinfo.Xenctrl.nr_cpus in
       physcpus := if pcpus > 0 then Array.make pcpus 0L else [||] ;
-      Xenctrl.pcpu_info xc pcpus
-    ) else
-      Xenctrl.pcpu_info xc len
+      Xenctrl.pcpu_info xc pcpus )
+    else Xenctrl.pcpu_info xc len
   in
   let dss, len_newinfos =
     Array.fold_left
       (fun (acc, i) v ->
         ( ( Rrd.Host
-          , Ds.ds_make ~name:(Printf.sprintf "cpu%d" i) ~units:"(fraction)"
+          , Ds.ds_make
+              ~name:(Printf.sprintf "cpu%d" i)
+              ~units:"(fraction)"
               ~description:("Physical cpu usage for cpu " ^ string_of_int i)
               ~value:(Rrd.VT_Float (Int64.to_float v /. 1.0e9))
-              ~min:0.0 ~max:1.0 ~ty:Rrd.Derive ~default:true
+              ~min:0.0
+              ~max:1.0
+              ~ty:Rrd.Derive
+              ~default:true
               ~transform:(fun x -> 1.0 -. x)
-              ()
-          )
+              () )
           :: acc
-        , i + 1
-        )
-        )
-      ([], 0) newinfos
+        , i + 1 ) )
+      ([], 0)
+      newinfos
   in
   let sum_array = Array.fold_left (fun acc v -> Int64.add acc v) 0L newinfos in
   let avg_array = Int64.to_float sum_array /. float_of_int len_newinfos in
   let avgcpu_ds =
     ( Rrd.Host
-    , Ds.ds_make ~name:"cpu_avg" ~units:"(fraction)"
+    , Ds.ds_make
+        ~name:"cpu_avg"
+        ~units:"(fraction)"
         ~description:"Average physical cpu usage"
         ~value:(Rrd.VT_Float (avg_array /. 1.0e9))
-        ~min:0.0 ~max:1.0 ~ty:Rrd.Derive ~default:true
+        ~min:0.0
+        ~max:1.0
+        ~ty:Rrd.Derive
+        ~default:true
         ~transform:(fun x -> 1.0 -. x)
-        ()
-    )
+        () )
   in
   avgcpu_ds :: dss
 
+
 let dss_loadavg () =
-  [
-    ( Rrd.Host
-    , Ds.ds_make ~name:"loadavg" ~units:"(fraction)"
+  [ ( Rrd.Host
+    , Ds.ds_make
+        ~name:"loadavg"
+        ~units:"(fraction)"
         ~description:"Domain0 loadavg"
         ~value:(Rrd.VT_Float (Rrdd_common.loadavg ()))
-        ~ty:Rrd.Gauge ~default:true ()
-    )
+        ~ty:Rrd.Gauge
+        ~default:true
+        () )
   ]
+
 
 (*****************************************************)
 (* network related code                              *)
@@ -359,10 +429,12 @@ let dss_loadavg () =
 let dss_netdev doms =
   let uuid_of_domid domains domid =
     let _, uuid, _ =
-      try List.find (fun (_, _, domid') -> domid = domid') domains
-      with Not_found ->
-        failwith
-          (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
+      try List.find (fun (_, _, domid') -> domid = domid') domains with
+      | Not_found ->
+          failwith
+            (Printf.sprintf
+               "Failed to find uuid corresponding to domid: %d"
+               domid )
     in
     uuid
   in
@@ -371,43 +443,59 @@ let dss_netdev doms =
   let dss, sum_rx, sum_tx =
     List.fold_left
       (fun (dss, sum_rx, sum_tx) (dev, stat) ->
-        if not Astring.String.(is_prefix ~affix:"vif" dev) then
+        if not Astring.String.(is_prefix ~affix:"vif" dev)
+        then
           let pif_name = "pif_" ^ dev in
           ( ( Rrd.Host
-            , Ds.ds_make ~name:(pif_name ^ "_rx")
+            , Ds.ds_make
+                ~name:(pif_name ^ "_rx")
                 ~description:
                   ("Bytes per second received on physical interface " ^ dev)
-                ~units:"B/s" ~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive
-                ~min:0.0 ~default:true ()
-            )
+                ~units:"B/s"
+                ~value:(Rrd.VT_Int64 stat.rx_bytes)
+                ~ty:Rrd.Derive
+                ~min:0.0
+                ~default:true
+                () )
             ::
             ( Rrd.Host
-            , Ds.ds_make ~name:(pif_name ^ "_tx")
+            , Ds.ds_make
+                ~name:(pif_name ^ "_tx")
                 ~description:
                   ("Bytes per second sent on physical interface " ^ dev)
-                ~units:"B/s" ~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive
-                ~min:0.0 ~default:true ()
-            )
+                ~units:"B/s"
+                ~value:(Rrd.VT_Int64 stat.tx_bytes)
+                ~ty:Rrd.Derive
+                ~min:0.0
+                ~default:true
+                () )
             ::
             ( Rrd.Host
-            , Ds.ds_make ~name:(pif_name ^ "_rx_errors")
+            , Ds.ds_make
+                ~name:(pif_name ^ "_rx_errors")
                 ~description:
                   ("Receive errors per second on physical interface " ^ dev)
-                ~units:"err/s" ~value:(Rrd.VT_Int64 stat.rx_errors)
-                ~ty:Rrd.Derive ~min:0.0 ~default:false ()
-            )
+                ~units:"err/s"
+                ~value:(Rrd.VT_Int64 stat.rx_errors)
+                ~ty:Rrd.Derive
+                ~min:0.0
+                ~default:false
+                () )
             ::
             ( Rrd.Host
-            , Ds.ds_make ~name:(pif_name ^ "_tx_errors")
+            , Ds.ds_make
+                ~name:(pif_name ^ "_tx_errors")
                 ~description:
                   ("Transmit errors per second on physical interface " ^ dev)
-                ~units:"err/s" ~value:(Rrd.VT_Int64 stat.tx_errors)
-                ~ty:Rrd.Derive ~min:0.0 ~default:false ()
-            )
+                ~units:"err/s"
+                ~value:(Rrd.VT_Int64 stat.tx_errors)
+                ~ty:Rrd.Derive
+                ~min:0.0
+                ~default:false
+                () )
             :: dss
           , Int64.add stat.rx_bytes sum_rx
-          , Int64.add stat.tx_bytes sum_tx
-          )
+          , Int64.add stat.tx_bytes sum_tx )
         else
           ( ( try
                 let d1, d2 =
@@ -418,74 +506,94 @@ let dss_netdev doms =
                    see the vms backwards *)
                 let uuid = uuid_of_domid doms d1 in
                 ( Rrd.VM uuid
-                , Ds.ds_make ~name:(vif_name ^ "_tx") ~units:"B/s"
+                , Ds.ds_make
+                    ~name:(vif_name ^ "_tx")
+                    ~units:"B/s"
                     ~description:
-                      ("Bytes per second transmitted on virtual interface \
-                        number '"
+                      ( "Bytes per second transmitted on virtual interface \
+                         number '"
                       ^ string_of_int d2
-                      ^ "'"
-                      )
-                    ~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive ~min:0.0
-                    ~default:true ()
-                )
+                      ^ "'" )
+                    ~value:(Rrd.VT_Int64 stat.rx_bytes)
+                    ~ty:Rrd.Derive
+                    ~min:0.0
+                    ~default:true
+                    () )
                 ::
                 ( Rrd.VM uuid
-                , Ds.ds_make ~name:(vif_name ^ "_rx") ~units:"B/s"
+                , Ds.ds_make
+                    ~name:(vif_name ^ "_rx")
+                    ~units:"B/s"
                     ~description:
-                      ("Bytes per second received on virtual interface number '"
+                      ( "Bytes per second received on virtual interface number '"
                       ^ string_of_int d2
-                      ^ "'"
-                      )
-                    ~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive ~min:0.0
-                    ~default:true ()
-                )
+                      ^ "'" )
+                    ~value:(Rrd.VT_Int64 stat.tx_bytes)
+                    ~ty:Rrd.Derive
+                    ~min:0.0
+                    ~default:true
+                    () )
                 ::
                 ( Rrd.VM uuid
-                , Ds.ds_make ~name:(vif_name ^ "_rx_errors") ~units:"err/s"
+                , Ds.ds_make
+                    ~name:(vif_name ^ "_rx_errors")
+                    ~units:"err/s"
                     ~description:
-                      ("Receive errors per second on virtual interface number '"
+                      ( "Receive errors per second on virtual interface number '"
                       ^ string_of_int d2
-                      ^ "'"
-                      )
-                    ~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0
-                    ~default:false ()
-                )
+                      ^ "'" )
+                    ~value:(Rrd.VT_Int64 stat.tx_errors)
+                    ~ty:Rrd.Derive
+                    ~min:0.0
+                    ~default:false
+                    () )
                 ::
                 ( Rrd.VM uuid
-                , Ds.ds_make ~name:(vif_name ^ "_tx_errors") ~units:"err/s"
+                , Ds.ds_make
+                    ~name:(vif_name ^ "_tx_errors")
+                    ~units:"err/s"
                     ~description:
-                      ("Transmit errors per second on virtual interface number \
-                        '"
+                      ( "Transmit errors per second on virtual interface \
+                         number '"
                       ^ string_of_int d2
-                      ^ "'"
-                      )
-                    ~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive ~min:0.0
-                    ~default:false ()
-                )
+                      ^ "'" )
+                    ~value:(Rrd.VT_Int64 stat.rx_errors)
+                    ~ty:Rrd.Derive
+                    ~min:0.0
+                    ~default:false
+                    () )
                 :: dss
-              with _ -> dss
-            )
+              with
+            | _ ->
+                dss )
           , sum_rx
-          , sum_tx
-          )
-        )
-      ([], 0L, 0L) stats
+          , sum_tx ) )
+      ([], 0L, 0L)
+      stats
   in
-  [
-    ( Rrd.Host
-    , Ds.ds_make ~name:"pif_aggr_rx"
+  [ ( Rrd.Host
+    , Ds.ds_make
+        ~name:"pif_aggr_rx"
         ~description:"Bytes per second received on all physical interfaces"
-        ~units:"B/s" ~value:(Rrd.VT_Int64 sum_rx) ~ty:Rrd.Derive ~min:0.0
-        ~default:true ()
-    )
+        ~units:"B/s"
+        ~value:(Rrd.VT_Int64 sum_rx)
+        ~ty:Rrd.Derive
+        ~min:0.0
+        ~default:true
+        () )
   ; ( Rrd.Host
-    , Ds.ds_make ~name:"pif_aggr_tx"
+    , Ds.ds_make
+        ~name:"pif_aggr_tx"
         ~description:"Bytes per second sent on all physical interfaces"
-        ~units:"B/s" ~value:(Rrd.VT_Int64 sum_tx) ~ty:Rrd.Derive ~min:0.0
-        ~default:true ()
-    )
+        ~units:"B/s"
+        ~value:(Rrd.VT_Int64 sum_tx)
+        ~ty:Rrd.Derive
+        ~min:0.0
+        ~default:true
+        () )
   ]
   @ dss
+
 
 (*****************************************************)
 (* memory stats                                      *)
@@ -497,20 +605,28 @@ let dss_mem_host xc =
   and free_kib =
     Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages)
   in
-  [
-    ( Rrd.Host
-    , Ds.ds_make ~name:"memory_total_kib"
+  [ ( Rrd.Host
+    , Ds.ds_make
+        ~name:"memory_total_kib"
         ~description:"Total amount of memory in the host"
-        ~value:(Rrd.VT_Int64 total_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true
-        ~units:"KiB" ()
-    )
+        ~value:(Rrd.VT_Int64 total_kib)
+        ~ty:Rrd.Gauge
+        ~min:0.0
+        ~default:true
+        ~units:"KiB"
+        () )
   ; ( Rrd.Host
-    , Ds.ds_make ~name:"memory_free_kib"
+    , Ds.ds_make
+        ~name:"memory_free_kib"
         ~description:"Total amount of free memory"
-        ~value:(Rrd.VT_Int64 free_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true
-        ~units:"KiB" ()
-    )
+        ~value:(Rrd.VT_Int64 free_kib)
+        ~ty:Rrd.Gauge
+        ~min:0.0
+        ~default:true
+        ~units:"KiB"
+        () )
   ]
+
 
 (** estimate the space needed to serialize all the dss_mem_vms in a host. the
     json-like serialization for the 3 dss in dss_mem_vms takes 622 bytes. these
@@ -530,33 +646,42 @@ let dss_mem_vms doms =
       let memory = Int64.mul kib 1024L in
       let main_mem_ds =
         ( Rrd.VM uuid
-        , Ds.ds_make ~name:"memory"
-            ~description:"Memory currently allocated to VM" ~units:"B"
-            ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
-        )
+        , Ds.ds_make
+            ~name:"memory"
+            ~description:"Memory currently allocated to VM"
+            ~units:"B"
+            ~value:(Rrd.VT_Int64 memory)
+            ~ty:Rrd.Gauge
+            ~min:0.0
+            ~default:true
+            () )
       in
       let memory_target_opt =
         try
           Mutex.execute Rrdd_shared.memory_targets_m (fun _ ->
-              Some (Hashtbl.find Rrdd_shared.memory_targets domid)
-          )
-        with Not_found -> None
+              Some (Hashtbl.find Rrdd_shared.memory_targets domid) )
+        with
+        | Not_found ->
+            None
       in
       let mem_target_ds =
         Option.map
           (fun memory_target ->
             ( Rrd.VM uuid
-            , Ds.ds_make ~name:"memory_target"
-                ~description:"Target of VM balloon driver" ~units:"B"
-                ~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0
-                ~default:true ()
-            )
-            )
+            , Ds.ds_make
+                ~name:"memory_target"
+                ~description:"Target of VM balloon driver"
+                ~units:"B"
+                ~value:(Rrd.VT_Int64 memory_target)
+                ~ty:Rrd.Gauge
+                ~min:0.0
+                ~default:true
+                () ) )
           memory_target_opt
       in
       let other_ds =
-        if domid = 0 then
-          None
+        if domid = 0
+        then None
         else
           try
             let mem_free =
@@ -564,30 +689,36 @@ let dss_mem_vms doms =
             in
             Some
               ( Rrd.VM uuid
-              , Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
+              , Ds.ds_make
+                  ~name:"memory_internal_free"
+                  ~units:"KiB"
                   ~description:"Memory used as reported by the guest agent"
-                  ~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0
-                  ~default:true ()
-              )
-          with Not_found -> None
+                  ~value:(Rrd.VT_Int64 mem_free)
+                  ~ty:Rrd.Gauge
+                  ~min:0.0
+                  ~default:true
+                  () )
+          with
+          | Not_found ->
+              None
       in
       List.concat
-        [
-          main_mem_ds :: Option.to_list other_ds
+        [ main_mem_ds :: Option.to_list other_ds
         ; Option.to_list mem_target_ds
         ; acc
-        ]
-      )
-    [] doms
+        ] )
+    []
+    doms
+
 
 (**** Local cache SR stuff *)
 
-type last_vals = {
-    time: float
-  ; cache_size_raw: int64
-  ; cache_hits_raw: int64
-  ; cache_misses_raw: int64
-}
+type last_vals =
+  { time : float
+  ; cache_size_raw : int64
+  ; cache_hits_raw : int64
+  ; cache_misses_raw : int64
+  }
 
 let last_cache_stats = ref None
 
@@ -596,64 +727,70 @@ let cached_cache_dss = ref []
 let tapdisk_cache_stats : string =
   Filename.concat "/opt/xensource/bin" "tapdisk-cache-stats"
 
+
 let dss_cache timestamp =
   let cache_sr_opt =
-    Mutex.execute Rrdd_shared.cache_sr_lock (fun _ -> !Rrdd_shared.cache_sr_uuid)
+    Mutex.execute Rrdd_shared.cache_sr_lock (fun _ ->
+        !Rrdd_shared.cache_sr_uuid )
   in
   let do_read cache_sr =
     debug "do_read: %s %s" tapdisk_cache_stats cache_sr ;
     let cache_stats_out, _err =
-      Forkhelpers.execute_command_get_output tapdisk_cache_stats [cache_sr]
+      Forkhelpers.execute_command_get_output tapdisk_cache_stats [ cache_sr ]
     in
     let assoc_list =
       cache_stats_out
       |> Astring.String.cuts ~sep:"\n"
       |> List.filter_map (fun line -> Astring.String.cut ~sep:"=" line)
     in
-    {
-      time= timestamp
-    ; cache_size_raw=
+    { time = timestamp
+    ; cache_size_raw =
         Int64.of_string (List.assoc "TOTAL_CACHE_UTILISATION" assoc_list)
-    ; cache_hits_raw= Int64.of_string (List.assoc "TOTAL_CACHE_HITS" assoc_list)
-    ; cache_misses_raw=
+    ; cache_hits_raw =
+        Int64.of_string (List.assoc "TOTAL_CACHE_HITS" assoc_list)
+    ; cache_misses_raw =
         Int64.of_string (List.assoc "TOTAL_CACHE_MISSES" assoc_list)
     }
   in
   let get_dss cache_sr oldvals newvals =
-    [
-      ( Rrd.Host
+    [ ( Rrd.Host
       , Ds.ds_make
           ~name:(Printf.sprintf "sr_%s_cache_size" cache_sr)
-          ~description:"Size in bytes of the cache SR" ~units:"B"
-          ~value:(Rrd.VT_Int64 newvals.cache_size_raw) ~ty:Rrd.Gauge ~min:0.0
-          ~default:true ()
-      )
+          ~description:"Size in bytes of the cache SR"
+          ~units:"B"
+          ~value:(Rrd.VT_Int64 newvals.cache_size_raw)
+          ~ty:Rrd.Gauge
+          ~min:0.0
+          ~default:true
+          () )
     ; ( Rrd.Host
       , Ds.ds_make
           ~name:(Printf.sprintf "sr_%s_cache_hits" cache_sr)
-          ~description:"Hits per second of the cache" ~units:"hits/s"
+          ~description:"Hits per second of the cache"
+          ~units:"hits/s"
           ~value:
             (Rrd.VT_Int64
                (Int64.div
                   (Int64.sub newvals.cache_hits_raw oldvals.cache_hits_raw)
-                  (Int64.of_float (newvals.time -. oldvals.time))
-               )
-            )
-          ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
-      )
+                  (Int64.of_float (newvals.time -. oldvals.time)) ) )
+          ~ty:Rrd.Gauge
+          ~min:0.0
+          ~default:true
+          () )
     ; ( Rrd.Host
       , Ds.ds_make
           ~name:(Printf.sprintf "sr_%s_cache_misses" cache_sr)
-          ~description:"Misses per second of the cache" ~units:"misses/s"
+          ~description:"Misses per second of the cache"
+          ~units:"misses/s"
           ~value:
             (Rrd.VT_Int64
                (Int64.div
                   (Int64.sub newvals.cache_misses_raw oldvals.cache_misses_raw)
-                  (Int64.of_float (newvals.time -. oldvals.time))
-               )
-            )
-          ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
-      )
+                  (Int64.of_float (newvals.time -. oldvals.time)) ) )
+          ~ty:Rrd.Gauge
+          ~min:0.0
+          ~default:true
+          () )
     ]
   in
   match (!last_cache_stats, cache_sr_opt) with
@@ -667,23 +804,27 @@ let dss_cache timestamp =
       last_cache_stats := None ;
       []
   | Some oldstats, Some cache_sr ->
-      if timestamp -. oldstats.time > 55.0 then (
+      if timestamp -. oldstats.time > 55.0
+      then (
         let newstats = do_read cache_sr in
         last_cache_stats := Some newstats ;
         let dss = get_dss cache_sr oldstats newstats in
         cached_cache_dss := dss ;
-        dss
-      ) else
-        !cached_cache_dss
+        dss )
+      else !cached_cache_dss
+
 
 let handle_exn log f default =
-  try f ()
-  with e ->
-    debug "Exception in '%s': %s. Defaulting this value." log
-      (Printexc.to_string e) ;
-    default
+  try f () with
+  | e ->
+      debug
+        "Exception in '%s': %s. Defaulting this value."
+        log
+        (Printexc.to_string e) ;
+      default
 
-let uuid_blacklist = ["00000000-0000-0000"; "deadbeef-dead-beef"]
+
+let uuid_blacklist = [ "00000000-0000-0000"; "deadbeef-dead-beef" ]
 
 module IntSet = Set.Make (Int)
 
@@ -696,22 +837,21 @@ let domain_snapshot xc =
        the original and the final uuid to xenstore *)
     let uuid_from_key key =
       let path = Printf.sprintf "/vm/%s/%s" uuid key in
-      try Xenstore.(with_xs (fun xs -> xs.read path))
-      with Xs_protocol.Enoent _hint ->
-        info "Couldn't read path %s; falling back to actual uuid" path ;
-        uuid
+      try Xenstore.(with_xs (fun xs -> xs.read path)) with
+      | Xs_protocol.Enoent _hint ->
+          info "Couldn't read path %s; falling back to actual uuid" path ;
+          uuid
     in
     let stable_uuid = Option.fold ~none:uuid ~some:uuid_from_key in
-    if List.mem start uuid_blacklist then
-      None
+    if List.mem start uuid_blacklist
+    then None
     else
       let key =
-        if Astring.String.is_suffix ~affix:"000000000000" uuid then
-          Some "origin-uuid"
-        else if Astring.String.is_suffix ~affix:"000000000001" uuid then
-          Some "final-uuid"
-        else
-          None
+        if Astring.String.is_suffix ~affix:"000000000000" uuid
+        then Some "origin-uuid"
+        else if Astring.String.is_suffix ~affix:"000000000001" uuid
+        then Some "final-uuid"
+        else None
       in
       Some (dom, stable_uuid key, domid)
   in
@@ -728,9 +868,9 @@ let domain_snapshot xc =
   Hashtbl.filter_map_inplace domains_only Rrdd_shared.memory_targets ;
   (timestamp, domains, paused_uuids)
 
+
 let dom0_stat_generators =
-  [
-    ("ha", fun _ _ _ -> Rrdd_ha_stats.all ())
+  [ ("ha", fun _ _ _ -> Rrdd_ha_stats.all ())
   ; ("mem_host", fun xc _ _ -> dss_mem_host xc)
   ; ("mem_vms", fun _ _ domains -> dss_mem_vms domains)
   ; ("pcpus", fun xc _ _ -> dss_pcpus xc)
@@ -740,11 +880,13 @@ let dom0_stat_generators =
   ; ("cache", fun _ timestamp _ -> dss_cache timestamp)
   ]
 
+
 let generate_all_dom0_stats xc timestamp domains =
   let handle_generator (name, generator) =
     (name, handle_exn name (fun _ -> generator xc timestamp domains) [])
   in
   List.map handle_generator dom0_stat_generators
+
 
 let write_dom0_stats writers timestamp tagged_dss =
   let write_dss (name, writer) =
@@ -755,9 +897,10 @@ let write_dom0_stats writers timestamp tagged_dss =
            this name"
           name
     | Some dss ->
-        writer.Rrd_writer.write_payload {timestamp; datasources= dss}
+        writer.Rrd_writer.write_payload { timestamp; datasources = dss }
   in
   List.iter write_dss writers
+
 
 let do_monitor_write xc writers =
   Rrdd_libs.Stats.time_this "monitor" (fun _ ->
@@ -769,30 +912,30 @@ let do_monitor_write xc writers =
       let stats = List.rev_append plugins_stats dom0_stats in
       Rrdd_stats.print_snapshot () ;
       let uuid_domids = List.map (fun (_, u, i) -> (u, i)) domains in
-      Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms
-  )
+      Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms )
+
 
 let monitor_write_loop writers =
-  Debug.with_thread_named "monitor_write"
+  Debug.with_thread_named
+    "monitor_write"
     (fun () ->
       Xenctrl.with_intf (fun xc ->
           while true do
             try
               do_monitor_write xc writers ;
               Mutex.execute Rrdd_shared.last_loop_end_time_m (fun _ ->
-                  Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()
-              ) ;
+                  Rrdd_shared.last_loop_end_time := Unix.gettimeofday () ) ;
               Thread.delay !Rrdd_shared.timeslice
-            with _ ->
-              debug
-                "Monitor/write thread caught an exception. Pausing for 10s, \
-                 then restarting." ;
-              log_backtrace () ;
-              Thread.delay 10.
-          done
-      )
-      )
+            with
+            | _ ->
+                debug
+                  "Monitor/write thread caught an exception. Pausing for 10s, \
+                   then restarting." ;
+                log_backtrace () ;
+                Thread.delay 10.
+          done ) )
     ()
+
 
 (* Monitoring code --- END. *)
 
@@ -812,9 +955,10 @@ module GCLog : GCLOG = struct
             info "GC heap_words = %d" stat.Gc.heap_words ;
             info "GC free_words = %d" stat.Gc.free_words ;
             Thread.delay 180.0
-          with e -> error "RRD GC logging: %s" (Printexc.to_string e)
-        done
-        )
+          with
+          | e ->
+              error "RRD GC logging: %s" (Printexc.to_string e)
+        done )
       ()
 end
 
@@ -848,8 +992,10 @@ module Discover : DISCOVER = struct
     (* the tap- files are not valid RRDs and spam the logs *)
     && (not @@ Astring.String.is_prefix ~affix:"tap-" file)
 
+
   let events_as_string : Inotify.event_kind list -> string =
    fun es -> es |> List.map Inotify.string_of_event_kind |> String.concat ","
+
 
   (* [register file] is called when we found a new file in the watched
      directory. We do not verify that this is a proper RRD file. [file] is not a
@@ -861,6 +1007,7 @@ module Discover : DISCOVER = struct
     let v2 = Rrd_interface.V2 in
     Rrdd_server.Plugin.Local.register file info v2 |> ignore
 
+
   (* seconds until next reading phase *)
 
   (* [deregister file] is called when a file is removed from the watched
@@ -869,14 +1016,14 @@ module Discover : DISCOVER = struct
     info "RRD plugin - de-registering %s" file ;
     Rrdd_server.Plugin.Local.deregister file
 
+
   (* Here we dispatch over all events that we receive. Note that [Inotify.read]
      blocks until an event becomes available. Hence, this code needs to run in
      its own thread. *)
   let watch ignored_files dir =
     let fd = Inotify.create () in
     let selectors =
-      [
-        Inotify.S_Create
+      [ Inotify.S_Create
       ; Inotify.S_Delete
       ; Inotify.S_Moved_to
       ; Inotify.S_Moved_from
@@ -886,28 +1033,31 @@ module Discover : DISCOVER = struct
     let rec loop = function
       | [] ->
           Inotify.read fd |> loop
-      | (_, [Inotify.Create], _, Some file) :: es when is_valid file ->
+      | (_, [ Inotify.Create ], _, Some file) :: es when is_valid file ->
           register file (* only basename *) ;
           loop es
-      | (_, [Inotify.Delete], _, Some file) :: es when is_valid file ->
+      | (_, [ Inotify.Delete ], _, Some file) :: es when is_valid file ->
           deregister file (* only basename *) ;
           loop es
-      | (_, [Inotify.Moved_to], _, Some file) :: es when is_valid file ->
+      | (_, [ Inotify.Moved_to ], _, Some file) :: es when is_valid file ->
           register file (* only basename *) ;
           loop es
-      | (_, [Inotify.Moved_from], _, Some file) :: es when is_valid file ->
+      | (_, [ Inotify.Moved_from ], _, Some file) :: es when is_valid file ->
           deregister file (* only basename *) ;
           loop es
       | (_, events, _, None) :: es ->
           debug "RRD plugin discovery - ignoring %s" (events_as_string events) ;
           loop es
       | (_, events, _, Some file) :: es ->
-          debug "RRD plugin discovery - ignoring  %s: %s" file
+          debug
+            "RRD plugin discovery - ignoring  %s: %s"
+            file
             (events_as_string events) ;
           loop es
     in
     Inotify.add_watch fd dir selectors |> ignore ;
     loop []
+
 
   (* [scan] scans a directory for plugins and registers them *)
   let scan ignored_files dir =
@@ -917,42 +1067,45 @@ module Discover : DISCOVER = struct
     |> List.filter (is_valid ignored_files)
     |> List.iter register
 
+
   let start ignored_files =
     Thread.create
       (fun dir ->
         debug "RRD plugin - starting discovery thread" ;
         while true do
-          try scan ignored_files dir ; watch ignored_files dir
-          with e ->
-            error "RRD plugin discovery error: %s" (Printexc.to_string e) ;
-            Thread.delay 10.0
-        done
-        )
+          try
+            scan ignored_files dir ;
+            watch ignored_files dir
+          with
+          | e ->
+              error "RRD plugin discovery error: %s" (Printexc.to_string e) ;
+              Thread.delay 10.0
+        done )
       directory
 end
 
 let options =
-  [
-    ( "plugin-default"
+  [ ( "plugin-default"
     , Arg.Set Rrdd_shared.enable_all_dss
     , (fun () -> string_of_bool !Rrdd_shared.enable_all_dss)
-    , "True if datasources provided by plugins should be exported by default"
-    )
+    , "True if datasources provided by plugins should be exported by default" )
   ]
 
+
 let doc =
-  String.concat "\n"
-    [
-      "This is the xapi toolstack statistics gathering daemon."
+  String.concat
+    "\n"
+    [ "This is the xapi toolstack statistics gathering daemon."
     ; ""
     ; "This service maintains a list of registered datasources (shared memory \
        pages containing metadata and time-varying values), periodically polls \
        the datasources and records historical data in RRD format."
     ]
 
+
 (** write memory stats to the filesystem so they can be propagated to xapi,
     along with the number of pages they require to be allocated *)
-let stats_to_write = [("mem_host", 1); ("mem_vms", mem_vm_writer_pages)]
+let stats_to_write = [ ("mem_host", 1); ("mem_vms", mem_vm_writer_pages) ]
 
 let writer_basename = ( ^ ) "xcp-rrdd-"
 
@@ -964,13 +1117,12 @@ let configure_writers () =
       let writer =
         snd
           (Rrd_writer.FileWriter.create
-             {path; shared_page_count= n_pages}
-             Rrd_protocol_v2.protocol
-          )
+             { path; shared_page_count = n_pages }
+             Rrd_protocol_v2.protocol )
       in
-      (name, writer)
-      )
+      (name, writer) )
     stats_to_write
+
 
 (** we need to make sure we call exit on fatal signals to make sure profiling
     data is dumped *)
@@ -978,6 +1130,7 @@ let stop err writers signal =
   debug "caught signal %d" signal ;
   List.iter (fun (_, writer) -> writer.Rrd_writer.cleanup ()) writers ;
   exit err
+
 
 (* Entry point. *)
 let _ =
@@ -994,15 +1147,18 @@ let _ =
   (* Read configuration file. *)
   debug "Reading configuration file .." ;
   ( match
-      Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Version.version ~doc
-        ~options ()
+      Xcp_service.configure2
+        ~name:Sys.argv.(0)
+        ~version:Version.version
+        ~doc
+        ~options
+        ()
     with
   | `Ok () ->
       ()
   | `Error m ->
       Printf.fprintf stderr "%s\n" m ;
-      exit 1
-  ) ;
+      exit 1 ) ;
   Xcp_service.maybe_daemonize () ;
   debug "Starting the HTTP server .." ;
   (* Eventually we should switch over to xcp_service to declare our services,
@@ -1012,7 +1168,8 @@ let _ =
   let (_ : Thread.t) =
     Thread.create
       (fun () ->
-        if !Xcp_client.use_switch then
+        if !Xcp_client.use_switch
+        then
           let server =
             Xcp_service.make
               ~path:!Rrd_interface.default_path
@@ -1025,22 +1182,23 @@ let _ =
       ()
   in
   start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) (fun () ->
-      Idl.Exn.server Rrdd_bindings.Server.implementation
-  ) ;
+      Idl.Exn.server Rrdd_bindings.Server.implementation ) ;
   ignore
   @@ Discover.start
        (List.map (fun (name, _) -> writer_basename name) stats_to_write) ;
   ignore @@ GCLog.start () ;
   debug "Starting xenstore-watching thread .." ;
   let () =
-    try Watcher.create_watcher_thread ()
-    with _ -> error "xenstore-watching thread has failed"
+    try Watcher.create_watcher_thread () with
+    | _ ->
+        error "xenstore-watching thread has failed"
   in
   ignore (Daemon.notify Daemon.State.Ready) ;
   debug "Creating monitoring loop thread .." ;
   let () =
-    try Debug.with_thread_associated "main" monitor_write_loop writers
-    with _ -> error "monitoring loop thread has failed"
+    try Debug.with_thread_associated "main" monitor_write_loop writers with
+    | _ ->
+        error "monitoring loop thread has failed"
   in
   while true do
     Thread.delay 300.

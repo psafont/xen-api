@@ -22,7 +22,9 @@
 
 module Mutex = Xapi_stdext_threads.Threadext.Mutex
 
-module D = Debug.Make (struct let name = "stunnel_cache" end)
+module D = Debug.Make (struct
+  let name = "stunnel_cache"
+end)
 
 open D
 open Safe_resources
@@ -37,11 +39,11 @@ let ignore_log fmt = Printf.ksprintf (fun _ -> ()) fmt
 (* Use and overlay the definition from D. *)
 let debug = if debug_enabled then debug else ignore_log
 
-type endpoint = {
-    host: string
-  ; port: int
-  ; verified: Stunnel.verification_config option
-}
+type endpoint =
+  { host : string
+  ; port : int
+  ; verified : Stunnel.verification_config option
+  }
 
 (* Need to limit the absolute number of stunnels as well as the maximum age *)
 let max_stunnel = 70
@@ -70,26 +72,32 @@ let m = Mutex.create ()
 let id_of_stunnel stunnel =
   Option.fold ~none:"unknown" ~some:string_of_int stunnel.Stunnel.unique_id
 
+
 let unlocked_gc () =
-  ( if debug_enabled then
-      let now = Unix.gettimeofday () in
-      let string_of_id id =
-        let stunnel = Tbl.find !stunnels id in
-        Printf.sprintf "(id %s / idle %.2f age %.2f)" (id_of_stunnel stunnel)
-          (now -. Hashtbl.find !times id)
-          (now -. stunnel.Stunnel.connected_time)
-      in
-      let string_of_endpoint ep = Printf.sprintf "%s:%d" ep.host ep.port in
-      let string_of_index ep xs =
-        Printf.sprintf "[ %s %s ]" (string_of_endpoint ep)
-          (String.concat "; " (List.map string_of_id xs))
-      in
-      debug "Cache contents: %s"
-        (Hashtbl.fold
-           (fun ep xs acc -> string_of_index ep xs ^ " " ^ acc)
-           !index ""
-        )
-  ) ;
+  ( if debug_enabled
+  then
+    let now = Unix.gettimeofday () in
+    let string_of_id id =
+      let stunnel = Tbl.find !stunnels id in
+      Printf.sprintf
+        "(id %s / idle %.2f age %.2f)"
+        (id_of_stunnel stunnel)
+        (now -. Hashtbl.find !times id)
+        (now -. stunnel.Stunnel.connected_time)
+    in
+    let string_of_endpoint ep = Printf.sprintf "%s:%d" ep.host ep.port in
+    let string_of_index ep xs =
+      Printf.sprintf
+        "[ %s %s ]"
+        (string_of_endpoint ep)
+        (String.concat "; " (List.map string_of_id xs))
+    in
+    debug
+      "Cache contents: %s"
+      (Hashtbl.fold
+         (fun ep xs acc -> string_of_index ep xs ^ " " ^ acc)
+         !index
+         "" ) ) ;
   (* Split a list at the given index to give a pair of lists.
    *  From Xapi_stdext_std.Listext *)
   let rec chop i l =
@@ -109,18 +117,25 @@ let unlocked_gc () =
       let time = Hashtbl.find !times idx in
       let idle = now -. time in
       let age = now -. stunnel.Stunnel.connected_time in
-      if age > max_age then (
-        debug "Expiring stunnel id %s; age (%.2f) > limit (%.2f)"
-          (id_of_stunnel stunnel) age max_age ;
-        to_gc := idx :: !to_gc
-      ) else if idle > max_idle then (
-        debug "Expiring stunnel id %s; idle (%.2f) > limit (%.2f)"
-          (id_of_stunnel stunnel) age max_idle ;
-        to_gc := idx :: !to_gc
-      )
-  ) ;
+      if age > max_age
+      then (
+        debug
+          "Expiring stunnel id %s; age (%.2f) > limit (%.2f)"
+          (id_of_stunnel stunnel)
+          age
+          max_age ;
+        to_gc := idx :: !to_gc )
+      else if idle > max_idle
+      then (
+        debug
+          "Expiring stunnel id %s; idle (%.2f) > limit (%.2f)"
+          (id_of_stunnel stunnel)
+          age
+          max_idle ;
+        to_gc := idx :: !to_gc ) ) ;
   let num_remaining = List.length all_ids - List.length !to_gc in
-  if num_remaining > max_stunnel then (
+  if num_remaining > max_stunnel
+  then (
     let times' = Hashtbl.fold (fun k v acc -> (k, v) :: acc) !times [] in
     let times' =
       List.filter (fun (idx, _) -> not (List.mem idx !to_gc)) times'
@@ -135,28 +150,22 @@ let unlocked_gc () =
         debug
           "Expiring stunnel id %s since we have too many cached tunnels (limit \
            is %d)"
-          (id_of_stunnel stunnel) max_stunnel
-        )
+          (id_of_stunnel stunnel)
+          max_stunnel )
       oldest_ids ;
-    to_gc := !to_gc @ oldest_ids
-  ) ;
+    to_gc := !to_gc @ oldest_ids ) ;
   (* Disconnect all stunnels we wish to GC *)
   List.iter
     (fun id ->
       let s = Tbl.find !stunnels id in
-      Stunnel.disconnect s
-      )
+      Stunnel.disconnect s )
     !to_gc ;
   (* Remove all reference to them from our cache hashtables *)
   let index' = Hashtbl.create capacity in
   Hashtbl.iter
     (fun ep ids ->
       let kept_ids = List.filter (fun id -> not (List.mem id !to_gc)) ids in
-      if kept_ids <> [] then
-        Hashtbl.add index' ep kept_ids
-      else
-        ()
-      )
+      if kept_ids <> [] then Hashtbl.add index' ep kept_ids else () )
     !index ;
   let times' = Hashtbl.copy !times in
   List.iter (fun idx -> Hashtbl.remove times' idx) !to_gc ;
@@ -165,6 +174,7 @@ let unlocked_gc () =
   index := index' ;
   times := times' ;
   stunnels := stunnels'
+
 
 let gc () = Mutex.execute m unlocked_gc
 
@@ -178,28 +188,24 @@ let add (x : Stunnel.t) =
       Hashtbl.add !times idx now ;
       Tbl.move_into !stunnels idx x ;
       let ep =
-        {
-          host= x.Stunnel.host
-        ; port= x.Stunnel.port
-        ; verified= x.Stunnel.verified
+        { host = x.Stunnel.host
+        ; port = x.Stunnel.port
+        ; verified = x.Stunnel.verified
         }
       in
       let existing =
-        if Hashtbl.mem !index ep then
-          Hashtbl.find !index ep
-        else
-          []
+        if Hashtbl.mem !index ep then Hashtbl.find !index ep else []
       in
       Hashtbl.replace !index ep (idx :: existing) ;
       debug "Adding stunnel id %s (idle %.2f) to the cache" (id_of_stunnel x) 0. ;
-      unlocked_gc ()
-  )
+      unlocked_gc () )
+
 
 (** Returns an Stunnel.t for this endpoint (oldest first), raising Not_found
     if none can be found. First performs a garbage-collection, which discards
     expired stunnels if needed. *)
 let with_remove host port verified f =
-  let ep = {host; port; verified} in
+  let ep = { host; port; verified } in
   let get_id () =
     Mutex.execute m (fun () ->
         unlocked_gc () ;
@@ -209,21 +215,23 @@ let with_remove host port verified f =
         match sorted with
         | (id, time) :: _ ->
             let stunnel = Tbl.find !stunnels id in
-            debug "Removing stunnel id %s (idle %.2f) from the cache"
+            debug
+              "Removing stunnel id %s (idle %.2f) from the cache"
               (id_of_stunnel stunnel)
               (Unix.gettimeofday () -. time) ;
             Hashtbl.remove !times id ;
             Hashtbl.replace !index ep (List.filter (fun x -> x <> id) ids) ;
             id
         | _ ->
-            raise Not_found
-    )
+            raise Not_found )
   in
   let id_opt = try Some (get_id ()) with Not_found -> None in
   id_opt
-  |> Option.map @@ fun id ->
+  |> Option.map
+     @@ fun id ->
      (* cannot call while holding above mutex or we deadlock *)
      Tbl.with_find_moved_exn !stunnels id f
+
 
 (** Flush the cache - remove everything *)
 let flush () =
@@ -233,8 +241,8 @@ let flush () =
       Tbl.reset !stunnels ;
       Hashtbl.clear !times ;
       Hashtbl.clear !index ;
-      info "Flushed!"
-  )
+      info "Flushed!" )
+
 
 let with_connect ?use_fork_exec_helper ?write_to_log ~verify_cert host port f =
   match with_remove host port verify_cert f with
@@ -242,5 +250,10 @@ let with_connect ?use_fork_exec_helper ?write_to_log ~verify_cert host port f =
       r
   | None ->
       info "connect did not find cached stunnel for endpoint %s:%d" host port ;
-      Stunnel.with_connect ?use_fork_exec_helper ?write_to_log ~verify_cert host
-        port f
+      Stunnel.with_connect
+        ?use_fork_exec_helper
+        ?write_to_log
+        ~verify_cert
+        host
+        port
+        f

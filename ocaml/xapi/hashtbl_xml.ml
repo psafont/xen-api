@@ -13,7 +13,9 @@
  *)
 (* Simple code to serialise and deserialise a (string, string) Hashtbl.t as XML via Xmlm *)
 
-module D = Debug.Make (struct let name = "hashtbl_xml" end)
+module D = Debug.Make (struct
+  let name = "hashtbl_xml"
+end)
 
 open D
 
@@ -28,16 +30,20 @@ let make_tag n attrs = (name n, List.map (fun (k, v) -> (name k, v)) attrs)
 let to_xml (db : h) (output : Xmlm.output) =
   let elts =
     Hashtbl.fold
-      (fun k v acc -> `El (make_tag "row" [("key", k); ("value", v)], []) :: acc)
-      db []
+      (fun k v acc ->
+        `El (make_tag "row" [ ("key", k); ("value", v) ], []) :: acc )
+      db
+      []
   in
   let table = `El (make_tag "config" [], elts) in
   let id x = x in
   Xmlm.output output (`Dtd None) ;
   Xmlm.output_tree id output table
 
+
 let of_xml (input : Xmlm.input) =
-  debug "Converting %s"
+  debug
+    "Converting %s"
     ( match Xmlm.peek input with
     | `El_start ((t, _), _) ->
         "Start: " ^ t
@@ -46,8 +52,7 @@ let of_xml (input : Xmlm.input) =
     | `El_end ->
         "End"
     | `Dtd _ ->
-        "dtd"
-    ) ;
+        "dtd" ) ;
   let db = Hashtbl.create 10 in
   let el (tag : Xmlm.tag) acc =
     match tag with

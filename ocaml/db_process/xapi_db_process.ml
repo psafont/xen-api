@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "xapi-db-process" end)
+module D = Debug.Make (struct
+  let name = "xapi-db-process"
+end)
 
 open D
 open Db_cache_types
@@ -30,7 +32,11 @@ let xmltostdout = ref false
 
 let init_logs () = Debug.set_facility Syslog.Local5
 
-let fatal_error s = print_string s ; print_string "\n" ; exit 1
+let fatal_error s =
+  print_string s ;
+  print_string "\n" ;
+  exit 1
+
 
 type operation =
   | Write_database
@@ -55,6 +61,7 @@ let parse_operation s =
   | s ->
       Unknown s
 
+
 let initialise_db_connections () =
   let dbs =
     Parse_db_conf.parse_db_conf
@@ -63,15 +70,18 @@ let initialise_db_connections () =
   Db_conn_store.initialise_db_connections dbs ;
   dbs
 
+
 let read_in_database () =
   let connections = initialise_db_connections () in
   (* Initialiase in-memory database cache *)
   Db_cache_impl.make (Db_backend.make ()) connections Schema.empty
 
+
 let write_out_databases () =
   Db_cache_impl.sync
     (Db_conn_store.read_db_connections ())
     (Db_ref.get_database (Db_backend.make ()))
+
 
 (* should never be thrown due to checking argument at start *)
 exception UnknownFormat
@@ -79,43 +89,44 @@ exception UnknownFormat
 let write_out_database filename =
   print_string ("Dumping database to: " ^ filename ^ "\n") ;
   Db_cache_impl.sync
-    [
-      {
-        Parse_db_conf.dummy_conf with
-        Parse_db_conf.path= filename
-      ; Parse_db_conf.mode= Parse_db_conf.No_limit
-      ; Parse_db_conf.compress= !compress
+    [ { Parse_db_conf.dummy_conf with
+        Parse_db_conf.path = filename
+      ; Parse_db_conf.mode = Parse_db_conf.No_limit
+      ; Parse_db_conf.compress = !compress
       }
     ]
     (Db_ref.get_database (Db_backend.make ()))
 
+
 let help_pad = "      "
 
 let operation_list =
-  String.concat "\n"
+  String.concat
+    "\n"
     (List.map
        (fun s -> help_pad ^ s)
-       [
-         "write_db      -- output the database"
+       [ "write_db      -- output the database"
        ; "read_gencount -- read maximum gencount of databases listed in db.conf"
        ; "read_hostiqn  -- read the initiator IQN for this host from the db \
           host table"
        ; "write_hostiqn -- write a new initiator IQN for this host into all \
           db's host tables"
-       ]
-    )
+       ] )
+
 
 let do_write_database () =
-  if not !xmltostdout then
-    if !filename = "" then
-      fatal_error "No filename specified, and xmltostdout option not set\n" ;
+  if not !xmltostdout
+  then
+    if !filename = ""
+    then fatal_error "No filename specified, and xmltostdout option not set\n" ;
   read_in_database () ;
-  if !xmltostdout then
+  if !xmltostdout
+  then
     Db_xml.To.fd
       (Unix.descr_of_out_channel stdout)
       (Db_ref.get_database (Db_backend.make ()))
-  else
-    write_out_database !filename
+  else write_out_database !filename
+
 
 let find_my_host_row () =
   Inventory.read_inventory () ;
@@ -124,15 +135,13 @@ let find_my_host_row () =
   let tbl = TableSet.find Db_names.host (Database.tableset db) in
   Table.fold
     (fun r _ row acc ->
-      if
-        Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid row)
-        = localhost_uuid
-      then
-        Some (r, row)
-      else
-        acc
-      )
-    tbl None
+      if Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid row)
+         = localhost_uuid
+      then Some (r, row)
+      else acc )
+    tbl
+    None
+
 
 let _iscsi_iqn = "iscsi_iqn"
 
@@ -149,9 +158,9 @@ let do_read_hostiqn () =
       in
       Printf.printf "%s" (List.assoc _iscsi_iqn other_config)
 
+
 let do_write_hostiqn () =
-  if !iqn = "" then
-    fatal_error "Must specify '-hostiqn <value>'" ;
+  if !iqn = "" then fatal_error "Must specify '-hostiqn <value>'" ;
   let new_iqn = !iqn in
   read_in_database () ;
   match find_my_host_row () with
@@ -163,49 +172,50 @@ let do_write_hostiqn () =
         Schema.Value.Unsafe_cast.pairs (Row.find Db_names.other_config row)
       in
       let other_config =
-        if List.mem_assoc _iscsi_iqn other_config then
+        if List.mem_assoc _iscsi_iqn other_config
+        then
           (* replace if key already exists *)
           List.map
             (fun (k, v) -> (k, if k = _iscsi_iqn then new_iqn else v))
             other_config
-        else (* ... otherwise add new key/value pair *)
+        else
+          (* ... otherwise add new key/value pair *)
           (_iscsi_iqn, new_iqn) :: other_config
       in
       let other_config = Schema.Value.Pairs other_config in
-      Db_ref.update_database (Db_backend.make ())
+      Db_ref.update_database
+        (Db_backend.make ())
         (set_field Db_names.host r Db_names.other_config other_config) ;
       write_out_databases ()
+
 
 let do_am_i_in_the_database () =
   read_in_database () ;
   Printf.printf "%b" (find_my_host_row () <> None)
 
+
 let _ =
   init_logs () ;
   Arg.parse
-    [
-      ("-compress", Arg.Set compress, "whether to compress the XML output")
+    [ ("-compress", Arg.Set compress, "whether to compress the XML output")
     ; ("-config", Arg.Set_string config, "config file to read")
     ; ("-filename", Arg.Set_string filename, "filename to write to")
     ; ( "-xmltostdout"
       , Arg.Set xmltostdout
       , "write XML db to stdout [compress/filename ignored if this option is \
-         present]"
-      )
+         present]" )
     ; ( "-operation"
       , Arg.Set_string operation
       , "operation to perform:\n"
         ^ operation_list
         ^ "\n"
         ^ help_pad
-        ^ "(defaults to write_db if no operation specified)"
-      )
+        ^ "(defaults to write_db if no operation specified)" )
     ; ("-hostiqn", Arg.Set_string iqn, "hostiqn value")
     ]
     (fun x -> print_string ("Warning, ignoring unknown argument: " ^ x))
     "XE database tool" ;
-  if !operation = "" then
-    operation := "write_db" ;
+  if !operation = "" then operation := "write_db" ;
   info "xapi-db-process executed: operation='%s'" !operation ;
   match parse_operation !operation with
   | Write_database ->

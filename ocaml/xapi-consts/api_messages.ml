@@ -31,16 +31,20 @@ let addMessage name priority =
   let _ = msgList := msg :: !msgList in
   msg
 
+
 let ha_statefile_lost = addMessage "HA_STATEFILE_LOST" 2L
 
 let ha_heartbeat_approaching_timeout =
   addMessage "HA_HEARTBEAT_APPROACHING_TIMEOUT" 5L
 
+
 let ha_statefile_approaching_timeout =
   addMessage "HA_STATEFILE_APPROACHING_TIMEOUT" 5L
 
+
 let ha_xapi_healthcheck_approaching_timeout =
   addMessage "HA_XAPI_HEALTHCHECK_APPROACHING_TIMEOUT" 5L
+
 
 let ha_network_bonding_error = addMessage "HA_NETWORK_BONDING_ERROR" 3L
 
@@ -51,8 +55,10 @@ let ha_pool_overcommitted = addMessage "HA_POOL_OVERCOMMITTED" 3L
 let ha_pool_drop_in_plan_exists_for =
   addMessage "HA_POOL_DROP_IN_PLAN_EXISTS_FOR" 3L
 
+
 let ha_protected_vm_restart_failed =
   addMessage "HA_PROTECTED_VM_RESTART_FAILED" 2L
+
 
 let ha_host_failed = addMessage "HA_HOST_FAILED" 3L
 
@@ -127,6 +133,7 @@ let pool_master_transition = addMessage "POOL_MASTER_TRANSITION" 4L
 let pbd_plug_failed_on_server_start =
   addMessage "PBD_PLUG_FAILED_ON_SERVER_START" 3L
 
+
 let alarm = addMessage "ALARM" 1L
 
 (* Previously missing from table; unused in xen-api *)
@@ -142,11 +149,13 @@ let auth_external_init_failed = addMessage "EXTAUTH_INIT_IN_HOST_FAILED" 2L
 let auth_external_pool_non_homogeneous =
   addMessage "EXTAUTH_IN_POOL_IS_NON_HOMOGENEOUS" 2L
 
+
 let multipath_periodic_alert = addMessage "MULTIPATH_PERIODIC_ALERT" 3L
 
 (* Licensing alerts *)
 let license_does_not_support_pooling =
   addMessage "LICENSE_DOES_NOT_SUPPORT_POOLING" 2L
+
 
 (* Name conflict with Api_errors; unused in xen-api *)
 
@@ -171,9 +180,11 @@ let v6_comm_error = addMessage "LICENSE_SERVER_UNREACHABLE" 2L
 let v6_license_server_version_obsolete =
   addMessage "LICENSE_SERVER_VERSION_OBSOLETE" 2L
 
+
 (* PVS alerts *)
 let pvs_proxy_no_cache_sr_available =
   addMessage "PVS_PROXY_NO_CACHE_SR_AVAILABLE" 3L
+
 
 (* No cache storage available for pvs site on the host *)
 
@@ -183,6 +194,7 @@ let pvs_proxy_setup_failed = addMessage "PVS_PROXY_SETUP_FAILED" 3L
 
 let pvs_proxy_no_server_available =
   addMessage "PVS_PROXY_NO_SERVER_AVAILABLE" 3L
+
 
 (* No pvs server available for pvs site on host *)
 
@@ -218,10 +230,12 @@ let vmpp_archive_suceeded = addMessage "VMPP_ARCHIVE_SUCCEEDED" 5L
 let vmpp_archive_target_mount_failed =
   addMessage "VMPP_ARCHIVE_TARGET_MOUNT_FAILED" 3L
 
+
 (*'Failed to mount the archive target. Please check the archive target configuration settings'*)
 
 let vmpp_archive_target_unmount_failed =
   addMessage "VMPP_ARCHIVE_TARGET_UNMOUNT_FAILED" 3L
+
 
 (*'Failed to unmount the archive target. Please make sure than the local directory was mounted successfully and has no open handles'*)
 
@@ -243,6 +257,7 @@ let vmpp_archive_missed_event = addMessage "VMPP_ARCHIVE_MISSED_EVENT" 3L
 
 let vmpp_snapshot_archive_already_exists =
   addMessage "VMPP_SNAPSHOT_ARCHIVE_ALREADY_EXISTS" 3L
+
 
 (*'Failed to archive the snapshot, it has already been archived on the specified target'*)
 
@@ -274,6 +289,7 @@ let vmss_snapshot_missed_event = addMessage "VMSS_SNAPSHOT_MISSED_EVENT" 3L
 (* VDI message types *)
 let vdi_cbt_metadata_inconsistent =
   addMessage "VDI_CBT_METADATA_INCONSISTENT" 3L
+
 
 (*'The VDI's cbt metadata is inconsistent'*)
 
@@ -314,40 +330,52 @@ let host_internal_certificate_expiring = "HOST_INTERNAL_CERTIFICATE_EXPIRING"
 let host_server_certificate_expired =
   addMessage "HOST_SERVER_CERTIFICATE_EXPIRED" 1L
 
+
 let host_internal_certificate_expired =
   addMessage "HOST_INTERNAL_CERTIFICATE_EXPIRED" 1L
+
 
 let pool_ca_certificate_expired = addMessage "POOL_CA_CERTIFICATE_EXPIRED" 1L
 
 let certificate_expiring base days prio =
   addMessage (Printf.sprintf "%s_%02d" base days) prio
 
+
 let host_server_certificate_expiring_30 =
   certificate_expiring host_server_certificate_expiring 30 3L
+
 
 let host_server_certificate_expiring_14 =
   certificate_expiring host_server_certificate_expiring 14 2L
 
+
 let host_server_certificate_expiring_07 =
   certificate_expiring host_server_certificate_expiring 7 1L
+
 
 let pool_ca_certificate_expiring_30 =
   certificate_expiring pool_ca_certificate_expiring 30 3L
 
+
 let pool_ca_certificate_expiring_14 =
   certificate_expiring pool_ca_certificate_expiring 14 2L
+
 
 let pool_ca_certificate_expiring_07 =
   certificate_expiring pool_ca_certificate_expiring 7 1L
 
+
 let host_internal_certificate_expiring_30 =
   certificate_expiring host_internal_certificate_expiring 30 3L
+
 
 let host_internal_certificate_expiring_14 =
   certificate_expiring host_internal_certificate_expiring 14 2L
 
+
 let host_internal_certificate_expiring_07 =
   certificate_expiring host_internal_certificate_expiring 7 1L
+
 
 let failed_login_attempts = addMessage "FAILED_LOGIN_ATTEMPTS" 3L
 

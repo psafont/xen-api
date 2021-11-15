@@ -12,14 +12,19 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "network_event_loop" end)
+module D = Debug.Make (struct
+  let name = "network_event_loop"
+end)
 
 open D
 
-let _watch_networks_for_nbd_changes __context ~update_firewall
-    ~wait_after_event_seconds ~wait_after_failure_seconds =
+let _watch_networks_for_nbd_changes
+    __context
+    ~update_firewall
+    ~wait_after_event_seconds
+    ~wait_after_failure_seconds =
   (* We keep track of the network objects in the database using this event loop. *)
-  let classes = ["network"] in
+  let classes = [ "network" ] in
   (* We keep track of the interfaces that we last passed to the firewall script
      to allow NBD traffic on them. At startup, we don't know on which
      interfaces NBD is allowed, and we always update the firewall. *)
@@ -32,8 +37,7 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
     let from =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           Client.Client.Event.from ~rpc ~session_id ~classes ~token ~timeout
-          |> Event_types.event_from_of_rpc
-      )
+          |> Event_types.event_from_of_rpc )
     in
     from.Event_types.token
   in
@@ -49,11 +53,9 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
             (fun pif ->
               let network = Db.PIF.get_network ~__context ~self:pif in
               let purpose = Db.Network.get_purpose ~__context ~self:network in
-              if List.mem `nbd purpose || List.mem `insecure_nbd purpose then
-                Some network
-              else
-                None
-              )
+              if List.mem `nbd purpose || List.mem `insecure_nbd purpose
+              then Some network
+              else None )
             pifs
         in
         let interfaces =
@@ -66,21 +68,22 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
           match allowed_interfaces with
           | Some allowed_interfaces ->
               not
-                (Xapi_stdext_std.Listext.List.set_equiv interfaces
-                   allowed_interfaces
-                )
+                (Xapi_stdext_std.Listext.List.set_equiv
+                   interfaces
+                   allowed_interfaces )
           | None ->
               (* We've just started the event loop, and we do not know the state of the firewall. *)
               true
         in
         let interface_list = String.concat ", " interfaces in
-        if needs_firewall_update then (
+        if needs_firewall_update
+        then (
           debug
             "Updating the firewall to use the following interfaces for NBD: \
              [%s]"
             interface_list ;
-          update_firewall interfaces
-        ) else
+          update_firewall interfaces )
+        else
           debug
             "Not updating the firewall, because the set of interfaces to use \
              for NBD did not change: [%s]"
@@ -97,7 +100,8 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
           (* In case of failures, for example due to the script, which updates
              the firewall rules, we start from scratch to ensure that we will
              process the missed events. *)
-          error "Caught %s listening to events on network objects"
+          error
+            "Caught %s listening to events on network objects"
             (ExnHelper.string_of_exn e) ;
           Thread.delay wait_after_failure_seconds ;
           ("", allowed_interfaces)
@@ -107,6 +111,7 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
   debug "Listening to events on network objects" ;
   loop ~token:"" ~allowed_interfaces
 
+
 let update_firewall interfaces_allowed_for_nbd =
   let args = "set" :: interfaces_allowed_for_nbd in
   Forkhelpers.execute_command_get_output
@@ -114,8 +119,11 @@ let update_firewall interfaces_allowed_for_nbd =
     args
   |> ignore
 
+
 let watch_networks_for_nbd_changes () =
-  Server_helpers.exec_with_new_task "watching networks for NBD-related changes"
-    (_watch_networks_for_nbd_changes ~update_firewall
-       ~wait_after_event_seconds:5.0 ~wait_after_failure_seconds:5.0
-    )
+  Server_helpers.exec_with_new_task
+    "watching networks for NBD-related changes"
+    (_watch_networks_for_nbd_changes
+       ~update_firewall
+       ~wait_after_event_seconds:5.0
+       ~wait_after_failure_seconds:5.0 )

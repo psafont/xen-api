@@ -12,7 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "debug_populate" end)
+module D = Debug.Make (struct
+  let name = "debug_populate"
+end)
 
 open D
 
@@ -21,40 +23,53 @@ let srs = ref []
 let nws = ref []
 
 let rec make_srs __context i =
-  if i = 0 then
-    ()
+  if i = 0
+  then ()
   else
     let uuid = Uuid.to_string (Uuid.make_uuid ()) in
     let sr_ref =
-      Xapi_sr.introduce ~__context ~uuid
+      Xapi_sr.introduce
+        ~__context
+        ~uuid
         ~name_label:("SR-" ^ string_of_int i)
-        ~name_description:"Dummy data" ~_type:"ext" ~content_type:"dummy"
-        ~shared:true ~sm_config:[]
+        ~name_description:"Dummy data"
+        ~_type:"ext"
+        ~content_type:"dummy"
+        ~shared:true
+        ~sm_config:[]
     in
     srs := sr_ref :: !srs ;
     make_srs __context (i - 1)
 
+
 let rec make_networks __context i =
-  if i = 0 then
-    ()
+  if i = 0
+  then ()
   else
     let nw_ref =
-      Xapi_network.create ~__context
+      Xapi_network.create
+        ~__context
         ~name_label:("Network-" ^ string_of_int i)
-        ~name_description:"dummy" ~mTU:1500L ~other_config:[] ~bridge:""
-        ~managed:true ~tags:[]
+        ~name_description:"dummy"
+        ~mTU:1500L
+        ~other_config:[]
+        ~bridge:""
+        ~managed:true
+        ~tags:[]
     in
     nws := nw_ref :: !nws ;
     make_networks __context (i - 1)
+
 
 let get_random lr =
   let l = List.length !lr in
   let n = Random.int l in
   List.nth !lr n
 
+
 let rec make_vdis_and_vbds __context vmref i =
-  if i = 0 then
-    ()
+  if i = 0
+  then ()
   else
     let uuid = Uuid.to_string (Uuid.make_uuid ()) in
     let vm_uuid = Db.VM.get_uuid ~self:vmref ~__context in
@@ -77,37 +92,73 @@ let rec make_vdis_and_vbds __context vmref i =
     let sharable = false in
     let cbt_enabled = false in
     let vdi =
-      Xapi_vdi.pool_introduce ~__context ~uuid ~name_label ~name_description ~sR
-        ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data
-        ~sm_config ~managed ~virtual_size ~physical_utilisation
-        ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of
+      Xapi_vdi.pool_introduce
+        ~__context
+        ~uuid
+        ~name_label
+        ~name_description
+        ~sR
+        ~_type
+        ~sharable
+        ~read_only
+        ~other_config
+        ~location
+        ~xenstore_data
+        ~sm_config
+        ~managed
+        ~virtual_size
+        ~physical_utilisation
+        ~metadata_of_pool
+        ~is_a_snapshot
+        ~snapshot_time
+        ~snapshot_of
         ~cbt_enabled
     in
-    let (_ : [`VBD] Ref.t) =
-      Xapi_vbd.create ~__context ~vM:vmref ~vDI:vdi
-        ~userdevice:(string_of_int i) ~bootable:true ~mode:`RW ~_type:`Disk
-        ~empty:false ~qos_algorithm_type:"" ~qos_algorithm_params:[]
-        ~other_config:[] ~unpluggable:false ~device:"" ~currently_attached:false
+    let (_ : [ `VBD ] Ref.t) =
+      Xapi_vbd.create
+        ~__context
+        ~vM:vmref
+        ~vDI:vdi
+        ~userdevice:(string_of_int i)
+        ~bootable:true
+        ~mode:`RW
+        ~_type:`Disk
+        ~empty:false
+        ~qos_algorithm_type:""
+        ~qos_algorithm_params:[]
+        ~other_config:[]
+        ~unpluggable:false
+        ~device:""
+        ~currently_attached:false
     in
     make_vdis_and_vbds __context vmref (i - 1)
 
+
 let rec make_vifs __context vmref i =
-  if i = 0 then
-    ()
+  if i = 0
+  then ()
   else (
     ignore
-      (Xapi_vif.create ~__context ~device:(string_of_int i)
-         ~network:(get_random nws) ~vM:vmref ~mAC:"de:ad:be:ef:99:88"
-         ~mTU:Int64.zero ~other_config:[] ~qos_algorithm_type:""
-         ~qos_algorithm_params:[] ~locking_mode:`network_default
-         ~ipv4_allowed:[] ~ipv6_allowed:[] ~currently_attached:false
-      ) ;
-    make_vifs __context vmref (i - 1)
-  )
+      (Xapi_vif.create
+         ~__context
+         ~device:(string_of_int i)
+         ~network:(get_random nws)
+         ~vM:vmref
+         ~mAC:"de:ad:be:ef:99:88"
+         ~mTU:Int64.zero
+         ~other_config:[]
+         ~qos_algorithm_type:""
+         ~qos_algorithm_params:[]
+         ~locking_mode:`network_default
+         ~ipv4_allowed:[]
+         ~ipv6_allowed:[]
+         ~currently_attached:false ) ;
+    make_vifs __context vmref (i - 1) )
+
 
 let rec make_vms __context template i vdis_per_vm =
-  if i = 0 then
-    ()
+  if i = 0
+  then ()
   else
     let vmref =
       Xapi_vm.clone ~__context ~vm:template ~new_name:("VM-" ^ string_of_int i)
@@ -116,6 +167,7 @@ let rec make_vms __context template i vdis_per_vm =
     make_vdis_and_vbds __context vmref vdis_per_vm ;
     make_vifs __context vmref 2 ;
     make_vms __context template (i - 1) vdis_per_vm
+
 
 let make_tasks __context tasks =
   let create_description label =
@@ -156,31 +208,50 @@ let make_tasks __context tasks =
       match mode with
       | 0 ->
           let self = pick_random all_vms in
-          Db.VM.add_to_current_operations ~__context ~self ~key:taskid
+          Db.VM.add_to_current_operations
+            ~__context
+            ~self
+            ~key:taskid
             ~value:`import
       | 1 ->
           let self = pick_random all_vbds in
-          Db.VBD.add_to_current_operations ~__context ~self ~key:taskid
+          Db.VBD.add_to_current_operations
+            ~__context
+            ~self
+            ~key:taskid
             ~value:`unplug
       | 2 ->
           let self = pick_random all_vdis in
-          Db.VDI.add_to_current_operations ~__context ~self ~key:taskid
+          Db.VDI.add_to_current_operations
+            ~__context
+            ~self
+            ~key:taskid
             ~value:`clone
       | 3 ->
           let self = pick_random all_vifs in
-          Db.VIF.add_to_current_operations ~__context ~self ~key:taskid
+          Db.VIF.add_to_current_operations
+            ~__context
+            ~self
+            ~key:taskid
             ~value:`plug
       | 4 ->
           let self = pick_random all_srs in
-          Db.SR.add_to_current_operations ~__context ~self ~key:taskid
+          Db.SR.add_to_current_operations
+            ~__context
+            ~self
+            ~key:taskid
             ~value:`scan
       | _ ->
           ()
-    with _ -> ()
+    with
+    | _ ->
+        ()
   done
 
+
 let do_populate ~vms ~vdis_per_vm ~networks ~srs ~tasks =
-  Server_helpers.exec_with_new_task "populating dummy debug info"
+  Server_helpers.exec_with_new_task
+    "populating dummy debug info"
     (fun __context ->
       debug "Populating dummy task info" ;
       debug "Making dummy SRs" ;
@@ -194,5 +265,4 @@ let do_populate ~vms ~vdis_per_vm ~networks ~srs ~tasks =
       make_vms __context template vms vdis_per_vm ;
       debug "Making dummy tasks" ;
       make_tasks __context tasks ;
-      debug "Finished populating dummy task info"
-  )
+      debug "Finished populating dummy task info" )

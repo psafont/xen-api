@@ -25,7 +25,13 @@ val quiesced : string
 
 val snapshot_info :
      power_state:
-       [< `Halted | `Migrating | `Paused | `Running | `ShuttingDown | `Suspended]
+       [< `Halted
+       | `Migrating
+       | `Paused
+       | `Running
+       | `ShuttingDown
+       | `Suspended
+       ]
   -> is_a_snapshot:bool
   -> (string * string) list
 
@@ -37,20 +43,20 @@ val make_driver_params : unit -> (string * string) list
  * same order as the [vbds] parameter. *)
 val safe_clone_disks :
      (Rpc.call -> Rpc.response Client.Id.t)
-  -> [< `session] Ref.t
+  -> [< `session ] Ref.t
   -> disk_op_t
   -> __context:Context.t
-  -> [`VBD] API.Ref.t list
+  -> [ `VBD ] API.Ref.t list
   -> (string * string) list
-  -> ([`VBD] API.Ref.t * API.ref_VDI * bool) list
+  -> ([ `VBD ] API.Ref.t * API.ref_VDI * bool) list
 
 val clone_single_vdi :
      ?progress:int64 * int64 * float
   -> (Rpc.call -> Rpc.response Client.Id.t)
-  -> [< `session] Ref.t
+  -> [< `session ] Ref.t
   -> disk_op_t
   -> __context:Context.t
-  -> [< `VDI] Ref.t
+  -> [< `VDI ] Ref.t
   -> (string * string) list
   -> API.ref_VDI
 
@@ -59,6 +65,6 @@ val clone :
      ?snapshot_info_record:(string * string) list
   -> disk_op_t
   -> __context:Context.t
-  -> vm:[`VM] API.Ref.t
+  -> vm:[ `VM ] API.Ref.t
   -> new_name:string
-  -> [`VM] Ref.t
+  -> [ `VM ] Ref.t

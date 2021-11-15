@@ -13,7 +13,9 @@
  *)
 open Topology
 
-module D = Debug.Make (struct let name = "softaffinity" end)
+module D = Debug.Make (struct
+  let name = "softaffinity"
+end)
 
 open D
 
@@ -78,29 +80,29 @@ open D
 let plan host nodes ~vm =
   (* let host = NUMA.apply_mask host vm.NUMAResource.affinity in *)
   let pick_node (allocated, picked, requested) (NUMA.Node nodeidx as node) =
-    D.debug "requested: %s, allocated: %s"
+    D.debug
+      "requested: %s, allocated: %s"
       (Fmt.to_to_string NUMARequest.pp_dump requested)
       (Fmt.to_to_string NUMAResource.pp_dump allocated) ;
     let candidate = nodes.(nodeidx) in
     ( NUMAResource.union allocated candidate
     , node :: picked
-    , NUMARequest.shrink requested candidate
-    )
+    , NUMARequest.shrink requested candidate )
   in
   let plan_valid (avg, nodes) =
     let allocated, picked, remaining =
       Seq.fold_left pick_node (NUMAResource.empty, [], vm) nodes
     in
-    D.debug "requestedvm: %s, allocated: %s, remaining: %s, avg: %f"
+    D.debug
+      "requestedvm: %s, allocated: %s, remaining: %s, avg: %f"
       (Fmt.to_to_string NUMARequest.pp_dump vm)
       (Fmt.to_to_string NUMAResource.pp_dump allocated)
       (Fmt.to_to_string NUMARequest.pp_dump remaining)
       avg ;
-    if remaining.NUMARequest.memory > 0L || remaining.NUMARequest.vcpus > 0 then
-      (* [vm] doesn't fit on these nodes *)
+    if remaining.NUMARequest.memory > 0L || remaining.NUMARequest.vcpus > 0
+    then (* [vm] doesn't fit on these nodes *)
       None
-    else
-      Some (avg, picked, allocated)
+    else Some (avg, picked, allocated)
   in
   let take_same_distance seq () =
     match seq () with
@@ -113,10 +115,9 @@ let plan host nodes ~vm =
           | Seq.Nil ->
               Seq.Nil
           | Seq.Cons ((avg, node, nodea), next) ->
-              if abs_float (avg -. first) < 1e-3 then
-                Seq.Cons ((node, nodea), take_while_same next)
-              else
-                Seq.Nil
+              if abs_float (avg -. first) < 1e-3
+              then Seq.Cons ((node, nodea), take_while_same next)
+              else Seq.Nil
         in
         Seq.Cons ((node, firstn), take_while_same rest)
   in
@@ -129,7 +130,8 @@ let plan host nodes ~vm =
       debug "No allocations possible" ;
       None
   | Some allocated ->
-      debug "Allocated resources: %s"
+      debug
+        "Allocated resources: %s"
         (Fmt.to_to_string NUMAResource.pp_dump allocated) ;
       assert (NUMARequest.fits vm allocated) ;
       Some allocated.NUMAResource.affinity

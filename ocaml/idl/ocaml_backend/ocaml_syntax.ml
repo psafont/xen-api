@@ -15,7 +15,9 @@
 
 (**********************************************************************************)
 
-type item = Indent of item list | Line of string
+type item =
+  | Indent of item list
+  | Line of string
 
 let string_of_item x =
   let rec indent prefix = function
@@ -26,11 +28,14 @@ let string_of_item x =
   in
   indent "" x
 
+
 (**********************************************************************************)
 
 type ty = string
 
-type param = Anon of string option * ty | Named of string * ty
+type param =
+  | Anon of string option * ty
+  | Named of string * ty
 
 let string_of_param = function
   | Anon (None, _) ->
@@ -40,10 +45,14 @@ let string_of_param = function
   | Named (x, _) ->
       x
 
+
 let type_of_param = function Anon (_, ty) -> ty | Named (_, ty) -> ty
 
 module Val = struct
-  type t = {name: string; params: param list}
+  type t =
+    { name : string
+    ; params : param list
+    }
 
   let item_of x =
     let param = function
@@ -57,18 +66,21 @@ module Val = struct
 end
 
 module Let = struct
-  type t = {
-      name: string
-    ; params: param list
-    ; ty: string
-    ; body: string list
-    ; doc: string
-  }
+  type t =
+    { name : string
+    ; params : param list
+    ; ty : string
+    ; body : string list
+    ; doc : string
+    }
 
   let make ?(doc = "") ~name ~params ~ty ~body () =
-    {name; params; ty; body; doc}
+    { name; params; ty; body; doc }
 
-  let val_of x = {Val.name= x.name; params= x.params @ [Anon (None, x.ty)]}
+
+  let val_of x =
+    { Val.name = x.name; params = x.params @ [ Anon (None, x.ty) ] }
+
 
   let items_of ?(prefix = "let") x =
     let param = function
@@ -79,42 +91,54 @@ module Let = struct
       | Named (name, ty) ->
           "~" ^ name
     in
-    [
-      Line ("(** " ^ x.doc ^ " *)")
+    [ Line ("(** " ^ x.doc ^ " *)")
     ; Line
-        (prefix
+        ( prefix
         ^ " "
         ^ x.name
         ^ " "
         ^ String.concat " " (List.map param x.params)
-        ^ " ="
-        )
+        ^ " =" )
     ; Indent (List.map (fun x -> Line x) x.body)
     ]
 end
 
 module Type = struct
-  type t = {name: string; body: string}
+  type t =
+    { name : string
+    ; body : string
+    }
 
   let item_of x = Line ("type " ^ x.name ^ " = " ^ x.body)
 end
 
 module Module = struct
-  type e = Let of Let.t | Module of t | Type of Type.t
+  type e =
+    | Let of Let.t
+    | Module of t
+    | Type of Type.t
 
-  and t = {
-      name: string  (** OCaml module name *)
-    ; preamble: string list
+  and t =
+    { name : string  (** OCaml module name *)
+    ; preamble : string list
           (** Convenient place for helper functions, opens etc *)
-    ; postamble: string list  (** Placed after all the auto-generated code *)
-    ; letrec: bool  (** True for all the let bindings to be mutually recursive*)
-    ; args: string list  (** for functor *)
-    ; elements: e list
-  }
+    ; postamble : string list  (** Placed after all the auto-generated code *)
+    ; letrec : bool
+          (** True for all the let bindings to be mutually recursive*)
+    ; args : string list  (** for functor *)
+    ; elements : e list
+    }
 
-  let make ?(preamble = []) ?(letrec = false) ?(args = []) ?(postamble = [])
-      ~name ~elements () =
-    {name; preamble; postamble; letrec; args; elements}
+  let make
+      ?(preamble = [])
+      ?(letrec = false)
+      ?(args = [])
+      ?(postamble = [])
+      ~name
+      ~elements
+      () =
+    { name; preamble; postamble; letrec; args; elements }
+
 
   let rec items_of x =
     match (x.preamble, x.elements) with
@@ -127,57 +151,61 @@ module Module = struct
           | Module x ->
               items_of x
           | Type x ->
-              [Type.item_of x]
+              [ Type.item_of x ]
         in
         let opening =
           "module "
           ^ x.name
           ^ " = "
-          ^ ( if x.args = [] then
-                ""
+          ^ ( if x.args = []
+            then ""
             else
-              String.concat " "
-                (List.map (fun x -> "functor(" ^ x ^ ") ->") x.args)
-            )
+              String.concat
+                " "
+                (List.map (fun x -> "functor(" ^ x ^ ") ->") x.args) )
           ^ "struct"
         in
         let indent =
           List.concat
-            [
-              List.map (fun x -> Line x) x.preamble
-            ; (if x.letrec then [Line "let rec __unused () = ()"] else [])
+            [ List.map (fun x -> Line x) x.preamble
+            ; (if x.letrec then [ Line "let rec __unused () = ()" ] else [])
             ; List.concat (List.map e x.elements)
             ; List.map (fun x -> Line x) x.postamble
             ]
         in
-        [Line opening; Indent indent; Line "end"]
+        [ Line opening; Indent indent; Line "end" ]
+
 
   let strings_of x = List.map string_of_item (items_of x)
 end
 
 module Signature = struct
-  type e = Val of Val.t | Module of t | Type of Type.t
+  type e =
+    | Val of Val.t
+    | Module of t
+    | Type of Type.t
 
-  and t = {name: string; elements: e list}
+  and t =
+    { name : string
+    ; elements : e list
+    }
 
   let rec items_of ?(toplevel = true) x =
     let e = function
       | Val x ->
-          [Val.item_of x]
+          [ Val.item_of x ]
       | Module x ->
           items_of ~toplevel:false x
       | Type x ->
-          [Type.item_of x]
+          [ Type.item_of x ]
     in
-    [
-      ( if toplevel then
-          Line ("module type " ^ x.name ^ " = sig")
-      else
-        Line ("module " ^ x.name ^ " : sig")
-      )
+    [ ( if toplevel
+      then Line ("module type " ^ x.name ^ " = sig")
+      else Line ("module " ^ x.name ^ " : sig") )
     ; Indent (List.concat (List.map e x.elements))
     ; Line "end"
     ]
+
 
   let rec of_module (x : Module.t) =
     let e = function
@@ -188,7 +216,8 @@ module Signature = struct
       | Module.Module x ->
           Module (of_module x)
     in
-    {name= x.Module.name; elements= List.map e x.Module.elements}
+    { name = x.Module.name; elements = List.map e x.Module.elements }
+
 
   let strings_of x = List.map string_of_item (items_of x)
 end

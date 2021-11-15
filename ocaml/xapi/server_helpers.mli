@@ -45,7 +45,7 @@ val my_assoc : string -> (string * 'a) list -> 'a
 val nth : int -> 'a list -> 'a
 
 val sync_ty_and_maybe_remove_prefix :
-  string -> [> `Async | `InternalAsync | `Sync] * string
+  string -> [> `Async | `InternalAsync | `Sync ] * string
 
 val unknown_rpc_failure : string -> Rpc.response
 
@@ -66,7 +66,7 @@ val do_dispatch :
   -> Unix.file_descr
   -> Http.Request.t
   -> string
-  -> [< `Async | `InternalAsync | `Sync > `Sync `InternalAsync]
+  -> [< `Async | `InternalAsync | `Sync > `Sync `InternalAsync ]
   -> bool
   -> Rpc.response
 

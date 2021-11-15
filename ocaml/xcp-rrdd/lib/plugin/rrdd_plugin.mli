@@ -46,7 +46,7 @@ module Reporter : sig
   type state =
     | Running  (** The reporter is running. *)
     | Cancelled  (** A thread has cancelled the reporter. *)
-    | Stopped of [`New | `Cancelled | `Failed of exn]
+    | Stopped of [ `New | `Cancelled | `Failed of exn ]
         (** The reporter has stopped. *)
 
   (** Specify how the data we are collecting will be reported. *)

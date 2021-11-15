@@ -29,8 +29,7 @@ let test_supported_enabled_types () =
   let vgpu_types_and_refs =
     List.map
       (fun vgpu_type ->
-        (vgpu_type, Xapi_vgpu_type.find_or_create ~__context vgpu_type)
-        )
+        (vgpu_type, Xapi_vgpu_type.find_or_create ~__context vgpu_type) )
       k2_vgpu_types
   in
   let group_supported_types =
@@ -42,16 +41,17 @@ let test_supported_enabled_types () =
   List.iter
     (fun (vgpu_type, vgpu_type_ref) ->
       let msg_supported =
-        Printf.sprintf "GPU group does not list %s as supported"
+        Printf.sprintf
+          "GPU group does not list %s as supported"
           vgpu_type.Xapi_vgpu_type.model_name
       in
       let msg_enabled =
-        Printf.sprintf "GPU group does not list %s as enabled"
+        Printf.sprintf
+          "GPU group does not list %s as enabled"
           vgpu_type.Xapi_vgpu_type.model_name
       in
       assert_true msg_supported (List.mem vgpu_type_ref group_supported_types) ;
-      assert_true msg_enabled (List.mem vgpu_type_ref group_enabled_types)
-      )
+      assert_true msg_enabled (List.mem vgpu_type_ref group_enabled_types) )
     vgpu_types_and_refs ;
   (* Invalidate the PGPU's host ref, and run a GC pass; this should destroy the
      	 * pgpu, and clear the group's supported and enabled types. *)
@@ -64,12 +64,18 @@ let test_supported_enabled_types () =
     Db.GPU_group.get_enabled_VGPU_types ~__context ~self:gPU_group
   in
   Alcotest.(check bool)
-    "PGPU has not been destroyed" false
+    "PGPU has not been destroyed"
+    false
     (Db.is_valid_ref __context pgpu) ;
   Alcotest.(check (list (Alcotest_comparators.ref ())))
-    "GPU group still has supported types after GC" [] group_supported_types ;
+    "GPU group still has supported types after GC"
+    []
+    group_supported_types ;
   Alcotest.(check (list (Alcotest_comparators.ref ())))
-    "GPU group still has enabled types after GC" [] group_enabled_types
+    "GPU group still has enabled types after GC"
+    []
+    group_enabled_types
+
 
 let test =
-  [("test_supported_enabled_types", `Quick, test_supported_enabled_types)]
+  [ ("test_supported_enabled_types", `Quick, test_supported_enabled_types) ]

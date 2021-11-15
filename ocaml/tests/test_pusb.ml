@@ -17,10 +17,12 @@ let create_base_environment () =
   let pusb = Test_common.make_sr ~__context () in
   (__context, pusb)
 
+
 let start_thread ~__context info =
   let usbs = Xapi_pusb_helpers.get_usbs info in
   let f () = Xapi_pusb.scan_start ~__context usbs in
   Xapi_pusb.start_thread f
+
 
 let test_scan_with_usb_add_and_remove () =
   let __context = Test_common.make_test_database () in
@@ -48,8 +50,7 @@ let test_scan_with_usb_add_and_remove () =
     (fun (self, _) ->
       let usb_group = Db.PUSB.get_USB_group ~__context ~self in
       Db.PUSB.destroy ~__context ~self ;
-      Db.USB_group.destroy ~__context ~self:usb_group
-      )
+      Db.USB_group.destroy ~__context ~self:usb_group )
     (Db.PUSB.get_all_records ~__context) ;
   Xapi_pusb.scan ~__context ~host ;
   Thread.delay 1.0 ;
@@ -59,14 +60,14 @@ let test_scan_with_usb_add_and_remove () =
     1
     (List.length (Db.PUSB.get_all_records ~__context))
 
+
 let test =
-  [
-    ( "test_scan_with_usb_add_and_remove"
+  [ ( "test_scan_with_usb_add_and_remove"
     , `Quick
-    , test_scan_with_usb_add_and_remove
-    )
+    , test_scan_with_usb_add_and_remove )
   ]
+
 
 let () =
   Suite_init.harness_init () ;
-  Alcotest.run "Test Pusb suite" [("Test_pusb", test)]
+  Alcotest.run "Test Pusb suite" [ ("Test_pusb", test) ]

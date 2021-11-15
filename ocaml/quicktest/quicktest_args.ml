@@ -17,19 +17,26 @@ let using_unix_domain_socket = ref true
 let http = Xmlrpc_client.xmlrpc ~version:"1.1" "/"
 
 let rpc_remote xml =
-  Xmlrpc_client.XMLRPC_protocol.rpc ~srcstr:"quicktest" ~dststr:"xapi"
+  Xmlrpc_client.XMLRPC_protocol.rpc
+    ~srcstr:"quicktest"
+    ~dststr:"xapi"
     ~transport:
       (SSL
          ( Xmlrpc_client.SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
          , !host
-         , 443
-         )
-      )
-    ~http xml
+         , 443 ) )
+    ~http
+    xml
+
 
 let rpc_unix_domain xml =
-  Xmlrpc_client.XMLRPC_protocol.rpc ~srcstr:"quicktest" ~dststr:"xapi"
-    ~transport:(Unix Xapi_globs.unix_domain_socket) ~http xml
+  Xmlrpc_client.XMLRPC_protocol.rpc
+    ~srcstr:"quicktest"
+    ~dststr:"xapi"
+    ~transport:(Unix Xapi_globs.unix_domain_socket)
+    ~http
+    xml
+
 
 let rpc = ref rpc_unix_domain
 
@@ -38,15 +45,12 @@ let rpc = ref rpc_unix_domain
     run the quicktest binary. *)
 let parse () =
   Arg.parse
-    [
-      ( "-xe-path"
+    [ ( "-xe-path"
       , Arg.String (fun x -> xe_path := x)
-      , "Path to xe command line executable"
-      )
+      , "Path to xe command line executable" )
     ; ( "-default-sr"
       , Arg.Unit (fun () -> use_default_sr := true)
-      , "Only run SR tests on the pool's default SR"
-      )
+      , "Only run SR tests on the pool's default SR" )
     ; ("-nocolour", Arg.Clear use_colour, "Don't use colour in the output")
     ]
     (fun x ->
@@ -60,16 +64,16 @@ let parse () =
       | _, _, "" ->
           password := x
       | _, _, _ ->
-          Printf.fprintf stderr "Skipping unrecognised argument: %s" x
-      )
+          Printf.fprintf stderr "Skipping unrecognised argument: %s" x )
     "Perform some quick functional tests. The default is to test localhost \
      over a Unix socket. For remote server supply <hostname> <username> and \
      <password> arguments." ;
   if !host = "" then host := "localhost" ;
   if !username = "" then username := "root"
 
+
 (** Translate from legacy quicktest command line args to Alcotest's args *)
 let get_alcotest_args () =
-  let name = [|Sys.argv.(0)|] in
-  let colour = if not !use_colour then [|"--color=never"|] else [||] in
-  Array.concat [name; colour]
+  let name = [| Sys.argv.(0) |] in
+  let colour = if not !use_colour then [| "--color=never" |] else [||] in
+  Array.concat [ name; colour ]

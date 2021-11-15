@@ -15,14 +15,18 @@
  * @AD group Access Control
 *)
 
-module D = Debug.Make (struct let name = "extauth_ad" end)
+module D = Debug.Make (struct
+  let name = "extauth_ad"
+end)
 
 open D
 
 module AD_type = struct
   exception Unknown_AD_type of string
 
-  type t = Pbis | Winbind
+  type t =
+    | Pbis
+    | Winbind
 
   let of_string = function
     | "pbis" ->
@@ -41,11 +45,13 @@ module AD = struct
     | AD_type.Winbind ->
         Extauth_plugin_ADwinbind.Winbind.start ~wait_until_success ~timeout:5.
 
+
   let stop_backend_daemon ~wait_until_success = function
     | AD_type.Pbis ->
         Extauth_plugin_ADpbis.Lwsmd.stop ~wait_until_success ~timeout:3.
     | AD_type.Winbind ->
         Extauth_plugin_ADwinbind.Winbind.stop ~wait_until_success ~timeout:3.
+
 
   let init_service ~__context = function
     | AD_type.Pbis ->
@@ -59,15 +65,18 @@ let start_backend_daemon ~wait_until_success =
   |> AD_type.of_string
   |> AD.start_backend_daemon ~wait_until_success
 
+
 let stop_backend_daemon ~wait_until_success =
   !Xapi_globs.extauth_ad_backend
   |> AD_type.of_string
   |> AD.stop_backend_daemon ~wait_until_success
 
+
 let init_service ~__context =
   !Xapi_globs.extauth_ad_backend
   |> AD_type.of_string
   |> AD.init_service ~__context
+
 
 let methods () =
   match !Xapi_globs.extauth_ad_backend |> AD_type.of_string with

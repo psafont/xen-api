@@ -36,7 +36,9 @@ module Unixext = Xapi_stdext_unix.Unixext
 (* This resolves the lowercase deprecation for all compiler versions *)
 let lowercase = Astring.String.Ascii.lowercase
 
-module D = Debug.Make (struct let name = "http" end)
+module D = Debug.Make (struct
+  let name = "http"
+end)
 
 open D
 
@@ -45,20 +47,19 @@ type uri_path = string
 module Stats = struct
   (** Record of statistics per-handler *)
 
-  type t = {
-      mutable n_requests: int  (** successful requests *)
-    ; mutable n_connections: int  (** closed connections *)
-    ; mutable n_framed: int  (** using the more efficient framed protocol *)
-  }
+  type t =
+    { mutable n_requests : int  (** successful requests *)
+    ; mutable n_connections : int  (** closed connections *)
+    ; mutable n_framed : int  (** using the more efficient framed protocol *)
+    }
 
-  let empty () = {n_requests= 0; n_connections= 0; n_framed= 0}
+  let empty () = { n_requests = 0; n_connections = 0; n_framed = 0 }
 
   let update (x : t) (m : Mutex.t) req =
     Mutex.execute m (fun () ->
         x.n_requests <- x.n_requests + 1 ;
         if req.Http.Request.close then x.n_connections <- x.n_connections + 1 ;
-        if req.Http.Request.frame then x.n_framed <- x.n_framed + 1
-    )
+        if req.Http.Request.frame then x.n_framed <- x.n_framed + 1 )
 end
 
 (** Type of a function which can handle a Request.t *)
@@ -71,7 +72,8 @@ let best_effort f = try f () with _ -> ()
 
 let headers s headers =
   output_http s headers ;
-  output_http s [""]
+  output_http s [ "" ]
+
 
 (* let response s hdrs length f =
   output_http s hdrs;
@@ -86,55 +88,73 @@ let get_return_version req =
       Scanf.sscanf (Request.get_version req) "%d.%d" (fun a b -> (a, b))
     in
     match (maj, min) with 1, 0 -> "1.0" | _ -> "1.1"
-  with _ -> "1.1"
+  with
+  | _ ->
+      "1.1"
+
 
 let response_of_request req hdrs =
   let connection =
     (Http.Hdr.connection, if req.Request.close then "close" else "keep-alive")
   in
   let cache = (Http.Hdr.cache_control, "no-cache, no-store") in
-  Http.Response.make ~version:(get_return_version req)
+  Http.Response.make
+    ~version:(get_return_version req)
     ~frame:req.Http.Request.frame
     ~headers:(connection :: cache :: hdrs)
-    "200" "OK"
+    "200"
+    "OK"
 
-let response_fct req ?(hdrs = []) s (response_length : int64)
+
+let response_fct
+    req
+    ?(hdrs = [])
+    s
+    (response_length : int64)
     (write_response_to_fd_fn : Unix.file_descr -> unit) =
   let res =
-    {
-      (response_of_request req hdrs) with
-      Http.Response.content_length= Some response_length
+    { (response_of_request req hdrs) with
+      Http.Response.content_length = Some response_length
     }
   in
   Unixext.really_write_string s (Http.Response.to_wire_string res) ;
   write_response_to_fd_fn s
 
+
 let response_str req ?hdrs s body =
   let length = String.length body in
   response_fct req ?hdrs s (Int64.of_int length) (fun s ->
-      Unixext.really_write_string s body
-  )
+      Unixext.really_write_string s body )
+
 
 let response_missing ?(hdrs = []) s body =
   let connection = (Http.Hdr.connection, "close") in
   let cache = (Http.Hdr.cache_control, "no-cache, no-store") in
   let res =
-    Http.Response.make ~version:"1.1"
+    Http.Response.make
+      ~version:"1.1"
       ~headers:(connection :: cache :: hdrs)
-      ~body "404" "Not Found"
+      ~body
+      "404"
+      "Not Found"
   in
   Unixext.really_write_string s (Http.Response.to_wire_string res)
+
 
 let response_error_html ?(version = "1.1") s code message hdrs body =
   let connection = (Http.Hdr.connection, "close") in
   let cache = (Http.Hdr.cache_control, "no-cache, no-store") in
   let content_type = (Http.Hdr.content_type, "text/html") in
   let res =
-    Http.Response.make ~version
+    Http.Response.make
+      ~version
       ~headers:(content_type :: connection :: cache :: hdrs)
-      ~body code message
+      ~body
+      code
+      message
   in
   Unixext.really_write_string s (Http.Response.to_wire_string res)
+
 
 let response_unauthorised ?req label s =
   let version = Option.map get_return_version req in
@@ -143,7 +163,8 @@ let response_unauthorised ?req label s =
      and retry.</body></html>"
   in
   let realm = ("WWW-Authenticate", Printf.sprintf "Basic realm=\"%s\"" label) in
-  response_error_html ?version s "401" "Unauthorised" [realm] body
+  response_error_html ?version s "401" "Unauthorised" [ realm ] body
+
 
 let response_forbidden ?req s =
   let version = Option.map get_return_version req in
@@ -153,6 +174,7 @@ let response_forbidden ?req s =
   in
   response_error_html ?version s "403" "Forbidden" [] body
 
+
 let response_badrequest ?req s =
   let version = Option.map get_return_version req in
   let body =
@@ -161,10 +183,12 @@ let response_badrequest ?req s =
   in
   response_error_html ?version s "400" "Bad Request" [] body
 
+
 let response_internal_error ?req ?extra s =
   let version = Option.map get_return_version req in
   let extra =
-    Option.fold ~none:""
+    Option.fold
+      ~none:""
       ~some:(fun x -> "<h1> Additional information </h1>" ^ x)
       extra
   in
@@ -177,14 +201,16 @@ let response_internal_error ?req ?extra s =
   in
   response_error_html ?version s "500" "Internal Error" [] body
 
+
 let response_method_not_implemented ?req s =
   let version = Option.map get_return_version req in
   let extra =
-    Option.fold ~none:""
+    Option.fold
+      ~none:""
       ~some:(fun req ->
-        Printf.sprintf "<p>%s not supported.<br /></p>"
-          (Http.string_of_method_t req.Http.Request.m)
-        )
+        Printf.sprintf
+          "<p>%s not supported.<br /></p>"
+          (Http.string_of_method_t req.Http.Request.m) )
       req
   in
   let body =
@@ -194,54 +220,68 @@ let response_method_not_implemented ?req s =
   in
   response_error_html ?version s "501" "Method not implemented" [] body
 
+
 let response_file ?mime_content_type s file =
   let size = (Unix.LargeFile.stat file).Unix.LargeFile.st_size in
   let mime_header =
-    Option.fold ~none:[]
-      ~some:(fun ty -> [(Hdr.content_type, ty)])
+    Option.fold
+      ~none:[]
+      ~some:(fun ty -> [ (Hdr.content_type, ty) ])
       mime_content_type
   in
   let keep_alive = (Http.Hdr.connection, "keep-alive") in
   let res =
-    Http.Response.make ~version:"1.1"
+    Http.Response.make
+      ~version:"1.1"
       ~headers:(keep_alive :: mime_header)
-      ~length:size "200" "OK"
+      ~length:size
+      "200"
+      "OK"
   in
-  Unixext.with_file file [Unix.O_RDONLY] 0 (fun f ->
+  Unixext.with_file file [ Unix.O_RDONLY ] 0 (fun f ->
       Unixext.really_write_string s (Http.Response.to_wire_string res) ;
       let (_ : int64) = Unixext.copy_file f s in
-      ()
-  )
+      () )
+
 
 let respond_to_options req s =
   let access_control_allow_headers =
     try
       let acrh = List.assoc Hdr.acrh req.Request.additional_headers in
       Printf.sprintf "%s, X-Requested-With" acrh
-    with Not_found -> "X-Requested-With"
+    with
+    | Not_found ->
+        "X-Requested-With"
   in
-  response_fct req
+  response_fct
+    req
     ~hdrs:
-      [
-        ("Access-Control-Allow-Origin", "*")
+      [ ("Access-Control-Allow-Origin", "*")
       ; ("Access-Control-Allow-Headers", access_control_allow_headers)
       ; ("Access-Control-Allow-Methods", "PUT")
-      ] s 0L (fun _ -> ()
-  )
+      ]
+    s
+    0L
+    (fun _ -> ())
+
 
 (** If no handler matches the request then call this callback *)
 let default_callback req bio _ =
   response_forbidden (Buf_io.fd_of bio) ;
   req.Request.close <- true
 
+
 module TE = struct
-  type 'a t = {stats: Stats.t; stats_m: Mutex.t; handler: 'a handler}
+  type 'a t =
+    { stats : Stats.t
+    ; stats_m : Mutex.t
+    ; handler : 'a handler
+    }
 
   let empty () =
-    {
-      stats= Stats.empty ()
-    ; stats_m= Mutex.create ()
-    ; handler= BufIO default_callback
+    { stats = Stats.empty ()
+    ; stats_m = Mutex.create ()
+    ; handler = BufIO default_callback
     }
 end
 
@@ -252,39 +292,44 @@ module MethodMap = Map.Make (struct
 end)
 
 module Server = struct
-  type 'a t = {
-      mutable handlers: 'a TE.t Radix_tree.t MethodMap.t
-    ; mutable use_fastpath: bool
-    ; default_context: 'a
-  }
+  type 'a t =
+    { mutable handlers : 'a TE.t Radix_tree.t MethodMap.t
+    ; mutable use_fastpath : bool
+    ; default_context : 'a
+    }
 
   let empty default_context =
-    {handlers= MethodMap.empty; use_fastpath= false; default_context}
+    { handlers = MethodMap.empty; use_fastpath = false; default_context }
+
 
   let add_handler x ty uri handler =
     let existing =
-      if MethodMap.mem ty x.handlers then
-        MethodMap.find ty x.handlers
-      else
-        Radix_tree.empty
+      if MethodMap.mem ty x.handlers
+      then MethodMap.find ty x.handlers
+      else Radix_tree.empty
     in
     x.handlers <-
-      MethodMap.add ty
-        (Radix_tree.insert uri {(TE.empty ()) with TE.handler} existing)
+      MethodMap.add
+        ty
+        (Radix_tree.insert uri { (TE.empty ()) with TE.handler } existing)
         x.handlers
 
+
   let find_stats x m uri =
-    if not (MethodMap.mem m x.handlers) then
-      None
+    if not (MethodMap.mem m x.handlers)
+    then None
     else
       let rt = MethodMap.find m x.handlers in
       Option.map (fun te -> te.TE.stats) (Radix_tree.longest_prefix uri rt)
+
 
   let all_stats x =
     let open Radix_tree in
     MethodMap.fold
       (fun m rt acc -> fold (fun k te acc -> (m, k, te.TE.stats) :: acc) acc rt)
-      x.handlers []
+      x.handlers
+      []
+
 
   let enable_fastpath x = x.use_fastpath <- true
 end
@@ -293,25 +338,23 @@ let escape uri =
   (* from xapi-stdext-std xstringext *)
   let escaped ~rules string =
     let aux h t =
-      ( if List.mem_assoc h rules then
-          List.assoc h rules
-      else
-        Astring.String.of_char h
-      )
+      ( if List.mem_assoc h rules
+      then List.assoc h rules
+      else Astring.String.of_char h )
       :: t
     in
     String.concat "" (Astring.String.fold_right aux string [])
   in
   escaped
     ~rules:
-      [
-        ('<', "&lt;")
+      [ ('<', "&lt;")
       ; ('>', "&gt;")
       ; ('\'', "&apos;")
       ; ('"', "&quot;")
       ; ('&', "&amp;")
       ]
     uri
+
 
 exception Too_many_headers
 
@@ -399,31 +442,30 @@ let request_of_bio_exn_slow ic =
               false
         in
         if (not absorbed) && left <= 0 then raise Too_many_headers ;
-        if absorbed then
-          read_rest_of_headers (left - 1)
-        else
-          (k, v) :: read_rest_of_headers (left - 1)
+        if absorbed
+        then read_rest_of_headers (left - 1)
+        else (k, v) :: read_rest_of_headers (left - 1)
     | None ->
         []
   in
   let headers = read_rest_of_headers 242 in
   let request =
-    {
-      req with
-      Request.cookie= Http.parse_keyvalpairs !cookie
-    ; content_length=
+    { req with
+      Request.cookie = Http.parse_keyvalpairs !cookie
+    ; content_length =
         (if !content_length = -1L then None else Some !content_length)
-    ; auth= !auth
-    ; task= !task
-    ; subtask_of= !subtask_of
-    ; content_type= !content_type
-    ; host= !host
-    ; user_agent= !user_agent
-    ; additional_headers= headers
-    ; accept= !accept
+    ; auth = !auth
+    ; task = !task
+    ; subtask_of = !subtask_of
+    ; content_type = !content_type
+    ; host = !host
+    ; user_agent = !user_agent
+    ; additional_headers = headers
+    ; accept = !accept
     }
   in
   (request, None)
+
 
 (** [request_of_bio_exn ic] reads a single Http.req from [ic] and returns it. On error
     	it simply throws an exception and doesn't touch the output stream. *)
@@ -433,87 +475,86 @@ let request_of_bio_exn ~proxy_seen bio =
   let frame, headers, proxy' = Http.read_http_request_header fd in
   let proxy = match proxy' with None -> proxy_seen | x -> x in
   let additional_headers =
-    proxy |> Option.fold ~none:[] ~some:(fun p -> [("STUNNEL_PROXY", p)])
+    proxy |> Option.fold ~none:[] ~some:(fun p -> [ ("STUNNEL_PROXY", p) ])
   in
   let open Http.Request in
   let request =
     Astring.String.cuts ~sep:"\n" headers
     |> List.fold_left
          (fun (status, req) header ->
-           if not status then
+           if not status
+           then
              match Astring.String.fields ~empty:false header with
-             | [meth; uri; version] ->
+             | [ meth; uri; version ] ->
                  (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
                  let uri, query = Http.parse_uri uri in
                  let m = Http.method_t_of_string meth in
                  let version =
                    let x = String.trim version in
                    let prefix = "HTTP/" in
-                   String.sub x (String.length prefix)
+                   String.sub
+                     x
+                     (String.length prefix)
                      (String.length x - String.length prefix)
                  in
                  let close = version = "1.0" in
-                 (true, {req with m; uri; query; version; close})
+                 (true, { req with m; uri; query; version; close })
              | _ ->
                  raise Http_parse_failure
            else
              match Astring.String.cut ~sep:":" header with
-             | Some (k, v) -> (
+             | Some (k, v) ->
                  let k = lowercase k in
                  let v = String.trim v in
                  ( true
-                 , match k with
+                 , ( match k with
                    | k when k = Http.Hdr.content_length ->
-                       {req with content_length= Some (Int64.of_string v)}
+                       { req with content_length = Some (Int64.of_string v) }
                    | k when k = Http.Hdr.cookie ->
-                       {req with cookie= Http.parse_keyvalpairs v}
+                       { req with cookie = Http.parse_keyvalpairs v }
                    | k when k = Http.Hdr.transfer_encoding ->
-                       {req with transfer_encoding= Some v}
+                       { req with transfer_encoding = Some v }
                    | k when k = Http.Hdr.accept ->
-                       {req with accept= Some v}
+                       { req with accept = Some v }
                    | k when k = Http.Hdr.authorization ->
-                       {req with auth= Some (authorization_of_string v)}
+                       { req with auth = Some (authorization_of_string v) }
                    | k when k = Http.Hdr.task_id ->
-                       {req with task= Some v}
+                       { req with task = Some v }
                    | k when k = Http.Hdr.subtask_of ->
-                       {req with subtask_of= Some v}
+                       { req with subtask_of = Some v }
                    | k when k = Http.Hdr.content_type ->
-                       {req with content_type= Some v}
+                       { req with content_type = Some v }
                    | k when k = Http.Hdr.host ->
-                       {req with host= Some v}
+                       { req with host = Some v }
                    | k when k = Http.Hdr.user_agent ->
-                       {req with user_agent= Some v}
+                       { req with user_agent = Some v }
                    | k when k = Http.Hdr.connection && lowercase v = "close" ->
-                       {req with close= true}
+                       { req with close = true }
                    | k
                      when k = Http.Hdr.connection && lowercase v = "keep-alive"
                      ->
-                       {req with close= false}
+                       { req with close = false }
                    | _ ->
-                       {
-                         req with
-                         additional_headers= (k, v) :: req.additional_headers
-                       }
-                 )
-               )
+                       { req with
+                         additional_headers = (k, v) :: req.additional_headers
+                       } ) )
              | None ->
-                 (true, req) (* end of headers *)
-           )
-         (false, {empty with Http.Request.frame; additional_headers})
+                 (true, req)
+             (* end of headers *) )
+         (false, { empty with Http.Request.frame; additional_headers })
     |> snd
   in
   (request, proxy)
+
 
 (** [request_of_bio ic] returns [Some req] read from [ic], or [None]. If [None] it will have
     	already sent back a suitable error code and response to the client. *)
 let request_of_bio ?(use_fastpath = false) ?proxy_seen ic =
   try
     let r, proxy =
-      ( if use_fastpath then
-          request_of_bio_exn ~proxy_seen
-      else
-        request_of_bio_exn_slow
-      )
+      ( if use_fastpath
+      then request_of_bio_exn ~proxy_seen
+      else request_of_bio_exn_slow )
         ic
     in
     (*
@@ -521,44 +562,53 @@ let request_of_bio ?(use_fastpath = false) ?proxy_seen ic =
 		flush stderr;
 *)
     (Some r, proxy)
-  with e ->
-    D.warn "%s (%s)" (Printexc.to_string e) __LOC__ ;
-    best_effort (fun () ->
-        let ss = Buf_io.fd_of ic in
-        match e with
-        (* Specific errors thrown during parsing *)
-        | Http.Http_parse_failure ->
-            response_internal_error ss
-              ~extra:"The HTTP headers could not be parsed." ;
-            debug "Error parsing HTTP headers"
-        | Too_many_headers ->
-            (* don't log anything, since it could fill the log *)
-            response_internal_error ss
-              ~extra:"Too many HTTP headers were received."
-        | Buf_io.Timeout ->
-            ()
-        (* Idle connection closed. NB infinite timeout used when headers are being read *)
-        | Buf_io.Eof ->
-            ()
-        (* Connection terminated *)
-        | Buf_io.Line _ ->
-            response_internal_error ss
-              ~extra:"One of the header lines was too long."
-        (* Generic errors thrown during parsing *)
-        | End_of_file ->
-            ()
-        (* Premature termination of connection! *)
-        | Unix.Unix_error (a, b, c) ->
-            response_internal_error ss
-              ~extra:
-                (Printf.sprintf "Got UNIX error: %s %s %s"
-                   (Unix.error_message a) b c
-                )
-        | exc ->
-            response_internal_error ss ~extra:(escape (Printexc.to_string exc)) ;
-            log_backtrace ()
-    ) ;
-    (None, None)
+  with
+  | e ->
+      D.warn "%s (%s)" (Printexc.to_string e) __LOC__ ;
+      best_effort (fun () ->
+          let ss = Buf_io.fd_of ic in
+          match e with
+          (* Specific errors thrown during parsing *)
+          | Http.Http_parse_failure ->
+              response_internal_error
+                ss
+                ~extra:"The HTTP headers could not be parsed." ;
+              debug "Error parsing HTTP headers"
+          | Too_many_headers ->
+              (* don't log anything, since it could fill the log *)
+              response_internal_error
+                ss
+                ~extra:"Too many HTTP headers were received."
+          | Buf_io.Timeout ->
+              ()
+          (* Idle connection closed. NB infinite timeout used when headers are being read *)
+          | Buf_io.Eof ->
+              ()
+          (* Connection terminated *)
+          | Buf_io.Line _ ->
+              response_internal_error
+                ss
+                ~extra:"One of the header lines was too long."
+          (* Generic errors thrown during parsing *)
+          | End_of_file ->
+              ()
+          (* Premature termination of connection! *)
+          | Unix.Unix_error (a, b, c) ->
+              response_internal_error
+                ss
+                ~extra:
+                  (Printf.sprintf
+                     "Got UNIX error: %s %s %s"
+                     (Unix.error_message a)
+                     b
+                     c )
+          | exc ->
+              response_internal_error
+                ss
+                ~extra:(escape (Printexc.to_string exc)) ;
+              log_backtrace () ) ;
+      (None, None)
+
 
 let handle_one (x : 'a Server.t) ss context req =
   let ic = Buf_io.of_fd ss in
@@ -566,12 +616,14 @@ let handle_one (x : 'a Server.t) ss context req =
   try
     D.debug "Request %s" (Http.Request.to_string req) ;
     let method_map =
-      try MethodMap.find req.Request.m x.Server.handlers
-      with Not_found -> raise Method_not_implemented
+      try MethodMap.find req.Request.m x.Server.handlers with
+      | Not_found ->
+          raise Method_not_implemented
     in
     let empty = TE.empty () in
     let te =
-      Option.value ~default:empty
+      Option.value
+        ~default:empty
         (Radix_tree.longest_prefix req.Request.uri method_map)
     in
     ( match te.TE.handler with
@@ -580,40 +632,46 @@ let handle_one (x : 'a Server.t) ss context req =
     | FdIO handlerfn ->
         let fd = Buf_io.fd_of ic in
         Buf_io.assert_buffer_empty ic ;
-        handlerfn req fd context
-    ) ;
+        handlerfn req fd context ) ;
     finished := req.Request.close ;
     Stats.update te.TE.stats te.TE.stats_m req ;
     !finished
-  with e ->
-    finished := true ;
-    best_effort (fun () ->
-        match e with
-        (* Specific errors thrown by handlers *)
-        | Generic_error s ->
-            response_internal_error ~req ss ~extra:s
-        | Http.Unauthorised realm ->
-            response_unauthorised ~req realm ss
-        | Http.Forbidden ->
-            response_forbidden ~req ss
-        (* Generic errors thrown by handlers *)
-        | Http.Method_not_implemented ->
-            response_method_not_implemented ~req ss
-        | End_of_file ->
-            ()
-        (* Premature termination of connection! *)
-        | Unix.Unix_error (a, b, c) ->
-            response_internal_error ~req ss
-              ~extra:
-                (Printf.sprintf "Got UNIX error: %s %s %s"
-                   (Unix.error_message a) b c
-                )
-        | exc ->
-            response_internal_error ~req ss
-              ~extra:(escape (Printexc.to_string exc)) ;
-            log_backtrace ()
-    ) ;
-    !finished
+  with
+  | e ->
+      finished := true ;
+      best_effort (fun () ->
+          match e with
+          (* Specific errors thrown by handlers *)
+          | Generic_error s ->
+              response_internal_error ~req ss ~extra:s
+          | Http.Unauthorised realm ->
+              response_unauthorised ~req realm ss
+          | Http.Forbidden ->
+              response_forbidden ~req ss
+          (* Generic errors thrown by handlers *)
+          | Http.Method_not_implemented ->
+              response_method_not_implemented ~req ss
+          | End_of_file ->
+              ()
+          (* Premature termination of connection! *)
+          | Unix.Unix_error (a, b, c) ->
+              response_internal_error
+                ~req
+                ss
+                ~extra:
+                  (Printf.sprintf
+                     "Got UNIX error: %s %s %s"
+                     (Unix.error_message a)
+                     b
+                     c )
+          | exc ->
+              response_internal_error
+                ~req
+                ss
+                ~extra:(escape (Printexc.to_string exc)) ;
+              log_backtrace () ) ;
+      !finished
+
 
 let handle_connection (x : 'a Server.t) _ ss =
   let ic = Buf_io.of_fd ss in
@@ -629,15 +687,17 @@ let handle_connection (x : 'a Server.t) _ ss =
     in
     (* 2. now we attempt to process the request *)
     let finished =
-      Option.fold ~none:true
+      Option.fold
+        ~none:true
         ~some:(handle_one x ss x.Server.default_context)
         req
     in
     (* 3. do it again if the connection is kept open *)
-    if not finished then
-      loop proxy
+    if not finished then loop proxy
   in
-  loop None ; Unix.close ss
+  loop None ;
+  Unix.close ss
+
 
 let bind ?(listen_backlog = 128) sockaddr name =
   let domain =
@@ -659,16 +719,18 @@ let bind ?(listen_backlog = 128) sockaddr name =
     | Unix.ADDR_INET _ ->
         Unixext.set_tcp_nodelay sock true
     | _ ->
-        ()
-    ) ;
+        () ) ;
     Unix.bind sock sockaddr ;
     Unix.listen sock listen_backlog ;
     (sock, name)
-  with e ->
-    debug "Caught exception in Http_svr.bind (closing socket): %s"
-      (Printexc.to_string e) ;
-    Unix.close sock ;
-    raise e
+  with
+  | e ->
+      debug
+        "Caught exception in Http_svr.bind (closing socket): %s"
+        (Printexc.to_string e) ;
+      Unix.close sock ;
+      raise e
+
 
 let bind_retry ?(listen_backlog = 128) sockaddr =
   let description =
@@ -685,10 +747,10 @@ let bind_retry ?(listen_backlog = 128) sockaddr =
   let timeout = 30.0 in
   (* 30s *)
   while !result = None && Unix.gettimeofday () -. start < timeout do
-    try result := Some (bind ~listen_backlog sockaddr description)
-    with Unix.Unix_error (code, _, _) ->
-      debug "While binding %s: %s" description (Unix.error_message code) ;
-      Thread.delay 5.
+    try result := Some (bind ~listen_backlog sockaddr description) with
+    | Unix.Unix_error (code, _, _) ->
+        debug "While binding %s: %s" description (Unix.error_message code) ;
+        Thread.delay 5.
   done ;
   match !result with
   | None ->
@@ -697,6 +759,7 @@ let bind_retry ?(listen_backlog = 128) sockaddr =
       info "Successfully bound socket to: %s" description ;
       s
 
+
 (* Maps sockets to Server_io.server records *)
 let socket_table = Hashtbl.create 10
 
@@ -704,20 +767,23 @@ type socket = Unix.file_descr * string
 
 (* Start an HTTP server on a new socket *)
 let start (x : 'a Server.t) (socket, name) =
-  let handler = {Server_io.name; body= handle_connection x} in
+  let handler = { Server_io.name; body = handle_connection x } in
   let server = Server_io.server handler socket in
   Hashtbl.add socket_table socket server
+
 
 exception Socket_not_found
 
 (* Stop an HTTP server running on a socket *)
 let stop (socket, _name) =
   let server =
-    try Hashtbl.find socket_table socket
-    with Not_found -> raise Socket_not_found
+    try Hashtbl.find socket_table socket with
+    | Not_found ->
+        raise Socket_not_found
   in
   Hashtbl.remove socket_table socket ;
   server.Server_io.shutdown ()
+
 
 exception Client_requested_size_over_limit
 
@@ -728,29 +794,31 @@ let read_body ?limit req bio =
       failwith "We require a content-length: HTTP header"
   | Some length ->
       let length = Int64.to_int length in
-      Option.fold ~none:()
+      Option.fold
+        ~none:()
         ~some:(fun l ->
-          if length > l then raise Client_requested_size_over_limit
-          )
+          if length > l then raise Client_requested_size_over_limit )
         limit ;
-      if Buf_io.is_buffer_empty bio then
-        Unixext.really_read_string (Buf_io.fd_of bio) length
-      else
-        Buf_io.really_input_buf ~timeout:Buf_io.infinite_timeout bio length
+      if Buf_io.is_buffer_empty bio
+      then Unixext.really_read_string (Buf_io.fd_of bio) length
+      else Buf_io.really_input_buf ~timeout:Buf_io.infinite_timeout bio length
+
 
 module Chunked = struct
-  type t = {
-      mutable current_size: int
-    ; mutable current_offset: int
-    ; mutable read_headers: bool
-    ; bufio: Buf_io.t
-  }
+  type t =
+    { mutable current_size : int
+    ; mutable current_offset : int
+    ; mutable read_headers : bool
+    ; bufio : Buf_io.t
+    }
 
   let of_bufio bufio =
-    {current_size= 0; current_offset= 0; bufio; read_headers= true}
+    { current_size = 0; current_offset = 0; bufio; read_headers = true }
+
 
   let rec read chunk size =
-    if chunk.read_headers = true then (
+    if chunk.read_headers = true
+    then (
       (* first get the size, then get the data requested *)
       let size =
         Buf_io.input_line chunk.bufio
@@ -761,29 +829,30 @@ module Chunked = struct
       in
       chunk.current_size <- size ;
       chunk.current_offset <- 0 ;
-      chunk.read_headers <- false
-    ) ;
+      chunk.read_headers <- false ) ;
     (* read as many bytes from this chunk as possible *)
-    if chunk.current_size = 0 then
-      ""
+    if chunk.current_size = 0
+    then ""
     else
       let bytes_to_read =
         min size (chunk.current_size - chunk.current_offset)
       in
-      if bytes_to_read = 0 then
-        ""
+      if bytes_to_read = 0
+      then ""
       else
         let data = Bytes.make bytes_to_read '\000' in
         Buf_io.really_input chunk.bufio data 0 bytes_to_read ;
         (* now update the data structure: *)
-        if chunk.current_offset + bytes_to_read = chunk.current_size then (
+        if chunk.current_offset + bytes_to_read = chunk.current_size
+        then (
           (* finished a chunk: get rid of the CRLF *)
           let blank = Bytes.of_string "\000\000" in
           Buf_io.really_input chunk.bufio blank 0 2 ;
-          if Bytes.to_string blank <> "\r\n" then
-            failwith "chunked encoding error" ;
-          chunk.read_headers <- true
-        ) else (* partway through a chunk. *)
+          if Bytes.to_string blank <> "\r\n"
+          then failwith "chunked encoding error" ;
+          chunk.read_headers <- true )
+        else
+          (* partway through a chunk. *)
           chunk.current_offset <- chunk.current_offset + bytes_to_read ;
         Bytes.unsafe_to_string data ^ read chunk (size - bytes_to_read)
 end
@@ -798,8 +867,8 @@ let read_chunked_encoding _req bio =
       |> Printf.sprintf "0x%s"
       |> int_of_string
     in
-    if size = 0 then
-      Http.End
+    if size = 0
+    then Http.End
     else
       let chunk = Bytes.make size '\000' in
       Buf_io.really_input bio chunk 0 size ;

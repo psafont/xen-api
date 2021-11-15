@@ -24,7 +24,9 @@ open Create_misc
 open Client
 open Network
 
-module D = Debug.Make (struct let name = "dbsync" end)
+module D = Debug.Make (struct
+  let name = "dbsync"
+end)
 
 open D
 
@@ -45,22 +47,35 @@ let get_my_ip_addr ~__context =
         "Cannot read IP address. Check the control interface has an IP address" ;
       ""
 
+
 let create_localhost ~__context info =
   let ip = get_my_ip_addr ~__context in
   let me =
     try Some (Db.Host.get_by_uuid ~__context ~uuid:info.uuid) with _ -> None
   in
   (* me = None on firstboot only *)
-  if me = None then
+  if me = None
+  then
     let (_ : API.ref_host) =
-      Xapi_host.create ~__context ~uuid:info.uuid ~name_label:info.hostname
-        ~name_description:"" ~hostname:info.hostname ~address:ip
-        ~external_auth_type:"" ~external_auth_service_name:""
-        ~external_auth_configuration:[] ~license_params:[] ~edition:""
-        ~license_server:[("address", "localhost"); ("port", "27000")]
-        ~local_cache_sr:Ref.null ~chipset_info:[] ~ssl_legacy:false
+      Xapi_host.create
+        ~__context
+        ~uuid:info.uuid
+        ~name_label:info.hostname
+        ~name_description:""
+        ~hostname:info.hostname
+        ~address:ip
+        ~external_auth_type:""
+        ~external_auth_service_name:""
+        ~external_auth_configuration:[]
+        ~license_params:[]
+        ~edition:""
+        ~license_server:[ ("address", "localhost"); ("port", "27000") ]
+        ~local_cache_sr:Ref.null
+        ~chipset_info:[]
+        ~ssl_legacy:false
     in
     ()
+
 
 (* TODO cat /proc/stat for btime ? *)
 let get_start_time () =
@@ -75,9 +90,11 @@ let get_start_time () =
     let boot_time = Date.of_float (now -. uptime) in
     debug " system booted at %s" (Date.to_string boot_time) ;
     boot_time
-  with e ->
-    debug "Calculating boot time failed with '%s'" (ExnHelper.string_of_exn e) ;
-    Date.never
+  with
+  | e ->
+      debug "Calculating boot time failed with '%s'" (ExnHelper.string_of_exn e) ;
+      Date.never
+
 
 (* not sufficient just to fill in this data on create time [Xen caps may change if VT enabled in BIOS etc.] *)
 
@@ -88,18 +105,24 @@ let refresh_localhost_info ~__context info =
   debug "Updating host software_version and updates_requiring_reboot" ;
   Create_misc.create_updates_requiring_reboot_info ~__context ~host ;
   Create_misc.create_software_version ~__context ~info:(Some info) () ;
-  Db.Host.set_API_version_major ~__context ~self:host
+  Db.Host.set_API_version_major
+    ~__context
+    ~self:host
     ~value:Datamodel_common.api_version_major ;
-  Db.Host.set_API_version_minor ~__context ~self:host
+  Db.Host.set_API_version_minor
+    ~__context
+    ~self:host
     ~value:Datamodel_common.api_version_minor ;
-  Db.Host.set_virtual_hardware_platform_versions ~__context ~self:host
+  Db.Host.set_virtual_hardware_platform_versions
+    ~__context
+    ~self:host
     ~value:Xapi_globs.host_virtual_hardware_platform_versions ;
   Db.Host.set_hostname ~__context ~self:host ~value:info.hostname ;
   let caps =
     match info.hypervisor with
     | None ->
         []
-    | Some {capabilities} ->
+    | Some { capabilities } ->
         String.split ' ' capabilities
   in
   Db.Host.set_capabilities ~__context ~self:host ~value:caps ;
@@ -107,22 +130,37 @@ let refresh_localhost_info ~__context info =
   let boot_time_key = "boot_time" in
   let boot_time_value = string_of_float (Date.to_float (get_start_time ())) in
   Db.Host.remove_from_other_config ~__context ~self:host ~key:boot_time_key ;
-  Db.Host.add_to_other_config ~__context ~self:host ~key:boot_time_key
+  Db.Host.add_to_other_config
+    ~__context
+    ~self:host
+    ~key:boot_time_key
     ~value:boot_time_value ;
   let agent_start_key = "agent_start_time" in
   let agent_start_time = string_of_float (Unix.time ()) in
   Db.Host.remove_from_other_config ~__context ~self:host ~key:agent_start_key ;
-  Db.Host.add_to_other_config ~__context ~self:host ~key:agent_start_key
+  Db.Host.add_to_other_config
+    ~__context
+    ~self:host
+    ~key:agent_start_key
     ~value:agent_start_time ;
   (* Register whether we have local storage or not *)
-  if not (Helpers.local_storage_exists ()) then (
-    Db.Host.remove_from_other_config ~__context ~self:host
+  if not (Helpers.local_storage_exists ())
+  then (
+    Db.Host.remove_from_other_config
+      ~__context
+      ~self:host
       ~key:Xapi_globs.host_no_local_storage ;
-    Db.Host.add_to_other_config ~__context ~self:host
-      ~key:Xapi_globs.host_no_local_storage ~value:"true"
-  ) else
-    Db.Host.remove_from_other_config ~__context ~self:host
+    Db.Host.add_to_other_config
+      ~__context
+      ~self:host
       ~key:Xapi_globs.host_no_local_storage
+      ~value:"true" )
+  else
+    Db.Host.remove_from_other_config
+      ~__context
+      ~self:host
+      ~key:Xapi_globs.host_no_local_storage
+
 
 (*************** update database tools ******************)
 
@@ -135,18 +173,21 @@ let record_host_memory_properties ~__context info =
       let self = !Xapi_globs.localhost_ref in
       let total_memory_bytes = Memory.bytes_of_mib total_memory_mib in
       let metrics = Db.Host.get_metrics ~__context ~self in
-      Db.Host_metrics.set_memory_total ~__context ~self:metrics
+      Db.Host_metrics.set_memory_total
+        ~__context
+        ~self:metrics
         ~value:total_memory_bytes ;
       let boot_memory_bytes =
         try
           let dbg = Context.string_of_task __context in
           Some (Memory_client.Client.get_host_initial_free_memory dbg)
-        with e ->
-          warn
-            "Failed to get host free memory from ballooning service. This may \
-             prevent VMs from being started on this host. (%s)"
-            (Printexc.to_string e) ;
-          None
+        with
+        | e ->
+            warn
+              "Failed to get host free memory from ballooning service. This \
+               may prevent VMs from being started on this host. (%s)"
+              (Printexc.to_string e) ;
+            None
       in
       Option.iter
         (fun boot_memory_bytes ->
@@ -159,23 +200,26 @@ let record_host_memory_properties ~__context info =
             total_memory_bytes -- boot_memory_bytes
           in
           let nonobvious_overhead_memory_kib =
-            try Memory_client.Client.get_host_reserved_memory "dbsync"
-            with e ->
-              error
-                "Failed to contact ballooning service: host memory overhead \
-                 may be too small (%s)"
-                (Printexc.to_string e) ;
-              0L
+            try Memory_client.Client.get_host_reserved_memory "dbsync" with
+            | e ->
+                error
+                  "Failed to contact ballooning service: host memory overhead \
+                   may be too small (%s)"
+                  (Printexc.to_string e) ;
+                0L
           in
           let nonobvious_overhead_memory_bytes =
             Int64.mul 1024L nonobvious_overhead_memory_kib
           in
           Db.Host.set_boot_free_mem ~__context ~self ~value:boot_memory_bytes ;
-          Db.Host.set_memory_overhead ~__context ~self
+          Db.Host.set_memory_overhead
+            ~__context
+            ~self
             ~value:
               (obvious_overhead_memory_bytes ++ nonobvious_overhead_memory_bytes)
           )
         boot_memory_bytes
+
 
 (* -- used this for testing uniqueness constraints executed on slave do not kill connection.
    Committing commented out vsn of this because it might be useful again..
@@ -209,8 +253,7 @@ let resynchronise_pif_params ~__context =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       let dbg = Context.string_of_task __context in
       let bridges = Net.Bridge.get_all dbg () in
-      Client.Host.sync_pif_currently_attached rpc session_id localhost bridges
-  ) ;
+      Client.Host.sync_pif_currently_attached rpc session_id localhost bridges ) ;
   (* sync management *)
   Xapi_pif.update_management_flags ~__context ~host:localhost ;
   (* sync MACs and MTUs *)
@@ -218,26 +261,36 @@ let resynchronise_pif_params ~__context =
   (* Ensure that all DHCP PIFs have their IP address updated in the DB *)
   Helpers.update_pif_addresses ~__context
 
+
 (** Update the database to reflect current state. Called for both start of day and after
     an agent restart. *)
 let update_env __context sync_keys =
   (* Helper function to allow us to switch off particular types of syncing *)
   let switched_sync key f =
     let task_id = Context.get_task_id __context in
-    Db.Task.remove_from_other_config ~__context ~self:task_id
+    Db.Task.remove_from_other_config
+      ~__context
+      ~self:task_id
       ~key:"sync_operation" ;
-    Db.Task.add_to_other_config ~__context ~self:task_id ~key:"sync_operation"
+    Db.Task.add_to_other_config
+      ~__context
+      ~self:task_id
+      ~key:"sync_operation"
       ~value:key ;
     let skip_sync =
-      try List.assoc key sync_keys = Xapi_globs.sync_switch_off
-      with _ -> false
+      try List.assoc key sync_keys = Xapi_globs.sync_switch_off with
+      | _ ->
+          false
     in
     let disabled_in_config_file = List.mem key !Xapi_globs.disable_dbsync_for in
-    if (not skip_sync) && not disabled_in_config_file then (
-      debug "Sync: %s" key ; f ()
-    ) else
-      debug "Skipping sync keyed: %s" key ;
-    Db.Task.remove_from_other_config ~__context ~self:task_id
+    if (not skip_sync) && not disabled_in_config_file
+    then (
+      debug "Sync: %s" key ;
+      f () )
+    else debug "Skipping sync keyed: %s" key ;
+    Db.Task.remove_from_other_config
+      ~__context
+      ~self:task_id
       ~key:"sync_operation"
   in
   (* Ensure basic records exist: *)
@@ -245,8 +298,7 @@ let update_env __context sync_keys =
   (* create localhost record if doesn't already exist *)
   switched_sync Xapi_globs.sync_create_localhost (fun () ->
       debug "creating localhost" ;
-      create_localhost ~__context info
-  ) ;
+      create_localhost ~__context info ) ;
   (* record who we are in xapi_globs *)
   let localhost = Helpers.get_localhost_uncached ~__context in
   Xapi_globs.localhost_ref := localhost ;
@@ -258,51 +310,47 @@ let update_env __context sync_keys =
   switched_sync Xapi_globs.sync_set_cache_sr (fun () ->
       try
         let cache_sr =
-          Db.Host.get_local_cache_sr ~__context
+          Db.Host.get_local_cache_sr
+            ~__context
             ~self:(Helpers.get_localhost ~__context)
         in
         let cache_sr_uuid = Db.SR.get_uuid ~__context ~self:cache_sr in
         Db.SR.set_local_cache_enabled ~__context ~self:cache_sr ~value:true ;
         log_and_ignore_exn (fun () -> Rrdd.set_cache_sr cache_sr_uuid)
-      with _ -> log_and_ignore_exn Rrdd.unset_cache_sr
-  ) ;
+      with
+      | _ ->
+          log_and_ignore_exn Rrdd.unset_cache_sr ) ;
   switched_sync Xapi_globs.sync_load_rrd (fun () ->
       (* Load the host rrd *)
-      Rrdd_proxy.Deprecated.load_rrd ~__context
-        ~uuid:(Helpers.get_localhost_uuid ())
-  ) ;
+      Rrdd_proxy.Deprecated.load_rrd
+        ~__context
+        ~uuid:(Helpers.get_localhost_uuid ()) ) ;
   (* maybe record host memory properties in database *)
   switched_sync Xapi_globs.sync_record_host_memory_properties (fun () ->
-      record_host_memory_properties ~__context info
-  ) ;
+      record_host_memory_properties ~__context info ) ;
   switched_sync Xapi_globs.sync_create_host_cpu (fun () ->
       debug "creating cpu" ;
-      Create_misc.create_host_cpu ~__context info
-  ) ;
+      Create_misc.create_host_cpu ~__context info ) ;
   switched_sync Xapi_globs.sync_create_domain_zero (fun () ->
       debug "creating domain 0" ;
-      Create_misc.ensure_domain_zero_records ~__context ~host:localhost info
-  ) ;
+      Create_misc.ensure_domain_zero_records ~__context ~host:localhost info ) ;
   switched_sync Xapi_globs.sync_crashdump_resynchronise (fun () ->
       debug "resynchronising host crashdumps" ;
-      Xapi_host_crashdump.resynchronise ~__context ~host:localhost
-  ) ;
+      Xapi_host_crashdump.resynchronise ~__context ~host:localhost ) ;
   switched_sync Xapi_globs.sync_pbds (fun () ->
       debug "resynchronising host PBDs" ;
-      Storage_access.resynchronise_pbds ~__context
-        ~pbds:(Db.Host.get_PBDs ~__context ~self:localhost)
-  ) ;
+      Storage_access.resynchronise_pbds
+        ~__context
+        ~pbds:(Db.Host.get_PBDs ~__context ~self:localhost) ) ;
   (*
   debug "resynchronising db with host physical interfaces";
   update_physical_networks ~__context;
 *)
   switched_sync Xapi_globs.sync_pci_devices (fun () ->
-      Xapi_pci.update_pcis ~__context
-  ) ;
+      Xapi_pci.update_pcis ~__context ) ;
   switched_sync Xapi_globs.sync_pif_params (fun () ->
       debug "resynchronising PIF params" ;
-      resynchronise_pif_params ~__context
-  ) ;
+      resynchronise_pif_params ~__context ) ;
   switched_sync Xapi_globs.sync_bios_strings (fun () ->
       debug "get BIOS strings on startup" ;
       let current_bios_strings =
@@ -311,14 +359,15 @@ let update_env __context sync_keys =
       let db_host_bios_strings =
         Db.Host.get_bios_strings ~__context ~self:localhost
       in
-      if current_bios_strings <> db_host_bios_strings then (
+      if current_bios_strings <> db_host_bios_strings
+      then (
         debug
           "BIOS strings obtained from the host and that present in DB are \
            different. Updating BIOS strings in xapi-db." ;
-        Db.Host.set_bios_strings ~__context ~self:localhost
-          ~value:current_bios_strings
-      )
-  ) ;
+        Db.Host.set_bios_strings
+          ~__context
+          ~self:localhost
+          ~value:current_bios_strings ) ) ;
 
   (* CA-35549: In a pool rolling upgrade, the master will detect the end of upgrade when the software versions
      	 of all the hosts are the same. It will then assume that (for example) per-host patch records have
@@ -326,15 +375,12 @@ let update_env __context sync_keys =
 
   (* refresh host info fields *)
   switched_sync Xapi_globs.sync_host_display (fun () ->
-      Xapi_host.sync_display ~__context ~host:localhost
-  ) ;
+      Xapi_host.sync_display ~__context ~host:localhost ) ;
   switched_sync Xapi_globs.sync_refresh_localhost_info (fun () ->
-      refresh_localhost_info ~__context info
-  ) ;
+      refresh_localhost_info ~__context info ) ;
   switched_sync Xapi_globs.sync_local_vdi_activations (fun () ->
-      Storage_access.refresh_local_vdi_activations ~__context
-  ) ;
+      Storage_access.refresh_local_vdi_activations ~__context ) ;
   switched_sync Xapi_globs.sync_chipset_info (fun () ->
-      Create_misc.create_chipset_info ~__context info
-  ) ;
-  switched_sync Xapi_globs.sync_gpus (fun () -> Xapi_pgpu.update_gpus ~__context)
+      Create_misc.create_chipset_info ~__context info ) ;
+  switched_sync Xapi_globs.sync_gpus (fun () ->
+      Xapi_pgpu.update_gpus ~__context )

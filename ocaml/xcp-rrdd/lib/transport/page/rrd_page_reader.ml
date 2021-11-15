@@ -12,15 +12,24 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type interdomain_id = {frontend_domid: int; shared_page_refs: int list}
+type interdomain_id =
+  { frontend_domid : int
+  ; shared_page_refs : int list
+  }
 
 module Mutex = struct
   include Mutex
 
   let execute lock f =
     Mutex.lock lock ;
-    let result = try f () with e -> Mutex.unlock lock ; raise e in
-    Mutex.unlock lock ; result
+    let result =
+      try f () with
+      | e ->
+          Mutex.unlock lock ;
+          raise e
+    in
+    Mutex.unlock lock ;
+    result
 end
 
 module Page = struct
@@ -41,18 +50,18 @@ module Page = struct
               interface_ref := Some interface ;
               interface
         in
-        f interface
-    )
+        f interface )
+
 
   (** Remote domid * list of grant references. *)
   type id_t = interdomain_id
 
   type state_t = Gnttab.Local_mapping.t
 
-  let init {frontend_domid; shared_page_refs} =
+  let init { frontend_domid; shared_page_refs } =
     let grants =
       List.map
-        (fun ref -> {Gnttab.domid= frontend_domid; Gnttab.ref})
+        (fun ref -> { Gnttab.domid = frontend_domid; Gnttab.ref })
         shared_page_refs
     in
     let mapping_opt =
@@ -64,8 +73,10 @@ module Page = struct
     | None ->
         failwith "failed to map shared page(s)"
 
+
   let cleanup _ mapping =
     with_interface (fun gnttab -> Gnttab.unmap_exn gnttab mapping)
+
 
   let expose mapping =
     let buf = Gnttab.Local_mapping.to_buf mapping in

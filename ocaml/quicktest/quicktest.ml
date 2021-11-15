@@ -18,8 +18,7 @@ let () =
   Quicktest_args.parse () ;
   Qt_filter.wrap (fun () ->
       let suite =
-        [
-          ("Quicktest_example", Quicktest_example.tests ())
+        [ ("Quicktest_example", Quicktest_example.tests ())
         ; ("cbt", Quicktest_cbt.tests ())
         ; ("event", Quicktest_event.tests ())
         ; ("import_raw_vdi", Quicktest_import_raw_vdi.tests ())
@@ -30,18 +29,15 @@ let () =
         ; ("Quicktest_vm_import_export", Quicktest_vm_import_export.tests ())
         ; ("Quicktest_vm_lifecycle", Quicktest_vm_lifecycle.tests ())
         ; ( "Quicktest_vdi_ops_data_integrity"
-          , Quicktest_vdi_ops_data_integrity.tests ()
-          )
+          , Quicktest_vdi_ops_data_integrity.tests () )
         ; ("Quicktest_max_vdi_size", Quicktest_max_vdi_size.tests ())
         ; ("Quicktest_static_vdis", Quicktest_static_vdis.tests ())
         ; ("Quicktest_date", Quicktest_date.tests ())
         ]
         @
-        if not !Quicktest_args.using_unix_domain_socket then
-          [("http", Quicktest_http.tests)]
-        else
-          []
+        if not !Quicktest_args.using_unix_domain_socket
+        then [ ("http", Quicktest_http.tests) ]
+        else []
       in
       let argv = Quicktest_args.get_alcotest_args () in
-      Alcotest.run ~and_exit:false ~argv "Quicktests" suite
-  )
+      Alcotest.run ~and_exit:false ~argv "Quicktests" suite )

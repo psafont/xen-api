@@ -25,12 +25,8 @@ let password = ref "password"
 let enable_debug = ref false
 
 let debug fmt =
-  Printf.ksprintf
-    (fun txt ->
-      if !enable_debug then
-        eprintf "%s\n%!" txt
-      )
-    fmt
+  Printf.ksprintf (fun txt -> if !enable_debug then eprintf "%s\n%!" txt) fmt
+
 
 let error fmt = Printf.ksprintf (fun txt -> eprintf "Error: %s\n%!" txt) fmt
 
@@ -41,6 +37,7 @@ let exn_to_string = function
       Printf.sprintf "%s %s" code (String.concat ~sep:" " params)
   | e ->
       failwith (Printf.sprintf "Unexpected error: %s" (Exn.to_string e))
+
 
 let watch_events rpc session_id =
   let open Event_types in
@@ -58,26 +55,24 @@ let watch_events rpc session_id =
     in
     let ty =
       match ev.op with
-      | `add | `_mod -> (
-        match ev.snapshot with
+      | `add | `_mod ->
+        ( match ev.snapshot with
         | None ->
             error "Event contained no snapshot" ;
             ty
         | Some s ->
-            StringMap.update ty ev.reference ~f:(fun _ -> s)
-      )
+            StringMap.update ty ev.reference ~f:(fun _ -> s) )
       | `del ->
           StringMap.remove ty ev.reference
     in
-    if StringMap.is_empty ty then
-      StringMap.remove map ev.ty
-    else
-      StringMap.update map ev.ty ~f:(fun _ -> ty)
+    if StringMap.is_empty ty
+    then StringMap.remove map ev.ty
+    else StringMap.update map ev.ty ~f:(fun _ -> ty)
   in
 
   let compare () =
     let open Event_types in
-    Event.from ~rpc ~session_id ~classes:["*"] ~token:"" ~timeout:0.
+    Event.from ~rpc ~session_id ~classes:[ "*" ] ~token:"" ~timeout:0.
     >>= fun rpc ->
     let e = event_from_of_rpc rpc in
     if List.length e.events = 0 then error "Empty list of events" ;
@@ -90,8 +85,7 @@ let watch_events rpc session_id =
         | key, `Right _ ->
             error "Replica has missing table: %s" key
         | _, `Unequal (_, _) ->
-            ()
-        )
+            () )
       (StringMap.symmetric_diff !root current ~data_equal:(fun _ _ -> true)) ;
     List.iter
       ~f:(fun key ->
@@ -104,75 +98,88 @@ let watch_events rpc session_id =
               ~f:(fun (key, diff) ->
                 match (key, diff) with
                 | r, `Left rpc ->
-                    error "Replica has extra object: %s: %s" r
+                    error
+                      "Replica has extra object: %s: %s"
+                      r
                       (Jsonrpc.to_string rpc)
                 | r, `Right rpc ->
-                    error "Replica has missing object: %s: %s" r
+                    error
+                      "Replica has missing object: %s: %s"
+                      r
                       (Jsonrpc.to_string rpc)
                 | r, `Unequal (rpc1, rpc2) ->
-                    error "Replica has out-of-sync object: %s: %s <> %s" r
-                      (Jsonrpc.to_string rpc1) (Jsonrpc.to_string rpc2)
-                )
-              (StringMap.symmetric_diff root_table current_table
-                 ~data_equal:(fun a b -> Base.Poly.equal a b
-               )
-              )
-        )
+                    error
+                      "Replica has out-of-sync object: %s: %s <> %s"
+                      r
+                      (Jsonrpc.to_string rpc1)
+                      (Jsonrpc.to_string rpc2) )
+              (StringMap.symmetric_diff
+                 root_table
+                 current_table
+                 ~data_equal:(fun a b -> Base.Poly.equal a b) ) )
       (StringMap.keys current) ;
     return ()
   in
 
   let rec loop token =
-    Event.from ~rpc ~session_id ~classes:["*"] ~token ~timeout:30.
+    Event.from ~rpc ~session_id ~classes:[ "*" ] ~token ~timeout:30.
     >>= fun rpc ->
     debug "received event: %s" (Jsonrpc.to_string rpc) ;
     let e = event_from_of_rpc rpc in
     List.iter ~f:(fun ev -> root := update !root ev) e.events ;
-    compare () >>= fun () ->
-    info "object counts: %s"
-      (String.concat ~sep:", "
+    compare ()
+    >>= fun () ->
+    info
+      "object counts: %s"
+      (String.concat
+         ~sep:", "
          (List.map
             ~f:(fun key ->
-              Printf.sprintf "%s (%d)" key
-                (StringMap.length (StringMap.find_exn !root key))
-              )
-            (StringMap.keys !root)
-         )
-      ) ;
+              Printf.sprintf
+                "%s (%d)"
+                key
+                (StringMap.length (StringMap.find_exn !root key)) )
+            (StringMap.keys !root) ) ) ;
     loop e.token
   in
   loop ""
 
+
 let main () =
   let rpc = make !uri in
-  Session.login_with_password ~rpc ~uname:!username ~pwd:!password
-    ~version:"1.0" ~originator:"event_test"
+  Session.login_with_password
+    ~rpc
+    ~uname:!username
+    ~pwd:!password
+    ~version:"1.0"
+    ~originator:"event_test"
   >>= fun session_id ->
   let a = watch_events rpc session_id in
   let b = watch_events rpc session_id in
-  a >>= fun () ->
-  b >>= fun () ->
-  Session.logout ~rpc ~session_id >>= fun () -> shutdown 0 ; return ()
+  a
+  >>= fun () ->
+  b
+  >>= fun () ->
+  Session.logout ~rpc ~session_id
+  >>= fun () ->
+  shutdown 0 ;
+  return ()
+
 
 let _ =
   Arg.parse
-    [
-      ( "-uri"
+    [ ( "-uri"
       , Arg.Set_string uri
-      , Printf.sprintf "URI of server to connect to (default %s)" !uri
-      )
+      , Printf.sprintf "URI of server to connect to (default %s)" !uri )
     ; ( "-u"
       , Arg.Set_string username
-      , Printf.sprintf "Username to log in with (default %s)" !username
-      )
+      , Printf.sprintf "Username to log in with (default %s)" !username )
     ; ( "-pw"
       , Arg.Set_string password
-      , Printf.sprintf "Password to log in with (default %s)" !password
-      )
+      , Printf.sprintf "Password to log in with (default %s)" !password )
     ; ( "-debug"
       , Arg.Set enable_debug
-      , Printf.sprintf "Enable debug logging (default %b)" !enable_debug
-      )
+      , Printf.sprintf "Enable debug logging (default %b)" !enable_debug )
     ]
     (fun x -> eprintf "Ignoring argument: %s\n" x)
     "Simple example which tracks the server state via events" ;

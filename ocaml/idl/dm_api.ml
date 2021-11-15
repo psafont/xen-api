@@ -24,14 +24,18 @@ let objects_of_api (objs, _) = objs
 let relations_of_api (_, rels) = rels
 
 let print_api_stats (system, relations) =
-  Printf.printf "%d objects and %d relations\n" (List.length system)
+  Printf.printf
+    "%d objects and %d relations\n"
+    (List.length system)
     (List.length relations) ;
-  Printf.printf "objects = [ %s ]\n"
+  Printf.printf
+    "objects = [ %s ]\n"
     (String.concat "; " (List.map (fun x -> x.name) system))
+
 
 let get_obj_by_name (system, relations) ~objname:name =
   match List.filter (fun obj -> obj.name = name) system with
-  | [obj] ->
+  | [ obj ] ->
       obj
   | _ :: _ ->
       failwith
@@ -39,11 +43,15 @@ let get_obj_by_name (system, relations) ~objname:name =
   | [] ->
       failwith (Printf.sprintf "Object with name [%s] not found in system" name)
 
+
 let obj_exists api name =
   try
     let (_ : obj) = get_obj_by_name api ~objname:name in
     true
-  with e -> false
+  with
+  | e ->
+      false
+
 
 (** Retrieves the field of an obj given its name *)
 let get_field_by_name api ~objname ~fieldname:name =
@@ -66,11 +74,15 @@ let get_field_by_name api ~objname ~fieldname:name =
       failwith
         (Printf.sprintf "field not found (field %s in object %s)" name obj.name)
 
+
 let field_exists api ~objname ~fieldname =
   try
     let (_ : field) = get_field_by_name api ~objname ~fieldname in
     true
-  with e -> false
+  with
+  | e ->
+      false
+
 
 (** Takes a predicate and a list of objects, returning the objects with all the fields
     removed for which the field applied to the predicate returned false.
@@ -82,39 +94,39 @@ let filter_field (pred : field -> bool) (system : obj list) =
   let concat_map f xs = List.concat (List.map f xs) in
   let rec content = function
     | Field field as x ->
-        if pred field then [x] else []
+        if pred field then [ x ] else []
     | Namespace (name, contents) ->
-        [Namespace (name, concat_map content contents)]
+        [ Namespace (name, concat_map content contents) ]
   in
   (* remove empty /leaf/ namespaces *)
   let rec remove_leaf = function
     | Field _ as x ->
-        [x]
+        [ x ]
     | Namespace (_, []) ->
         [] (* no children so removed *)
     | Namespace (name, contents) ->
-        [Namespace (name, concat_map remove_leaf contents)]
+        [ Namespace (name, concat_map remove_leaf contents) ]
   in
   let rec fixpoint f x =
     let result = f x in
     if result = x then x else fixpoint f result
   in
   let obj x =
-    {
-      x with
-      contents=
+    { x with
+      contents =
         (let contents = concat_map content x.contents in
-         fixpoint (concat_map remove_leaf) contents
-        )
+         fixpoint (concat_map remove_leaf) contents )
     }
   in
   List.map obj system
 
+
 (** Takes a predicate and a list of objects, returning the objects with only the messages
     for which (predicate message) returned true. *)
 let filter_messages (pred : message -> bool) (system : obj list) =
-  let obj x = {x with messages= List.filter pred x.messages} in
+  let obj x = { x with messages = List.filter pred x.messages } in
   List.map obj system
+
 
 (** Transforms all the fields in an API *)
 let map_field (f : field -> field) (system : obj list) =
@@ -124,7 +136,8 @@ let map_field (f : field -> field) (system : obj list) =
     | Namespace (name, contents) ->
         Namespace (name, List.map content contents)
   in
-  List.map (fun x -> {x with contents= List.map content x.contents}) system
+  List.map (fun x -> { x with contents = List.map content x.contents }) system
+
 
 (** Removes all those relations which refer to non-existent objects or fields *)
 let filter_relations ((system, relations) as api) =
@@ -134,9 +147,9 @@ let filter_relations ((system, relations) as api) =
           obj_exists api a_obj
           && obj_exists api b_obj
           && field_exists api ~objname:a_obj ~fieldname:a_name
-          && field_exists api ~objname:b_obj ~fieldname:b_name
-      )
+          && field_exists api ~objname:b_obj ~fieldname:b_name )
     relations
+
 
 let rebuild system relations =
   (* remove all relations which refer to non-existent objects or fields *)
@@ -144,8 +157,12 @@ let rebuild system relations =
   let api = (system, relations) in
   api
 
-let filter (obj : obj -> bool) (field : field -> bool)
-    (message : message -> bool) ((system, relations) : api) : api =
+
+let filter
+    (obj : obj -> bool)
+    (field : field -> bool)
+    (message : message -> bool)
+    ((system, relations) : api) : api =
   let system = List.filter obj system in
   let system = filter_field field system in
   let system = filter_messages message system in
@@ -155,15 +172,19 @@ let filter (obj : obj -> bool) (field : field -> bool)
   in
   rebuild system relations
 
-let map (field : field -> field) (message : message -> message)
+
+let map
+    (field : field -> field)
+    (message : message -> message)
     ((system, relations) : api) : api =
   let system = map_field field system in
   let system =
     List.map
-      (fun obj -> {obj with messages= List.map message obj.messages})
+      (fun obj -> { obj with messages = List.map message obj.messages })
       system
   in
   rebuild system relations
+
 
 (*
 let map_api_fields (f: field -> field) ((system, relations) : api) : api =
@@ -174,39 +195,36 @@ let make api : api = api
 let check api emergency_calls =
   let truefn _ = true in
   let api' = filter truefn truefn truefn api in
-  if api <> api' then (
+  if api <> api'
+  then (
     print_endline "original:" ;
     print_api_stats api ;
     print_endline "filtered:" ;
     print_api_stats api' ;
-    failwith "filter_api seems to be broken"
-  ) ;
+    failwith "filter_api seems to be broken" ) ;
   let system, relations = api' in
   (* Sanity check 1: all the objects in the relations should exist in the system *)
   List.iter
     (fun ((a_obj, _), (b_obj, _)) ->
       ignore (get_obj_by_name api ~objname:a_obj) ;
-      ignore (get_obj_by_name api ~objname:b_obj)
-      )
+      ignore (get_obj_by_name api ~objname:b_obj) )
     relations ;
   (* Sanity check 2: all fields mentioned in the relations should exist *)
   List.iter
     (fun ((a_obj, a_name), (b_obj, b_name)) ->
       ignore (get_field_by_name api ~objname:a_obj ~fieldname:a_name) ;
-      ignore (get_field_by_name api ~objname:b_obj ~fieldname:b_name)
-      )
+      ignore (get_field_by_name api ~objname:b_obj ~fieldname:b_name) )
     relations ;
   (* Sanity check 3: no side-effects for Ref fields *)
   let (_ : obj list) =
     map_field
       (function
-        | {ty= Ref _; field_has_effect= true} ->
+        | { ty = Ref _; field_has_effect = true } ->
             failwith
               "Can't have a Ref field with a side-effect: it makes the \
                destructors too complicated"
         | x ->
-            x
-        )
+            x )
       system
   in
   (* Sanity check: all Set(Ref _) fields should be one of:
@@ -225,58 +243,62 @@ let check api emergency_calls =
   in
   let _ =
     let field objname = function
-      | {ty= Set (Ref y); qualifier= q; field_ignore_foreign_key= false} as x
-        -> (
+      | { ty = Set (Ref y); qualifier = q; field_ignore_foreign_key = false } as
+        x ->
           let relations =
             relations @ List.map (fun (x, y) -> (y, x)) relations
           in
-          if not (List.mem_assoc (objname, x.field_name) relations) then
+          if not (List.mem_assoc (objname, x.field_name) relations)
+          then
             failwith
               (Printf.sprintf
-                 "Set(Ref _) field is not in relations table: %s.%s" objname
-                 x.field_name
-              ) ;
+                 "Set(Ref _) field is not in relations table: %s.%s"
+                 objname
+                 x.field_name ) ;
           let other_obj, other_fld =
             List.assoc (objname, x.field_name) relations
           in
           let other_f =
             get_field_by_name api ~objname:other_obj ~fieldname:other_fld
           in
-          match other_f.ty with
+          ( match other_f.ty with
           | Set (Ref _) ->
-              if q <> DynamicRO && q <> RW then
+              if q <> DynamicRO && q <> RW
+              then
                 failwith
                   (Printf.sprintf
                      "many-to-many Set(Ref _) is not RW or DynamicRO: %s.%s"
-                     objname x.field_name
-                  ) ;
-              if not x.field_persist then
-                failwith
-                  (Printf.sprintf
-                     "many-to-many Set(Ref _) is not persistent: %s.%s" objname
-                     x.field_name
-                  ) ;
-              if not other_f.field_persist then
+                     objname
+                     x.field_name ) ;
+              if not x.field_persist
+              then
                 failwith
                   (Printf.sprintf
                      "many-to-many Set(Ref _) is not persistent: %s.%s"
-                     other_obj other_fld
-                  )
-          | Ref _ ->
-              if q <> DynamicRO then
+                     objname
+                     x.field_name ) ;
+              if not other_f.field_persist
+              then
                 failwith
                   (Printf.sprintf
-                     "many-to-many Set(Ref _) is not DynamicRO: %s.%s" objname
-                     x.field_name
-                  )
+                     "many-to-many Set(Ref _) is not persistent: %s.%s"
+                     other_obj
+                     other_fld )
+          | Ref _ ->
+              if q <> DynamicRO
+              then
+                failwith
+                  (Printf.sprintf
+                     "many-to-many Set(Ref _) is not DynamicRO: %s.%s"
+                     objname
+                     x.field_name )
           | ty ->
               failwith
                 (Printf.sprintf
                    "field in relationship has bad type (Ref or Set(Ref) only): \
                     %s.%s"
-                   other_obj other_fld
-                )
-        )
+                   other_obj
+                   other_fld ) )
       | _ ->
           ()
     in
@@ -287,62 +309,57 @@ let check api emergency_calls =
   let (_ : obj list) =
     map_field
       (function
-        | {qualifier= q; release= {internal= ir}; default_value= None} as x ->
-            if (not (List.mem rel_rio ir)) && not (q = DynamicRO) then
+        | { qualifier = q; release = { internal = ir }; default_value = None }
+          as x ->
+            if (not (List.mem rel_rio ir)) && not (q = DynamicRO)
+            then
               failwith
                 (Printf.sprintf
                    "Field %s not in release Rio, is not DynamicRO and does not \
                     have default value specified"
-                   (String.concat "/" x.full_name)
-                )
-            else
-              x
+                   (String.concat "/" x.full_name) )
+            else x
         | x ->
-            x
-        )
+            x )
       system
   in
   (* Sanity check 5: no (Set Ref _) fields can have default values *)
   let (_ : obj list) =
     map_field
       (function
-        | {
-            qualifier= q
-          ; release= {internal= ir}
-          ; default_value= Some _
+        | { qualifier = q
+          ; release = { internal = ir }
+          ; default_value = Some _
           ; ty
-          ; field_ignore_foreign_key= false
-          } as x -> (
-          match ty with
+          ; field_ignore_foreign_key = false
+          } as x ->
+          ( match ty with
           | Set (Ref _) ->
               failwith
                 (Printf.sprintf
                    "Field %s is a (Set (Ref _)) and has a default value \
                     specified. Please remove default value."
-                   (String.concat "/" x.full_name)
-                )
+                   (String.concat "/" x.full_name) )
           | _ ->
-              x
-        )
+              x )
         | x ->
-            x
-        )
+            x )
       system
   in
   (* Sanity check 6: all values specfieid in IDL must be of the right type *)
   let (_ : obj list) =
     map_field
       (function
-        | {default_value= Some v; ty} as x ->
-            if not (type_checks v ty) then
+        | { default_value = Some v; ty } as x ->
+            if not (type_checks v ty)
+            then
               failwith
-                (Printf.sprintf "Field %s has default value with wrong type."
-                   (String.concat "/" x.full_name)
-                ) ;
+                (Printf.sprintf
+                   "Field %s has default value with wrong type."
+                   (String.concat "/" x.full_name) ) ;
             x
         | x ->
-            x
-        )
+            x )
       system
   in
   (* Sanity check 7: message parameters must be in increasing order of in_product_since *)
@@ -350,7 +367,7 @@ let check api emergency_calls =
     let rec getlast l =
       (* TODO: move to standard library *)
       match l with
-      | [x] ->
+      | [ x ] ->
           x
       | _ :: xs ->
           getlast xs
@@ -368,10 +385,9 @@ let check api emergency_calls =
             find_smallest sofar xs
             (* closed is not a real release, so skip it *)
         | x :: xs ->
-            if release_lt x sofar then
-              find_smallest x xs
-            else
-              find_smallest sofar xs
+            if release_lt x sofar
+            then find_smallest x xs
+            else find_smallest sofar xs
       in
       find_smallest (getlast release_order |> code_name_of_release) releases
     in
@@ -381,10 +397,9 @@ let check api emergency_calls =
           true
       | p :: rest ->
           let param_in_product_since = in_since p.param_release.internal in
-          if release_lt param_in_product_since max_release_sofar then
-            false
-          else
-            check_vsns param_in_product_since (* <-- new max *) rest
+          if release_lt param_in_product_since max_release_sofar
+          then false
+          else check_vsns param_in_product_since (* <-- new max *) rest
     in
     check_vsns rel_rio ps
   in
@@ -398,11 +413,9 @@ let check api emergency_calls =
               failwith
                 (Printf.sprintf
                    "Msg %s.%s does not have parameters in version order"
-                   obj.name msg.msg_name
-                )
-            )
-          obj.messages
-        )
+                   obj.name
+                   msg.msg_name ) )
+          obj.messages )
       system
   in
   (* Sanity check 8: any "emergency calls" must not support async mode of operation -- if they do then our
@@ -413,18 +426,16 @@ let check api emergency_calls =
       (fun obj ->
         List.iter
           (fun msg ->
-            if
-              msg.msg_async && List.mem (obj.name, msg.msg_name) emergency_calls
+            if msg.msg_async
+               && List.mem (obj.name, msg.msg_name) emergency_calls
             then
               failwith
                 (Printf.sprintf
                    "Msg %s.%s is marked as supports async and also appears in \
                     emergency_call list. These are mutually exclusive choices."
-                   obj.name msg.msg_name
-                )
-            )
-          obj.messages
-        )
+                   obj.name
+                   msg.msg_name ) )
+          obj.messages )
       system
   in
   ()

@@ -7,49 +7,69 @@ let future = Date.of_string "2020-09-22T15:03:13Z"
 
 let fail_login ~__context ~uname ~originator ~now () =
   try
-    Xapi_session._record_login_failure ~__context ~now ~uname ~originator
-      ~record:`log_and_alert (fun () ->
-        if Random.bool () then
-          raise Api_errors.(Server_error (session_authentication_failed, []))
-        else
-          raise (Auth_signature.Auth_failure "Auth failure")
-    )
-  with e -> ()
+    Xapi_session._record_login_failure
+      ~__context
+      ~now
+      ~uname
+      ~originator
+      ~record:`log_and_alert
+      (fun () ->
+        if Random.bool ()
+        then raise Api_errors.(Server_error (session_authentication_failed, []))
+        else raise (Auth_signature.Auth_failure "Auth failure") )
+  with
+  | e ->
+      ()
+
 
 let success_login ~__context ~uname ~originator ~now () =
-  Xapi_session._record_login_failure ~__context ~now ~uname ~originator
-    ~record:`log_and_alert Fun.id
+  Xapi_session._record_login_failure
+    ~__context
+    ~now
+    ~uname
+    ~originator
+    ~record:`log_and_alert
+    Fun.id
+
 
 let make_ctx ~user_agent ~client_ip =
   let open Context in
   let additional_headers =
     client_ip
     |> Option.fold ~none:[] ~some:(fun x ->
-           [("STUNNEL_PROXY", Printf.sprintf "TCP6 %s another_ip 443 80" x)]
-       )
+           [ ("STUNNEL_PROXY", Printf.sprintf "TCP6 %s another_ip 443 80" x) ] )
   in
-  let rq = {Http.Request.empty with user_agent; additional_headers} in
+  let rq = { Http.Request.empty with user_agent; additional_headers } in
   (* it doesn't matter which fd is used to here, we are just satisying the
      type system. we use stderr because then we don't need to worry about
      closing it *)
   make ~origin:(Http (rq, Unix.stderr)) "text_ctx"
+
 
 let repeat n f =
   for _ = 1 to n do
     f ()
   done
 
+
 let run_unknown_client_logins () =
   let __context = make_ctx ~user_agent:None ~client_ip:None in
-  repeat 50
-    (success_login ~__context ~uname:(Some "good_user")
-       ~originator:(Some "nice_origin") ~now
-    ) ;
+  repeat
+    50
+    (success_login
+       ~__context
+       ~uname:(Some "good_user")
+       ~originator:(Some "nice_origin")
+       ~now ) ;
   repeat 10 (fail_login ~__context ~uname:None ~originator:None ~now) ;
-  repeat 50
-    (success_login ~__context ~uname:(Some "good_user")
-       ~originator:(Some "nice_origin") ~now
-    )
+  repeat
+    50
+    (success_login
+       ~__context
+       ~uname:(Some "good_user")
+       ~originator:(Some "nice_origin")
+       ~now )
+
 
 let run_known_client_logins () =
   let __context =
@@ -59,44 +79,69 @@ let run_known_client_logins () =
   let __context_no_client_ip =
     make_ctx ~user_agent:(Some "UA") ~client_ip:None
   in
-  repeat 50
-    (success_login ~__context ~uname:(Some "good_user")
-       ~originator:(Some "nice_origin") ~now
-    ) ;
-  repeat 2
-    (fail_login ~__context:__context_no_UA ~uname:(Some "usr1") ~now
-       ~originator:(Some "origin1")
-    ) ;
-  repeat 3
-    (fail_login ~__context:__context_no_UA ~uname:None
-       ~originator:(Some "origin2") ~now
-    ) ;
+  repeat
+    50
+    (success_login
+       ~__context
+       ~uname:(Some "good_user")
+       ~originator:(Some "nice_origin")
+       ~now ) ;
+  repeat
+    2
+    (fail_login
+       ~__context:__context_no_UA
+       ~uname:(Some "usr1")
+       ~now
+       ~originator:(Some "origin1") ) ;
+  repeat
+    3
+    (fail_login
+       ~__context:__context_no_UA
+       ~uname:None
+       ~originator:(Some "origin2")
+       ~now ) ;
   repeat 4 (fail_login ~__context ~uname:None ~originator:None ~now) ;
-  repeat 6
-    (fail_login ~__context:__context_no_client_ip ~uname:(Some "usr4")
-       ~originator:None ~now:future
-    ) ;
+  repeat
+    6
+    (fail_login
+       ~__context:__context_no_client_ip
+       ~uname:(Some "usr4")
+       ~originator:None
+       ~now:future ) ;
   let () =
     (* this client fails now and then in the future (to test timestamp) *)
-    repeat 9
-      (fail_login ~__context:__context_no_UA ~uname:(Some "usr5")
-         ~originator:(Some "origin5") ~now
-      ) ;
-    repeat 1
-      (fail_login ~__context:__context_no_UA ~uname:(Some "usr5")
-         ~originator:(Some "origin5") ~now:future
-      )
+    repeat
+      9
+      (fail_login
+         ~__context:__context_no_UA
+         ~uname:(Some "usr5")
+         ~originator:(Some "origin5")
+         ~now ) ;
+    repeat
+      1
+      (fail_login
+         ~__context:__context_no_UA
+         ~uname:(Some "usr5")
+         ~originator:(Some "origin5")
+         ~now:future )
   in
-  repeat 50
-    (success_login ~__context ~uname:(Some "good_user")
-       ~originator:(Some "nice_origin") ~now:future
-    )
+  repeat
+    50
+    (success_login
+       ~__context
+       ~uname:(Some "good_user")
+       ~originator:(Some "nice_origin")
+       ~now:future )
+
 
 let test_fetching_failed_login_stats_twice_yields_none () =
   let _ = Xapi_session.get_failed_login_stats () in
   let stats = Xapi_session.get_failed_login_stats () in
   Alcotest.(check @@ option string)
-    "no extra stats have been accumulated" stats None
+    "no extra stats have been accumulated"
+    stats
+    None
+
 
 let test_only_failed_logins_from_unknown_clients () =
   let _ = Xapi_session.get_failed_login_stats () in
@@ -106,7 +151,9 @@ let test_only_failed_logins_from_unknown_clients () =
     "report talks about unknown clients only"
     {|<body>
 <unknown>10</unknown>
-</body>|} stats
+</body>|}
+    stats
+
 
 let test_failed_logins_from_known_clients_only () =
   let _ = Xapi_session.get_failed_login_stats () in
@@ -137,6 +184,7 @@ let test_failed_logins_from_known_clients_only () =
 </known>
 </body>|}
     stats
+
 
 let test_failed_logins_from_both_known_and_unknown_clients () =
   let _ = Xapi_session.get_failed_login_stats () in
@@ -170,26 +218,20 @@ let test_failed_logins_from_both_known_and_unknown_clients () =
 </body>|}
     stats
 
+
 let tests =
-  [
-    ( "AuthFail"
-    , [
-        ( "test_fetching_failed_login_stats_twice_yields_none"
+  [ ( "AuthFail"
+    , [ ( "test_fetching_failed_login_stats_twice_yields_none"
         , `Quick
-        , test_fetching_failed_login_stats_twice_yields_none
-        )
+        , test_fetching_failed_login_stats_twice_yields_none )
       ; ( "test_only_failed_logins_from_unknown_clients"
         , `Quick
-        , test_only_failed_logins_from_unknown_clients
-        )
+        , test_only_failed_logins_from_unknown_clients )
       ; ( "test_failed_logins_from_clients"
         , `Quick
-        , test_failed_logins_from_known_clients_only
-        )
+        , test_failed_logins_from_known_clients_only )
       ; ( "test_failed_logins_from_both_known_and_unknown_clients"
         , `Quick
-        , test_failed_logins_from_both_known_and_unknown_clients
-        )
-      ]
-    )
+        , test_failed_logins_from_both_known_and_unknown_clients )
+      ] )
   ]

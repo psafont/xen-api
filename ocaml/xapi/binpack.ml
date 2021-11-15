@@ -20,12 +20,13 @@ let less_than' a b = compare b a
 let rec insert compare elt sorted_list =
   match sorted_list with
   | [] ->
-      [elt]
+      [ elt ]
   | x :: xs ->
       if compare elt x <= 0 then elt :: x :: xs else x :: insert compare elt xs
 
-let biggest_fit_decreasing (things : ('a * int64) list)
-    (bins : ('b * int64) list) : ('a * 'b) list =
+
+let biggest_fit_decreasing
+    (things : ('a * int64) list) (bins : ('b * int64) list) : ('a * 'b) list =
   let things' = List.sort less_than things
   and bins' = List.sort less_than bins in
   (* Walk through the things allocating them to bins. We keep the bins sorted into biggest first. *)
@@ -37,8 +38,8 @@ let biggest_fit_decreasing (things : ('a * int64) list)
         (mapping, bins) (* nowhere to put it *)
     | (first_bin_id, first_bin_size) :: rest ->
         let remaining = Int64.sub first_bin_size thing_size in
-        if remaining < 0L then
-          (mapping, bins) (* leave it out *)
+        if remaining < 0L
+        then (mapping, bins) (* leave it out *)
         else
           (* Allocate the thing to this bin, subtract from bin size and resort *)
           let bins = insert less_than (first_bin_id, remaining) rest in
@@ -47,17 +48,20 @@ let biggest_fit_decreasing (things : ('a * int64) list)
   (* Only return the mapping: we aren't interested in the remaining free space *)
   fst (List.fold_left allocate_one initial things')
 
+
 (* Simple hashtbl-based function memoiser *)
 let memoise f =
   let table = Hashtbl.create 10 in
   let rec lookup x =
-    if Hashtbl.mem table x then
-      Hashtbl.find table x
+    if Hashtbl.mem table x
+    then Hashtbl.find table x
     else
       let result = f lookup x in
-      Hashtbl.add table x result ; result
+      Hashtbl.add table x result ;
+      result
   in
   lookup
+
 
 (** Raised when an int64 addition overflows (positive numbers only) *)
 exception Overflow
@@ -66,32 +70,33 @@ let ( +* ) a b =
   let result = Int64.add a b in
   if result < 0L then raise Overflow else result
 
+
 let ( ** ) a b =
   let result = Int64.mul a b in
   if result < 0L then raise Overflow else result
 
+
 (** Compute nCr (the binomial coefficient) by dynamic programming. Raises Overflow if the result is too big for an int64 (eg 68 C 34) *)
 let binomial n r =
   let choose lookup (n, r) =
-    if r = 0 || r = n then
-      1L
-    else
-      lookup (n - 1, r - 1) +* lookup (n - 1, r)
+    if r = 0 || r = n then 1L else lookup (n - 1, r - 1) +* lookup (n - 1, r)
   in
   memoise choose (n, r)
+
 
 (** Return all sublists of length 'n' from list 'l'. Returns a list of length (binomial (List.length l) n) *)
 let choose l n =
   let choose' lookup (l, n) =
     match (l, n) with
     | _, 0 ->
-        [[]]
+        [ [] ]
     | [], _ ->
         []
     | x :: xs, n ->
         lookup (xs, n) @ List.map (fun z -> x :: z) (lookup (xs, n - 1))
   in
   memoise choose' (l, n)
+
 
 (** Return all permutations of a list *)
 let rec permutations : 'a list -> 'a list list =
@@ -103,27 +108,26 @@ let rec permutations : 'a list -> 'a list list =
   let mkints_exclusive n = List.init n Fun.id in
   function
   | [] ->
-      [[]]
+      [ [] ]
   | x :: xs ->
       List.concat
         (List.map
            (fun perm ->
              List.map
                (fun n -> insert_at n x perm)
-               (mkints_exclusive (List.length xs + 1))
-             )
-           (permutations xs)
-        )
+               (mkints_exclusive (List.length xs + 1)) )
+           (permutations xs) )
+
 
 let rec factorial = function 0 -> 1L | x -> Int64.of_int x ** factorial (x - 1)
 
-type ('a, 'b) configuration = {
-    hosts: ('a * int64) list  (** a list of live hosts and free memory *)
-  ; vms: ('b * int64) list  (** a list of VMs and their memory requirements *)
-  ; placement: ('b * 'a) list  (** current VM locations *)
-  ; total_hosts: int  (** total number of hosts in the pool 'n' *)
-  ; num_failures: int  (** number of failures to tolerate 'r' *)
-}
+type ('a, 'b) configuration =
+  { hosts : ('a * int64) list  (** a list of live hosts and free memory *)
+  ; vms : ('b * int64) list  (** a list of VMs and their memory requirements *)
+  ; placement : ('b * 'a) list  (** current VM locations *)
+  ; total_hosts : int  (** total number of hosts in the pool 'n' *)
+  ; num_failures : int  (** number of failures to tolerate 'r' *)
+  }
 
 let check_configuration config =
   (* All hosts and VMs in placement should be in the hosts and vms list *)
@@ -134,9 +138,10 @@ let check_configuration config =
       )
     config.placement ;
   (* num_failures needs to be <= the total number of hosts *)
-  if config.num_failures > config.total_hosts then
-    failwith "num_failures > total_hosts" ;
+  if config.num_failures > config.total_hosts
+  then failwith "num_failures > total_hosts" ;
   if config.num_failures < 0 then failwith "num_failures < 0"
+
 
 let string_of_configuration string_of_a string_of_b c =
   let semicolon x = String.concat "; " x in
@@ -146,15 +151,17 @@ let string_of_configuration string_of_a string_of_b c =
   Printf.sprintf
     "{ total_hosts = %d; num_failures = %d; hosts = [ %s ]; vms = [ %s ]; \
      placement = [ %s ] }"
-    c.total_hosts c.num_failures
+    c.total_hosts
+    c.num_failures
     (semicolon (List.map comma (List.map (map string_of_a int64) c.hosts)))
     (semicolon (List.map comma (List.map (map string_of_b int64) c.vms)))
     (semicolon
-       (List.map comma (List.map (map string_of_b string_of_a) c.placement))
-    )
+       (List.map comma (List.map (map string_of_b string_of_a) c.placement)) )
+
 
 let assoc errmsg x xs =
   try List.assoc x xs with Not_found -> failwith ("Not_found: " ^ errmsg)
+
 
 (* Allocate the VMs in plan to hosts, return the new host free memory *)
 let account hosts vms plan =
@@ -162,8 +169,7 @@ let account hosts vms plan =
     let memory_needed =
       List.map
         (fun (vm, host) ->
-          if h = host then assoc "memory_needed_on_host" vm vms else 0L
-          )
+          if h = host then assoc "memory_needed_on_host" vm vms else 0L )
         plan
     in
     List.fold_left Int64.add 0L memory_needed
@@ -171,6 +177,7 @@ let account hosts vms plan =
   List.map
     (fun (host, memory) -> (host, Int64.sub memory (memory_needed_on_host host)))
     hosts
+
 
 (* Given a configuration and a plan, return the new configuration with the plan applied *)
 let apply_plan config plan =
@@ -182,22 +189,25 @@ let apply_plan config plan =
       config.placement
   in
   let placement = plan @ untouched in
-  {config with hosts; placement}
+  { config with hosts; placement }
 
-type ('a, 'b) heuristic = {
-    name: string
-  ; plan_always_possible: ('a, 'b) configuration -> bool
-  ; get_specific_plan: ('a, 'b) configuration -> 'b list -> ('b * 'a) list
-}
+
+type ('a, 'b) heuristic =
+  { name : string
+  ; plan_always_possible : ('a, 'b) configuration -> bool
+  ; get_specific_plan : ('a, 'b) configuration -> 'b list -> ('b * 'a) list
+  }
 
 (** Return a list of failed VMs given a set of dead Hosts *)
 let get_failed_vms config dead_hosts =
-  List.map fst
+  List.map
+    fst
     (List.filter (fun (vm, host) -> List.mem host dead_hosts) config.placement)
 
+
 (** Given a configuration and a set of failed VMs, return a map of failed VM -> new Host *)
-let pack_failed_vms_onto_live_hosts (config : ('a, 'b) configuration)
-    (failed_vms : 'b list) : ('b * 'a) list =
+let pack_failed_vms_onto_live_hosts
+    (config : ('a, 'b) configuration) (failed_vms : 'b list) : ('b * 'a) list =
   (* pack failed VMs ... *)
   let things =
     List.map
@@ -208,6 +218,7 @@ let pack_failed_vms_onto_live_hosts (config : ('a, 'b) configuration)
   let bins = config.hosts in
   (* NB plan may omit some VMs if they don't fit anywhere *)
   biggest_fit_decreasing things bins
+
 
 (** Internal exception used to fast-track planning failures *)
 exception Stop
@@ -221,11 +232,14 @@ let plan_trivially_never_possible config =
   (* If there are exactly config.num_failures hosts and any VMs to protect then no plan is ever possible *)
   || (List.length hosts = config.num_failures && config.vms <> [])
 
+
 (* Return the state of the world after we generate and follow a failover plan for one host *)
 let simulate_failure config dead_host =
-  let failed_vms = get_failed_vms config [dead_host] in
+  let failed_vms = get_failed_vms config [ dead_host ] in
   let config =
-    {config with hosts= List.filter (fun (h, _) -> h <> dead_host) config.hosts}
+    { config with
+      hosts = List.filter (fun (h, _) -> h <> dead_host) config.hosts
+    }
   in
   let plan = pack_failed_vms_onto_live_hosts config failed_vms in
   (* Plan is full if all VMs were handled *)
@@ -236,15 +250,13 @@ let simulate_failure config dead_host =
     List.map
       (fun (vm, host) ->
         ( vm
-        , if List.mem_assoc vm plan then
-            assoc "simulate_failure" vm plan
-          else
-            host
-        )
-        )
+        , if List.mem_assoc vm plan
+          then assoc "simulate_failure" vm plan
+          else host ) )
       config.placement
   in
-  {config with hosts; placement; num_failures= config.num_failures - 1}
+  { config with hosts; placement; num_failures = config.num_failures - 1 }
+
 
 let simulate_failure_approximation config =
   let sum = List.fold_left ( + ) 0 in
@@ -262,29 +274,30 @@ let simulate_failure_approximation config =
   in
   (* How many VMs can each host support to power on, descending order *)
   let hosts_by_capacity =
-    List.sort less_than'
+    List.sort
+      less_than'
       (List.map
          (fun (_, h_size) -> Int64.(to_int (div h_size max_vm_size)))
-         config.hosts
-      )
+         config.hosts )
   in
   (* Assume biggest hosts fail, get left capacity *)
   let left_capacity = drop config.num_failures hosts_by_capacity |> sum in
   (* VMs placed in each host, descending order *)
   let num_vms_per_host =
-    List.sort less_than'
+    List.sort
+      less_than'
       (List.map
          (fun (host, _) ->
            List.length (List.filter (fun (vm, h) -> h = host) config.placement)
            )
-         config.hosts
-      )
+         config.hosts )
   in
   let vms_to_move =
     Xapi_stdext_std__Listext.List.take config.num_failures num_vms_per_host
     |> sum
   in
   if vms_to_move > left_capacity then raise Stop
+
 
 (** For the nCr binpack strategy return true if a plan is always possible *)
 let plan_always_possible config =
@@ -299,33 +312,33 @@ let plan_always_possible config =
             let (_ : ('a, 'b) configuration) =
               List.fold_left simulate_failure config permutation
             in
-            ()
-            )
-          (permutations combination)
-        )
+            () )
+          (permutations combination) )
       (choose hosts config.num_failures) ;
     true
-  with Stop -> false
+  with
+  | Stop ->
+      false
+
 
 let bin_pack_every_combination =
-  {
-    name= "exhaustively binpack every host failure combination (expensive)"
+  { name = "exhaustively binpack every host failure combination (expensive)"
   ; plan_always_possible
-  ; get_specific_plan=
+  ; get_specific_plan =
       (fun config failed_vms ->
         List.iter
           (fun vm ->
             ignore
-              (assoc "bin_pack_every_combination/get_specific_plan" vm
-                 config.vms
-              )
-            )
+              (assoc
+                 "bin_pack_every_combination/get_specific_plan"
+                 vm
+                 config.vms ) )
           failed_vms ;
         (* config.hosts contains only live hosts *)
         (* Guaranteed to always work if plan_always_possible returned true *)
-        pack_failed_vms_onto_live_hosts config failed_vms
-        )
+        pack_failed_vms_onto_live_hosts config failed_vms )
   }
+
 
 (** Return the first 'n' items from a list *)
 let rec take n list =
@@ -336,6 +349,7 @@ let rec take n list =
       invalid_arg "take" (* if List.length list < n *)
   | n, x :: xs ->
       x :: take (n - 1) xs
+
 
 (** Return a list of integers [ n; ...; 1 ] *)
 let rec mkints = function 0 -> [] | n -> n :: mkints (n - 1)
@@ -348,31 +362,31 @@ let rec mkints = function 0 -> [] | n -> n :: mkints (n - 1)
    be smaller (or equal to) in both number and size. *)
 
 let approximate_bin_pack =
-  {
-    name= "bin pack a worst-case scenario with conservative assumptions"
-  ; plan_always_possible=
+  { name = "bin pack a worst-case scenario with conservative assumptions"
+  ; plan_always_possible =
       (fun config ->
         try
           if plan_trivially_never_possible config then raise Stop ;
           if config.vms <> [] then simulate_failure_approximation config ;
           true
-        with Stop -> false
-        )
-  ; get_specific_plan=
+        with
+        | Stop ->
+            false )
+  ; get_specific_plan =
       (fun config failed_vms ->
         (* Make sure we know the VM sizes *)
         List.iter
           (fun vm ->
-            ignore (assoc "approximate_bin_pack/get_specific_plan" vm config.vms)
-            )
+            ignore
+              (assoc "approximate_bin_pack/get_specific_plan" vm config.vms) )
           failed_vms ;
         (* config.hosts contains only live hosts *)
         (* Guaranteed to always work if plan_always_possible returned true *)
-        pack_failed_vms_onto_live_hosts config failed_vms
-        )
+        pack_failed_vms_onto_live_hosts config failed_vms )
   }
 
-let all_heuristics = [bin_pack_every_combination; approximate_bin_pack]
+
+let all_heuristics = [ bin_pack_every_combination; approximate_bin_pack ]
 
 let choose_heuristic config =
   (* If the number of combinations to check is small, perform all possible bin-packings: this will
@@ -380,15 +394,17 @@ let choose_heuristic config =
      expensive heuristic. *)
   let n = config.total_hosts in
   let r = config.num_failures in
-  if n > 32 || Xapi_fist.choose_approximate_planner () then
-    approximate_bin_pack
+  if n > 32 || Xapi_fist.choose_approximate_planner ()
+  then approximate_bin_pack
   else
     try
-      if binomial n r ** factorial r < 3500L then
-        bin_pack_every_combination
-      else
+      if binomial n r ** factorial r < 3500L
+      then bin_pack_every_combination
+      else approximate_bin_pack
+    with
+    | Overflow ->
         approximate_bin_pack
-    with Overflow -> approximate_bin_pack
+
 
 let plan_for_n_failures config =
   let h = choose_heuristic config in

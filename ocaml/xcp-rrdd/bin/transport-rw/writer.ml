@@ -15,18 +15,18 @@
 open Cmdliner
 
 let help_secs =
-  [
-    `S "MORE HELP"
+  [ `S "MORE HELP"
   ; `P "Use `$(mname) $(i,command) --help' for help on a single command."
   ; `Noblank
   ]
+
 
 let default_cmd =
   let doc = "RRD protocol writer" in
   let man = help_secs in
   ( Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ pure ()))
-  , Term.info "writer" ~version:"0.1" ~doc ~man
-  )
+  , Term.info "writer" ~version:"0.1" ~doc ~man )
+
 
 let write_file_cmd =
   let path =
@@ -39,15 +39,14 @@ let write_file_cmd =
   in
   let doc = "write to a file" in
   let man =
-    [
-      `S "DESCRIPTION"
+    [ `S "DESCRIPTION"
     ; `P "Write rrd data to a file, using the specified protocol"
     ]
     @ help_secs
   in
   ( Term.(pure Writer_commands.write_file $ path $ protocol)
-  , Term.info "file" ~doc ~man
-  )
+  , Term.info "file" ~doc ~man )
+
 
 let write_page_cmd =
   let domid =
@@ -60,17 +59,16 @@ let write_page_cmd =
   in
   let doc = "write to a page" in
   let man =
-    [
-      `S "DESCRIPTION"
+    [ `S "DESCRIPTION"
     ; `P "Write rrd data to page of memory shared with another domain"
     ]
     @ help_secs
   in
   ( Term.(pure Writer_commands.write_page $ domid $ protocol)
-  , Term.info "page" ~doc ~man
-  )
+  , Term.info "page" ~doc ~man )
 
-let cmds = [write_file_cmd; write_page_cmd]
+
+let cmds = [ write_file_cmd; write_page_cmd ]
 
 let () =
   match Term.eval_choice default_cmd cmds with

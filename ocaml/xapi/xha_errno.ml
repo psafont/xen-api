@@ -79,6 +79,7 @@ let to_string : code -> string = function
   | Mtc_exit_internal_bug ->
       "MTC_EXIT_INTERNAL_BUG"
 
+
 let to_description_string : code -> string = function
   | Mtc_exit_success ->
       ""
@@ -122,6 +123,7 @@ let to_description_string : code -> string = function
       "Exclude flag is set while the daemon is operating"
   | Mtc_exit_internal_bug ->
       "Internal bug"
+
 
 let of_int : int -> code = function
   | 0 ->

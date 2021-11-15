@@ -21,7 +21,9 @@ module Date = Xapi_stdext_date.Date
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_support
 
-module D = Debug.Make (struct let name = "xapi_host_crashdump" end)
+module D = Debug.Make (struct
+  let name = "xapi_host_crashdump"
+end)
 
 open D
 
@@ -43,12 +45,17 @@ let delete_crashdump_dir filename =
         let output = Helpers.get_process_output cmd in
         if output <> "" then warn "Output from %s: %s" cmd output
     | _ ->
-        error "Crashdump path %s refers to something other than a directory!"
+        error
+          "Crashdump path %s refers to something other than a directory!"
           path
-  with e ->
-    error "Caught exception while deleting crashdump at path %s (%s)" filename
-      (ExnHelper.string_of_exn e) ;
-    raise e
+  with
+  | e ->
+      error
+        "Caught exception while deleting crashdump at path %s (%s)"
+        filename
+        (ExnHelper.string_of_exn e) ;
+      raise e
+
 
 (* Called once on host boot to resync the crash directory with the database *)
 let resynchronise ~__context ~host =
@@ -64,30 +71,34 @@ let resynchronise ~__context ~host =
       (fun filename ->
         let stat = Unix.stat (Filename.concat crash_dir filename) in
         stat.Unix.st_kind = Unix.S_DIR
-        (*only directories are marked as crashdumps*)
-        )
+        (*only directories are marked as crashdumps*) )
       (try Array.to_list (Sys.readdir crash_dir) with _ -> [])
   in
   let gone_away = Listext.List.set_difference db_filenames real_filenames
   and arrived = Listext.List.set_difference real_filenames db_filenames in
   let was_shutdown_cleanly =
-    try bool_of_string (Localdb.get Constants.host_restarted_cleanly)
-    with _ -> false
+    try bool_of_string (Localdb.get Constants.host_restarted_cleanly) with
+    | _ ->
+        false
   in
   Localdb.put Constants.host_restarted_cleanly "false" ;
   (* If HA is enabled AND no crashdump appeared AND we weren't shutdown cleanly then assume it was a fence. *)
   let ha_is_enabled =
-    try Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context)
-    with _ -> false
+    try
+      Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context)
+    with
+    | _ ->
+        false
     (* on first boot no-pool=>exn, but on first boot HA is never enabled *)
   in
-  if
-    ha_is_enabled
-    && arrived = []
-    && (not was_shutdown_cleanly)
-    && !Xapi_globs.on_system_boot
+  if ha_is_enabled
+     && arrived = []
+     && (not was_shutdown_cleanly)
+     && !Xapi_globs.on_system_boot
   then
-    Xapi_alert.add ~msg:Api_messages.ha_host_was_fenced ~cls:`Host
+    Xapi_alert.add
+      ~msg:Api_messages.ha_host_was_fenced
+      ~cls:`Host
       ~obj_uuid:(Db.Host.get_uuid ~__context ~self:host)
       ~body:"" ;
   let table = List.combine db_filenames all_refs in
@@ -95,8 +106,7 @@ let resynchronise ~__context ~host =
     (fun filename ->
       debug "Deleting record corresponding to old crashdump %s" filename ;
       let r = List.assoc filename table in
-      Db.Host_crashdump.destroy ~__context ~self:r
-      )
+      Db.Host_crashdump.destroy ~__context ~self:r )
     gone_away ;
   List.iter
     (fun filename ->
@@ -114,38 +124,47 @@ let resynchronise ~__context ~host =
       let timestamp =
         let open Unix in
         try
-          Scanf.sscanf filename "%04d%02d%02d-%02d%02d%02d-UTC"
+          Scanf.sscanf
+            filename
+            "%04d%02d%02d-%02d%02d%02d-UTC"
             (fun year mon tm_mday tm_hour tm_min tm_sec ->
               fst
                 (mktime
-                   {
-                     tm_year= year - 1900
-                   ; tm_mon= mon - 1
+                   { tm_year = year - 1900
+                   ; tm_mon = mon - 1
                    ; tm_mday
                    ; tm_hour
                    ; tm_min
                    ; tm_sec
-                   ; tm_wday= 0
-                   ; tm_yday= 0
-                   ; tm_isdst= false
-                   }
-                )
-          )
-        with _ ->
-          (Unix.stat (Filename.concat crash_dir filename)).Unix.st_ctime
+                   ; tm_wday = 0
+                   ; tm_yday = 0
+                   ; tm_isdst = false
+                   } ) )
+        with
+        | _ ->
+            (Unix.stat (Filename.concat crash_dir filename)).Unix.st_ctime
       in
       let timestamp = Date.of_float timestamp in
-      let r = Ref.make () and uuid = Uuid.to_string (Uuid.make_uuid ()) in
-      Db.Host_crashdump.create ~__context ~ref:r ~uuid ~other_config:[] ~host
-        ~timestamp ~size ~filename
-      )
+      let r = Ref.make ()
+      and uuid = Uuid.to_string (Uuid.make_uuid ()) in
+      Db.Host_crashdump.create
+        ~__context
+        ~ref:r
+        ~uuid
+        ~other_config:[]
+        ~host
+        ~timestamp
+        ~size
+        ~filename )
     arrived
+
 
 let destroy ~__context ~self =
   let filename = Db.Host_crashdump.get_filename ~__context ~self in
   finally
     (fun () -> delete_crashdump_dir filename)
     (fun () -> Db.Host_crashdump.destroy ~__context ~self)
+
 
 let upload ~__context ~self ~url ~options =
   let filename = Db.Host_crashdump.get_filename ~__context ~self in

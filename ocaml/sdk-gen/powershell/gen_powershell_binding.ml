@@ -47,7 +47,10 @@ let destdir = "autogen/src"
 
 let templdir = "templates"
 
-type cmdlet = {filename: string; content: string}
+type cmdlet =
+  { filename : string
+  ; content : string
+  }
 
 let api =
   Datamodel_utils.named_self := true ;
@@ -59,40 +62,43 @@ let api =
     Datamodel_utils.on_client_side msg
     && (not msg.msg_hide_from_docs)
     && (not
-          (List.mem msg.msg_name
-             [
-               "get_by_name_label"
+          (List.mem
+             msg.msg_name
+             [ "get_by_name_label"
              ; "get_by_uuid"
              ; "get"
              ; "get_all"
              ; "get_all_records"
              ; "get_all_records_where"
              ; "get_record"
-             ]
-          )
-       )
+             ] ) )
     && msg.msg_tag <> FromObject GetAllRecords
     && List.mem "closed" msg.msg_release.internal
   in
-  filter obj_filter field_filter message_filter
-    (Datamodel_utils.add_implicit_messages ~document_order:false
-       (filter obj_filter field_filter message_filter Datamodel.all_api)
-    )
+  filter
+    obj_filter
+    field_filter
+    message_filter
+    (Datamodel_utils.add_implicit_messages
+       ~document_order:false
+       (filter obj_filter field_filter message_filter Datamodel.all_api) )
+
 
 let classes_with_records =
   Datamodel_utils.add_implicit_messages ~document_order:false Datamodel.all_api
   |> objects_of_api
   |> List.filter (fun x ->
-         List.exists (fun y -> y.msg_name = "get_all_records") x.messages
-     )
+         List.exists (fun y -> y.msg_name = "get_all_records") x.messages )
   |> List.map (fun x -> x.name)
+
 
 let classes = objects_of_api api
 
 let maps = ref TypeSet.empty
 
 let generated x =
-  not (List.mem x.name ["blob"; "session"; "debug"; "event"; "vtpm"])
+  not (List.mem x.name [ "blob"; "session"; "debug"; "event"; "vtpm" ])
+
 
 let rec main () =
   gen_xenref_converters classes ;
@@ -111,15 +117,17 @@ let rec main () =
   let sorted_members = List.sort String.compare fnames in
   let json =
     `O
-      [
-        ( "cmdlets"
-        , `A (List.map (fun x -> `O [("cmdlet", `String x)]) sorted_members)
+      [ ( "cmdlets"
+        , `A (List.map (fun x -> `O [ ("cmdlet", `String x) ]) sorted_members)
         )
       ]
   in
   render_file
     ("XenServerPowerShell.csproj.mustache", "XenServerPowerShell.csproj")
-    json templdir destdir
+    json
+    templdir
+    destdir
+
 
 (****************)
 (* Http actions *)
@@ -157,15 +165,20 @@ and gen_http_action action =
       \        #endregion\n\
       \    }\n\
        }\n"
-      Licence.bsd_two_clause verbCategory commonVerb stem
+      Licence.bsd_two_clause
+      verbCategory
+      commonVerb
+      stem
       (gen_should_process_http_decl meth)
-      commonVerb stem
+      commonVerb
+      stem
       (gen_progress_tracker meth)
       (gen_arg_params args)
       (gen_should_process_http meth uri)
       (gen_http_action_call action)
   in
-  {filename= sprintf "%s-Xen%s.cs" commonVerb stem; content}
+  { filename = sprintf "%s-Xen%s.cs" commonVerb stem; content }
+
 
 and gen_should_process_http_decl meth =
   match meth with
@@ -176,6 +189,7 @@ and gen_should_process_http_decl meth =
   | _ ->
       assert false
 
+
 and gen_should_process_http meth uri =
   match meth with
   | Put ->
@@ -184,6 +198,7 @@ and gen_should_process_http meth uri =
         uri
   | _ ->
       ""
+
 
 and gen_progress_tracker meth =
   match meth with
@@ -198,6 +213,7 @@ and gen_progress_tracker meth =
   | _ ->
       assert false
 
+
 and gen_arg_params args =
   match args with
   | [] ->
@@ -205,22 +221,23 @@ and gen_arg_params args =
   | hd :: tl ->
       sprintf "%s%s" (gen_arg_param hd) (gen_arg_params tl)
 
+
 and gen_arg_param = function
   | String_query_arg x ->
       sprintf
         "\n        [Parameter%s]\n        public string %s { get; set; }\n"
-        ( if String.lowercase_ascii x = "uuid" then
-            "(ValueFromPipelineByPropertyName = true)"
-        else
-          ""
-        )
+        ( if String.lowercase_ascii x = "uuid"
+        then "(ValueFromPipelineByPropertyName = true)"
+        else "" )
         (pascal_case_ x)
   | Int64_query_arg x ->
-      sprintf "\n        [Parameter]\n        public long? %s { get; set; }\n"
+      sprintf
+        "\n        [Parameter]\n        public long? %s { get; set; }\n"
         (pascal_case_ x)
   | Bool_query_arg x ->
       let y = if x = "host" then "is_host" else x in
-      sprintf "\n        [Parameter]\n        public bool? %s { get; set; }\n"
+      sprintf
+        "\n        [Parameter]\n        public bool? %s { get; set; }\n"
         (pascal_case_ y)
   | Varargs_query_arg ->
       sprintf
@@ -230,6 +247,7 @@ and gen_arg_param = function
         \        ///</summary>\n\
         \        [Parameter]\n\
         \        public string[] Args { get; set; }\n"
+
 
 and gen_http_action_call (name, (meth, _, _, args, _, _)) =
   let progressTracker =
@@ -245,8 +263,11 @@ and gen_http_action_call (name, (meth, _, _, args, _, _)) =
     "XenAPI.HTTP_actions.%s(%s,\n\
     \                CancellingDelegate, TimeoutMs, XenHost, Proxy, Path, \
      TaskRef,\n\
-    \                session.opaque_ref%s)" name progressTracker
+    \                session.opaque_ref%s)"
+    name
+    progressTracker
     (gen_call_arg_params args)
+
 
 and gen_call_arg_params args =
   match args with
@@ -254,6 +275,7 @@ and gen_call_arg_params args =
       ""
   | hd :: tl ->
       sprintf "%s%s" (gen_call_arg_param hd) (gen_call_arg_params tl)
+
 
 and gen_call_arg_param = function
   | String_query_arg x ->
@@ -266,11 +288,13 @@ and gen_call_arg_param = function
   | Varargs_query_arg ->
       sprintf ", Args"
 
+
 (***********************************)
 (* Utility cmdlet ConvertTo-XenRef *)
 (***********************************)
 and gen_xenref_converters classes =
   write_file "ConvertTo-XenRef.cs" (gen_body_xenref_converters classes)
+
 
 and gen_body_xenref_converters classes =
   sprintf
@@ -299,7 +323,9 @@ and gen_body_xenref_converters classes =
     \        #endregion\n\n\
     \    }\n\
      }\n"
-    Licence.bsd_two_clause (print_converters classes)
+    Licence.bsd_two_clause
+    (print_converters classes)
+
 
 and print_converters classes =
   match classes with
@@ -322,65 +348,63 @@ and print_converters classes =
         (ocaml_class_to_csharp_local_var hd.name)
         (print_converters tl)
 
+
 (*************************)
 (* Autogenerated cmdlets *)
 (*************************)
 and gen_cmdlets obj =
-  let {name= classname; messages; _} = obj in
+  let { name = classname; messages; _ } = obj in
   let stem = ocaml_class_to_csharp_class classname in
 
   let cmdlets =
-    [
-      {filename= sprintf "Get-Xen%s.cs" stem; content= gen_class obj classname}
-    ; {
-        filename= sprintf "New-Xen%s.cs" stem
-      ; content=
+    [ { filename = sprintf "Get-Xen%s.cs" stem
+      ; content = gen_class obj classname
+      }
+    ; { filename = sprintf "New-Xen%s.cs" stem
+      ; content =
           gen_constructor obj classname (List.filter is_constructor messages)
       }
-    ; {
-        filename= sprintf "Remove-Xen%s.cs" stem
-      ; content=
+    ; { filename = sprintf "Remove-Xen%s.cs" stem
+      ; content =
           gen_destructor obj classname (List.filter is_destructor messages)
       }
-    ; {
-        filename= sprintf "Remove-Xen%sProperty.cs" stem
-      ; content= gen_remover obj classname (List.filter is_remover messages)
+    ; { filename = sprintf "Remove-Xen%sProperty.cs" stem
+      ; content = gen_remover obj classname (List.filter is_remover messages)
       }
-    ; {
-        filename= sprintf "Add-Xen%s.cs" stem
-      ; content= gen_adder obj classname (List.filter is_adder messages)
+    ; { filename = sprintf "Add-Xen%s.cs" stem
+      ; content = gen_adder obj classname (List.filter is_adder messages)
       }
-    ; {
-        filename= sprintf "Set-Xen%s.cs" stem
-      ; content= gen_setter obj classname (List.filter is_setter messages)
+    ; { filename = sprintf "Set-Xen%s.cs" stem
+      ; content = gen_setter obj classname (List.filter is_setter messages)
       }
-    ; {
-        filename= sprintf "Get-Xen%sProperty.cs" stem
-      ; content= gen_getter obj classname (List.filter is_getter messages)
+    ; { filename = sprintf "Get-Xen%sProperty.cs" stem
+      ; content = gen_getter obj classname (List.filter is_getter messages)
       }
-    ; {
-        filename= sprintf "Invoke-Xen%s.cs" stem
-      ; content= gen_invoker obj classname (List.filter is_invoke messages)
+    ; { filename = sprintf "Invoke-Xen%s.cs" stem
+      ; content = gen_invoker obj classname (List.filter is_invoke messages)
       }
     ]
   in
 
   cmdlets |> List.filter (fun x -> x.content <> "")
 
+
 and write_file filename content =
   let fn = Filename.concat destdir filename in
   with_output fn (fun x -> output_string x content)
+
 
 (*********************************)
 (* Print function for Get-XenFoo *)
 (*********************************)
 and gen_class obj classname =
-  if List.mem classname classes_with_records then
+  if List.mem classname classes_with_records
+  then
     print_header_class classname
     ^ print_parameters_class obj classname
     ^ print_methods_class classname (has_uuid obj) (has_name obj)
-  else
-    ""
+  else ""
+
 
 and print_header_class classname =
   sprintf
@@ -403,9 +427,12 @@ and print_header_class classname =
     (qualified_class_name classname)
     (ocaml_class_to_csharp_class classname)
 
+
 and print_parameters_class obj classname =
-  sprintf "        #region Cmdlet Parameters\n%s\n        #endregion\n"
+  sprintf
+    "        #region Cmdlet Parameters\n%s\n        #endregion\n"
     (print_xenobject_params obj classname false false true)
+
 
 and print_methods_class classname has_uuid has_name =
   let classType = qualified_class_name classname in
@@ -438,40 +465,40 @@ and print_methods_class classname has_uuid has_name =
     \        #endregion\n\
     \    }\n\
      }\n"
-    classType classType
-    ( if has_name then
-        sprintf
-          "\n\
-          \            else if (Name != null)\n\
-          \            {\n\
-          \                var options = WildcardOptions.IgnoreCase\n\
-          \                              | WildcardOptions.Compiled\n\
-          \                              | WildcardOptions.CultureInvariant;\n\
-          \                var wildcard = new WildcardPattern(Name, options);\n\n\
-          \                foreach (var record in records)\n\
-          \                {\n\
-          \                    if (wildcard.IsMatch(record.Value.name_label))\n\
-          \                        results.Add(record.Value);\n\
-          \                }\n\
-          \            }"
-    else
-      ""
-    )
-    ( if has_uuid then
-        sprintf
-          "\n\
-          \            else if (Uuid != Guid.Empty)\n\
-          \            {\n\
-          \                foreach (var record in records)\n\
-          \                    if (Uuid.ToString() == record.Value.uuid)\n\
-          \                    {\n\
-          \                        results.Add(record.Value);\n\
-          \                        break;\n\
-          \                    }\n\
-          \            }"
-    else
-      ""
-    )
+    classType
+    classType
+    ( if has_name
+    then
+      sprintf
+        "\n\
+        \            else if (Name != null)\n\
+        \            {\n\
+        \                var options = WildcardOptions.IgnoreCase\n\
+        \                              | WildcardOptions.Compiled\n\
+        \                              | WildcardOptions.CultureInvariant;\n\
+        \                var wildcard = new WildcardPattern(Name, options);\n\n\
+        \                foreach (var record in records)\n\
+        \                {\n\
+        \                    if (wildcard.IsMatch(record.Value.name_label))\n\
+        \                        results.Add(record.Value);\n\
+        \                }\n\
+        \            }"
+    else "" )
+    ( if has_uuid
+    then
+      sprintf
+        "\n\
+        \            else if (Uuid != Guid.Empty)\n\
+        \            {\n\
+        \                foreach (var record in records)\n\
+        \                    if (Uuid.ToString() == record.Value.uuid)\n\
+        \                    {\n\
+        \                        results.Add(record.Value);\n\
+        \                        break;\n\
+        \                    }\n\
+        \            }"
+    else "" )
+
 
 (*********************************)
 (* Print function for New-XenFoo *)
@@ -480,12 +507,13 @@ and gen_constructor obj classname messages =
   match messages with
   | [] ->
       ""
-  | [x] ->
+  | [ x ] ->
       print_header_constructor x classname
       ^ print_params_constructor x obj classname
       ^ print_methods_constructor x obj classname
   | _ ->
       assert false
+
 
 and print_header_constructor message classname =
   sprintf
@@ -503,15 +531,13 @@ and print_header_constructor message classname =
     \    [OutputType(typeof(%s))]%s\n\
     \    [OutputType(typeof(void))]\n\
     \    public class NewXen%sCommand : XenServerCmdlet\n\
-    \    {" Licence.bsd_two_clause
+    \    {"
+    Licence.bsd_two_clause
     (ocaml_class_to_csharp_class classname)
     (qualified_class_name classname)
-    ( if message.msg_async then
-        "\n    [OutputType(typeof(XenAPI.Task))]"
-    else
-      ""
-    )
+    (if message.msg_async then "\n    [OutputType(typeof(XenAPI.Task))]" else "")
     (ocaml_class_to_csharp_class classname)
+
 
 and print_params_constructor message obj classname =
   sprintf
@@ -526,54 +552,57 @@ and print_params_constructor message obj classname =
      %s%s\n\
     \        #endregion\n"
     (qualified_class_name classname)
-    ( if is_real_constructor message then
-        gen_fields (DU.fields_of_obj obj)
-    else
-      gen_constructor_params message.msg_params
-    )
-    ( if message.msg_async then
-        "\n\
-        \        protected override bool GenerateAsyncParam\n\
-        \        {\n\
-        \            get { return true; }\n\
-        \        }\n"
-    else
-      ""
-    )
+    ( if is_real_constructor message
+    then gen_fields (DU.fields_of_obj obj)
+    else gen_constructor_params message.msg_params )
+    ( if message.msg_async
+    then
+      "\n\
+      \        protected override bool GenerateAsyncParam\n\
+      \        {\n\
+      \            get { return true; }\n\
+      \        }\n"
+    else "" )
+
 
 and gen_constructor_params params =
   match params with
   | [] ->
       ""
   | hd :: tl ->
-      sprintf "%s\n%s"
-        (gen_constructor_param hd.param_name hd.param_type ["Fields"])
+      sprintf
+        "%s\n%s"
+        (gen_constructor_param hd.param_name hd.param_type [ "Fields" ])
         (gen_constructor_params tl)
+
 
 and gen_fields fields =
   match fields with
   | [] ->
       ""
-  | hd :: tl -> (
-    match hd.qualifier with
+  | hd :: tl ->
+    ( match hd.qualifier with
     | DynamicRO ->
         gen_fields tl
     | _ ->
-        sprintf "%s\n%s"
-          (gen_constructor_param (full_name hd) hd.ty ["Fields"])
-          (gen_fields tl)
-  )
+        sprintf
+          "%s\n%s"
+          (gen_constructor_param (full_name hd) hd.ty [ "Fields" ])
+          (gen_fields tl) )
+
 
 and gen_constructor_param paramName paramType paramsets =
   let publicName = ocaml_class_to_csharp_property paramName in
   (*Do not add a Record parameter; it has already been added manually as all constructors need one*)
-  if paramName = "record" then
-    ""
+  if paramName = "record"
+  then ""
   else
-    sprintf "\n        %s\n        public %s %s { get; set; }"
+    sprintf
+      "\n        %s\n        public %s %s { get; set; }"
       (print_parameter_sets paramsets)
       (obj_internal_type paramType)
       publicName
+
 
 and print_methods_constructor message obj classname =
   sprintf
@@ -590,22 +619,23 @@ and print_methods_constructor message obj classname =
     \        #endregion\n\
     \   }\n\
      }\n"
-    ( if is_real_constructor message then
-        gen_make_record obj classname
-    else
-      gen_make_fields message obj
-    )
+    ( if is_real_constructor message
+    then gen_make_record obj classname
+    else gen_make_fields message obj )
     (gen_shouldprocess "New" message classname)
     (gen_csharp_api_call message classname "New" "passthru")
+
 
 and create_param_parse param paramName =
   match param.param_type with
   | Ref _ ->
-      sprintf "\n            string %s = %s.opaque_ref;\n"
+      sprintf
+        "\n            string %s = %s.opaque_ref;\n"
         (String.lowercase_ascii param.param_name)
         paramName
   | _ ->
       ""
+
 
 and gen_make_record obj classname =
   sprintf
@@ -622,18 +652,21 @@ and gen_make_record obj classname =
     (gen_record_fields (DU.fields_of_obj obj))
     (qualified_class_name classname)
 
+
 and gen_record_fields fields =
   match fields with
   | [] ->
       ""
-  | h :: tl -> (
-    match h.qualifier with
+  | h :: tl ->
+    ( match h.qualifier with
     | DynamicRO ->
         gen_record_fields tl
     | _ ->
-        sprintf "\n                %s%s" (gen_record_field h)
-          (gen_record_fields tl)
-  )
+        sprintf
+          "\n                %s%s"
+          (gen_record_field h)
+          (gen_record_fields tl) )
+
 
 and gen_record_field field =
   let chk =
@@ -655,13 +688,18 @@ and gen_record_field field =
         sprintf
           "    Record.%s = \
            CommonCmdletFunctions.ConvertHashTableToDictionary<%s, %s>(%s);"
-          (full_name field) (exposed_type u) (exposed_type v)
+          (full_name field)
+          (exposed_type u)
+          (exposed_type v)
           (pascal_case (full_name field))
     | _ ->
-        sprintf "    Record.%s = %s;" (full_name field)
+        sprintf
+          "    Record.%s = %s;"
+          (full_name field)
           (ocaml_field_to_csharp_property field)
   in
   chk ^ assignment
+
 
 and gen_make_fields message obj =
   sprintf
@@ -675,6 +713,7 @@ and gen_make_fields message obj =
     (explode_record_fields message (DU.fields_of_obj obj))
     (explode_hashtable_fields message (DU.fields_of_obj obj))
 
+
 and explode_record_fields message fields =
   let print_map tl hd =
     sprintf
@@ -686,7 +725,8 @@ and explode_record_fields message fields =
       (explode_record_fields message tl)
   in
   let print_record tl hd =
-    sprintf "\n                %s = Record.%s;%s"
+    sprintf
+      "\n                %s = Record.%s;%s"
       (ocaml_class_to_csharp_property (full_name hd))
       (full_name hd)
       (explode_record_fields message tl)
@@ -702,8 +742,8 @@ and explode_record_fields message fields =
             print_map tl hd
         | _ ->
             print_record tl hd
-      else
-        explode_record_fields message tl
+      else explode_record_fields message tl
+
 
 and explode_hashtable_fields message fields =
   match fields with
@@ -712,12 +752,13 @@ and explode_hashtable_fields message fields =
   | hd :: tl ->
       if List.exists (fun x -> full_name hd = x.param_name) message.msg_params
       then
-        sprintf "\n                %s = %s;%s"
+        sprintf
+          "\n                %s = %s;%s"
           (ocaml_class_to_csharp_property (full_name hd))
           (convert_from_hashtable (full_name hd) hd.ty)
           (explode_hashtable_fields message tl)
-      else
-        explode_hashtable_fields message tl
+      else explode_hashtable_fields message tl
+
 
 and convert_from_hashtable fname ty =
   let field = sprintf "\"%s\"" fname in
@@ -731,39 +772,56 @@ and convert_from_hashtable fname ty =
   | Int ->
       sprintf "Marshalling.ParseLong(HashTable, %s)" field
   | Ref name ->
-      sprintf "Marshalling.ParseRef<%s>(HashTable, %s)"
-        (exposed_class_name name) field
+      sprintf
+        "Marshalling.ParseRef<%s>(HashTable, %s)"
+        (exposed_class_name name)
+        field
   | SecretString | String ->
       sprintf "Marshalling.ParseString(HashTable, %s)" field
   | Set String ->
       sprintf "Marshalling.ParseStringArray(HashTable, %s)" field
   | Set (Ref x) ->
-      sprintf "Marshalling.ParseSetRef<%s>(HashTable, %s)"
-        (exposed_class_name x) field
+      sprintf
+        "Marshalling.ParseSetRef<%s>(HashTable, %s)"
+        (exposed_class_name x)
+        field
   | Set (Enum (x, _)) ->
       sprintf
         "Helper.StringArrayToEnumList<%s>(Marshalling.ParseStringArray(HashTable, \
          %s))"
-        x field
+        x
+        field
   | Enum (x, _) ->
       sprintf
         "(%s)CommonCmdletFunctions.EnumParseDefault(typeof(%s), \
          Marshalling.ParseString(HashTable, %s))"
-        x x field
+        x
+        x
+        field
   | Map (Ref x, Record _) ->
-      sprintf "Marshalling.ParseMapRefRecord<%s, Proxy_%s>(HashTable, %s)"
-        (exposed_class_name x) (exposed_class_name x) field
+      sprintf
+        "Marshalling.ParseMapRefRecord<%s, Proxy_%s>(HashTable, %s)"
+        (exposed_class_name x)
+        (exposed_class_name x)
+        field
   | Map (_, _) as x ->
       maps := TypeSet.add x !maps ;
       sprintf "(Marshalling.ParseHashTable(HashTable, %s))" field
   | Record name ->
-      sprintf "new %s((Proxy_%s)HashTable[%s])" (exposed_class_name name)
-        (exposed_class_name name) field
+      sprintf
+        "new %s((Proxy_%s)HashTable[%s])"
+        (exposed_class_name name)
+        (exposed_class_name name)
+        field
   | Set (Record name) ->
-      sprintf "Helper.Proxy_%sArrayTo%sList(Marshalling.ParseStringArray(%s))"
-        (exposed_class_name name) (exposed_class_name name) field
+      sprintf
+        "Helper.Proxy_%sArrayTo%sList(Marshalling.ParseStringArray(%s))"
+        (exposed_class_name name)
+        (exposed_class_name name)
+        field
   | _ ->
       assert false
+
 
 (************************************)
 (* Print function for Remove-XenFoo *)
@@ -772,7 +830,7 @@ and gen_destructor obj classname messages =
   match messages with
   | [] ->
       ""
-  | [x] ->
+  | [ x ] ->
       let cut_message_name x = cut_msg_name (pascal_case x.msg_name) "Remove" in
       let asyncMessages =
         List.map cut_message_name (List.filter (fun x -> x.msg_async) messages)
@@ -815,37 +873,38 @@ and gen_destructor obj classname messages =
         Licence.bsd_two_clause
         (ocaml_class_to_csharp_class classname)
         (qualified_class_name classname)
-        ( if List.length asyncMessages > 0 then
-            "\n    [OutputType(typeof(XenAPI.Task))]"
-        else
-          ""
-        )
+        ( if List.length asyncMessages > 0
+        then "\n    [OutputType(typeof(XenAPI.Task))]"
+        else "" )
         (ocaml_class_to_csharp_class classname)
         (print_xenobject_params obj classname true true true)
-        ( if List.length asyncMessages > 0 then
-            sprintf
-              "\n\
-              \        protected override bool GenerateAsyncParam\n\
-              \        {\n\
-              \            get { return true; }\n\
-              \        }\n"
-        else
-          ""
-        )
+        ( if List.length asyncMessages > 0
+        then
+          sprintf
+            "\n\
+            \        protected override bool GenerateAsyncParam\n\
+            \        {\n\
+            \            get { return true; }\n\
+            \        }\n"
+        else "" )
         (ocaml_class_to_csharp_local_var classname)
         (ocaml_class_to_csharp_property classname)
         (print_cmdlet_methods_remover classname x)
         (print_parse_xenobject_private_method obj classname true)
-        (print_process_record_private_methods classname messages "Remove"
-           "asyncpassthru"
-        )
+        (print_process_record_private_methods
+           classname
+           messages
+           "Remove"
+           "asyncpassthru" )
   | _ ->
       assert false
+
 
 and print_cmdlet_methods_remover classname message =
   let localVar = ocaml_class_to_csharp_local_var classname in
   let cut_message_name x = cut_msg_name (pascal_case x.msg_name) "Remove" in
   sprintf "ProcessRecord%s(%s);" (cut_message_name message) localVar
+
 
 (*****************************************)
 (* Print function for Remove-XenFoo -Bar *)
@@ -897,11 +956,9 @@ and gen_remover obj classname messages =
         Licence.bsd_two_clause
         (ocaml_class_to_csharp_class classname)
         (qualified_class_name classname)
-        ( if List.length asyncMessages > 0 then
-            "\n    [OutputType(typeof(XenAPI.Task))]"
-        else
-          ""
-        )
+        ( if List.length asyncMessages > 0
+        then "\n    [OutputType(typeof(XenAPI.Task))]"
+        else "" )
         (ocaml_class_to_csharp_class classname)
         (print_xenobject_params obj classname true true true)
         (print_async_param asyncMessages)
@@ -912,6 +969,7 @@ and gen_remover obj classname messages =
         (gen_passthru classname)
         (print_parse_xenobject_private_method obj classname true)
         (print_process_record_private_methods classname messages "Remove" "")
+
 
 (**************************************)
 (* Print function for Set-XenFoo -Bar *)
@@ -963,11 +1021,9 @@ and gen_setter obj classname messages =
         Licence.bsd_two_clause
         (ocaml_class_to_csharp_class classname)
         (qualified_class_name classname)
-        ( if List.length asyncMessages > 0 then
-            "\n    [OutputType(typeof(XenAPI.Task))]"
-        else
-          ""
-        )
+        ( if List.length asyncMessages > 0
+        then "\n    [OutputType(typeof(XenAPI.Task))]"
+        else "" )
         (ocaml_class_to_csharp_class classname)
         (print_xenobject_params obj classname true true true)
         (print_async_param asyncMessages)
@@ -978,6 +1034,7 @@ and gen_setter obj classname messages =
         (gen_passthru classname)
         (print_parse_xenobject_private_method obj classname true)
         (print_process_record_private_methods classname messages "Set" "")
+
 
 (**************************************)
 (* Print function for Add-XenFoo -Bar *)
@@ -1029,11 +1086,9 @@ and gen_adder obj classname messages =
         Licence.bsd_two_clause
         (ocaml_class_to_csharp_class classname)
         (qualified_class_name classname)
-        ( if List.length asyncMessages > 0 then
-            "\n    [OutputType(typeof(XenAPI.Task))]"
-        else
-          ""
-        )
+        ( if List.length asyncMessages > 0
+        then "\n    [OutputType(typeof(XenAPI.Task))]"
+        else "" )
         (ocaml_class_to_csharp_class classname)
         (print_xenobject_params obj classname true true true)
         (print_async_param asyncMessages)
@@ -1044,6 +1099,7 @@ and gen_adder obj classname messages =
         (gen_passthru classname)
         (print_parse_xenobject_private_method obj classname true)
         (print_process_record_private_methods classname messages "Add" "")
+
 
 (*****************************************)
 (* Print function for Invoke-XenFoo -Bar *)
@@ -1108,12 +1164,15 @@ and gen_invoker obj classname messages =
         (ocaml_class_to_csharp_property classname)
         (print_cmdlet_methods_dynamic classname messages "Action" "Invoke")
         (print_parse_xenobject_private_method obj classname true)
-        (print_process_record_private_methods classname messages "Invoke"
-           "passthru"
-        )
+        (print_process_record_private_methods
+           classname
+           messages
+           "Invoke"
+           "passthru" )
         (ocaml_class_to_csharp_class classname)
         (print_messages_as_enum "Invoke" messages)
         (print_dynamic_params classname "Action" "Invoke" messagesWithParams)
+
 
 (**********************************************)
 (* Print function for Get-XenFooProperty -Bar *)
@@ -1181,6 +1240,7 @@ and gen_getter obj classname messages =
         (print_messages_as_enum "Get" messages)
         (print_dynamic_params classname "Property" "Get" messagesWithParams)
 
+
 and print_cmdlet_methods_dynamic classname messages enum commonVerb =
   let cut_message_name x = cut_msg_name (pascal_case x.msg_name) commonVerb in
   let localVar = ocaml_class_to_csharp_local_var classname in
@@ -1194,17 +1254,21 @@ and print_cmdlet_methods_dynamic classname messages enum commonVerb =
         \                    ProcessRecord%s(%s);\n\
         \                    break;%s"
         (ocaml_class_to_csharp_class classname)
-        enum (cut_message_name hd) (cut_message_name hd) localVar
+        enum
+        (cut_message_name hd)
+        (cut_message_name hd)
+        localVar
         (print_cmdlet_methods_dynamic classname tl enum commonVerb)
+
 
 and print_async_param_getter classname asyncMessages =
   let properties =
     List.map
       (fun x ->
-        sprintf "                    case Xen%sProperty.%s:"
+        sprintf
+          "                    case Xen%sProperty.%s:"
           (ocaml_class_to_csharp_class classname)
-          x
-        )
+          x )
       asyncMessages
   in
   match asyncMessages with
@@ -1227,6 +1291,7 @@ and print_async_param_getter classname asyncMessages =
         \            }\n\
         \        }\n"
         (String.concat "\n" properties)
+
 
 (**************************************)
 (* Common to more than one generators *)
@@ -1263,14 +1328,13 @@ and gen_passthru classname =
     (ocaml_class_to_csharp_local_var classname)
     (ocaml_class_to_csharp_local_var classname)
 
+
 and is_message_with_dynamic_params classname message =
   let nonClassParams =
     List.filter (fun x -> not (is_class x classname)) message.msg_params
   in
-  if List.length nonClassParams > 0 || message.msg_async then
-    true
-  else
-    false
+  if List.length nonClassParams > 0 || message.msg_async then true else false
+
 
 and print_dynamic_generator classname enum commonVerb messagesWithParams =
   match messagesWithParams with
@@ -1288,7 +1352,12 @@ and print_dynamic_generator classname enum commonVerb messagesWithParams =
         \            }\n\
         \        }\n"
         enum
-        (print_messages_with_params classname enum commonVerb messagesWithParams)
+        (print_messages_with_params
+           classname
+           enum
+           commonVerb
+           messagesWithParams )
+
 
 and print_messages_with_params classname enum commonVerb x =
   match x with
@@ -1308,6 +1377,7 @@ and print_messages_with_params classname enum commonVerb x =
         (cut_msg_name (pascal_case hd.msg_name) commonVerb)
         (print_messages_with_params classname enum commonVerb tl)
 
+
 and print_dynamic_params classname enum commonVerb messagesWithParams =
   match messagesWithParams with
   | [] ->
@@ -1323,48 +1393,53 @@ and print_dynamic_params classname enum commonVerb messagesWithParams =
         (ocaml_class_to_csharp_class classname)
         enum
         (cut_msg_name (pascal_case hd.msg_name) commonVerb)
-        ( if hd.msg_async then
-            "\n\
-            \        [Parameter]\n\
-            \        public SwitchParameter Async { get; set; }\n"
-        else
-          ""
-        )
+        ( if hd.msg_async
+        then
+          "\n\
+          \        [Parameter]\n\
+          \        public SwitchParameter Async { get; set; }\n"
+        else "" )
         (print_dynamic_param_members classname hd.msg_params commonVerb)
         (print_dynamic_params classname enum commonVerb tl)
+
 
 and print_dynamic_param_members classname params commonVerb =
   match params with
   | [] ->
       ""
   | hd :: tl ->
-      if is_class hd classname then
-        print_dynamic_param_members classname tl commonVerb
+      if is_class hd classname
+      then print_dynamic_param_members classname tl commonVerb
       else
         let publicProperty =
-          if
-            commonVerb = "Invoke"
-            && List.mem (String.lowercase_ascii hd.param_name) ["name"; "uuid"]
-          then
-            ocaml_class_to_csharp_property hd.param_name ^ "Param"
-          else
-            ocaml_class_to_csharp_property hd.param_name
+          if commonVerb = "Invoke"
+             && List.mem
+                  (String.lowercase_ascii hd.param_name)
+                  [ "name"; "uuid" ]
+          then ocaml_class_to_csharp_property hd.param_name ^ "Param"
+          else ocaml_class_to_csharp_property hd.param_name
         in
         let theType = obj_internal_type hd.param_type in
-        sprintf "\n        [Parameter]\n        public %s %s { get; set; }\n%s "
-          theType publicProperty
+        sprintf
+          "\n        [Parameter]\n        public %s %s { get; set; }\n%s "
+          theType
+          publicProperty
           (print_dynamic_param_members classname tl commonVerb)
+
 
 and print_messages_as_enum commonVerb messages =
   let cut_message_name x = cut_msg_name (pascal_case x.msg_name) commonVerb in
   match messages with
   | [] ->
       ""
-  | [x] ->
+  | [ x ] ->
       sprintf "\n        %s" (cut_message_name x)
   | hd :: tl ->
-      sprintf "\n        %s,%s" (cut_message_name hd)
+      sprintf
+        "\n        %s,%s"
+        (cut_message_name hd)
         (print_messages_as_enum commonVerb tl)
+
 
 and gen_message_as_param classname commonVerb messages =
   match messages with
@@ -1391,7 +1466,8 @@ and gen_message_as_param classname commonVerb messages =
         \        private %s %s;\n\
         \        private bool %sIsSpecified;\n\
          %s"
-        msgType msgName
+        msgType
+        msgName
         (lower_and_underscore_first msgName)
         (lower_and_underscore_first msgName)
         (lower_and_underscore_first msgName)
@@ -1399,6 +1475,7 @@ and gen_message_as_param classname commonVerb messages =
         (lower_and_underscore_first msgName)
         (lower_and_underscore_first msgName)
         (gen_message_as_param classname commonVerb tl)
+
 
 and print_cmdlet_methods classname messages commonVerb =
   let cut_message_name x = cut_msg_name (pascal_case x.msg_name) commonVerb in
@@ -1409,21 +1486,25 @@ and print_cmdlet_methods classname messages commonVerb =
   match messages with
   | [] ->
       ""
-  | [x] ->
-      sprintf "if (%sIsSpecified)\n                ProcessRecord%s(%s);"
+  | [ x ] ->
+      sprintf
+        "if (%sIsSpecified)\n                ProcessRecord%s(%s);"
         (lower_and_underscore_first (switch_name x))
-        (cut_message_name x) localVar
+        (cut_message_name x)
+        localVar
   | hd :: tl ->
       sprintf
         "if (%sIsSpecified)\n\
         \                ProcessRecord%s(%s);\n\
         \            %s"
         (lower_and_underscore_first (switch_name hd))
-        (cut_message_name hd) localVar
+        (cut_message_name hd)
+        localVar
         (print_cmdlet_methods classname tl commonVerb)
 
-and print_xenobject_params obj classname mandatoryRef includeXenObject
-    includeUuidAndName =
+
+and print_xenobject_params
+    obj classname mandatoryRef includeXenObject includeUuidAndName =
   let publicName = ocaml_class_to_csharp_property classname in
   sprintf
     "%s\n\n\
@@ -1432,43 +1513,47 @@ and print_xenobject_params obj classname mandatoryRef includeXenObject
     \        [Alias(\"opaque_ref\")]\n\
     \        public XenRef<%s> Ref { get; set; }\n\
      %s%s\n"
-    ( if includeXenObject then
-        print_param_xen_object (qualified_class_name classname) publicName
-    else
-      ""
-    )
+    ( if includeXenObject
+    then print_param_xen_object (qualified_class_name classname) publicName
+    else "" )
     (if mandatoryRef then ", Mandatory = true" else "")
     (qualified_class_name classname)
     (print_param_uuid (has_uuid obj && includeUuidAndName))
     (print_param_name (has_name obj && includeUuidAndName))
+
 
 and print_param_xen_object qualifiedClassName publicName =
   sprintf
     "\n\
     \        [Parameter(ParameterSetName = \"XenObject\", Mandatory = true, \
      ValueFromPipeline = true, Position = 0)]\n\
-    \        public %s %s { get; set; }" qualifiedClassName publicName
+    \        public %s %s { get; set; }"
+    qualifiedClassName
+    publicName
+
 
 and print_param_uuid hasUuid =
-  if hasUuid then
+  if hasUuid
+  then
     sprintf
       "\n\
       \        [Parameter(ParameterSetName = \"Uuid\", Mandatory = true, \
        ValueFromPipelineByPropertyName = true, Position = 0)]\n\
       \        public Guid Uuid { get; set; }\n"
-  else
-    sprintf ""
+  else sprintf ""
+
 
 and print_param_name hasName =
-  if hasName then
+  if hasName
+  then
     sprintf
       "\n\
       \        [Parameter(ParameterSetName = \"Name\", Mandatory = true, \
        ValueFromPipelineByPropertyName = true, Position = 0)]\n\
       \        [Alias(\"name_label\")]\n\
       \        public string Name { get; set; }\n"
-  else
-    sprintf ""
+  else sprintf ""
+
 
 and print_async_param asyncMessages =
   match asyncMessages with
@@ -1486,87 +1571,90 @@ and print_async_param asyncMessages =
         \        }\n"
         (condition asyncMessages)
 
+
 and condition messages =
   match messages with
   | [] ->
       ""
-  | [x] ->
+  | [ x ] ->
       sprintf "%sIsSpecified" (lower_and_underscore_first x)
   | hd :: tl ->
-      sprintf "%sIsSpecified\n                       ^ %s"
+      sprintf
+        "%sIsSpecified\n                       ^ %s"
         (lower_and_underscore_first hd)
         (condition tl)
+
 
 and get_message_type message classname commonVerb =
   let messageParams =
     List.filter (fun x -> not (is_class x classname)) message.msg_params
   in
   match commonVerb with
-  | "Remove" -> (
-    match messageParams with
-    | [x] ->
+  | "Remove" ->
+    ( match messageParams with
+    | [ x ] ->
         obj_internal_type x.param_type
     | _ ->
         Printf.eprintf "%s" message.msg_name ;
-        assert false
-  )
-  | "Add" -> (
-    match messageParams with
-    | [x] ->
+        assert false )
+  | "Add" ->
+    ( match messageParams with
+    | [ x ] ->
         obj_internal_type x.param_type
-    | [x; y] ->
-        sprintf "KeyValuePair<%s, %s>"
+    | [ x; y ] ->
+        sprintf
+          "KeyValuePair<%s, %s>"
           (obj_internal_type x.param_type)
           (obj_internal_type y.param_type)
     | _ ->
         Printf.eprintf "%s" message.msg_name ;
-        assert false
-  )
-  | "Set" -> (
-    match messageParams with
-    | [x] ->
+        assert false )
+  | "Set" ->
+    ( match messageParams with
+    | [ x ] ->
         obj_internal_type x.param_type
-    | [x; y]
+    | [ x; y ]
       when not (obj_internal_type x.param_type = obj_internal_type y.param_type)
       ->
-        sprintf "KeyValuePair<%s, %s>"
+        sprintf
+          "KeyValuePair<%s, %s>"
           (obj_internal_type x.param_type)
           (obj_internal_type y.param_type)
     | hd :: tl ->
         let hdtype = obj_internal_type hd.param_type in
         if List.for_all (fun x -> hdtype = obj_internal_type x.param_type) tl
-        then
-          sprintf "%s[]" hdtype
+        then sprintf "%s[]" hdtype
         else (
           Printf.eprintf "%s" message.msg_name ;
-          assert false
-        )
+          assert false )
     | _ ->
         Printf.eprintf "%s" message.msg_name ;
-        assert false
-  )
-  | "Get" -> (
-    match messageParams with
+        assert false )
+  | "Get" ->
+    ( match messageParams with
     | [] ->
         "SwitchParameter"
-    | [x] ->
+    | [ x ] ->
         obj_internal_type x.param_type
     | _ ->
         Printf.eprintf "%s" message.msg_name ;
-        assert false
-  )
+        assert false )
   | _ ->
       ""
+
 
 and print_parameter_sets parameterSets =
   match parameterSets with
   | [] ->
       "[Parameter]"
-  | [x] ->
+  | [ x ] ->
       sprintf "[Parameter(ParameterSetName = \"%s\")]" x
   | hd :: tl ->
-      sprintf "[Parameter(ParameterSetName = \"%s\")]\n        %s" hd
+      sprintf
+        "[Parameter(ParameterSetName = \"%s\")]\n        %s"
+        hd
         (print_parameter_sets tl)
+
 
 and print_parse_xenobject_private_method obj classname includeUuidAndName =
   let publicProperty = ocaml_class_to_csharp_property classname in
@@ -1591,53 +1679,52 @@ and print_parse_xenobject_private_method obj classname includeUuidAndName =
     \            }\n\n\
     \            return %s;\n\
     \        }\n"
-    publicProperty localVar publicProperty localVar
+    publicProperty
+    localVar
+    publicProperty
+    localVar
     (qualified_class_name classname)
     publicProperty
-    ( if has_uuid obj && includeUuidAndName then
-        sprintf
-          "\n\
-          \            else if (Uuid != Guid.Empty)\n\
-          \            {\n\
-          \                var xenRef = %s.get_by_uuid(session, \
-           Uuid.ToString());\n\
-          \                if (xenRef != null)\n\
-          \                    %s = xenRef.opaque_ref;\n\
-          \            }"
-          (qualified_class_name classname)
-          localVar
-    else
-      sprintf ""
-    )
-    ( if has_name obj && includeUuidAndName then
-        sprintf
-          "\n\
-          \            else if (Name != null)\n\
-          \            {\n\
-          \                var xenRefs = %s.get_by_name_label(session, Name);\n\
-          \                if (xenRefs.Count == 1)\n\
-          \                    %s = xenRefs[0].opaque_ref;\n\
-          \                else if (xenRefs.Count > 1)\n\
-          \                    ThrowTerminatingError(new ErrorRecord(\n\
-          \                        new ArgumentException(string.Format(\"More \
-           than one %s with name label {0} exist\", Name)),\n\
-          \                        string.Empty,\n\
-          \                        ErrorCategory.InvalidArgument,\n\
-          \                        Name));\n\
-          \            }"
-          (qualified_class_name classname)
-          localVar
-          (qualified_class_name classname)
-    else
-      sprintf ""
-    )
-    localVar publicProperty
-    ( if has_uuid obj then
-        sprintf ", 'Uuid'"
-    else
-      sprintf ""
-    )
-    publicProperty localVar
+    ( if has_uuid obj && includeUuidAndName
+    then
+      sprintf
+        "\n\
+        \            else if (Uuid != Guid.Empty)\n\
+        \            {\n\
+        \                var xenRef = %s.get_by_uuid(session, Uuid.ToString());\n\
+        \                if (xenRef != null)\n\
+        \                    %s = xenRef.opaque_ref;\n\
+        \            }"
+        (qualified_class_name classname)
+        localVar
+    else sprintf "" )
+    ( if has_name obj && includeUuidAndName
+    then
+      sprintf
+        "\n\
+        \            else if (Name != null)\n\
+        \            {\n\
+        \                var xenRefs = %s.get_by_name_label(session, Name);\n\
+        \                if (xenRefs.Count == 1)\n\
+        \                    %s = xenRefs[0].opaque_ref;\n\
+        \                else if (xenRefs.Count > 1)\n\
+        \                    ThrowTerminatingError(new ErrorRecord(\n\
+        \                        new ArgumentException(string.Format(\"More \
+         than one %s with name label {0} exist\", Name)),\n\
+        \                        string.Empty,\n\
+        \                        ErrorCategory.InvalidArgument,\n\
+        \                        Name));\n\
+        \            }"
+        (qualified_class_name classname)
+        localVar
+        (qualified_class_name classname)
+    else sprintf "" )
+    localVar
+    publicProperty
+    (if has_uuid obj then sprintf ", 'Uuid'" else sprintf "")
+    publicProperty
+    localVar
+
 
 and print_process_record_private_methods classname messages commonVerb switch =
   match messages with
@@ -1661,16 +1748,16 @@ and print_process_record_private_methods classname messages commonVerb switch =
         (gen_csharp_api_call hd classname commonVerb switch)
         (print_process_record_private_methods classname tl commonVerb switch)
 
+
 and gen_shouldprocess commonVerb message classname =
   match commonVerb with
   | "Get" ->
       ""
   | _ ->
       let theObj =
-        if classname = "pool" || commonVerb = "New" then
-          "session.Url"
-        else
-          ocaml_class_to_csharp_local_var classname
+        if classname = "pool" || commonVerb = "New"
+        then "session.Url"
+        else ocaml_class_to_csharp_local_var classname
       in
       sprintf
         "\n\
@@ -1680,15 +1767,15 @@ and gen_shouldprocess commonVerb message classname =
         (exposed_class_name classname)
         message.msg_name
 
+
 and gen_csharp_api_call message classname commonVerb switch =
   let asyncPipe = gen_csharp_api_call_async_pipe in
   let passThruTask =
-    if switch = "pipe" then
-      asyncPipe
-    else if switch = "passthru" || switch = "asyncpassthru" then
-      print_pass_thru asyncPipe
-    else
-      ""
+    if switch = "pipe"
+    then asyncPipe
+    else if switch = "passthru" || switch = "asyncpassthru"
+    then print_pass_thru asyncPipe
+    else ""
   in
   let syncPipe = gen_csharp_api_call_sync_pipe message classname in
   let passThruResult =
@@ -1705,7 +1792,8 @@ and gen_csharp_api_call message classname commonVerb switch =
     | _ ->
         ""
   in
-  if message.msg_async then
+  if message.msg_async
+  then
     sprintf
       "\n\
       \                var contxt = _context as %s;\n\n\
@@ -1715,54 +1803,61 @@ and gen_csharp_api_call message classname commonVerb switch =
       \                else\n\
       \                {%s%s\n\
       \                }\n"
-      ( if commonVerb = "Invoke" then
-          sprintf "Xen%sAction%sDynamicParameters"
-            (ocaml_class_to_csharp_class classname)
-            (cut_msg_name (pascal_case message.msg_name) "Invoke")
-      else if commonVerb = "Get" then
-        sprintf "Xen%sProperty%sDynamicParameters"
+      ( if commonVerb = "Invoke"
+      then
+        sprintf
+          "Xen%sAction%sDynamicParameters"
+          (ocaml_class_to_csharp_class classname)
+          (cut_msg_name (pascal_case message.msg_name) "Invoke")
+      else if commonVerb = "Get"
+      then
+        sprintf
+          "Xen%sProperty%sDynamicParameters"
           (ocaml_class_to_csharp_class classname)
           (cut_msg_name (pascal_case message.msg_name) "Get")
-      else
-        "XenServerCmdletDynamicParameters"
-      )
+      else "XenServerCmdletDynamicParameters" )
       (gen_csharp_api_call_async message classname commonVerb)
       passThruTask
       (gen_csharp_api_call_sync message classname commonVerb)
       passThruResult
   else
-    sprintf "%s%s%s"
-      ( if
-        commonVerb = "Invoke"
-        && is_message_with_dynamic_params classname message
+    sprintf
+      "%s%s%s"
+      ( if commonVerb = "Invoke"
+           && is_message_with_dynamic_params classname message
       then
-          sprintf "var contxt = _context as Xen%sAction%sDynamicParameters;\n"
-            (ocaml_class_to_csharp_class classname)
-            (cut_msg_name (pascal_case message.msg_name) "Invoke")
-      else if
-      commonVerb = "Get" && is_message_with_dynamic_params classname message
-    then
-        sprintf "var contxt = _context as Xen%sProperty%sDynamicParameters;\n"
+        sprintf
+          "var contxt = _context as Xen%sAction%sDynamicParameters;\n"
+          (ocaml_class_to_csharp_class classname)
+          (cut_msg_name (pascal_case message.msg_name) "Invoke")
+      else if commonVerb = "Get"
+              && is_message_with_dynamic_params classname message
+      then
+        sprintf
+          "var contxt = _context as Xen%sProperty%sDynamicParameters;\n"
           (ocaml_class_to_csharp_class classname)
           (cut_msg_name (pascal_case message.msg_name) "Get")
-      else
-        ""
-      )
+      else "" )
       (gen_csharp_api_call_sync message classname commonVerb)
       passThruResult
+
 
 and print_pass_thru x =
   sprintf
     "\n\
     \                    if (PassThru)\n\
     \                    {%s\n\
-    \                    }" x
+    \                    }"
+    x
+
 
 and gen_csharp_api_call_async message classname commonVerb =
-  sprintf "\n                    taskRef = %s.async_%s(%s);\n"
+  sprintf
+    "\n                    taskRef = %s.async_%s(%s);\n"
     (qualified_class_name classname)
     message.msg_name
     (gen_call_params classname message commonVerb)
+
 
 and gen_csharp_api_call_async_pipe =
   sprintf
@@ -1776,33 +1871,41 @@ and gen_csharp_api_call_async_pipe =
     \                        }\n\n\
     \                        WriteObject(taskObj, true);"
 
+
 and gen_csharp_api_call_sync message classname commonVerb =
   match message.msg_result with
   | None ->
-      sprintf "\n                    %s.%s(%s);\n"
+      sprintf
+        "\n                    %s.%s(%s);\n"
         (qualified_class_name classname)
         message.msg_name
         (gen_call_params classname message commonVerb)
   | Some (Ref _, _) ->
-      sprintf "\n                    string objRef = %s.%s(%s);\n"
+      sprintf
+        "\n                    string objRef = %s.%s(%s);\n"
         (qualified_class_name classname)
         message.msg_name
         (gen_call_params classname message commonVerb)
   | Some (Set (Ref _), _) ->
-      sprintf "\n                    var refs = %s.%s(%s);\n"
+      sprintf
+        "\n                    var refs = %s.%s(%s);\n"
         (qualified_class_name classname)
         message.msg_name
         (gen_call_params classname message commonVerb)
   | Some (Map (_, _), _) ->
-      sprintf "\n                    var dict = %s.%s(%s);\n"
+      sprintf
+        "\n                    var dict = %s.%s(%s);\n"
         (qualified_class_name classname)
         message.msg_name
         (gen_call_params classname message commonVerb)
   | Some (x, _) ->
-      sprintf "\n                    %s obj = %s.%s(%s);\n" (exposed_type x)
+      sprintf
+        "\n                    %s obj = %s.%s(%s);\n"
+        (exposed_type x)
         (qualified_class_name classname)
         message.msg_name
         (gen_call_params classname message commonVerb)
+
 
 and gen_csharp_api_call_sync_pipe message classname =
   match message.msg_result with
@@ -1826,7 +1929,8 @@ and gen_csharp_api_call_sync_pipe message classname =
         \                            obj.opaque_ref = objRef;\n\
         \                        }\n\n\
         \                        WriteObject(obj, true);"
-        (qualified_class_name r) (qualified_class_name r)
+        (qualified_class_name r)
+        (qualified_class_name r)
   | Some (Set (Ref r), _) ->
       sprintf
         "\n\
@@ -1840,7 +1944,8 @@ and gen_csharp_api_call_sync_pipe message classname =
         \                            records.Add(record);\n\
         \                        }\n\n\
         \                        WriteObject(records, true);"
-        (qualified_class_name r) (qualified_class_name r)
+        (qualified_class_name r)
+        (qualified_class_name r)
   | Some (Map (_, _), _) ->
       sprintf
         "\n\
@@ -1850,46 +1955,52 @@ and gen_csharp_api_call_sync_pipe message classname =
   | Some (_, _) ->
       sprintf "\n                        WriteObject(obj, true);"
 
+
 and gen_call_params classname message commonVerb =
-  String.concat ", "
+  String.concat
+    ", "
     ("session" :: gen_param_list classname message.msg_params message commonVerb)
+
 
 and gen_param_list classname params message commonVerb =
   let cutMessageName =
     cut_msg_name (ocaml_class_to_csharp_property message.msg_name) commonVerb
   in
   let get_param_name x =
-    if is_class x classname then
-      ocaml_class_to_csharp_local_var classname
-    else if
-      commonVerb = "Invoke"
-      && List.mem (String.lowercase_ascii x.param_name) ["name"; "uuid"]
+    if is_class x classname
+    then ocaml_class_to_csharp_local_var classname
+    else if commonVerb = "Invoke"
+            && List.mem (String.lowercase_ascii x.param_name) [ "name"; "uuid" ]
     then
       sprintf "contxt.%s" (ocaml_class_to_csharp_property x.param_name)
       ^ "Param"
-    else if commonVerb = "Invoke" then
-      sprintf "contxt.%s" (ocaml_class_to_csharp_property x.param_name)
-    else if commonVerb = "Get" then
-      sprintf "contxt.%s" (ocaml_class_to_csharp_property x.param_name)
-    else if not (commonVerb = "New") then
-      cutMessageName
-    else
-      ocaml_class_to_csharp_property x.param_name
+    else if commonVerb = "Invoke"
+    then sprintf "contxt.%s" (ocaml_class_to_csharp_property x.param_name)
+    else if commonVerb = "Get"
+    then sprintf "contxt.%s" (ocaml_class_to_csharp_property x.param_name)
+    else if not (commonVerb = "New")
+    then cutMessageName
+    else ocaml_class_to_csharp_property x.param_name
   in
   let valueOfPair x =
     match x.param_type with
     | Map (u, v) ->
         sprintf
           "CommonCmdletFunctions.ConvertHashTableToDictionary<%s, %s>(%s.Value)"
-          (exposed_type u) (exposed_type v) cutMessageName
+          (exposed_type u)
+          (exposed_type v)
+          cutMessageName
     | _ ->
         cutMessageName ^ ".Value"
   in
   let api_call_param x =
     match x.param_type with
     | Map (u, v) ->
-        sprintf "CommonCmdletFunctions.ConvertHashTableToDictionary<%s, %s>(%s)"
-          (exposed_type u) (exposed_type v) (get_param_name x)
+        sprintf
+          "CommonCmdletFunctions.ConvertHashTableToDictionary<%s, %s>(%s)"
+          (exposed_type u)
+          (exposed_type v)
+          (get_param_name x)
     | _ ->
         get_param_name x
   in
@@ -1901,64 +2012,62 @@ and gen_param_list classname params message commonVerb =
   in
   let procParams = List.map get_param_name restParams in
   match commonVerb with
-  | "Remove" -> (
-    match messageParams with
+  | "Remove" ->
+    ( match messageParams with
     | [] ->
         procParams
-    | [x] ->
-        procParams @ [api_call_param x]
+    | [ x ] ->
+        procParams @ [ api_call_param x ]
     | _ ->
         Printf.eprintf "%s" message.msg_name ;
-        assert false
-  )
-  | "Add" -> (
-    match messageParams with
-    | [x] ->
-        procParams @ [api_call_param x]
-    | [_; y] ->
-        procParams @ [cutMessageName ^ ".Key"; valueOfPair y]
+        assert false )
+  | "Add" ->
+    ( match messageParams with
+    | [ x ] ->
+        procParams @ [ api_call_param x ]
+    | [ _; y ] ->
+        procParams @ [ cutMessageName ^ ".Key"; valueOfPair y ]
     | _ ->
         Printf.eprintf "%s" message.msg_name ;
-        assert false
-  )
-  | "Set" -> (
-    match messageParams with
-    | [x] ->
-        procParams @ [api_call_param x]
-    | [x; y]
+        assert false )
+  | "Set" ->
+    ( match messageParams with
+    | [ x ] ->
+        procParams @ [ api_call_param x ]
+    | [ x; y ]
       when not (obj_internal_type x.param_type = obj_internal_type y.param_type)
       ->
-        procParams @ [cutMessageName ^ ".Key"; valueOfPair y]
+        procParams @ [ cutMessageName ^ ".Key"; valueOfPair y ]
     | hd :: tl ->
         let argList = ref [] in
         let hdtype = obj_internal_type hd.param_type in
         if List.for_all (fun x -> hdtype = obj_internal_type x.param_type) tl
         then (
           explode_array cutMessageName (List.length messageParams) argList ;
-          procParams @ !argList
-        ) else (
+          procParams @ !argList )
+        else (
           Printf.eprintf "%s" message.msg_name ;
-          assert false
-        )
+          assert false )
     | _ ->
         Printf.eprintf "%s" message.msg_name ;
-        assert false
-  )
-  | _ -> (
-    match params with
+        assert false )
+  | _ ->
+    ( match params with
     | [] ->
         []
     | h :: tl ->
-        api_call_param h :: gen_param_list classname tl message commonVerb
-  )
+        api_call_param h :: gen_param_list classname tl message commonVerb )
+
 
 and explode_array name length result =
   for i = length - 1 downto 0 do
     result := sprintf "%s[%s]" name (string_of_int i) :: !result
   done
 
+
 and is_class param classname =
   String.lowercase_ascii param.param_name = "self"
   || String.lowercase_ascii param.param_name = String.lowercase_ascii classname
+
 
 let _ = main ()

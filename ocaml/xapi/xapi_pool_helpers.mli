@@ -37,8 +37,7 @@ val call_fn_on_master_then_slaves :
   -> (   rpc:(Rpc.call -> Rpc.response)
       -> session_id:API.ref_session
       -> host:API.ref_host
-      -> 'a
-     )
+      -> 'a )
   -> unit
 (** Call the function on the master, then on each of the slaves in turn. Useful
     when attaching an SR to all hosts in the pool. *)
@@ -47,18 +46,17 @@ val call_fn_on_slaves_then_master :
      __context:Context.t
   -> (   rpc:(Rpc.call -> Rpc.response)
       -> session_id:API.ref_session
-      -> host:[`host] Ref.t
-      -> 'a
-     )
+      -> host:[ `host ] Ref.t
+      -> 'a )
   -> unit
 (** Call the function on the slaves first. When those calls have all
  *  returned, call the function on the master. *)
 
 val get_master_slaves_list_with_fn :
-  __context:Context.t -> ([`host] Ref.t -> [`host] Ref.t list -> 'a) -> 'a
+  __context:Context.t -> ([ `host ] Ref.t -> [ `host ] Ref.t list -> 'a) -> 'a
 
-val get_master_slaves_list : __context:Context.t -> [`host] Ref.t list
+val get_master_slaves_list : __context:Context.t -> [ `host ] Ref.t list
 
-val get_slaves_list : __context:Context.t -> [`host] Ref.t list
+val get_slaves_list : __context:Context.t -> [ `host ] Ref.t list
 
 val apply_guest_agent_config : __context:Context.t -> unit

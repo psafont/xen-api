@@ -12,7 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "http_proxy" end)
+module D = Debug.Make (struct
+  let name = "http_proxy"
+end)
 
 open D
 open Xmlrpc_client
@@ -39,21 +41,26 @@ let one request fromfd s =
       let (_ : int64) = Unixext.copy_file ?limit fromfd s in
       (* Receive response headers from master *)
       let response =
-        Option.value ~default:Http.Response.internal_error
+        Option.value
+          ~default:Http.Response.internal_error
           (Http_client.response_of_fd s)
       in
       (* Transmit response headers to client *)
       Unixext.really_write_string fromfd (Http.Response.to_wire_string response) ;
-      if response.Http.Response.code = "200" then
+      if response.Http.Response.code = "200"
+      then
         (* If there is a request payload then transmit *)
         let (_ : int64) =
-          Unixext.copy_file ?limit:response.Http.Response.content_length s
+          Unixext.copy_file
+            ?limit:response.Http.Response.content_length
+            s
             fromfd
         in
         ()
   | m ->
       error "Proxy doesn't support: %s" (Http.string_of_method_t m) ;
       Http_svr.response_forbidden ~req:request fromfd
+
 
 let server = ref None
 
@@ -68,8 +75,7 @@ let http_proxy src_ip src_port transport =
         let request, _ = Http_svr.request_of_bio bio in
         Option.iter
           (fun request -> with_transport transport (one request fromfd))
-          request
-        )
+          request )
       (fun () -> Unix.close fromfd)
   in
   try
@@ -80,7 +86,9 @@ let http_proxy src_ip src_port transport =
         Option.iter (fun server -> server.Server_io.shutdown ()) !server ;
         (* Make sure we don't try to double-close the server *)
         server := None ;
-        let handler = {Server_io.name= "http_proxy"; body= tcp_connection} in
+        let handler =
+          { Server_io.name = "http_proxy"; body = tcp_connection }
+        in
         let sock =
           Unix.socket (Unix.domain_of_sockaddr sockaddr) Unix.SOCK_STREAM 0
         in
@@ -92,19 +100,21 @@ let http_proxy src_ip src_port transport =
             | Unix.ADDR_INET _ ->
                 Xapi_stdext_unix.Unixext.set_tcp_nodelay sock true
             | _ ->
-                ()
-            ) ;
-            Unix.bind sock sockaddr ; Unix.listen sock 128
-          with e ->
-            debug "Caught exception in Http_svr.bind (closing socket): %s"
+                () ) ;
+            Unix.bind sock sockaddr ;
+            Unix.listen sock 128
+          with
+        | e ->
+            debug
+              "Caught exception in Http_svr.bind (closing socket): %s"
               (Printexc.to_string e) ;
             Unix.close sock ;
-            raise e
-        ) ;
+            raise e ) ;
         let s = Server_io.server handler sock in
-        server := Some s
-    )
-  with e ->
-    error "Caught exception setting up proxy from internal network: %s"
-      (Printexc.to_string e) ;
-    raise e
+        server := Some s )
+  with
+  | e ->
+      error
+        "Caught exception setting up proxy from internal network: %s"
+        (Printexc.to_string e) ;
+      raise e

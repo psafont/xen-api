@@ -15,9 +15,12 @@
 let string_of_vdi_type vdi_type =
   Rpc.string_of_rpc (API.rpc_of_vdi_type vdi_type)
 
+
 let vdi_type_of_string str = API.vdi_type_of_rpc (Rpc.String str)
 
-module D = Debug.Make (struct let name = "storage_utils" end)
+module D = Debug.Make (struct
+  let name = "storage_utils"
+end)
 
 open D
 
@@ -29,8 +32,8 @@ let redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn =
   let rec rpc ~f call =
     (* on first iteration this will be the [local_fn] supplied by the caller *)
     let result = f call in
-    if result.Rpc.success then
-      result
+    if result.Rpc.success
+    then result
     else
       let rpcstr = Rpc.string_of_call call in
       debug
@@ -38,7 +41,8 @@ let redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn =
         rpcstr
         (Jsonrpc.to_string result.Rpc.contents) ;
       match
-        Rpcmarshal.unmarshal Storage_interface.Errors.error.Rpc.Types.ty
+        Rpcmarshal.unmarshal
+          Storage_interface.Errors.error.Rpc.Types.ty
           result.Rpc.contents
       with
       | Ok (Storage_interface.Errors.Redirect (Some ip)) ->
@@ -55,12 +59,11 @@ let redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn =
   in
   rpc ~f:local_fn
 
+
 let storage_url ?pool_secret url = (url, pool_secret)
 
 let remote_url ip =
   Http.Url.
-    ( Http {host= ip; auth= None; port= None; ssl= true}
-    , {uri= Constants.sm_uri; query_params= []}
-    )
-  
+    ( Http { host = ip; auth = None; port = None; ssl = true }
+    , { uri = Constants.sm_uri; query_params = [] } )
   |> storage_url ~pool_secret:(Xapi_globs.pool_secret ())

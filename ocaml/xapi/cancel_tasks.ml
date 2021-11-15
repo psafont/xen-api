@@ -14,16 +14,21 @@
 
 (* TODO: add code here for the cluster and cluster_host records? *)
 
-module D = Debug.Make (struct let name = "dbsync" end)
+module D = Debug.Make (struct
+  let name = "dbsync"
+end)
 
 open D
 
 let safe_wrapper n f x =
-  try f x
-  with e ->
-    debug "Caught exception while cancelling tasks (%s): %s" n
-      (ExnHelper.string_of_exn e) ;
-    Debug.log_backtrace e (Backtrace.get e)
+  try f x with
+  | e ->
+      debug
+        "Caught exception while cancelling tasks (%s): %s"
+        n
+        (ExnHelper.string_of_exn e) ;
+      Debug.log_backtrace e (Backtrace.get e)
+
 
 let update_all_allowed_operations ~__context =
   let open Stats in
@@ -40,34 +45,25 @@ let update_all_allowed_operations ~__context =
       debug "Updating allowed operations: VM" ;
       List.iter
         (safe_wrapper "allowed_ops - VMs" (fun self ->
-             Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
-         )
-        )
+             Xapi_vm_lifecycle.update_allowed_operations ~__context ~self ) )
         all_vms ;
-      debug "Finished updating allowed operations: VM"
-  ) ;
+      debug "Finished updating allowed operations: VM" ) ;
   (* VBD *)
   time_this "Cancel_tasks.update_all_allowed_operations: VBD" (fun () ->
       debug "Updating allowed operations: VBD" ;
       List.iter
         (safe_wrapper "allowed_ops - VBDs" (fun self ->
-             Xapi_vbd_helpers.update_allowed_operations ~__context ~self
-         )
-        )
+             Xapi_vbd_helpers.update_allowed_operations ~__context ~self ) )
         all_vbds ;
-      debug "Finished updating allowed operations: VBD"
-  ) ;
+      debug "Finished updating allowed operations: VBD" ) ;
   (* VIF *)
   time_this "Cancel_tasks.update_all_allowed_operations: VIF" (fun () ->
       debug "Updating allowed operations: VIF" ;
       List.iter
         (safe_wrapper "allowed_ops - VIFs" (fun self ->
-             Xapi_vif_helpers.update_allowed_operations ~__context ~self
-         )
-        )
+             Xapi_vif_helpers.update_allowed_operations ~__context ~self ) )
         all_vifs ;
-      debug "Finished updating allowed operations: VIF"
-  ) ;
+      debug "Finished updating allowed operations: VIF" ) ;
   (* VDI *)
   time_this "Cancel_tasks.update_all_allowed_operations: VDI" (fun () ->
       debug "Updating allowed operations: VDI" ;
@@ -93,46 +89,42 @@ let update_all_allowed_operations ~__context =
                  (fun (_, vbd_record) -> vbd_record.Db_actions.vBD_VDI = self)
                  vbd_records
              in
-             Xapi_vdi.update_allowed_operations_internal ~__context ~self
-               ~sr_records ~pbd_records ~vbd_records:relevant_vbds ()
-         )
-        )
+             Xapi_vdi.update_allowed_operations_internal
+               ~__context
+               ~self
+               ~sr_records
+               ~pbd_records
+               ~vbd_records:relevant_vbds
+               () ) )
         all_vdis ;
-      debug "Finished updating allowed operations: VDI"
-  ) ;
+      debug "Finished updating allowed operations: VDI" ) ;
   (* SR *)
   time_this "Cancel_tasks.update_all_allowed_operations: SR" (fun () ->
       debug "Updating allowed operations: SR" ;
       List.iter
         (safe_wrapper "allowed_ops" (fun self ->
              Db.SR.set_current_operations ~__context ~self ~value:[] ;
-             Xapi_sr_operations.update_allowed_operations ~__context ~self
-         )
-        )
+             Xapi_sr_operations.update_allowed_operations ~__context ~self ) )
         all_srs ;
-      debug "Finished updating allowed operations: SR"
-  ) ;
+      debug "Finished updating allowed operations: SR" ) ;
   (* Host *)
   time_this "Cancel_tasks.update_all_allowed_operations: host" (fun () ->
       debug "Updating allowed operations: host" ;
       List.iter
         (safe_wrapper "allowed_ops - host" (fun self ->
-             Xapi_host_helpers.update_allowed_operations ~__context ~self
-         )
-        )
+             Xapi_host_helpers.update_allowed_operations ~__context ~self ) )
         all_hosts ;
-      debug "Finished updating allowed operations: host"
-  ) ;
+      debug "Finished updating allowed operations: host" ) ;
   (* Pool *)
   time_this "Cancel_tasks.update_all_allowed_operations: pool" (fun () ->
       debug "Updating allowed operations: pool" ;
-      safe_wrapper "allowed_ops - pool"
+      safe_wrapper
+        "allowed_ops - pool"
         (fun pool ->
-          Xapi_pool_helpers.update_allowed_operations ~__context ~self:pool
-          )
+          Xapi_pool_helpers.update_allowed_operations ~__context ~self:pool )
         pool ;
-      debug "Finished updating allowed operations: pool"
-  )
+      debug "Finished updating allowed operations: pool" )
+
 
 (* !!! This code was written in a world when tasks, current_operations and allowed_operations were persistent.
    This is no longer the case (we changed this to reduce writes to flash for OEM case + to simplify xapi logic elsewhere).
@@ -158,10 +150,11 @@ let cancelled_m = Mutex.create ()
 let cancel_tasks_on_host ~__context ~host_opt =
   Xapi_stdext_threads.Threadext.Mutex.execute cancelled_m (fun () ->
       (* Block Pool.hello on behalf of slaves until the master has finished the initial resync *)
-      if host_opt = None (* initial sync, not Pool.hello *) then (
+      if host_opt = None (* initial sync, not Pool.hello *)
+      then (
         master_finished_initial_cancel := true ;
-        Condition.broadcast cancelled_c
-      ) else
+        Condition.broadcast cancelled_c )
+      else
         while not !master_finished_initial_cancel do
           Condition.wait cancelled_c cancelled_m
         done ;
@@ -174,26 +167,23 @@ let cancel_tasks_on_host ~__context ~host_opt =
         | Some host ->
             debug "cancel_tasks_on_host: host = %s" (Ref.string_of host) ;
             let should_cancel =
-              if List.mem host !hosts_already_cancelled then
-                true
+              if List.mem host !hosts_already_cancelled
+              then true
               else (
                 hosts_already_cancelled := host :: !hosts_already_cancelled ;
-                false
-              )
+                false )
             in
             ( List.filter
                 (fun t -> Db.Task.get_resident_on ~__context ~self:t = host)
                 tasks
-            , should_cancel
-            )
+            , should_cancel )
       in
       let mytask = Context.get_task_id __context in
       let incomplete_tasks =
         List.filter
           (fun t ->
             let s = Db.Task.get_status ~__context ~self:t in
-            t <> mytask && (s = `pending || s = `cancelling)
-            )
+            t <> mytask && (s = `pending || s = `cancelling) )
           this_host_tasks
       in
       (* Need to remove any current_operations associated with these tasks *)
@@ -206,71 +196,73 @@ let cancel_tasks_on_host ~__context ~host_opt =
       let task_ids = List.map Ref.string_of incomplete_tasks in
       List.iter
         (safe_wrapper "vm_lifecycle" (fun self ->
-             Xapi_vm_lifecycle.cancel_tasks ~__context ~self
-               ~all_tasks_in_db:tasks ~task_ids
-         )
-        )
+             Xapi_vm_lifecycle.cancel_tasks
+               ~__context
+               ~self
+               ~all_tasks_in_db:tasks
+               ~task_ids ) )
         all_vms ;
       List.iter
         (safe_wrapper "vbd_helpers" (fun self ->
-             Xapi_vbd_helpers.cancel_tasks ~__context ~self
-               ~all_tasks_in_db:tasks ~task_ids
-         )
-        )
+             Xapi_vbd_helpers.cancel_tasks
+               ~__context
+               ~self
+               ~all_tasks_in_db:tasks
+               ~task_ids ) )
         all_vbds ;
       List.iter
         (safe_wrapper "vif_helpers" (fun self ->
-             Xapi_vif_helpers.cancel_tasks ~__context ~self
-               ~all_tasks_in_db:tasks ~task_ids
-         )
-        )
+             Xapi_vif_helpers.cancel_tasks
+               ~__context
+               ~self
+               ~all_tasks_in_db:tasks
+               ~task_ids ) )
         all_vifs ;
       List.iter
         (safe_wrapper "vdis" (fun self ->
-             Xapi_vdi.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks
-               ~task_ids
-         )
-        )
+             Xapi_vdi.cancel_tasks
+               ~__context
+               ~self
+               ~all_tasks_in_db:tasks
+               ~task_ids ) )
         all_vdis ;
       List.iter
         (safe_wrapper "sr" (fun self ->
-             Xapi_sr_operations.cancel_tasks ~__context ~self
-               ~all_tasks_in_db:tasks ~task_ids
-         )
-        )
+             Xapi_sr_operations.cancel_tasks
+               ~__context
+               ~self
+               ~all_tasks_in_db:tasks
+               ~task_ids ) )
         all_srs ;
       List.iter
         (safe_wrapper "host" (fun self ->
-             Xapi_host_helpers.cancel_tasks ~__context ~self
-               ~all_tasks_in_db:tasks ~task_ids
-         )
-        )
+             Xapi_host_helpers.cancel_tasks
+               ~__context
+               ~self
+               ~all_tasks_in_db:tasks
+               ~task_ids ) )
         all_hosts ;
       let hosts =
         Option.fold
           ~none:(Db.Host.get_all ~__context)
-          ~some:(fun x -> [x])
+          ~some:(fun x -> [ x ])
           host_opt
       in
       List.iter
         (safe_wrapper "host_helpers - cancel tasks" (fun self ->
-             Xapi_host_helpers.cancel_tasks ~__context ~self
-               ~all_tasks_in_db:tasks ~task_ids
-         )
-        )
+             Xapi_host_helpers.cancel_tasks
+               ~__context
+               ~self
+               ~all_tasks_in_db:tasks
+               ~task_ids ) )
         hosts ;
       List.iter
         (safe_wrapper "host_helpers - allowed ops" (fun self ->
-             Xapi_host_helpers.update_allowed_operations ~__context ~self
-         )
-        )
+             Xapi_host_helpers.update_allowed_operations ~__context ~self ) )
         hosts ;
       List.iter
         (safe_wrapper "destroy_tasks" (fun task ->
-             TaskHelper.destroy ~__context task
-         )
-        )
+             TaskHelper.destroy ~__context task ) )
         incomplete_tasks ;
-      if should_update_all_allowed_operations then
-        update_all_allowed_operations ~__context
-  )
+      if should_update_all_allowed_operations
+      then update_all_allowed_operations ~__context )

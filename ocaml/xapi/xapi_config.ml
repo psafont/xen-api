@@ -17,12 +17,15 @@
 open Xapi_globs
 open Printf
 
-module D = Debug.Make (struct let name = "xapi_config" end)
+module D = Debug.Make (struct
+  let name = "xapi_config"
+end)
 
 open D
 
 let log_if_not_empty format_string value =
   if value <> "" then debug format_string value
+
 
 let dump_config () =
   debug "Server configuration:" ;

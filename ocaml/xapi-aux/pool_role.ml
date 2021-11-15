@@ -18,7 +18,9 @@
 module Mutex = Xapi_stdext_threads.Threadext.Mutex
 module Unixext = Xapi_stdext_unix.Unixext
 
-module D = Debug.Make (struct let name = "pool_role" end)
+module D = Debug.Make (struct
+  let name = "pool_role"
+end)
 
 open D
 
@@ -40,8 +42,8 @@ let with_pool_role_lock f = Mutex.execute role_m f
 let set_pool_role_for_test () =
   with_pool_role_lock (fun _ ->
       role := Some Master ;
-      role_unit_tests := true
-  )
+      role_unit_tests := true )
+
 
 let is_unit_test () = with_pool_role_lock (fun _ -> !role_unit_tests)
 
@@ -53,32 +55,35 @@ let string_of = function
   | Broken ->
       "broken"
 
+
 let read_pool_role () =
   try
     let s =
       Astring.String.trim (Unixext.string_of_file !Constants.pool_config_file)
     in
     match Astring.String.cuts ~sep:":" s with
-    | ["master"] ->
+    | [ "master" ] ->
         Master
     | "slave" :: m_ip ->
         Slave (String.concat ":" m_ip)
-    | ["broken"] ->
+    | [ "broken" ] ->
         Broken
     | _ ->
         failwith
           (Printf.sprintf "cannot parse pool_role '%s' from pool config file" s)
-  with _ ->
-    (* If exec name is suite.opt, we're running as unit tests *)
-    if "xapi" <> Filename.basename Sys.executable_name then (
-      debug
-        "Executable name is not 'xapi', so we must be running in unit-test \
-         mode; setting pool-role to 'Master'" ;
-      Master
-    ) else (
-      error "Failed to read pool role from %s" !Constants.pool_config_file ;
-      Broken
-    )
+  with
+  | _ ->
+      (* If exec name is suite.opt, we're running as unit tests *)
+      if "xapi" <> Filename.basename Sys.executable_name
+      then (
+        debug
+          "Executable name is not 'xapi', so we must be running in unit-test \
+           mode; setting pool-role to 'Master'" ;
+        Master )
+      else (
+        error "Failed to read pool role from %s" !Constants.pool_config_file ;
+        Broken )
+
 
 let get_role () =
   with_pool_role_lock (fun _ ->
@@ -88,8 +93,8 @@ let get_role () =
       | None ->
           let r = read_pool_role () in
           role := Some r ;
-          r
-  )
+          r )
+
 
 let is_master () = get_role () = Master
 
@@ -109,6 +114,7 @@ let get_master_address () =
       raise This_host_is_a_master
   | Broken ->
       raise This_host_is_broken
+
 
 let get_master_address_opt () =
   match get_role () with Slave ip -> Some ip | Master | Broken -> None

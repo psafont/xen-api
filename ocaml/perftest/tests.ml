@@ -20,12 +20,12 @@ open Xapi_stdext_pervasives.Pervasiveext
 open Testtypes
 open Perfdebug
 
-type test = {
-    run: bool
-  ; key: string
-  ; testname: string
-  ; func: (Rpc.call -> Rpc.response) -> API.ref_session -> test -> result list
-}
+type test =
+  { run : bool
+  ; key : string
+  ; testname : string
+  ; func : (Rpc.call -> Rpc.response) -> API.ref_session -> test -> result list
+  }
 
 let time f =
   let now = Unix.gettimeofday () in
@@ -33,11 +33,10 @@ let time f =
   let elapsed = Unix.gettimeofday () -. now in
   elapsed
 
+
 let subtest_string key tag =
-  if tag = "" then
-    key
-  else
-    Printf.sprintf "%s (%s)" key tag
+  if tag = "" then key else Printf.sprintf "%s (%s)" key tag
+
 
 let startall rpc session_id test =
   let vms = Client.VM.get_all_records rpc session_id in
@@ -52,8 +51,7 @@ let startall rpc session_id test =
       let vms =
         List.sort
           (fun (vm1, vmr1) (vm2, vmr2) ->
-            compare vmr1.API.vM_affinity vmr2.API.vM_affinity
-            )
+            compare vmr1.API.vM_affinity vmr2.API.vM_affinity )
           vms
       in
       let vms_names_uuids =
@@ -69,18 +67,16 @@ let startall rpc session_id test =
               time (fun () -> Client.VM.start rpc session_id vm false false)
             in
             debug "Elapsed time: %f" result ;
-            result
-            )
+            result )
           vms_names_uuids
       in
-      {
-        resultname= test.testname
-      ; subtest= subtest_string test.key tag
-      ; xenrtresult= List.fold_left ( +. ) 0.0 times
-      ; rawresult= StartTest times
-      }
-      )
+      { resultname = test.testname
+      ; subtest = subtest_string test.key tag
+      ; xenrtresult = List.fold_left ( +. ) 0.0 times
+      ; rawresult = StartTest times
+      } )
     tags
+
 
 let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
   (* Not starting in affinity order *)
@@ -107,12 +103,15 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
       Mutex.execute m (fun () ->
           List.iter
             (fun task ->
-              if List.mem task !active_tasks then (
-                ( if not (Hashtbl.mem tasks_to_vm task) then
-                    debug ~out:stderr
-                      "Ignoring completed task which doesn't correspond to a \
-                       VM %s"
-                      opname
+              if List.mem task !active_tasks
+              then (
+                ( if not (Hashtbl.mem tasks_to_vm task)
+                then
+                  debug
+                    ~out:stderr
+                    "Ignoring completed task which doesn't correspond to a VM \
+                     %s"
+                    opname
                 else
                   let uuid = Hashtbl.find tasks_to_vm task in
                   let started = Hashtbl.find vm_to_start_time uuid in
@@ -121,16 +120,12 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
                   debug "%sing VM uuid '%s'" opname uuid ;
                   debug "Elapsed time: %f" time_taken ;
                   Hashtbl.remove vm_to_start_time uuid ;
-                  Hashtbl.remove tasks_to_vm task
-                ) ;
+                  Hashtbl.remove tasks_to_vm task ) ;
                 active_tasks := List.filter (fun x -> x <> task) !active_tasks ;
                 Condition.signal c ;
-                to_delete := task :: !to_delete
-              )
-              )
+                to_delete := task :: !to_delete ) )
             finished ;
-          !active_tasks = [] (* true if no active tasks left *)
-      )
+          !active_tasks = [] (* true if no active tasks left *) )
     in
     List.iter
       (fun task -> Client.Task.destroy ~rpc ~session_id ~self:task)
@@ -140,7 +135,7 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
   (* Run this in a thread body to create a thread which will process each task completion and then terminate when all the
      tasks have finished. *)
   let check_active_tasks () =
-    let classes = ["task"] in
+    let classes = [ "task" ] in
     finally
       (fun () ->
         let finished = ref false in
@@ -167,37 +162,30 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
                   (List.map
                      (function
                        | Event_helper.Task (t, Some t_rec) ->
-                           if
-                             t_rec.API.task_status <> `pending
-                             || t_rec.API.task_current_operations <> []
-                           then
-                             [t]
-                           else
-                             []
+                           if t_rec.API.task_status <> `pending
+                              || t_rec.API.task_current_operations <> []
+                           then [ t ]
+                           else []
                        | Event_helper.Task (t, None) ->
-                           [t]
+                           [ t ]
                        | _ ->
-                           []
-                       )
-                     events
-                  )
+                           [] )
+                     events )
               in
               finished := process_finished_tasks finished_tasks
             done
           with
-          | Api_errors.Server_error (code, _)
-          when code = Api_errors.events_lost
-          ->
-            debug ~out:stderr "Caught EVENTS_LOST; reregistering" ;
-            Client.Event.unregister ~rpc ~session_id ~classes
-        done
-        )
+          | Api_errors.Server_error (code, _) when code = Api_errors.events_lost
+            ->
+              debug ~out:stderr "Caught EVENTS_LOST; reregistering" ;
+              Client.Event.unregister ~rpc ~session_id ~classes
+        done )
       (fun () -> Client.Event.unregister ~rpc ~session_id ~classes)
   in
   let control_task =
     Client.Task.create rpc session_id ("Parallel VM " ^ opname ^ " test") ""
   in
-  active_tasks := [control_task] ;
+  active_tasks := [ control_task ] ;
   let thread = Thread.create check_active_tasks () in
   while !vms_to_start <> [] do
     let start_one () =
@@ -208,26 +196,24 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
           debug ~out:stderr "Issued VM %s for '%s'" opname uuid ;
           Hashtbl.add tasks_to_vm task uuid ;
           Hashtbl.add vm_to_start_time uuid (Unix.gettimeofday ()) ;
-          active_tasks := task :: !active_tasks
-      )
+          active_tasks := task :: !active_tasks )
     in
     (* Only start at most 'n' at once. Note that the active_task list includes a master control task *)
     Mutex.execute m (fun () ->
         while List.length !active_tasks > n do
           Condition.wait c m
-        done
-    ) ;
+        done ) ;
     start_one ()
   done ;
   Client.Task.cancel ~rpc ~session_id ~task:control_task ;
   debug ~out:stderr "Finished %sing VMs" opname ;
   Thread.join thread ;
-  {
-    resultname= test.testname
-  ; subtest= subtest_name
-  ; xenrtresult= List.fold_left ( +. ) 0.0 !results
-  ; rawresult= StartTest !results
+  { resultname = test.testname
+  ; subtest = subtest_name
+  ; xenrtresult = List.fold_left ( +. ) 0.0 !results
+  ; rawresult = StartTest !results
   }
+
 
 (** @param n the maximum number of concurrent invocations of async_op *)
 let parallel async_op opname n rpc session_id test =
@@ -241,13 +227,21 @@ let parallel async_op opname n rpc session_id test =
         List.filter (fun (vm, vmr) -> List.mem tag vmr.API.vM_tags) vms
       in
       Printf.printf "%sing %d VMs with tag: %s\n%!" opname (List.length vms) tag ;
-      parallel_with_vms async_op opname n vms rpc session_id test
-        (subtest_string test.key tag)
-      )
+      parallel_with_vms
+        async_op
+        opname
+        n
+        vms
+        rpc
+        session_id
+        test
+        (subtest_string test.key tag) )
     tags
+
 
 let parallel_startall =
   parallel (Client.Async.VM.start ~start_paused:false ~force:false) "start"
+
 
 let parallel_stopall = parallel Client.Async.VM.hard_shutdown "stop"
 
@@ -264,8 +258,7 @@ let stopall rpc session_id test =
       let vms =
         List.sort
           (fun (vm1, vmr1) (vm2, vmr2) ->
-            compare vmr1.API.vM_affinity vmr2.API.vM_affinity
-            )
+            compare vmr1.API.vM_affinity vmr2.API.vM_affinity )
           vms
       in
       let vms_names_uuids =
@@ -281,18 +274,16 @@ let stopall rpc session_id test =
               time (fun () -> Client.VM.hard_shutdown rpc session_id vm)
             in
             debug "Elapsed time: %f" result ;
-            result
-            )
+            result )
           vms_names_uuids
       in
-      {
-        resultname= test.testname
-      ; subtest= subtest_string test.key tag
-      ; xenrtresult= List.fold_left ( +. ) 0.0 times
-      ; rawresult= ShutdownTest times
-      }
-      )
+      { resultname = test.testname
+      ; subtest = subtest_string test.key tag
+      ; xenrtresult = List.fold_left ( +. ) 0.0 times
+      ; rawresult = ShutdownTest times
+      } )
     tags
+
 
 let clone num_clones rpc session_id test =
   Printf.printf "Doing clone test\n%!" ;
@@ -310,18 +301,22 @@ let clone num_clones rpc session_id test =
          (* Start a thread to clone each one n times *)
          let body (vm, vmr, res, clone_refs) =
            let name_label = vmr.API.vM_name_label in
-           Printf.printf "Performing %d clones of '%s' within thread...\n%!"
-             num_clones name_label ;
+           Printf.printf
+             "Performing %d clones of '%s' within thread...\n%!"
+             num_clones
+             name_label ;
            for j = 0 to num_clones - 1 do
              let result =
                time (fun () ->
                    let clone =
                      Client.VM.clone ~rpc ~session_id ~vm ~new_name:"clone"
                    in
-                   clone_refs := clone :: !clone_refs
-               )
+                   clone_refs := clone :: !clone_refs )
              in
-             Printf.printf "clone %d of '%s' finished: %f\n%!" j name_label
+             Printf.printf
+               "clone %d of '%s' finished: %f\n%!"
+               j
+               name_label
                result ;
              res := result :: !res
            done
@@ -332,8 +327,7 @@ let clone num_clones rpc session_id test =
                let res : float list ref = ref [] in
                let clones : API.ref_VM list ref = ref [] in
                let t = Thread.create body (vm, vmr, res, clones) in
-               (t, (res, clones))
-               )
+               (t, (res, clones)) )
              vms
          in
          let threads, times_and_clones = List.split threads_and_results in
@@ -343,30 +337,28 @@ let clone num_clones rpc session_id test =
          Printf.printf "Threads have finished\n%!" ;
          (* times is a list of (list of floats, each being the time to clone a VM), one per SR *)
          let times = List.map (fun x -> !x) times in
-         Printf.printf "Times are: [%s]\n%!"
-           (String.concat ", "
+         Printf.printf
+           "Times are: [%s]\n%!"
+           (String.concat
+              ", "
               (List.map
                  (fun x ->
-                   Printf.sprintf "[%s]"
-                     (String.concat ", "
-                        (List.map (fun x -> Printf.sprintf "%f" x) x)
-                     )
-                   )
-                 times
-              )
-           ) ;
+                   Printf.sprintf
+                     "[%s]"
+                     (String.concat
+                        ", "
+                        (List.map (fun x -> Printf.sprintf "%f" x) x) ) )
+                 times ) ) ;
          let clones = List.map (fun x -> !x) clones in
          (* Output the results for cloning each gold VM as a separate record *)
          let results =
            List.map
              (fun x ->
-               {
-                 resultname= test.testname
-               ; subtest= subtest_string test.key tag
-               ; xenrtresult= List.fold_left ( +. ) 0.0 (List.flatten times)
-               ; rawresult= CloneTest x
-               }
-               )
+               { resultname = test.testname
+               ; subtest = subtest_string test.key tag
+               ; xenrtresult = List.fold_left ( +. ) 0.0 (List.flatten times)
+               ; rawresult = CloneTest x
+               } )
              times
          in
          (* Best-effort clean-up *)
@@ -391,95 +383,89 @@ let clone num_clones rpc session_id test =
                            in
                            List.iter
                              (fun vdi ->
-                               Client.VDI.destroy ~rpc ~session_id ~self:vdi
-                               )
+                               Client.VDI.destroy ~rpc ~session_id ~self:vdi )
                              vdis ;
-                           Client.VM.destroy ~rpc ~session_id ~self:clone
-                           )
-                         clones
-                       )
-                     clones
-                   )
+                           Client.VM.destroy ~rpc ~session_id ~self:clone )
+                         clones )
+                     clones )
                  clones
              in
              Printf.printf "Waiting for clean-up threads to finish...\n%!" ;
              List.iter (fun t -> Thread.join t) threads ;
-             Printf.printf "Clean-up threads have finished\n%!"
-         ) ;
+             Printf.printf "Clean-up threads have finished\n%!" ) ;
          (* Finally, return the results *)
-         results
-         )
-       tags
-    )
+         results )
+       tags )
+
 
 let recordssize rpc session_id test =
   let doxmlrpctest (subtestname, testfn) =
     testfn () ;
     let res = Int64.to_float !Http_client.last_content_length in
-    {
-      resultname= test.testname
-    ; subtest= subtestname
-    ; xenrtresult= res
-    ; rawresult= SizeTest res
+    { resultname = test.testname
+    ; subtest = subtestname
+    ; xenrtresult = res
+    ; rawresult = SizeTest res
     }
   in
-  List.map doxmlrpctest
-    [
-      ("VM records", fun () -> ignore (Client.VM.get_all_records rpc session_id))
+  List.map
+    doxmlrpctest
+    [ ("VM records", fun () -> ignore (Client.VM.get_all_records rpc session_id))
     ; ( "VBD records"
-      , fun () -> ignore (Client.VBD.get_all_records rpc session_id)
-      )
+      , fun () -> ignore (Client.VBD.get_all_records rpc session_id) )
     ; ( "VIF records"
-      , fun () -> ignore (Client.VIF.get_all_records rpc session_id)
-      )
+      , fun () -> ignore (Client.VIF.get_all_records rpc session_id) )
     ; ( "VDI records"
-      , fun () -> ignore (Client.VDI.get_all_records rpc session_id)
-      )
+      , fun () -> ignore (Client.VDI.get_all_records rpc session_id) )
     ; ("SR records", fun () -> ignore (Client.SR.get_all_records rpc session_id))
     ]
 
+
 let tests key =
-  [
-    {run= true; key; testname= "clone"; func= clone 200}
-  ; {run= true; key; testname= "startall"; func= startall}
-  ; {run= true; key; testname= "recordssize"; func= recordssize}
-  ; {run= true; key; testname= "stopall"; func= stopall}
-  ; {run= false; key; testname= "parallel_startall"; func= parallel_startall 10}
-  ; {run= false; key; testname= "parallel_stopall"; func= parallel_stopall 10}
+  [ { run = true; key; testname = "clone"; func = clone 200 }
+  ; { run = true; key; testname = "startall"; func = startall }
+  ; { run = true; key; testname = "recordssize"; func = recordssize }
+  ; { run = true; key; testname = "stopall"; func = stopall }
+  ; { run = false
+    ; key
+    ; testname = "parallel_startall"
+    ; func = parallel_startall 10
+    }
+  ; { run = false
+    ; key
+    ; testname = "parallel_stopall"
+    ; func = parallel_stopall 10
+    }
   ]
+
 
 let testnames = List.map (fun t -> t.testname) (tests "")
 
 let runtestnames =
   List.map (fun t -> t.testname) (List.filter (fun t -> t.run) (tests ""))
 
+
 let runone rpc session_id test =
   debug "Running test: %s" test.testname ;
   let results = test.func rpc session_id test in
-  debug "Finished: Results=[%s]"
-    (String.concat "; "
+  debug
+    "Finished: Results=[%s]"
+    (String.concat
+       "; "
        (List.map
           (fun result ->
             Printf.sprintf "subtest '%s': %f" result.subtest result.xenrtresult
             )
-          results
-       )
-    ) ;
+          results ) ) ;
   results
+
 
 let run rpc session_id key run_all iter =
   let tests =
-    if run_all then
-      tests key
-    else
-      List.filter (fun t -> t.run) (tests key)
+    if run_all then tests key else List.filter (fun t -> t.run) (tests key)
   in
-  let rec iter_tests n =
-    if n = 1 then
-      tests
-    else
-      tests @ iter_tests (n - 1)
-  in
+  let rec iter_tests n = if n = 1 then tests else tests @ iter_tests (n - 1) in
   List.fold_left
     (fun acc test -> runone rpc session_id test @ acc)
-    [] (iter_tests iter)
+    []
+    (iter_tests iter)

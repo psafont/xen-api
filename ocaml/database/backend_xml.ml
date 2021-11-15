@@ -12,30 +12,31 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "sql" end)
+module D = Debug.Make (struct
+  let name = "sql"
+end)
 
 open D
 open Db_cache_types
 
 let unmarshall schema dbconn =
   let filename = dbconn.Parse_db_conf.path in
-  if not dbconn.Parse_db_conf.compress then
-    Db_xml.From.file schema filename
+  if not dbconn.Parse_db_conf.compress
+  then Db_xml.From.file schema filename
   else
-    let compressed = Unix.openfile filename [Unix.O_RDONLY] 0o0 in
+    let compressed = Unix.openfile filename [ Unix.O_RDONLY ] 0o0 in
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
         let result = ref None in
         Gzip.decompress_passive compressed (fun uncompressed ->
             result :=
               Some
-                (Db_xml.From.channel schema
-                   (Unix.in_channel_of_descr uncompressed)
-                )
-        ) ;
-        match !result with None -> failwith "unmarshal failure" | Some x -> x
-        )
+                (Db_xml.From.channel
+                   schema
+                   (Unix.in_channel_of_descr uncompressed) ) ) ;
+        match !result with None -> failwith "unmarshal failure" | Some x -> x )
       (fun () -> Unix.close compressed)
+
 
 (* Given table name, read all rows from db and store in cache *)
 let populate schema dbconn =
@@ -46,6 +47,7 @@ let populate schema dbconn =
   (* version_check manifest; *)
   db
 
+
 (* atomically flush entire db cache to disk. If we are given a cache then flush that, otherwise flush the
    current state of the global in-memory cache *)
 
@@ -55,11 +57,9 @@ let flush dbconn db =
   let do_flush_xml db filename =
     Redo_log.flush_db_to_all_active_redo_logs db ;
     Unixext.atomic_write_to_file filename 0o0600 (fun fd ->
-        if not dbconn.Parse_db_conf.compress then
-          Db_xml.To.fd fd db
-        else
-          Gzip.compress fd (fun uncompressed -> Db_xml.To.fd uncompressed db)
-    )
+        if not dbconn.Parse_db_conf.compress
+        then Db_xml.To.fd fd db
+        else Gzip.compress fd (fun uncompressed -> Db_xml.To.fd uncompressed db) )
   in
   let do_flush_gen db filename =
     let generation = Manifest.generation (Database.manifest db) in
@@ -69,17 +69,20 @@ let flush dbconn db =
   do_flush_xml db filename ;
   let generation_filename = Parse_db_conf.generation_filename dbconn in
   do_flush_gen db generation_filename ;
-  debug "XML backend [%s] -- Write buffer flushed. Time: %f" filename
+  debug
+    "XML backend [%s] -- Write buffer flushed. Time: %f"
+    filename
     (Unix.gettimeofday () -. time)
+
 
 (* NB We don't do incremental flushing *)
 
 let flush_dirty dbconn =
   let db = Db_ref.get_database (Db_backend.make ()) in
   let g = Manifest.generation (Database.manifest db) in
-  if g > dbconn.Parse_db_conf.last_generation_count then (
+  if g > dbconn.Parse_db_conf.last_generation_count
+  then (
     flush dbconn db ;
     dbconn.Parse_db_conf.last_generation_count <- g ;
-    true
-  ) else
-    false
+    true )
+  else false

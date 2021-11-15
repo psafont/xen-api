@@ -25,19 +25,24 @@ let setup_test ~__context ?sm_fun ?vdi_fun () =
   let sr_record = Db.SR.get_record ~__context ~self:sr_ref in
   (sr_ref, sr_record)
 
+
 let check_same_error_code =
   let open Alcotest in
   let open Alcotest_comparators in
   check (option error_code) "Same error code"
+
 
 let check_operation_error f exn =
   let exn' =
     try
       ignore (f ()) ;
       None
-    with Api_errors.Server_error (c, p) -> Some (c, p)
+    with
+    | Api_errors.Server_error (c, p) ->
+        Some (c, p)
   in
   check_same_error_code exn exn'
+
 
 (** The set of allowed operations must be restricted during rolling pool
     upgrade to the enums known by older releases. *)
@@ -48,27 +53,35 @@ let test_operations_restricted_during_rpu =
     let pool = Test_common.make_pool ~__context ~master () in
     let sr_ref, _ = setup_test ~__context () in
     (* Artificially put xapi into RPU mode - see Helpers.rolling_upgrade_in_progress *)
-    Db.Pool.add_to_other_config ~__context ~self:pool
-      ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"x" ;
+    Db.Pool.add_to_other_config
+      ~__context
+      ~self:pool
+      ~key:Xapi_globs.rolling_upgrade_in_progress
+      ~value:"x" ;
     (* Check that a recent allowed_operation won't appear in allowed_operations
      * during RPU mode, and that the error is correct *)
     check_operation_error
       (fun () ->
-        Xapi_sr_operations.assert_operation_valid ~__context ~self:sr_ref
-          ~op:`vdi_enable_cbt
-        )
+        Xapi_sr_operations.assert_operation_valid
+          ~__context
+          ~self:sr_ref
+          ~op:`vdi_enable_cbt )
       (Some (Api_errors.not_supported_during_upgrade, [])) ;
     (* Take us out of RPU mode*)
-    Db.Pool.remove_from_other_config ~__context ~self:pool
+    Db.Pool.remove_from_other_config
+      ~__context
+      ~self:pool
       ~key:Xapi_globs.rolling_upgrade_in_progress ;
     (* Check that the operation does appear when we're not in RPU mode *)
     check_operation_error
       (fun () ->
-        Xapi_sr_operations.assert_operation_valid ~__context ~self:sr_ref
-          ~op:`vdi_enable_cbt
-        )
+        Xapi_sr_operations.assert_operation_valid
+          ~__context
+          ~self:sr_ref
+          ~op:`vdi_enable_cbt )
       None
   in
-  [("test_check_operation_error", `Quick, test_check_operation_error)]
+  [ ("test_check_operation_error", `Quick, test_check_operation_error) ]
+
 
 let test = test_operations_restricted_during_rpu

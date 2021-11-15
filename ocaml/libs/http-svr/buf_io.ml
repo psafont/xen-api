@@ -13,12 +13,12 @@
  *)
 (* Buffered IO with timeouts *)
 
-type t = {
-    fd: Unix.file_descr
-  ; mutable buf: bytes
-  ; mutable cur: int
-  ; mutable max: int
-}
+type t =
+  { fd : Unix.file_descr
+  ; mutable buf : bytes
+  ; mutable cur : int
+  ; mutable max : int
+  }
 
 type err =
   | (* Line input is > 1024 chars *)
@@ -36,13 +36,13 @@ let infinite_timeout = -1.
 
 let of_fd fd =
   (* Unix.set_nonblock fd;*)
-  {
-    fd
+  { fd
   ; (* FIXME -- this should be larger. Low for testing *)
-    buf= Bytes.create 1024
-  ; cur= 0
-  ; max= 0
+    buf = Bytes.create 1024
+  ; cur = 0
+  ; max = 0
   }
+
 
 let fd_of t = t.fd
 
@@ -55,23 +55,28 @@ let is_buffer_empty ic = ic.max - ic.cur <= 0
 let assert_buffer_empty ic =
   if not (is_buffer_empty ic) then failwith "Buf_io buffer not empty"
 
+
 (* Shift the unprocessed data to the beginning of the buffer *)
 let shift ic =
-  if ic.cur = Bytes.length ic.buf (* No unprocessed data!*) then (
+  if ic.cur = Bytes.length ic.buf (* No unprocessed data!*)
+  then (
     ic.cur <- 0 ;
-    ic.max <- 0
-  ) else (
+    ic.max <- 0 )
+  else (
     Bytes.blit ic.buf ic.cur ic.buf 0 (ic.max - ic.cur) ;
     ic.max <- ic.max - ic.cur ;
-    ic.cur <- 0
-  )
+    ic.cur <- 0 )
+
 
 (* Check to see if we've got a line (ending in \n) in the buffer *)
 let got_line ic =
   try
     let n = Bytes.index_from ic.buf ic.cur '\n' in
     if n >= ic.max then -1 else n
-  with Not_found -> -1
+  with
+  | Not_found ->
+      -1
+
 
 let is_full ic = ic.cur = 0 && ic.max = Bytes.length ic.buf
 
@@ -79,14 +84,14 @@ let is_full ic = ic.cur = 0 && ic.max = Bytes.length ic.buf
 let fill_buf ~buffered ic timeout =
   let buf_size = Bytes.length ic.buf in
   let fill_no_exc timeout len =
-    let l, _, _ = Unix.select [ic.fd] [] [] timeout in
-    if List.length l <> 0 then (
+    let l, _, _ = Unix.select [ ic.fd ] [] [] timeout in
+    if List.length l <> 0
+    then (
       let n = Unix.read ic.fd ic.buf ic.max len in
       ic.max <- n + ic.max ;
       if n = 0 && len <> 0 then raise Eof ;
-      n
-    ) else
-      -1
+      n )
+    else -1
   in
   (* If there's no space to read, shift *)
   if ic.max = buf_size then shift ic ;
@@ -97,13 +102,14 @@ let fill_buf ~buffered ic timeout =
   in
   (* Select returned nothing to read *)
   if n = -1 then raise Timeout ;
-  if n = space_left then (
+  if n = space_left
+  then (
     shift ic ;
     let tofillsz =
       if buffered then buf_size - ic.max else min (buf_size - ic.max) 1
     in
-    ignore (fill_no_exc 0.0 tofillsz)
-  )
+    ignore (fill_no_exc 0.0 tofillsz) )
+
 
 (** Input one line terminated by \n *)
 let input_line ?(timeout = 60.0) ic =
@@ -112,37 +118,36 @@ let input_line ?(timeout = 60.0) ic =
   let rec get_line () =
     fill_buf ~buffered:false ic timeout ;
     let n = got_line ic in
-    if n < 0 && not (is_full ic) then
-      get_line ()
-    else
-      n
+    if n < 0 && not (is_full ic) then get_line () else n
   in
   let n = if n < 0 then get_line () else n in
   (* Still no \n? then either we've run out of data, or we've run out of space *)
-  if n < 0 then
-    if ic.max = Bytes.length ic.buf then
-      raise (Line Too_long)
+  if n < 0
+  then
+    if ic.max = Bytes.length ic.buf
+    then raise (Line Too_long)
     else (
-      Printf.printf "got: '%s'\n"
+      Printf.printf
+        "got: '%s'\n"
         (Bytes.sub_string ic.buf ic.cur (ic.max - ic.cur)) ;
-      raise (Line No_newline)
-    ) ;
+      raise (Line No_newline) ) ;
   (* Return the line, stripping the newline *)
   let result = Bytes.sub ic.buf ic.cur (n - ic.cur) in
   ic.cur <- n + 1 ;
   result
 
+
 (** Input 'len' characters from ic and put them into the bytestring 'b' starting from 'from' *)
 let rec really_input ?(timeout = 15.0) ic b from len =
-  if len = 0 then
-    ()
+  if len = 0
+  then ()
   else (
     if ic.max - ic.cur < len then fill_buf ~buffered:true ic timeout ;
     let blitlen = if ic.max - ic.cur < len then ic.max - ic.cur else len in
     Bytes.blit ic.buf ic.cur b from blitlen ;
     ic.cur <- ic.cur + blitlen ;
-    really_input ~timeout ic b (from + blitlen) (len - blitlen)
-  )
+    really_input ~timeout ic b (from + blitlen) (len - blitlen) )
+
 
 let really_input_buf ?timeout ic len =
   let blksize = 2048 in

@@ -9,6 +9,7 @@ let default_on_missing_ref f default x =
     when handle_invalid = Api_errors.handle_invalid ->
       default
 
+
 let exists f = List.exists (default_on_missing_ref f false)
 
 let filter f = List.filter (default_on_missing_ref f false)

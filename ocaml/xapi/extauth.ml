@@ -18,7 +18,9 @@
 open Db_actions
 open Auth_signature
 
-module D = Debug.Make (struct let name = "extauth" end)
+module D = Debug.Make (struct
+  let name = "extauth"
+end)
 
 open D
 
@@ -54,6 +56,7 @@ module Ext_auth = struct
         debug "Unknown external authentication type: %s" uat ;
         raise (Unknown_extauth_type uat)
 
+
   (* this is the generic dispatcher that should be used by any function in other xapi modules *)
   let d () =
     (* this function reads auth_type field for this host and returns appropriate
@@ -61,8 +64,7 @@ module Ext_auth = struct
     let auth_type =
       Server_helpers.exec_with_new_task "obtaining auth_type" (fun __context ->
           let host = Helpers.get_localhost ~__context in
-          Db.Host.get_external_auth_type ~__context ~self:host
-      )
+          Db.Host.get_external_auth_type ~__context ~self:host )
     in
     nd auth_type
 end
@@ -89,11 +91,11 @@ let get_event_params ~__context host =
   let service_name =
     Db.Host.get_external_auth_service_name ~__context ~self:host
   in
-  [
-    ("auth_type", auth_type)
+  [ ("auth_type", auth_type)
   ; ("service_name", service_name)
   ; ("ad_backend", !Xapi_globs.extauth_ad_backend)
   ]
+
 
 (* allows extauth hook script to be called only under specific conditions *)
 let can_execute_extauth_hook_script ~__context host event_name =
@@ -101,19 +103,22 @@ let can_execute_extauth_hook_script ~__context host event_name =
   (* if extauth is enabled, we call the hook-script for any event *)
   auth_type <> ""
   || (* otherwise, if extauth is disabled, we call the hook-script only when enabling extauth or initializing xapi *)
-  List.mem event_name
-    [event_name_after_extauth_enable; event_name_after_xapi_initialize]
+  List.mem
+    event_name
+    [ event_name_after_extauth_enable; event_name_after_xapi_initialize ]
+
 
 (* this function should only be used directly by host.{enable,disable}_extauth *)
 (* use the generic call below to avoid concurrency problems between the script and host.{enable,disable}_extauth *)
-let call_extauth_hook_script_in_host_wrapper ~__context host event_name
-    ~call_plugin_fn =
+let call_extauth_hook_script_in_host_wrapper
+    ~__context host event_name ~call_plugin_fn =
   (* CP-709: call extauth-hook-script *)
   (* Forkhelpers.execute_command_get_output hook-script "@PLUGINDIR@/extauth-hook" *)
   (* fork a new thread and call new xapi.host.call-subject-add-hook-script method *)
   (* see xapi_sync.ml *)
   (* host.call-plugins scriptname (calls @PLUGINDIR@/scriptname*)
-  if can_execute_extauth_hook_script ~__context host event_name then (
+  if can_execute_extauth_hook_script ~__context host event_name
+  then (
     try
       let result = call_plugin_fn () in
       debug "Result of Extauth-hook: '%s'" result ;
@@ -132,33 +137,40 @@ let call_extauth_hook_script_in_host_wrapper ~__context host event_name
       | _ as errmsg ->
           (* unexpected result *)
           failwith errmsg
-    with e ->
-      let msg = ExnHelper.string_of_exn e in
-      warn "Extauth-hook failed: exception: %s" msg ;
-      raise e
-      (* FAILED *)
-  ) else (
+    with
+    | e ->
+        let msg = ExnHelper.string_of_exn e in
+        warn "Extauth-hook failed: exception: %s" msg ;
+        raise e
+        (* FAILED *) )
+  else (
     debug
       "Extauth-hook event %s not called in this host because external \
        authentication is disabled."
       event_name ;
-    (host, "") (* hook script was not called, no result to return *)
-  )
+    (host, "") (* hook script was not called, no result to return *) )
+
 
 (* this is the generic call to be used by anyone who wants to call the extauth-hook script *)
 let call_extauth_hook_script_in_host ~__context host event_name =
   let event_params = get_event_params ~__context host in
   let call_plugin_fn () =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.Host.call_plugin rpc session_id
+        Client.Client.Host.call_plugin
+          rpc
+          session_id
           host (* will call extauth plugin with mutex *)
-          extauth_hook_script_name (* script name in @PLUGINDIR@/ *) event_name
+          extauth_hook_script_name
+          (* script name in @PLUGINDIR@/ *) event_name
           (* event name sent to script *) event_params
-        (* parameters sent to event name *)
-    )
+        (* parameters sent to event name *) )
   in
-  call_extauth_hook_script_in_host_wrapper ~__context host event_name
+  call_extauth_hook_script_in_host_wrapper
+    ~__context
+    host
+    event_name
     ~call_plugin_fn
+
 
 type hook_script_result =
   | Hook_Script_Success of string
@@ -170,7 +182,8 @@ let call_extauth_hook_script_in_pool ~__context event_name =
   (* we call the script for each host in the pool, using a best-effort attempt to call *)
   (* all hosts even if one fails *)
   let host = Helpers.get_localhost ~__context in
-  if can_execute_extauth_hook_script ~__context host event_name then
+  if can_execute_extauth_hook_script ~__context host event_name
+  then
     let hosts = Db.Host.get_all ~__context in
     let host_msgs =
       List.map
@@ -180,11 +193,11 @@ let call_extauth_hook_script_in_pool ~__context event_name =
               call_extauth_hook_script_in_host ~__context host event_name
             in
             (host, Hook_Script_Success result)
-          with e ->
-            (* we should not re-raise the exception here, since we want to go through as many hosts as possible *)
-            let msg = ExnHelper.string_of_exn e in
-            (host, Hook_Script_Failure msg)
-          )
+          with
+          | e ->
+              (* we should not re-raise the exception here, since we want to go through as many hosts as possible *)
+              let msg = ExnHelper.string_of_exn e in
+              (host, Hook_Script_Failure msg) )
         hosts
     in
     host_msgs
@@ -193,5 +206,4 @@ let call_extauth_hook_script_in_pool ~__context event_name =
       "Extauth-hook event %s not called in the pool because external \
        authentication is disabled."
       event_name ;
-    []
-  )
+    [] )

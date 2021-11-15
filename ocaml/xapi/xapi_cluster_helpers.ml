@@ -14,12 +14,13 @@
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-let all_cluster_operations = [`add; `remove; `enable; `disable; `destroy]
+let all_cluster_operations = [ `add; `remove; `enable; `disable; `destroy ]
 
 (** check if [op] can be done while [current_ops] are already in progress.*)
 let is_allowed_concurrently ~op ~current_ops =
   (* for now, disallow all concurrent operations *)
   false
+
 
 let report_concurrent_operations_error ~current_ops ~ref_str =
   let current_ops_str =
@@ -27,15 +28,15 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
     match current_ops with
     | [] ->
         failwith "No concurrent operation to report"
-    | [(_, cop)] ->
+    | [ (_, cop) ] ->
         op_to_str cop
     | l ->
         "{" ^ String.concat "," (List.map op_to_str (List.map snd l)) ^ "}"
   in
   Some
     ( Api_errors.other_operation_in_progress
-    , ["Cluster." ^ current_ops_str; ref_str]
-    )
+    , [ "Cluster." ^ current_ops_str; ref_str ] )
+
 
 (** Take an internal Cluster record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
@@ -60,10 +61,10 @@ let get_operation_error ~__context ~self ~op =
         | _ :: _ when not (is_allowed_concurrently ~op ~current_ops) ->
             report_concurrent_operations_error ~current_ops ~ref_str
         | _ ->
-            check (assert_allowed_during_rpu __context op) (fun () -> None)
-    )
+            check (assert_allowed_during_rpu __context op) (fun () -> None) )
   in
   current_error
+
 
 let assert_operation_valid ~__context ~self ~op =
   match get_operation_error ~__context ~self ~op with
@@ -71,6 +72,7 @@ let assert_operation_valid ~__context ~self ~op =
       ()
   | Some (a, b) ->
       raise (Api_errors.Server_error (a, b))
+
 
 let update_allowed_operations ~__context ~self =
   let check accu op =
@@ -83,17 +85,20 @@ let update_allowed_operations ~__context ~self =
   let allowed = List.fold_left check [] all_cluster_operations in
   Db.Cluster.set_allowed_operations ~__context ~self ~value:allowed
 
+
 (** Add to the cluster's current_operations, call a function and then remove from the
     current operations. Ensure allowed_operations is kept up to date throughout. *)
-let with_cluster_operation ~__context ~(self : [`Cluster] API.Ref.t) ~doc ~op
-    ?policy f =
+let with_cluster_operation
+    ~__context ~(self : [ `Cluster ] API.Ref.t) ~doc ~op ?policy f =
   let task_id = Ref.string_of (Context.get_task_id __context) in
   Helpers.retry_with_global_lock ~__context ~doc ?policy (fun () ->
       assert_operation_valid ~__context ~self ~op ;
-      Db.Cluster.add_to_current_operations ~__context ~self ~key:task_id
+      Db.Cluster.add_to_current_operations
+        ~__context
+        ~self
+        ~key:task_id
         ~value:op ;
-      update_allowed_operations ~__context ~self
-  ) ;
+      update_allowed_operations ~__context ~self ) ;
   (* Then do the action with the lock released *)
   finally f (* Make sure to clean up at the end *) (fun () ->
       try
@@ -101,25 +106,28 @@ let with_cluster_operation ~__context ~(self : [`Cluster] API.Ref.t) ~doc ~op
         update_allowed_operations ~__context ~self ;
         Helpers.Early_wakeup.broadcast
           (Datamodel_common._cluster, Ref.string_of self)
-      with _ -> ()
-  )
+      with
+      | _ ->
+          () )
+
 
 module Pem = struct
   open Helpers
   open Cluster_interface
   module Client = Client.Client
 
-  let init' cn = {cn; blobs= [Gencertlib.Selfcert.xapi_cluster ~cn ()]}
+  let init' cn = { cn; blobs = [ Gencertlib.Selfcert.xapi_cluster ~cn () ] }
 
   let init ~__context ~cn =
-    if unit_test ~__context then
-      tls_config_empty
-    else
-      {tls_config_empty with pems= Some (init' cn)}
+    if unit_test ~__context
+    then tls_config_empty
+    else { tls_config_empty with pems = Some (init' cn) }
+
 
   let get_existing' ~__context self =
     let cc_of_cluster_host h =
-      call_api_functions ~__context @@ fun rpc session_id ->
+      call_api_functions ~__context
+      @@ fun rpc session_id ->
       Client.Cluster_host.get_cluster_config rpc session_id h
       |> SecretString.json_rpc_of_t
       |> Rpcmarshal.unmarshal cluster_config.Rpc.Types.ty
@@ -129,11 +137,10 @@ module Pem = struct
       | Error e ->
           raise
             Api_errors.(
-              Server_error (internal_error, ["bad response from cluster host"])
-            )
+              Server_error (internal_error, [ "bad response from cluster host" ]))
     in
-    if unit_test ~__context then
-      `unittest
+    if unit_test ~__context
+    then `unittest
     else
       let hs = Db.Cluster.get_cluster_hosts ~__context ~self in
       let enabled_hs =
@@ -147,10 +154,10 @@ module Pem = struct
       | _, [] ->
           `all_disabled
       | _, h :: _ ->
-          if enabled_hs = hs then
-            `all_enabled (h, cc_of_cluster_host h)
-          else
-            `not_all_enabled (h, cc_of_cluster_host h)
+          if enabled_hs = hs
+          then `all_enabled (h, cc_of_cluster_host h)
+          else `not_all_enabled (h, cc_of_cluster_host h)
+
 
   let get_existing ~__context self =
     (* try to get existing pem, though this might not be possible for example if
@@ -171,8 +178,8 @@ module Pem = struct
     | `no_cluster_hosts ->
         D.debug "Pem.get_existing: there are no existing cluster hosts" ;
         gen ()
-    | `all_enabled (_, cc) | `not_all_enabled (_, cc) -> (
-      match cc.tls_config.pems with
+    | `all_enabled (_, cc) | `not_all_enabled (_, cc) ->
+      ( match cc.tls_config.pems with
       | None when cc.tls_config.verify_tls_certs ->
           D.error "Pem.get_existing: existing cluster does not have a pem" ;
           cc.tls_config
@@ -182,10 +189,10 @@ module Pem = struct
           cc.tls_config
       | Some p ->
           D.debug "Pem.get_existing: found existing pem!" ;
-          cc.tls_config
-    )
+          cc.tls_config )
     | exception Api_errors.(Server_error (message_method_unknown, _)) ->
         tls_config_empty
+
 
   let maybe_write_new ~__context self =
     let write h =
@@ -196,7 +203,8 @@ module Pem = struct
         |> Jsonrpc.to_string
         |> SecretString.of_string
       in
-      call_api_functions ~__context @@ fun rpc session_id ->
+      call_api_functions ~__context
+      @@ fun rpc session_id ->
       Client.Cluster_host.write_pems rpc session_id h p_encoded
     in
     match get_existing' ~__context self with
@@ -206,14 +214,14 @@ module Pem = struct
         D.error "Pem.maybe_write_new: all cluster hosts must be enabled" ;
         raise
           Api_errors.(
-            Server_error (internal_error, ["all cluster hosts must be enabled"])
-          )
+            Server_error
+              (internal_error, [ "all cluster hosts must be enabled" ]))
     | `no_cluster_hosts ->
         D.info
           "Pem.maybe_write_new: nothing to do because there are no cluster \
            hosts"
-    | `all_enabled (h, cc) -> (
-      match cc.tls_config.pems with
+    | `all_enabled (h, cc) ->
+      ( match cc.tls_config.pems with
       | Some _ ->
           D.info "Pem.maybe_write_new: pem already exists, so not overwriting"
       | None ->
@@ -222,9 +230,9 @@ module Pem = struct
              to write a new one"
             (Ref.short_string_of self) ;
           write h ;
-          D.info "Pem.maybe_write_new: successfully written on cluster '%s'"
-            (Ref.short_string_of self)
-    )
+          D.info
+            "Pem.maybe_write_new: successfully written on cluster '%s'"
+            (Ref.short_string_of self) )
     | exception Api_errors.(Server_error (message_method_unknown, _)) ->
         ()
 end

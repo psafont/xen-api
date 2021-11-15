@@ -3,30 +3,37 @@ type tapdev
 
 module Stats : sig
   module Tap : sig
-    type t = {minor: int; reqs: int64 * int64; kicks: int64 * int64}
+    type t =
+      { minor : int
+      ; reqs : int64 * int64
+      ; kicks : int64 * int64
+      }
   end
 
   module Driver : sig
-    type t = {ty: int; name: string}
+    type t =
+      { ty : int
+      ; name : string
+      }
   end
 
   module Image : sig
-    type t = {
-        name: string
-      ; hits: int64 * int64
-      ; fail: int64 * int64
-      ; driver: Driver.t
-    }
+    type t =
+      { name : string
+      ; hits : int64 * int64
+      ; fail : int64 * int64
+      ; driver : Driver.t
+      }
   end
 
-  type t = {
-      name: string
-    ; secs: int64 * int64
-    ; images: Image.t list
-    ; tap: Tap.t
-    ; nbd_mirror_failed: int
-    ; reqs_outstanding: int
-  }
+  type t =
+    { name : string
+    ; secs : int64 * int64
+    ; images : Image.t list
+    ; tap : Tap.t
+    ; nbd_mirror_failed : int
+    ; reqs_outstanding : int
+    }
 end
 
 val tapdev_of_rpc : Rpc.t -> tapdev
@@ -45,7 +52,9 @@ val create : unit -> context
 
 val create_dummy : string -> context
 
-type driver = Vhd | Aio
+type driver =
+  | Vhd
+  | Aio
 
 val string_of_driver : driver -> string
 

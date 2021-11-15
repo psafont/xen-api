@@ -21,6 +21,7 @@ let passing file =
   | Error _ ->
       Alcotest.failf "expected %s to parse correctly" file
 
+
 let failing file =
   match G.Pem.parse_file file with
   | Ok _ ->
@@ -28,14 +29,15 @@ let failing file =
   | Error _ ->
       ()
 
+
 let positive =
-  ["pass-01.pem"; "pass-02.pem"; "pass-03.pem"; "pass-04.pem"]
+  [ "pass-01.pem"; "pass-02.pem"; "pass-03.pem"; "pass-04.pem" ]
   |> List.map (fun pem -> Filename.concat "test_data/pems" pem)
   |> List.map (fun path -> ("positive", `Quick, fun () -> passing path))
 
+
 let negative =
-  [
-    "fail-01.pem"
+  [ "fail-01.pem"
   ; "fail-02.pem"
   ; "fail-03.pem"
   ; "fail-04.pem"
@@ -45,4 +47,5 @@ let negative =
   |> List.map (fun pem -> Filename.concat "test_data/pems" pem)
   |> List.map (fun path -> ("negative", `Quick, fun () -> failing path))
 
-let all = List.concat [positive; negative]
+
+let all = List.concat [ positive; negative ]

@@ -25,15 +25,15 @@ let vm_lifecycle_queue_process_fn f =
   Mutex.execute m (fun () ->
       while not !vm_lifecycle_queue_started do
         Condition.wait c m
-      done
-  ) ;
+      done ) ;
   f ()
+
 
 let start_vm_lifecycle_queue () =
   Mutex.execute m (fun () ->
       vm_lifecycle_queue_started := true ;
-      Condition.signal c
-  )
+      Condition.signal c )
+
 
 (* NB VM.start for PV guests performs VBD.unplug operations which require the dom0 device resync ops
    to be decoupled from the rest. *)
@@ -42,17 +42,21 @@ let start_vm_lifecycle_queue () =
 let long_running_queue =
   Thread_queue.make ~name:"long_running_op" vm_lifecycle_queue_process_fn
 
+
 (** VM.{start,shutdown,copy,clone} etc are queued here *)
 let normal_vm_queue =
   Thread_queue.make ~name:"vm_lifecycle_op" vm_lifecycle_queue_process_fn
+
 
 (** Resynchronising dom0 VBDs and VIFs are handled here. *)
 let dom0_device_resync_queue =
   Thread_queue.make ~name:"dom0_device_resync" (fun f -> f ())
 
+
 (** Internal reboots and shutdowns are queued here *)
 let domU_internal_shutdown_queue =
   Thread_queue.make ~name:"domU_internal_shutdown" (fun f -> f ())
+
 
 open Xapi_stdext_pervasives.Pervasiveext
 
@@ -69,15 +73,12 @@ let wait_in_line q description f =
         (* Signal the mothership to run the computation now *)
         Mutex.execute m (fun () ->
             state := `Running ;
-            Condition.signal c
-        ) ;
+            Condition.signal c ) ;
         (* Wait for the computation to complete *)
         Mutex.execute m (fun () ->
             while !state = `Running do
               Condition.wait c m
-            done
-        )
-    )
+            done ) )
   in
   assert ok ;
   (* queue has no length limit *)
@@ -85,8 +86,7 @@ let wait_in_line q description f =
   Mutex.execute m (fun () ->
       while !state = `Pending do
         Condition.wait c m
-      done
-  ) ;
+      done ) ;
   Locking_helpers.Thread_state.acquired
     (Locking_helpers.Lock q.Thread_queue.name) ;
   finally f (fun () ->
@@ -94,6 +94,4 @@ let wait_in_line q description f =
         (Locking_helpers.Lock q.Thread_queue.name) ;
       Mutex.execute m (fun () ->
           state := `Finished ;
-          Condition.signal c
-      )
-  )
+          Condition.signal c ) )

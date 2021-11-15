@@ -24,7 +24,11 @@ module Xs = struct
   module Xs = Xs_client_unix.Client (Xs_transport_unix_client)
   include Xs
 
-  type xs_state = {my_domid: int32; root_path: string; client: Xs.client}
+  type xs_state =
+    { my_domid : int32
+    ; root_path : string
+    ; client : Xs.client
+    }
 
   let cached_xs_state = ref None
 
@@ -43,10 +47,9 @@ module Xs = struct
               |> Int32.of_string
             in
             let root_path = Printf.sprintf "/local/domain/%ld/rrd" my_domid in
-            let state = {my_domid; root_path; client} in
+            let state = { my_domid; root_path; client } in
             cached_xs_state := Some state ;
-            state
-    )
+            state )
 end
 
 (* Establish a XMLPRC interface with RRDD *)
@@ -55,12 +58,20 @@ module RRDD = Rrd_client.Client
 type state =
   | Running
   | Cancelled
-  | Stopped of [`New | `Cancelled | `Failed of exn]
+  | Stopped of [ `New | `Cancelled | `Failed of exn ]
 
-type t = {mutable state: state; lock: Mutex.t; condition: Condition.t}
+type t =
+  { mutable state : state
+  ; lock : Mutex.t
+  ; condition : Condition.t
+  }
 
 let make () =
-  {state= Stopped `New; lock= Mutex.create (); condition= Condition.create ()}
+  { state = Stopped `New
+  ; lock = Mutex.create ()
+  ; condition = Condition.create ()
+  }
+
 
 let choose_protocol = function
   | Rrd_interface.V1 ->
@@ -68,28 +79,34 @@ let choose_protocol = function
   | Rrd_interface.V2 ->
       Rrd_protocol_v2.protocol
 
-let wait_until_next_reading (module D : Debug.DEBUG) ?(neg_shift = 0.5) ~uid
-    ~protocol ~overdue_count =
+
+let wait_until_next_reading
+    (module D : Debug.DEBUG) ?(neg_shift = 0.5) ~uid ~protocol ~overdue_count =
   let next_reading = RRDD.Plugin.Local.register uid Rrd.Five_Seconds protocol in
   let wait_time = next_reading -. neg_shift in
   let wait_time = if wait_time < 0.1 then wait_time +. 5. else wait_time in
   (* overdue count - 0 if there is no overdue; +1 if there is overdue *)
-  if wait_time > 0. then (
-    Thread.delay wait_time ; 0
-  ) else (
-    if overdue_count > 1 then (
+  if wait_time > 0.
+  then (
+    Thread.delay wait_time ;
+    0 )
+  else (
+    if overdue_count > 1
+    then (
       (* if register returns negative more than once in a succession,
          				the thread should get delayed till things are normal back again *)
       let backoff_time = 2. ** (float_of_int overdue_count -. 1.) in
       D.debug
         "rrdd says next reading is overdue, seems like rrdd is busy;\n\
-         \t\t\t\tBacking off for %.1f seconds" backoff_time ;
-      Thread.delay backoff_time
-    ) else
-      D.debug "rrdd says next reading is overdue by %.1f seconds; not sleeping"
+         \t\t\t\tBacking off for %.1f seconds"
+        backoff_time ;
+      Thread.delay backoff_time )
+    else
+      D.debug
+        "rrdd says next reading is overdue by %.1f seconds; not sleeping"
         (-.wait_time) ;
-    overdue_count + 1 (* overdue count incremented *)
-  )
+    overdue_count + 1 (* overdue count incremented *) )
+
 
 let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
   let running = ref true in
@@ -97,8 +114,7 @@ let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
   | Some reporter ->
       Mutex.execute reporter.lock (fun () -> reporter.state <- Running)
   | None ->
-      ()
-  ) ;
+      () ) ;
   while !running do
     try
       if !killed then raise Killed ;
@@ -116,8 +132,7 @@ let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
                   reporter.state <- Stopped `Cancelled ;
                   cleanup () ;
                   Condition.broadcast reporter.condition ;
-                  running := false
-          )
+                  running := false )
       | None ->
           ()
     with
@@ -127,12 +142,14 @@ let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
         cleanup () ;
         running := false
     | e ->
-        D.error "Unexpected error %s, sleeping for 10 seconds..."
+        D.error
+          "Unexpected error %s, sleeping for 10 seconds..."
           (Printexc.to_string e) ;
         D.log_backtrace () ;
         Thread.delay 10.0
   done ;
   D.info "leaving main loop"
+
 
 let get_state ~reporter = Mutex.execute reporter.lock (fun () -> reporter.state)
 
@@ -145,10 +162,9 @@ let cancel ~reporter =
       | Cancelled ->
           Condition.wait reporter.condition reporter.lock
       | Stopped _ ->
-          ()
-  )
+          () )
+
 
 let wait_until_stopped ~reporter =
   Mutex.execute reporter.lock (fun () ->
-      Condition.wait reporter.condition reporter.lock
-  )
+      Condition.wait reporter.condition reporter.lock )

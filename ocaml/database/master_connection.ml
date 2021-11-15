@@ -23,7 +23,9 @@ open Safe_resources
 
 type db_record = (string * string) list * (string * string list) list
 
-module D = Debug.Make (struct let name = "master_connection" end)
+module D = Debug.Make (struct
+  let name = "master_connection"
+end)
 
 open D
 
@@ -34,16 +36,16 @@ exception Uninitialised
 let is_slave : (unit -> bool) ref =
   ref (fun () ->
       error "is_slave called without having been set. This is a fatal error." ;
-      raise Uninitialised
-  )
+      raise Uninitialised )
+
 
 let get_master_address =
   ref (fun () ->
       error
         "get_master_address called without having been set. This is a fatal \
          error" ;
-      raise Uninitialised
-  )
+      raise Uninitialised )
+
 
 let master_rpc_path = ref "<invalid>"
 
@@ -60,7 +62,8 @@ exception Cannot_connect_to_master
 let force_connection_reset () =
   (* Cleanup cached stunnel connections to the master, so that future API
      	   calls won't be blocked. *)
-  if !is_slave () then (
+  if !is_slave ()
+  then (
     let host = !get_master_address () in
     let port = !Db_globs.https_port in
     (* We don't currently have a method to enumerate all the stunnel links
@@ -70,7 +73,8 @@ let force_connection_reset () =
        		   host and port are fixed values. *)
     let rec purge_stunnels verify_cert =
       match
-        Stunnel_cache.with_remove host port verify_cert @@ fun st ->
+        Stunnel_cache.with_remove host port verify_cert
+        @@ fun st ->
         try Stunnel.disconnect ~wait:false ~force:true st with _ -> ()
       with
       | None ->
@@ -83,18 +87,18 @@ let force_connection_reset () =
     purge_stunnels (Some Stunnel.appliance) ;
     info
       "force_connection_reset: all cached connections to the master have been \
-       purged"
-  ) ;
+       purged" ) ;
   match !my_connection with
   | None ->
       ()
   | Some st_proc ->
-      info "stunnel reset pid=%d fd=%d"
+      info
+        "stunnel reset pid=%d fd=%d"
         (Stunnel.getpid st_proc.Stunnel.pid)
         (Xapi_stdext_unix.Unixext.int_of_file_descr
-           Unixfd.(!(st_proc.Stunnel.fd))
-        ) ;
+           Unixfd.(!(st_proc.Stunnel.fd)) ) ;
       Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm
+
 
 (* whenever a call is made that involves read/write to the master connection, a timestamp is
    written into this global: *)
@@ -108,8 +112,8 @@ let last_master_connection_call : float option ref = ref None
 let with_timestamp f =
   last_master_connection_call := Some (Unix.gettimeofday ()) ;
   Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
-      last_master_connection_call := None
-  )
+      last_master_connection_call := None )
+
 
 (* call force_connection_reset if we detect that a master-connection is blocked for too long.
    One common way this can happen is if we end up blocked waiting for a TCP timeout when the
@@ -134,27 +138,26 @@ let start_master_connection_watchdog () =
                        | Some t ->
                            let now = Unix.gettimeofday () in
                            let since_last_call = now -. t in
-                           if
-                             since_last_call
-                             > !Db_globs.master_connection_reset_timeout
+                           if since_last_call
+                              > !Db_globs.master_connection_reset_timeout
                            then (
                              debug
                                "Master connection timeout: forcibly resetting \
                                 master connection" ;
-                             force_connection_reset ()
-                           )
-                       ) ;
+                             force_connection_reset () ) ) ;
                        Thread.delay 10.
-                     with _ -> ()
-                   done
-                   )
-                 ()
-              )
+                     with
+                     | _ ->
+                         ()
+                   done )
+                 () )
       | Some _ ->
-          ()
-  )
+          () )
 
-module StunnelDebug = Debug.Make (struct let name = "stunnel" end)
+
+module StunnelDebug = Debug.Make (struct
+  let name = "stunnel"
+end)
 
 exception Goto_handler
 
@@ -166,29 +169,40 @@ let open_secure_connection () =
   let host = !get_master_address () in
   let port = !Db_globs.https_port in
   let verify_cert = Stunnel_client.pool () in
-  Stunnel.with_connect ~use_fork_exec_helper:true ~extended_diagnosis:true
+  Stunnel.with_connect
+    ~use_fork_exec_helper:true
+    ~extended_diagnosis:true
     ~write_to_log:(fun x -> debug "stunnel: %s\n" x)
-    ~verify_cert host port
+    ~verify_cert
+    host
+    port
   @@ fun st_proc ->
   let fd_closed = Thread.wait_timed_read Unixfd.(!(st_proc.Stunnel.fd)) 5. in
   let proc_quit =
     try
       Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) 0 ;
       false
-    with _ -> true
+    with
+    | _ ->
+        true
   in
-  if (not fd_closed) && not proc_quit then (
-    info "stunnel connected pid=%d fd=%d"
+  if (not fd_closed) && not proc_quit
+  then (
+    info
+      "stunnel connected pid=%d fd=%d"
       (Stunnel.getpid st_proc.Stunnel.pid)
-      (Xapi_stdext_unix.Unixext.int_of_file_descr Unixfd.(!(st_proc.Stunnel.fd))) ;
+      (Xapi_stdext_unix.Unixext.int_of_file_descr
+         Unixfd.(!(st_proc.Stunnel.fd)) ) ;
     my_connection := Some (Stunnel.move_out_exn st_proc) ;
-    !on_database_connection_established ()
-  ) else (
-    info "stunnel disconnected fd_closed=%s proc_quit=%s"
-      (string_of_bool fd_closed) (string_of_bool proc_quit) ;
+    !on_database_connection_established () )
+  else (
+    info
+      "stunnel disconnected fd_closed=%s proc_quit=%s"
+      (string_of_bool fd_closed)
+      (string_of_bool proc_quit) ;
     let () = try Stunnel.disconnect st_proc with _ -> () in
-    raise Goto_handler
-  )
+    raise Goto_handler )
+
 
 (* Do a db xml_rpc request, catching exception and trying to reopen the connection if it
    fails *)
@@ -211,22 +225,27 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
   (* initial delay = 2s *)
   let update_backoff_delay () =
     backoff_delay := !backoff_delay *. 2.0 ;
-    if !backoff_delay < 2.0 then
-      backoff_delay := 2.0
-    else if !backoff_delay > 256.0 then
-      backoff_delay := 256.0
+    if !backoff_delay < 2.0
+    then backoff_delay := 2.0
+    else if !backoff_delay > 256.0
+    then backoff_delay := 256.0
   in
   while not !write_ok do
     try
       let req_string = req in
       let length = String.length req_string in
-      if length > Db_globs.http_limit_max_rpc_size then
-        raise Http_svr.Client_requested_size_over_limit ;
+      if length > Db_globs.http_limit_max_rpc_size
+      then raise Http_svr.Client_requested_size_over_limit ;
       (* The pool_secret is added here and checked by the Xapi_http.add_handler RBAC code. *)
       let open Xmlrpc_client in
       let request =
-        xmlrpc ~version:"1.1" ~frame:true ~keep_alive:true
-          ~length:(Int64.of_int length) ~body:req path
+        xmlrpc
+          ~version:"1.1"
+          ~frame:true
+          ~keep_alive:true
+          ~length:(Int64.of_int length)
+          ~body:req
+          path
         |> Db_secret_string.with_cookie !Db_globs.pool_secret
       in
       match !my_connection with
@@ -235,7 +254,8 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
       | Some stunnel_proc ->
           let fd = stunnel_proc.Stunnel.fd in
           with_timestamp (fun () ->
-              with_http request
+              with_http
+                request
                 (fun (response, _) ->
                   (* XML responses must have a content-length because we cannot use the Xml.parse_in
                      in_channel function: the input channel will buffer an arbitrary amount of stuff
@@ -251,13 +271,12 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
                   in
                   write_ok := true ;
                   result := res
-                  (* yippeee! return and exit from while loop *)
-                  )
-                Unixfd.(!fd)
-          )
+                  (* yippeee! return and exit from while loop *) )
+                Unixfd.(!fd) )
     with
     | Http_svr.Client_requested_size_over_limit ->
-        error "Content length larger than known limit (%d)."
+        error
+          "Content length larger than known limit (%d)."
           Db_globs.http_limit_max_rpc_size ;
         debug "Re-raising exception to caller." ;
         raise Http_svr.Client_requested_size_over_limit
@@ -266,67 +285,66 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
         error
           "Received HTTP error %s (%s) from master. This suggests our master \
            address is wrong. Sleeping for %.0fs and then executing restart_fn."
-          http_code err_msg
+          http_code
+          err_msg
           !Db_globs.permanent_master_failure_retry_interval ;
         Thread.delay !Db_globs.permanent_master_failure_retry_interval ;
         !Db_globs.restart_fn ()
-    | e -> (
+    | e ->
         error "Caught %s" (Printexc.to_string e) ;
         (* RPC failed - there's no way we can recover from this so try reopening connection every 2s + backoff delay *)
         ( match !my_connection with
         | None ->
             ()
-        | Some st_proc -> (
+        | Some st_proc ->
             my_connection := None ;
             (* don't want to try closing multiple times *)
-            try Stunnel.disconnect st_proc with _ -> ()
-          )
-        ) ;
+            (try Stunnel.disconnect st_proc with _ -> ()) ) ;
         let time_sofar = Unix.gettimeofday () -. time_call_started in
-        if !connection_timeout < 0. then (
-          if not !surpress_no_timeout_logs then (
+        if !connection_timeout < 0.
+        then (
+          if not !surpress_no_timeout_logs
+          then (
             debug
               "Connection to master died. I will continue to retry \
                indefinitely (supressing future logging of this message)." ;
             error
               "Connection to master died. I will continue to retry \
-               indefinitely (supressing future logging of this message)."
-          ) ;
-          surpress_no_timeout_logs := true
-        ) else
+               indefinitely (supressing future logging of this message)." ) ;
+          surpress_no_timeout_logs := true )
+        else
           debug
             "Connection to master died: time taken so far in this call '%f'; \
              will %s"
             time_sofar
-            ( if !connection_timeout < 0. then
-                "never timeout"
-            else
-              Printf.sprintf "timeout after '%f'" !connection_timeout
-            ) ;
-        if time_sofar > !connection_timeout && !connection_timeout >= 0. then
-          if !restart_on_connection_timeout then (
+            ( if !connection_timeout < 0.
+            then "never timeout"
+            else Printf.sprintf "timeout after '%f'" !connection_timeout ) ;
+        if time_sofar > !connection_timeout && !connection_timeout >= 0.
+        then
+          if !restart_on_connection_timeout
+          then (
             debug
               "Exceeded timeout for retrying master connection: restarting xapi" ;
-            !Db_globs.restart_fn ()
-          ) else (
+            !Db_globs.restart_fn () )
+          else (
             debug
               "Exceeded timeout for retrying master connection: raising \
                Cannot_connect_to_master" ;
-            raise Cannot_connect_to_master
-          ) ;
-        debug "Sleeping %f seconds before retrying master connection..."
+            raise Cannot_connect_to_master ) ;
+        debug
+          "Sleeping %f seconds before retrying master connection..."
           !backoff_delay ;
         Thread.delay !backoff_delay ;
         update_backoff_delay () ;
-        try open_secure_connection () with _ -> ()
-        (* oh well, maybe nextime... *)
-      )
+        (try open_secure_connection () with _ -> ())
+    (* oh well, maybe nextime... *)
   done ;
   !result
+
 
 let execute_remote_fn string =
   let host = !get_master_address () in
   Db_lock.with_lock (fun () ->
       (* Ensure that this function is always called under mutual exclusion (provided by the recursive db lock) *)
-      do_db_xml_rpc_persistent_with_reopen ~host ~path:!master_rpc_path string
-  )
+      do_db_xml_rpc_persistent_with_reopen ~host ~path:!master_rpc_path string )

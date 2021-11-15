@@ -13,7 +13,9 @@
  *)
 (* Functions to help create HTTP handlers which check the user is properly authenticated. *)
 
-module D = Debug.Make (struct let name = "xapi_http" end)
+module D = Debug.Make (struct
+  let name = "xapi_http"
+end)
 
 open D
 
@@ -21,31 +23,36 @@ let validate_session __context session_id realm =
   try
     let (_ : string) = Db.Session.get_uuid ~__context ~self:session_id in
     ()
-  with _ ->
-    debug "Failed to find session_id %s in database. Perhaps it timed-out?"
-      (Context.trackid_of_session (Some session_id)) ;
-    raise (Http.Unauthorised realm)
+  with
+  | _ ->
+      debug
+        "Failed to find session_id %s in database. Perhaps it timed-out?"
+        (Context.trackid_of_session (Some session_id)) ;
+      raise (Http.Unauthorised realm)
+
 
 (* Talk to the master over the network. NB we deliberately use the network rather than
    the unix domain socket because we don't want to accidentally bypass the authentication *)
 let inet_rpc xml =
-  let version = "1.1" and path = "/" in
-  let http = 80 and https = !Constants.https_port in
+  let version = "1.1"
+  and path = "/" in
+  let http = 80
+  and https = !Constants.https_port in
   (* Bypass SSL for localhost, this works even if the management interface
      is disabled. *)
   let open Xmlrpc_client in
   let transport =
-    if Pool_role.is_master () then
-      TCP ("127.0.0.1", http)
+    if Pool_role.is_master ()
+    then TCP ("127.0.0.1", http)
     else
       SSL
         ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
         , Pool_role.get_master_address ()
-        , https
-        )
+        , https )
   in
   let http = xmlrpc ~version path in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http xml
+
 
 open Client
 open Http
@@ -60,39 +67,50 @@ let lookup_param_of_req req param_name =
   | None ->
       List.assoc_opt param_name req.query
 
+
 let ref_param_of_req (req : Http.Request.t) param_name =
   lookup_param_of_req req param_name |> Option.map Ref.of_string
+
 
 let _session_id = "session_id"
 
 let get_session_id (req : Request.t) =
   ref_param_of_req req _session_id |> Option.value ~default:Ref.null
 
+
 let append_to_master_audit_log __context action line =
   (* http actions are not automatically written to the master's audit log *)
   (* it is necessary to do that manually from the slaves *)
-  if
-    Astring.String.is_prefix ~affix:Datamodel.rbac_http_permission_prefix action
+  if Astring.String.is_prefix
+       ~affix:Datamodel.rbac_http_permission_prefix
+       action
   then
-    if Pool_role.is_slave () then
+    if Pool_role.is_slave ()
+    then
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Pool.audit_log_append ~rpc ~session_id ~line
-      )
+          Client.Pool.audit_log_append ~rpc ~session_id ~line )
+
 
 let rbac_audit_params_of (req : Request.t) =
   let all = req.Request.cookie @ req.Request.query in
   List.fold_right
     (fun (n, v) (acc_n, acc_v) -> (n :: acc_n, Rpc.String v :: acc_v))
-    all ([], [])
+    all
+    ([], [])
+
 
 let create_session_for_client_cert req s =
   let __context = Context.make ~origin:(Http (req, s)) "client_cert" in
-  Xapi_session.login_with_password ~__context ~uname:"" ~pwd:""
+  Xapi_session.login_with_password
+    ~__context
+    ~uname:""
+    ~pwd:""
     ~version:Datamodel_common.api_version_string
     ~originator:Constants.xapi_user_agent
 
-let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
-    (req : Request.t) ic =
+
+let assert_credentials_ok
+    realm ?(http_action = realm) ?(fn = Rbac.nofn) (req : Request.t) ic =
   let rbac_raise permission msg exc =
     let task_id = ref_param_of_req req "task_id" in
     ( match task_id with
@@ -102,19 +120,21 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
         TaskHelper.failed
           ~__context:(Context.from_forwarded_task task_id)
           (Api_errors.Server_error
-             (Api_errors.rbac_permission_denied, [permission; msg])
-          )
-    ) ;
+             (Api_errors.rbac_permission_denied, [ permission; msg ]) ) ) ;
     raise exc
   in
   let rbac_check session_id =
     let rbac_task_desc = "handler" in
     let http_permission = Datamodel.rbac_http_permission_prefix ^ http_action in
     try
-      Rbac.check_with_new_task session_id http_permission ~fn
-        ~args:(rbac_audit_params_of req) ~task_desc:rbac_task_desc
+      Rbac.check_with_new_task
+        session_id
+        http_permission
+        ~fn
+        ~args:(rbac_audit_params_of req)
+        ~task_desc:rbac_task_desc
     with
-    | Api_errors.Server_error (err, [perm; msg])
+    | Api_errors.Server_error (err, [ perm; msg ])
       when err = Api_errors.rbac_permission_denied ->
         rbac_raise perm msg Http.Forbidden
     | e ->
@@ -128,35 +148,39 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
       (fun () -> rbac_check session_id)
       (fun () -> try Client.Session.logout inet_rpc session_id with _ -> ())
   in
-  if Context.is_unix_socket ic then
+  if Context.is_unix_socket ic
+  then
     ()
-  (* Connections from unix-domain socket implies you're root on the box, ergo everything is OK *)
+    (* Connections from unix-domain socket implies you're root on the box, ergo everything is OK *)
   else
     match
       ( ref_param_of_req req _session_id
       , SecretString.of_request req
-      , req.Http.Request.auth
-      )
+      , req.Http.Request.auth )
     with
     | Some session_id, _, _ ->
         let subtask_of = ref_param_of_req req "subtask_of" in
         (* Session ref has been passed in - check that it's OK *)
-        Server_helpers.exec_with_new_task ?subtask_of "xapi_http_session_check"
+        Server_helpers.exec_with_new_task
+          ?subtask_of
+          "xapi_http_session_check"
           (fun __context ->
-            ( try validate_session __context session_id realm
-              with _ -> raise (Http.Unauthorised realm)
-            ) ;
-            rbac_check session_id
-        )
+            ( try validate_session __context session_id realm with
+            | _ ->
+                raise (Http.Unauthorised realm) ) ;
+            rbac_check session_id )
     | None, Some pool_secret, _ ->
-        if Helpers.PoolSecret.is_authorized pool_secret then
-          fn ()
-        else
-          raise (Http.Unauthorised realm)
+        if Helpers.PoolSecret.is_authorized pool_secret
+        then fn ()
+        else raise (Http.Unauthorised realm)
     | None, None, Some (Http.Basic (username, password)) ->
         let sess_creator () =
-          Client.Session.login_with_password inet_rpc username password
-            Datamodel_common.api_version_string Constants.xapi_user_agent
+          Client.Session.login_with_password
+            inet_rpc
+            username
+            password
+            Datamodel_common.api_version_string
+            Constants.xapi_user_agent
         in
         rbac_check_with_tmp_session sess_creator
     | None, None, Some (Http.UnknownAuth x) ->
@@ -167,48 +191,49 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
          * If so, then following call confirms this. *)
         debug "Confirming this connection has been authenticated by client cert" ;
         rbac_check_with_tmp_session (fun () ->
-            create_session_for_client_cert req ic
-        )
+            create_session_for_client_cert req ic )
 
-let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
-    f =
+
+let with_context
+    ?(dummy = false) label (req : Request.t) (s : Unix.file_descr) f =
   let task_id = ref_param_of_req req "task_id" in
   let subtask_of = ref_param_of_req req "subtask_of" in
   let localhost =
     Server_helpers.exec_with_new_task "with_context" (fun __context ->
-        Helpers.get_localhost ~__context
-    )
+        Helpers.get_localhost ~__context )
   in
   try
     let session_id, must_logout =
-      if Context.is_unix_socket s then
-        ( Client.Session.slave_login inet_rpc localhost
+      if Context.is_unix_socket s
+      then
+        ( Client.Session.slave_login
+            inet_rpc
+            localhost
             (Xapi_globs.pool_secret ())
-        , true
-        )
+        , true )
       else
         match
           ( ref_param_of_req req _session_id
           , SecretString.of_request req
-          , req.Http.Request.auth
-          )
+          , req.Http.Request.auth )
         with
         | Some session_id, _, _ ->
             (session_id, false)
         | None, Some pool_secret, _ ->
             (Client.Session.slave_login inet_rpc localhost pool_secret, true)
-        | None, None, Some (Http.Basic (username, password)) -> (
-          try
-            ( Client.Session.login_with_password inet_rpc username password
-                Datamodel_common.api_version_string Constants.xapi_user_agent
-            , true
-            )
-          with
+        | None, None, Some (Http.Basic (username, password)) ->
+          ( try
+              ( Client.Session.login_with_password
+                  inet_rpc
+                  username
+                  password
+                  Datamodel_common.api_version_string
+                  Constants.xapi_user_agent
+              , true )
+            with
           | Api_errors.Server_error (code, params)
-          when code = Api_errors.session_authentication_failed
-          ->
-            raise (Http.Unauthorised label)
-        )
+            when code = Api_errors.session_authentication_failed ->
+              raise (Http.Unauthorised label) )
         | None, None, Some (Http.UnknownAuth x) ->
             raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
         | None, None, None ->
@@ -217,10 +242,12 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
             debug
               "Confirming this connection has been authenticated by client cert" ;
             let session_id =
-              try create_session_for_client_cert req s
-              with _ -> raise (Http.Unauthorised label)
+              try create_session_for_client_cert req s with
+              | _ ->
+                  raise (Http.Unauthorised label)
             in
-            debug "Created a session %s for a HTTP(s) request"
+            debug
+              "Created a session %s for a HTTP(s) request"
               (Context.trackid_of_session (Some session_id)) ;
             (session_id, true)
     in
@@ -228,44 +255,54 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
       (fun () ->
         let login_perform_logout __context =
           validate_session __context session_id label ;
-          if not must_logout then
-            Xapi_session.consider_touching_session inet_rpc session_id () ;
+          if not must_logout
+          then Xapi_session.consider_touching_session inet_rpc session_id () ;
           f __context
         in
         match task_id with
         | None ->
-            Server_helpers.exec_with_new_task ?subtask_of ~session_id
+            Server_helpers.exec_with_new_task
+              ?subtask_of
+              ~session_id
               ~task_in_database:(not dummy)
               ~origin:(Context.Http (req, s))
-              label login_perform_logout
+              label
+              login_perform_logout
         | Some task_id ->
-            Server_helpers.exec_with_forwarded_task ~session_id
+            Server_helpers.exec_with_forwarded_task
+              ~session_id
               ~origin:(Context.Http (req, s))
-              task_id login_perform_logout
-        )
+              task_id
+              login_perform_logout )
       (fun () ->
-        if must_logout then
-          Helpers.log_exn_continue "Logging out"
+        if must_logout
+        then
+          Helpers.log_exn_continue
+            "Logging out"
             (fun session_id -> Client.Session.logout inet_rpc session_id)
-            session_id
-        )
-  with Http.Unauthorised s as e ->
-    let fail __context =
-      TaskHelper.failed ~__context
-        (Api_errors.Server_error (Api_errors.session_authentication_failed, []))
-    in
-    debug
-      "No authentication provided to http handler: returning 401 unauthorised" ;
-    (* Fail the task *)
-    ( match task_id with
-    | None ->
-        Server_helpers.exec_with_new_task ~task_in_database:(not dummy) label
-          fail
-    | Some task_id ->
-        Server_helpers.exec_with_forwarded_task task_id fail
-    ) ;
-    req.Request.close <- true ;
-    raise e
+            session_id )
+  with
+  | Http.Unauthorised s as e ->
+      let fail __context =
+        TaskHelper.failed
+          ~__context
+          (Api_errors.Server_error (Api_errors.session_authentication_failed, [])
+          )
+      in
+      debug
+        "No authentication provided to http handler: returning 401 unauthorised" ;
+      (* Fail the task *)
+      ( match task_id with
+      | None ->
+          Server_helpers.exec_with_new_task
+            ~task_in_database:(not dummy)
+            label
+            fail
+      | Some task_id ->
+          Server_helpers.exec_with_forwarded_task task_id fail ) ;
+      req.Request.close <- true ;
+      raise e
+
 
 (* Other exceptions are dealt with by the Http_svr module's exception handler *)
 
@@ -273,6 +310,7 @@ let server =
   let server = Http_svr.Server.empty () in
   Http_svr.Server.enable_fastpath server ;
   server
+
 
 let http_request = Http.Request.make ~user_agent:Constants.xapi_user_agent
 
@@ -292,19 +330,21 @@ let bind inetaddr =
   let rec bind' () =
     try
       Some
-        (Http_svr.bind ~listen_backlog:Xapi_globs.listen_backlog inetaddr
-           description
-        )
+        (Http_svr.bind
+           ~listen_backlog:Xapi_globs.listen_backlog
+           inetaddr
+           description )
     with
     | Unix.Unix_error (code, _, _) when code = Unix.EAFNOSUPPORT ->
         info "Kernel does not support IPv6" ;
         None
     | Unix.Unix_error (code, _, _) ->
         debug "While binding %s: %s" description (Unix.error_message code) ;
-        if Unix.gettimeofday () -. start < timeout then (
-          Thread.delay 5. ; bind' ()
-        ) else
-          None
+        if Unix.gettimeofday () -. start < timeout
+        then (
+          Thread.delay 5. ;
+          bind' () )
+        else None
   in
   match bind' () with
   | None ->
@@ -313,13 +353,14 @@ let bind inetaddr =
       info "Successfully bound socket to: %s" description ;
       s
 
+
 let add_handler (name, handler) =
   let action =
-    try List.assoc name Datamodel.http_actions
-    with Not_found ->
-      (* This should only affect developers: *)
-      error "HTTP handler %s not registered in ocaml/idl/datamodel.ml" name ;
-      failwith (Printf.sprintf "Unregistered HTTP handler: %s" name)
+    try List.assoc name Datamodel.http_actions with
+    | Not_found ->
+        (* This should only affect developers: *)
+        error "HTTP handler %s not registered in ocaml/idl/datamodel.ml" name ;
+        failwith (Printf.sprintf "Unregistered HTTP handler: %s" name)
   in
   let check_rbac = Rbac.is_rbac_enabled_for_http_action name in
   let h =
@@ -328,23 +369,30 @@ let add_handler (name, handler) =
         Http_svr.BufIO
           (fun req ic context ->
             try
-              if check_rbac then (
+              if check_rbac
+              then (
                 try
                   (* rbac checks *)
-                  assert_credentials_ok name req
+                  assert_credentials_ok
+                    name
+                    req
                     ~fn:(fun () -> callback req ic context)
                     (Buf_io.fd_of ic)
-                with e ->
-                  debug "Leaving RBAC-handler in xapi_http after: %s"
-                    (ExnHelper.string_of_exn e) ;
-                  raise e
-              ) else (* no rbac checks *)
+                with
+                | e ->
+                    debug
+                      "Leaving RBAC-handler in xapi_http after: %s"
+                      (ExnHelper.string_of_exn e) ;
+                    raise e )
+              else (* no rbac checks *)
                 callback req ic context
-            with Api_errors.Server_error (name, params) as e ->
-              error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
-                (String.concat "; " params) ;
-              raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
-            )
+            with
+            | Api_errors.Server_error (name, params) as e ->
+                error
+                  "Unhandled Api_errors.Server_error(%s, [ %s ])"
+                  name
+                  (String.concat "; " params) ;
+                raise (Http_svr.Generic_error (ExnHelper.string_of_exn e)) )
     | Http_svr.FdIO callback ->
         Http_svr.FdIO
           (fun req ic context ->
@@ -352,11 +400,13 @@ let add_handler (name, handler) =
               if check_rbac then assert_credentials_ok name req ic ;
               (* session and rbac checks *)
               callback req ic context
-            with Api_errors.Server_error (name, params) as e ->
-              error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
-                (String.concat "; " params) ;
-              raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
-            )
+            with
+            | Api_errors.Server_error (name, params) as e ->
+                error
+                  "Unhandled Api_errors.Server_error(%s, [ %s ])"
+                  name
+                  (String.concat "; " params) ;
+                raise (Http_svr.Generic_error (ExnHelper.string_of_exn e)) )
   in
   match action with
   | meth, uri, sdk, sdkargs, roles, sub_actions ->

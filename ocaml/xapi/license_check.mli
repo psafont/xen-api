@@ -34,6 +34,6 @@ val vm : __context:Context.t -> API.ref_VM -> unit
  *  The consequence would be that the VM is not allowed to start. *)
 
 val with_vm_license_check :
-  __context:Context.t -> [`VM] Ref.t -> (unit -> 'b) -> 'b
+  __context:Context.t -> [ `VM ] Ref.t -> (unit -> 'b) -> 'b
 (** Executes function [f] only if the current license has not yet expired.
  *  If it has expired, it raises {!Api_errors.license_expired}. *)

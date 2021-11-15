@@ -21,14 +21,14 @@
 val login_no_password :
      __context:Context.t
   -> uname:string option
-  -> host:[`host] Ref.t
+  -> host:[ `host ] Ref.t
   -> pool:bool
   -> is_local_superuser:bool
-  -> subject:[`subject] Ref.t
+  -> subject:[ `subject ] Ref.t
   -> auth_user_sid:string
   -> auth_user_name:string
   -> rbac_permissions:string list
-  -> [`session] Ref.t
+  -> [ `session ] Ref.t
 
 (* public functions *)
 val destroy_db_session : __context:Context.t -> self:API.ref_session -> unit
@@ -40,9 +40,9 @@ val consider_touching_session :
 
 val slave_login :
      __context:Context.t
-  -> host:[`host] Ref.t
+  -> host:[ `host ] Ref.t
   -> psecret:SecretString.t
-  -> [`session] Ref.t
+  -> [ `session ] Ref.t
 
 val slave_local_login :
   __context:Context.t -> psecret:SecretString.t -> API.ref_session
@@ -56,7 +56,7 @@ val login_with_password :
   -> pwd:string
   -> version:'a
   -> originator:string
-  -> [`session] Ref.t
+  -> [ `session ] Ref.t
 
 val change_password :
   __context:Context.t -> old_pwd:string -> new_pwd:string -> unit
@@ -66,7 +66,7 @@ val logout : __context:Context.t -> unit
 val local_logout : __context:Context.t -> unit
 
 val get_group_subject_identifier_from_session :
-  __context:Context.t -> session:[`session] Ref.t -> string
+  __context:Context.t -> session:[ `session ] Ref.t -> string
 
 val get_all_subject_identifiers : __context:Context.t -> string list
 
@@ -90,7 +90,7 @@ val _record_login_failure :
   -> now:Xapi_stdext_date.Date.iso8601
   -> uname:string option
   -> originator:string option
-  -> record:[< `log_only | `log_and_alert]
+  -> record:[< `log_only | `log_and_alert ]
   -> (unit -> 'a)
   -> 'a
 
@@ -98,7 +98,7 @@ val record_login_failure :
      __context:Context.t
   -> uname:string option
   -> originator:string option
-  -> record:[< `log_only | `log_and_alert]
+  -> record:[< `log_only | `log_and_alert ]
   -> (unit -> 'a)
   -> 'a
 

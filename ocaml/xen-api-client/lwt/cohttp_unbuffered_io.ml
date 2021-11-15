@@ -30,16 +30,18 @@ let ( >> ) m n = m >>= fun _ -> n
     allow us to consume the headers and then pass the file descriptor
     safely to another process *)
 
-type ic = {
-    mutable header_buffer: string option  (** buffered headers *)
-  ; mutable header_buffer_idx: int  (** next char within the buffered headers *)
-  ; c: Data_channel.t
-}
+type ic =
+  { mutable header_buffer : string option  (** buffered headers *)
+  ; mutable header_buffer_idx : int
+        (** next char within the buffered headers *)
+  ; c : Data_channel.t
+  }
 
 let make_input c =
   let header_buffer = None in
   let header_buffer_idx = 0 in
-  {header_buffer; header_buffer_idx; c}
+  { header_buffer; header_buffer_idx; c }
+
 
 type oc = Data_channel.t
 
@@ -47,9 +49,11 @@ type conn = Data_channel.t
 
 let really_read_into c buf ofs len =
   let tmp = Cstruct.create len in
-  c.Data_channel.really_read tmp >>= fun () ->
+  c.Data_channel.really_read tmp
+  >>= fun () ->
   Cstruct.blit_to_bytes tmp 0 buf ofs len ;
   return ()
+
 
 let read_http_headers c =
   let buf = Buffer.create 128 in
@@ -57,12 +61,16 @@ let read_http_headers c =
   let end_of_headers = "\r\n\r\n" in
   let tmp = Bytes.make (String.length end_of_headers) '\000' in
   let module Scanner = struct
-    type t = {marker: string; mutable i: int}
+    type t =
+      { marker : string
+      ; mutable i : int
+      }
 
-    let make x = {marker= x; i= 0}
+    let make x = { marker = x; i = 0 }
 
     let input x c =
       if c = String.get x.marker x.i then x.i <- x.i + 1 else x.i <- 0
+
 
     let remaining x = String.length x.marker - x.i
 
@@ -72,22 +80,24 @@ let read_http_headers c =
   let marker = Scanner.make end_of_headers in
 
   let rec loop () =
-    if not (Scanner.matched marker) then (
+    if not (Scanner.matched marker)
+    then (
       (* We may be part way through reading the end of header marker, so
          be pessimistic and only read enough bytes to read until the end of
          the marker. *)
       let safe_to_read = Scanner.remaining marker in
 
-      really_read_into c tmp 0 safe_to_read >>= fun () ->
+      really_read_into c tmp 0 safe_to_read
+      >>= fun () ->
       for j = 0 to safe_to_read - 1 do
         Scanner.input marker (Bytes.get tmp j) ;
         Buffer.add_char buf (Bytes.get tmp j)
       done ;
-      loop ()
-    ) else
-      return ()
+      loop () )
+    else return ()
   in
   loop () >>= fun () -> return (Buffer.contents buf)
+
 
 let crlf = Re.Str.regexp_string "\r\n"
 
@@ -95,38 +105,43 @@ let crlf = Re.Str.regexp_string "\r\n"
 let rec read_line ic =
   match (ic.header_buffer, ic.header_buffer_idx) with
   | None, _ ->
-      read_http_headers ic.c >>= fun str ->
+      read_http_headers ic.c
+      >>= fun str ->
       ic.header_buffer <- Some str ;
       read_line ic
-  | Some buf, i when i < String.length buf -> (
-    try
-      let eol = Re.Str.search_forward crlf buf i in
-      let line = String.sub buf i (eol - i) in
-      ic.header_buffer_idx <- eol + 2 ;
-      return (Some line)
-    with Not_found -> return (Some "")
-  )
+  | Some buf, i when i < String.length buf ->
+    ( try
+        let eol = Re.Str.search_forward crlf buf i in
+        let line = String.sub buf i (eol - i) in
+        ic.header_buffer_idx <- eol + 2 ;
+        return (Some line)
+      with
+    | Not_found ->
+        return (Some "") )
   | Some _, _ ->
       return (Some "")
+
 
 let read_into_exactly ic buf ofs len =
   really_read_into ic.c buf ofs len >>= fun () -> return true
 
+
 let read_exactly ic len =
   let buf = Bytes.create len in
-  read_into_exactly ic buf 0 len >>= function
-  | true ->
-      return (Some buf)
-  | false ->
-      return None
+  read_into_exactly ic buf 0 len
+  >>= function true -> return (Some buf) | false -> return None
+
 
 let read ic n =
   let buf = Bytes.make n '\000' in
-  really_read_into ic.c buf 0 n >>= fun () -> return (Bytes.unsafe_to_string buf)
+  really_read_into ic.c buf 0 n
+  >>= fun () -> return (Bytes.unsafe_to_string buf)
+
 
 let write oc x =
   let buf = Cstruct.create (String.length x) in
   Cstruct.blit_from_string x 0 buf 0 (String.length x) ;
   oc.Data_channel.really_write buf
+
 
 let flush _oc = return ()

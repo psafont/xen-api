@@ -79,8 +79,7 @@ let fallback_device_model_default_value_uefi = "qemu-upstream-uefi"
 
 (* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 let filtered_flags =
-  [
-    acpi
+  [ acpi
   ; apic
   ; nx
   ; pae
@@ -106,6 +105,7 @@ let filtered_flags =
   ; vcpu_unrestricted
   ]
 
+
 (* Other keys we might want to write to the platform map. *)
 let timeoffset = "timeoffset"
 
@@ -124,6 +124,7 @@ let is_valid ~key ~platformdata =
   | v ->
       false
 
+
 let is_true ~key ~platformdata ~default =
   try
     match List.assoc key platformdata |> String.lowercase_ascii with
@@ -134,7 +135,10 @@ let is_true ~key ~platformdata ~default =
     | _ ->
         default
     (* Check for validity using is_valid if required *)
-  with Not_found -> default
+  with
+  | Not_found ->
+      default
+
 
 let is_valid_device_model ~key ~platformdata =
   try
@@ -143,21 +147,28 @@ let is_valid_device_model ~key ~platformdata =
         true
     | _ ->
         false
-  with Not_found -> false
+  with
+  | Not_found ->
+      false
 
-let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
+
+let sanity_check
+    ~platformdata
+    ?firmware
+    ~vcpu_max
+    ~vcpu_at_startup
+    ~domain_type
     ~filter_out_unknowns =
   (* Filter out unknown flags, if applicable *)
   let platformdata =
-    if filter_out_unknowns then
-      List.filter (fun (k, v) -> List.mem k filtered_flags) platformdata
-    else
-      platformdata
+    if filter_out_unknowns
+    then List.filter (fun (k, v) -> List.mem k filtered_flags) platformdata
+    else platformdata
   in
   (* Filter out invalid TSC modes. *)
   let platformdata =
     List.filter
-      (fun (k, v) -> k <> tsc_mode || List.mem v ["0"; "1"; "2"; "3"])
+      (fun (k, v) -> k <> tsc_mode || List.mem v [ "0"; "1"; "2"; "3" ])
       platformdata
   in
   (* Sanity check for HVM or PV-in-PVH domains with invalid VCPU configuration*)
@@ -169,61 +180,51 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
       raise
         (Api_errors.Server_error
            ( Api_errors.invalid_value
-           , [
-               "platform:device-model"
+           , [ "platform:device-model"
              ; "UEFI boot is not supported with qemu-trad"
-             ]
-           )
-        )
+             ] ) )
   | "qemu-upstream-uefi", Some Xenops_types.Vm.Bios ->
       raise
         (Api_errors.Server_error
            ( Api_errors.invalid_value
-           , [
-               "platform:device-model"
+           , [ "platform:device-model"
              ; "BIOS boot is not supported with qemu-upstream-uefi"
-             ]
-           )
-        )
+             ] ) )
   | exception Not_found ->
       ()
   | _ ->
-      ()
-  ) ;
+      () ) ;
   ( if check_cores_per_socket && List.mem_assoc "cores-per-socket" platformdata
   then
-      let cps_str = List.assoc "cores-per-socket" platformdata in
-      let vcpus = Int64.to_int vcpu_max in
-      try
-        let cps = int_of_string cps_str in
-        (* VCPUs_max has to be a multiple of cores per socket *)
-        if cps < 1 || vcpus mod cps <> 0 then
-          raise
-            (Api_errors.Server_error
-               ( Api_errors.vcpu_max_not_cores_per_socket_multiple
-               , [string_of_int vcpus; cps_str]
-               )
-            )
-      with Failure msg ->
+    let cps_str = List.assoc "cores-per-socket" platformdata in
+    let vcpus = Int64.to_int vcpu_max in
+    try
+      let cps = int_of_string cps_str in
+      (* VCPUs_max has to be a multiple of cores per socket *)
+      if cps < 1 || vcpus mod cps <> 0
+      then
         raise
           (Api_errors.Server_error
-             (Api_errors.invalid_value, ["platform:cores-per-socket"; cps_str])
-          )
-  ) ;
+             ( Api_errors.vcpu_max_not_cores_per_socket_multiple
+             , [ string_of_int vcpus; cps_str ] ) )
+    with
+    | Failure msg ->
+        raise
+          (Api_errors.Server_error
+             (Api_errors.invalid_value, [ "platform:cores-per-socket"; cps_str ])
+          ) ) ;
   (* Add usb emulation flags.
      Make sure we don't send usb=false and usb_tablet=true,
      as that wouldn't make sense. *)
   let usb_enabled = is_true ~key:usb ~platformdata ~default:true in
   let usb_tablet_enabled =
-    if usb_enabled then
-      is_true ~key:usb_tablet ~platformdata ~default:true
-    else
-      false
+    if usb_enabled
+    then is_true ~key:usb_tablet ~platformdata ~default:true
+    else false
   in
   let platformdata =
     Xapi_stdext_std.Listext.List.update_assoc
-      [
-        (usb, string_of_bool usb_enabled)
+      [ (usb, string_of_bool usb_enabled)
       ; (usb_tablet, string_of_bool usb_tablet_enabled)
       ]
       platformdata
@@ -243,28 +244,26 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
   in
   platformdata
 
+
 let check_restricted_flags ~__context platform =
-  if not (is_valid nested_virt platform) then
+  if not (is_valid nested_virt platform)
+  then
     raise
       (Api_errors.Server_error
          ( Api_errors.invalid_value
-         , [
-             Printf.sprintf "platform:%s" nested_virt
+         , [ Printf.sprintf "platform:%s" nested_virt
            ; List.assoc nested_virt platform
-           ]
-         )
-      ) ;
-  if is_true nested_virt platform false then
-    Pool_features.assert_enabled ~__context ~f:Features.Nested_virt
+           ] ) ) ;
+  if is_true nested_virt platform false
+  then Pool_features.assert_enabled ~__context ~f:Features.Nested_virt
+
 
 let check_restricted_device_model ~__context platform =
-  if not (is_valid_device_model device_model platform) then
+  if not (is_valid_device_model device_model platform)
+  then
     raise
       (Api_errors.Server_error
          ( Api_errors.invalid_value
-         , [
-             Printf.sprintf "platform:%s when vm has VUSBs" device_model
+         , [ Printf.sprintf "platform:%s when vm has VUSBs" device_model
            ; (try List.assoc device_model platform with _ -> "undefined")
-           ]
-         )
-      )
+           ] ) )

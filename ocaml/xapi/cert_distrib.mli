@@ -72,5 +72,5 @@ val import_joining_pool_ca_certificates :
     as part of pool join and is unlikely to be useful elsewhere. *)
 
 val distribute_new_host_cert :
-  __context:Context.t -> host:[`host] API.Ref.t -> content:string -> unit
+  __context:Context.t -> host:[ `host ] API.Ref.t -> content:string -> unit
 (** distribute a new (additional) certificate for [host] in the pool *)

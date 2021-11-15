@@ -18,6 +18,7 @@ open Test_highlevel
 let string_of_unit_result =
   Fmt.(str "%a" Dump.(result ~ok:(any "()") ~error:exn))
 
+
 module Assert_not_already_present = Generic.MakeStateful (struct
   module Io = struct
     type input_t = string * string
@@ -48,6 +49,7 @@ module Assert_not_already_present = Generic.MakeStateful (struct
     let _ = make_pvs_cache_storage ~__context ~site:site1 ~host:host1 () in
     ()
 
+
   let extract_output __context (site, host) =
     let site' =
       List.hd (Db.PVS_site.get_by_name_label ~__context ~label:site)
@@ -55,23 +57,23 @@ module Assert_not_already_present = Generic.MakeStateful (struct
     let host' = List.hd (Db.Host.get_by_name_label ~__context ~label:host) in
     try
       Ok
-        (Xapi_pvs_cache_storage.assert_not_already_present ~__context site'
-           host'
-        )
-    with e -> Error e
+        (Xapi_pvs_cache_storage.assert_not_already_present
+           ~__context
+           site'
+           host' )
+    with
+    | e ->
+        Error e
+
 
   let tests =
     `QuickAndAutoDocumented
-      [
-        ( ("site1", "host1")
+      [ ( ("site1", "host1")
         , Error
             Api_errors.(
               Server_error
                 ( pvs_cache_storage_already_present
-                , [Ref.string_of site1; Ref.string_of host1]
-                )
-            )
-        )
+                , [ Ref.string_of site1; Ref.string_of host1 ] )) )
       ; (("site1", "host2"), Ok ())
       ; (("site2", "host1"), Ok ())
       ; (("site2", "host2"), Ok ())
@@ -116,14 +118,23 @@ module Assert_not_in_use = Generic.MakeStateful (struct
     let _ = make_pvs_cache_storage ~__context ~site:site2 ~host:host1 () in
     let _ = make_pvs_cache_storage ~__context ~site:site2 ~host:host2 () in
     let _ =
-      make_pvs_proxy ~__context ~site:site1 ~vIF:vif1 ~currently_attached:true
+      make_pvs_proxy
+        ~__context
+        ~site:site1
+        ~vIF:vif1
+        ~currently_attached:true
         ()
     in
     let _ =
-      make_pvs_proxy ~__context ~site:site2 ~vIF:vif2 ~currently_attached:false
+      make_pvs_proxy
+        ~__context
+        ~site:site2
+        ~vIF:vif2
+        ~currently_attached:false
         ()
     in
     ()
+
 
   let extract_output __context (site, host) =
     let site' =
@@ -133,21 +144,20 @@ module Assert_not_in_use = Generic.MakeStateful (struct
     let pcs =
       Db.PVS_site.get_cache_storage ~__context ~self:site'
       |> List.filter (fun pcs ->
-             Db.PVS_cache_storage.get_host ~__context ~self:pcs = host'
-         )
+             Db.PVS_cache_storage.get_host ~__context ~self:pcs = host' )
       |> List.hd
     in
-    try Ok (Xapi_pvs_cache_storage.assert_not_in_use ~__context pcs)
-    with e -> Error e
+    try Ok (Xapi_pvs_cache_storage.assert_not_in_use ~__context pcs) with
+    | e ->
+        Error e
+
 
   let tests =
     `QuickAndAutoDocumented
-      [
-        ( ("site1", "host1")
+      [ ( ("site1", "host1")
         , Error
             Api_errors.(
-              Server_error (pvs_cache_storage_is_in_use, [Ref.string_of pcs1])
-            )
+              Server_error (pvs_cache_storage_is_in_use, [ Ref.string_of pcs1 ]))
         )
       ; (("site1", "host2"), Ok ())
       ; (("site2", "host1"), Ok ())
@@ -156,8 +166,8 @@ module Assert_not_in_use = Generic.MakeStateful (struct
 end)
 
 let tests =
-  make_suite "pvs_site_"
-    [
-      ("is_already_present", Assert_not_already_present.tests)
+  make_suite
+    "pvs_site_"
+    [ ("is_already_present", Assert_not_already_present.tests)
     ; ("assert_not_in_use", Assert_not_in_use.tests)
     ]

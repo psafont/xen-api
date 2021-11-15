@@ -47,21 +47,22 @@ let with_lock f =
     thread_reenter_count := 1 ;
     finally f (fun () ->
         thread_reenter_count := !thread_reenter_count - 1 ;
-        if !thread_reenter_count = 0 then (
+        if !thread_reenter_count = 0
+        then (
           allow_thread_through_dbcache_mutex := None ;
-          Mutex.unlock dbcache_mutex
-        )
-    )
+          Mutex.unlock dbcache_mutex ) )
   in
   match !allow_thread_through_dbcache_mutex with
   | None ->
       do_with_lock ()
   | Some id ->
-      if id = me then (
+      if id = me
+      then (
         thread_reenter_count := !thread_reenter_count + 1 ;
         finally f (fun () -> thread_reenter_count := !thread_reenter_count - 1)
-      ) else
-        do_with_lock ()
+        )
+      else do_with_lock ()
+
 
 (* Global flush lock: all db flushes are performed holding this lock *)
 (* When we want to prevent the database from being flushed for a period

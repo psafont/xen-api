@@ -14,43 +14,54 @@
 
 open Network
 
-module D = Debug.Make (struct let name = "xapi_sdn_controller" end)
+module D = Debug.Make (struct
+  let name = "xapi_sdn_controller"
+end)
 
 open D
 
 let db_introduce ~__context ~protocol ~address ~port =
-  if Db.SDN_controller.get_all ~__context <> [] then
+  if Db.SDN_controller.get_all ~__context <> []
+  then
     raise
       (Api_errors.Server_error
          ( Api_errors.operation_not_allowed
-         , ["SDN controller has been configured. Please forget it first."]
-         )
+         , [ "SDN controller has been configured. Please forget it first." ] )
       ) ;
-  if protocol = `pssl then (
-    if address <> "" then
-      raise
-        (Api_errors.Server_error (Api_errors.invalid_value, ["address"; address])
-        ) ;
-    if port <> 0L then
+  if protocol = `pssl
+  then (
+    if address <> ""
+    then
       raise
         (Api_errors.Server_error
-           (Api_errors.invalid_value, ["port"; Int64.to_string port])
-        )
-  ) ;
-  if protocol = `ssl then
-    if address <> "" then
-      Helpers.assert_is_valid_ip `ipv4 "address" address
+           (Api_errors.invalid_value, [ "address"; address ]) ) ;
+    if port <> 0L
+    then
+      raise
+        (Api_errors.Server_error
+           (Api_errors.invalid_value, [ "port"; Int64.to_string port ]) ) ) ;
+  if protocol = `ssl
+  then
+    if address <> ""
+    then Helpers.assert_is_valid_ip `ipv4 "address" address
     else
       raise
-        (Api_errors.Server_error (Api_errors.invalid_value, ["address"; address])
-        ) ;
-  if port <> 0L then
-    Helpers.assert_is_valid_tcp_udp_port (Int64.to_int port) "port" ;
+        (Api_errors.Server_error
+           (Api_errors.invalid_value, [ "address"; address ]) ) ;
+  if port <> 0L
+  then Helpers.assert_is_valid_tcp_udp_port (Int64.to_int port) "port" ;
   let tcpport = if protocol = `ssl && port = 0L then 6632L else port in
-  let r = Ref.make () and uuid = Uuid.make_uuid () in
-  Db.SDN_controller.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
-    ~protocol ~address ~port:tcpport ;
+  let r = Ref.make ()
+  and uuid = Uuid.make_uuid () in
+  Db.SDN_controller.create
+    ~__context
+    ~ref:r
+    ~uuid:(Uuid.to_string uuid)
+    ~protocol
+    ~address
+    ~port:tcpport ;
   r
+
 
 let introduce ~__context ~protocol ~address ~port =
   let dbg = Context.string_of_task __context in
@@ -65,14 +76,14 @@ let introduce ~__context ~protocol ~address ~port =
       raise
         (Api_errors.Server_error
            ( Api_errors.operation_not_allowed
-           , ["host not configured for vswitch operation"]
-           )
-        )
+           , [ "host not configured for vswitch operation" ] ) )
+
 
 let forget ~__context ~self =
   let dbg = Context.string_of_task __context in
   Db.SDN_controller.destroy ~__context ~self ;
-  if Net.Bridge.get_kind dbg () = Network_interface.Openvswitch then
+  if Net.Bridge.get_kind dbg () = Network_interface.Openvswitch
+  then
     List.iter
       (fun host -> Helpers.update_vswitch_controller ~__context ~host)
       (Db.Host.get_all ~__context)

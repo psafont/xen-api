@@ -24,11 +24,11 @@ type 'a handler =
 
 module Stats : sig
   (** Statistics recorded per-handler *)
-  type t = {
-      mutable n_requests: int  (** Total number of requests processed *)
-    ; mutable n_connections: int  (** Total number of connections accepted *)
-    ; mutable n_framed: int  (** using the more efficient framed protocol *)
-  }
+  type t =
+    { mutable n_requests : int  (** Total number of requests processed *)
+    ; mutable n_connections : int  (** Total number of connections accepted *)
+    ; mutable n_framed : int  (** using the more efficient framed protocol *)
+    }
 end
 
 module Server : sig

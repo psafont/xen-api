@@ -15,7 +15,9 @@
 module Mtxext = Xapi_stdext_threads.Threadext.Mutex
 module Mcache = Monitor_dbcalls_cache
 
-module D = Debug.Make (struct let name = "monitor_mem_host" end)
+module D = Debug.Make (struct
+  let name = "monitor_mem_host"
+end)
 
 open D
 
@@ -31,13 +33,13 @@ let get_changes rrd_files =
              Mcache.log_errors_from filename ;
              datasources
              |> List.filter_map (function
-                  | Rrd.Host, ds
-                    when List.mem ds.Ds.ds_name
-                           ["memory_total_kib"; "memory_free_kib"] ->
-                      Some ds
-                  | _ ->
-                      None (* we are only interested in Host memory stats *)
-                  )
+                    | Rrd.Host, ds
+                      when List.mem
+                             ds.Ds.ds_name
+                             [ "memory_total_kib"; "memory_free_kib" ] ->
+                        Some ds
+                    | _ ->
+                        None (* we are only interested in Host memory stats *) )
              |> List.map (function ds ->
                     let value =
                       match ds.Ds.ds_value with
@@ -48,18 +50,18 @@ let get_changes rrd_files =
                       | Rrd.VT_Unknown ->
                           -1L
                     in
-                    (ds.Ds.ds_name, value)
-                    )
-           with e ->
-             if not (Mcache.is_ignored filename) then (
-               error "Unable to read host memory metrics from %s: %s" filename
-                 (Printexc.to_string e) ;
-               Mcache.ignore_errors_from filename
-             ) ;
-             []
-           )
-         rrd_files
-      )
+                    (ds.Ds.ds_name, value) )
+           with
+           | e ->
+               if not (Mcache.is_ignored filename)
+               then (
+                 error
+                   "Unable to read host memory metrics from %s: %s"
+                   filename
+                   (Printexc.to_string e) ;
+                 Mcache.ignore_errors_from filename ) ;
+               [] )
+         rrd_files )
   in
   let free_bytes = List.assoc_opt "memory_free_kib" named_dss in
   let total_bytes = List.assoc_opt "memory_total_kib" named_dss in
@@ -72,31 +74,37 @@ let get_changes rrd_files =
   | _ ->
       None
 
+
 let set_changes (free_bytes, total_bytes) =
   Mtxext.execute Mcache.host_memory_m (fun _ ->
       Mcache.host_memory_free_cached := free_bytes ;
-      Mcache.host_memory_total_cached := total_bytes
-  )
+      Mcache.host_memory_total_cached := total_bytes )
+
 
 let update rrd_files =
   let is_host_rrd =
     Astring.String.is_prefix ~affix:Xapi_globs.metrics_prefix_mem_host
   in
   let rrd_files = List.filter is_host_rrd rrd_files in
-  Server_helpers.exec_with_new_task "Updating host memory metrics"
+  Server_helpers.exec_with_new_task
+    "Updating host memory metrics"
     (fun __context ->
       let changes = get_changes rrd_files in
       match changes with
       | None ->
           ()
-      | Some ((free, total) as c) -> (
-        try
-          let host = Helpers.get_localhost ~__context in
-          let metrics = Db.Host.get_metrics ~__context ~self:host in
-          Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total ;
-          Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free ;
-          set_changes c
-        with e ->
-          error "Unable to update host memory metrics: %s" (Printexc.to_string e)
-      )
-  )
+      | Some ((free, total) as c) ->
+        ( try
+            let host = Helpers.get_localhost ~__context in
+            let metrics = Db.Host.get_metrics ~__context ~self:host in
+            Db.Host_metrics.set_memory_total
+              ~__context
+              ~self:metrics
+              ~value:total ;
+            Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free ;
+            set_changes c
+          with
+        | e ->
+            error
+              "Unable to update host memory metrics: %s"
+              (Printexc.to_string e) ) )

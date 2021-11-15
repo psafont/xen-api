@@ -18,16 +18,19 @@ val string_of_features : int64 array -> string
 
 val features_of_string : string -> int64 array
 
-val reset_cpu_flags : __context:Context.t -> vm:[`VM] API.Ref.t -> unit
+val reset_cpu_flags : __context:Context.t -> vm:[ `VM ] API.Ref.t -> unit
 
 val update_cpu_flags :
-  __context:Context.t -> vm:[`VM] API.Ref.t -> host:[`host] API.Ref.t -> unit
+     __context:Context.t
+  -> vm:[ `VM ] API.Ref.t
+  -> host:[ `host ] API.Ref.t
+  -> unit
 
 val assert_vm_is_compatible :
      __context:Context.t
-  -> vm:[`VM] API.Ref.t
-  -> host:[`host] API.Ref.t
-  -> ?remote:(Rpc.call -> Rpc.response Client.Id.t) * [< `session] Ref.t
+  -> vm:[ `VM ] API.Ref.t
+  -> host:[ `host ] API.Ref.t
+  -> ?remote:(Rpc.call -> Rpc.response Client.Id.t) * [< `session ] Ref.t
   -> unit
   -> unit
 
@@ -63,8 +66,8 @@ val features_hvm_host : int64 array Map_check.field
 
 val get_host_cpu_info :
      __context:Context.t
-  -> vm:[`VM] API.Ref.t
-  -> host:[`host] API.Ref.t
-  -> ?remote:(Rpc.call -> Rpc.response Client.Id.t) * [< `session] Ref.t
+  -> vm:[ `VM ] API.Ref.t
+  -> host:[ `host ] API.Ref.t
+  -> ?remote:(Rpc.call -> Rpc.response Client.Id.t) * [< `session ] Ref.t
   -> unit
   -> (string * string) list

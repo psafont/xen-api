@@ -37,11 +37,11 @@ exception Timeout_backend
 
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 
-type xen_arm_arch_domainconfig = {
-    (* Xenctrl.xen_arm_arch_domainconfig = *) gic_version: int
-  ; nr_spis: int
-  ; clock_frequency: int32
-}
+type xen_arm_arch_domainconfig =
+  { (* Xenctrl.xen_arm_arch_domainconfig = *) gic_version : int
+  ; nr_spis : int
+  ; clock_frequency : int32
+  }
 
 type x86_arch_emulation_flags =
   (* Xenctrl.x86_arch_emulation_flags = *)
@@ -61,10 +61,10 @@ val emulation_flags_pvh : x86_arch_emulation_flags list
 
 val emulation_flags_all : x86_arch_emulation_flags list
 
-type xen_x86_arch_domainconfig = {
-    (* Xenctrl.xen_x86_arch_domainconfig = *)
-    emulation_flags: x86_arch_emulation_flags list
-}
+type xen_x86_arch_domainconfig =
+  { (* Xenctrl.xen_x86_arch_domainconfig = *)
+    emulation_flags : x86_arch_emulation_flags list
+  }
 
 type arch_domainconfig =
   (* Xenctrl.arch_domainconfig = *)
@@ -75,43 +75,49 @@ val typ_of_arch_domainconfig : arch_domainconfig Rpc.Types.typ
 
 val arch_domainconfig : arch_domainconfig Rpc.Types.def
 
-type create_info = {
-    ssidref: int32
-  ; hvm: bool
-  ; hap: bool
-  ; name: string
-  ; xsdata: (string * string) list
-  ; platformdata: (string * string) list
-  ; bios_strings: (string * string) list
-  ; has_vendor_device: bool
-  ; is_uefi: bool
-  ; pci_passthrough: bool
-}
+type create_info =
+  { ssidref : int32
+  ; hvm : bool
+  ; hap : bool
+  ; name : string
+  ; xsdata : (string * string) list
+  ; platformdata : (string * string) list
+  ; bios_strings : (string * string) list
+  ; has_vendor_device : bool
+  ; is_uefi : bool
+  ; pci_passthrough : bool
+  }
 
 val typ_of_create_info : create_info Rpc.Types.typ
 
 val create_info : create_info Rpc.Types.def
 
-type build_hvm_info = {shadow_multiplier: float; video_mib: int}
+type build_hvm_info =
+  { shadow_multiplier : float
+  ; video_mib : int
+  }
 
 val typ_of_build_hvm_info : build_hvm_info Rpc.Types.typ
 
 val build_hvm_info : build_hvm_info Rpc.Types.def
 
-type build_pv_info = {cmdline: string; ramdisk: string option}
+type build_pv_info =
+  { cmdline : string
+  ; ramdisk : string option
+  }
 
 val typ_of_build_pv_info : build_pv_info Rpc.Types.typ
 
 val build_pv_info : build_pv_info Rpc.Types.def
 
-type build_pvh_info = {
-    cmdline: string
+type build_pvh_info =
+  { cmdline : string
   ; (* cmdline for the kernel (image) *)
-    modules: (string * string option) list
+    modules : (string * string option) list
   ; (* list of modules plus optional cmdlines *)
-    shadow_multiplier: float
-  ; video_mib: int
-}
+    shadow_multiplier : float
+  ; video_mib : int
+  }
 
 val typ_of_build_pvh_info : build_pvh_info Rpc.Types.typ
 
@@ -126,18 +132,18 @@ val typ_of_builder_spec_info : builder_spec_info Rpc.Types.typ
 
 val builder_spec_info : builder_spec_info Rpc.Types.def
 
-type build_info = {
-    memory_max: int64
+type build_info =
+  { memory_max : int64
   ; (* memory max in kilobytes *)
-    memory_target: int64
+    memory_target : int64
   ; (* memory target in kilobytes *)
-    kernel: string
+    kernel : string
   ; (* in hvm case, point to hvmloader *)
-    vcpus: int
+    vcpus : int
   ; (* vcpus max *)
-    priv: builder_spec_info
-  ; has_hard_affinity: bool
-}
+    priv : builder_spec_info
+  ; has_hard_affinity : bool
+  }
 
 val typ_of_build_info : build_info Rpc.Types.typ
 
@@ -189,7 +195,7 @@ val shutdown_wait_for_ack :
   -> xc:Xenctrl.handle
   -> xs:Xenstore.Xs.xsh
   -> domid
-  -> [`hvm | `pv | `pvh]
+  -> [ `hvm | `pv | `pvh ]
   -> shutdown_reason
   -> unit
 (** Tell the domain to shutdown with reason 'shutdown_reason', waiting for an
@@ -254,13 +260,15 @@ val restore :
   -> unit
 (** Restore a domain using the info provided *)
 
-type suspend_flag = Live | Debug
+type suspend_flag =
+  | Live
+  | Debug
 
 val suspend :
      Xenops_task.Xenops_task.task_handle
   -> xc:Xenctrl.handle
   -> xs:Xenstore.Xs.xsh
-  -> domain_type:[`hvm | `pv | `pvh]
+  -> domain_type:[ `hvm | `pv | `pvh ]
   -> is_uefi:bool
   -> dm:Device.Profile.t
   -> manager_path:string

@@ -12,7 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module R = Debug.Make (struct let name = "redo_log" end)
+module R = Debug.Make (struct
+  let name = "redo_log"
+end)
 
 open R
 
@@ -26,43 +28,48 @@ let raise_system_alert (name, priority) body =
          let pool = Helpers.get_pool ~__context in
          let obj_uuid = Db.Pool.get_uuid ~__context ~self:pool in
          let other_config = Db.Pool.get_other_config ~__context ~self:pool in
-         if
-           List.mem_assoc Xapi_globs.redo_log_alert_key other_config
-           && List.assoc Xapi_globs.redo_log_alert_key other_config = "true"
+         if List.mem_assoc Xapi_globs.redo_log_alert_key other_config
+            && List.assoc Xapi_globs.redo_log_alert_key other_config = "true"
          then (
            debug "Raising alert for pool UUID %s" obj_uuid ;
            ( try
                ignore
-                 (Xapi_message.create ~__context ~name ~priority ~cls:`Pool
-                    ~obj_uuid ~body
-                 )
-             with _ -> ()
-           ) ;
-           debug "Alert raised"
-         ) else
-           debug "Not raising alert because Pool.other_config:%s <> true"
-             Xapi_globs.redo_log_alert_key
-         )
-       ()
-    )
+                 (Xapi_message.create
+                    ~__context
+                    ~name
+                    ~priority
+                    ~cls:`Pool
+                    ~obj_uuid
+                    ~body )
+             with
+           | _ ->
+               () ) ;
+           debug "Alert raised" )
+         else
+           debug
+             "Not raising alert because Pool.other_config:%s <> true"
+             Xapi_globs.redo_log_alert_key )
+       () )
+
 
 (* Listen for redo_log events, and raise alerts when they occur. *)
 let loop () =
-  Debug.with_thread_named "Metadata VDI monitor"
+  Debug.with_thread_named
+    "Metadata VDI monitor"
     (fun () ->
       while true do
         let name, accessible =
           Event.sync (Event.receive Redo_log.redo_log_events)
         in
         let alert_body = Printf.sprintf "Redo log [%s]" name in
-        if accessible then (
+        if accessible
+        then (
           info "Raising system alert that redo log [%s] is now healthy" name ;
-          raise_system_alert Api_messages.redo_log_healthy alert_body
-        ) else (
-          info "Raising system alert to say that we can't access redo log [%s]"
+          raise_system_alert Api_messages.redo_log_healthy alert_body )
+        else (
+          info
+            "Raising system alert to say that we can't access redo log [%s]"
             name ;
-          raise_system_alert Api_messages.redo_log_broken alert_body
-        )
-      done
-      )
+          raise_system_alert Api_messages.redo_log_broken alert_body )
+      done )
     ()

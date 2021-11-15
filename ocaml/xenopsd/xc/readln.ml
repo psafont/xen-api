@@ -1,6 +1,9 @@
 (* Read newline-delimited strings from a file descriptor *)
 
-type result = Ok of string list | Error of string | EOF
+type result =
+  | Ok of string list
+  | Error of string
+  | EOF
 
 let input = Hashtbl.create 100 (* holds unconsumed input per fd *)
 
@@ -15,13 +18,13 @@ let read fd =
   | 0 ->
       let pending = try Hashtbl.find input fd with Not_found -> Bytes.empty in
       Hashtbl.remove input fd ;
-      if pending = Bytes.empty then
-        EOF
+      if pending = Bytes.empty
+      then EOF
       else
         Error
-          (Printf.sprintf "Unconsumed data at EOF: '%s'"
-             (Bytes.to_string pending)
-          )
+          (Printf.sprintf
+             "Unconsumed data at EOF: '%s'"
+             (Bytes.to_string pending) )
   | n ->
       let data = Bytes.sub buffer 0 n in
       let inpt = try Hashtbl.find input fd with Not_found -> Bytes.empty in

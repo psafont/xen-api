@@ -13,10 +13,17 @@
  *)
 
 (** Operations generated for each field can be any of these *)
-type field_op = Get | Set | Add | Remove
+type field_op =
+  | Get
+  | Set
+  | Add
+  | Remove
 
 (** Operations generated for each object can be any of these *)
-type obj_op = Make | Delete | GetAll
+type obj_op =
+  | Make
+  | Delete
+  | GetAll
 
 (** Represents an individual operation (on the wire), generating from
     either a field, an object or a message *)

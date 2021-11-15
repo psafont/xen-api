@@ -25,6 +25,7 @@ let read fd size =
   done ;
   Bytes.unsafe_to_string buf
 
+
 (** write a buf to fd *)
 let write fd buf =
   let len = String.length buf in
@@ -34,14 +35,23 @@ let write fd buf =
     i := !i - wd
   done
 
+
 (** connect to the host and port, and give the fd *)
 let connect host port =
   let sockaddr = Unix.ADDR_INET (host, port) in
   let fd = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-  try Unix.connect fd sockaddr ; fd with e -> Unix.close fd ; raise e
+  try
+    Unix.connect fd sockaddr ;
+    fd
+  with
+  | e ->
+      Unix.close fd ;
+      raise e
+
 
 let byte_order_of_int ~endianness =
   match endianness with `big -> (0, 1, 2, 3) | `little -> (3, 2, 1, 0)
+
 
 let byte_order_of_int64 ~endianness =
   match endianness with
@@ -49,6 +59,7 @@ let byte_order_of_int64 ~endianness =
       (0, 1, 2, 3, 4, 5, 6, 7)
   | `little ->
       (7, 6, 5, 4, 3, 2, 1, 0)
+
 
 let marshall_int ~endianness x =
   let buffer = Bytes.of_string "\000\000\000\000" in
@@ -58,6 +69,7 @@ let marshall_int ~endianness x =
   Bytes.set buffer c @@ char_of_int ((x lsr 8) land 0xff) ;
   Bytes.set buffer d @@ char_of_int ((x lsr 0) land 0xff) ;
   Bytes.unsafe_to_string buffer
+
 
 let write_int ~endianness fd x = write fd (marshall_int ~endianness x)
 
@@ -82,6 +94,7 @@ let marshall_int64 ~endianness x =
   @@ char_of_int Int64.(to_int (logand (shift_right_logical x 0) 0xffL)) ;
   Bytes.unsafe_to_string buffer
 
+
 let write_int64 ~endianness fd x = write fd (marshall_int64 ~endianness x)
 
 let unmarshall_int ~endianness buffer =
@@ -92,9 +105,11 @@ let unmarshall_int ~endianness buffer =
   and d = int_of_char buffer.[d] in
   (a lsl 24) lor (b lsl 16) lor (c lsl 8) lor d
 
+
 let read_int ~endianness fd =
   let buffer = read fd 4 in
   unmarshall_int ~endianness buffer
+
 
 let unmarshall_int64 ~endianness buffer =
   let char_to_int64 x = Int64.of_int (int_of_char buffer.[x]) in
@@ -115,18 +130,16 @@ let unmarshall_int64 ~endianness buffer =
     ||| shift_left e 24
     ||| shift_left f 16
     ||| shift_left g 8
-    ||| h
-  )
+    ||| h)
+
 
 let read_int64 ~endianness fd =
   let buffer = read fd 8 in
   unmarshall_int64 ~endianness buffer
 
+
 exception Integer_truncation
 
 let int_of_int64_exn i64 =
   let i = Int64.to_int i64 in
-  if Int64.of_int i = i64 then
-    i
-  else
-    raise Integer_truncation
+  if Int64.of_int i = i64 then i else raise Integer_truncation

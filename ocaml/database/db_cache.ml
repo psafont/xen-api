@@ -14,7 +14,9 @@
 
 open Db_interface
 
-module D = Debug.Make (struct let name = "db_cache" end)
+module D = Debug.Make (struct
+  let name = "db_cache"
+end)
 
 open D
 
@@ -27,6 +29,7 @@ module Remote_db : DB_ACCESS = Db_rpc_client_v1.Make (struct
     ignore (Master_connection.start_master_connection_watchdog ()) ;
     ignore (Master_connection.open_secure_connection ())
 
+
   let rpc request = Master_connection.execute_remote_fn request
 end)
 
@@ -35,6 +38,7 @@ let get = function
       (module Local_db : DB_ACCESS)
   | Db_ref.Remote ->
       (module Remote_db : DB_ACCESS)
+
 
 let apply_delta_to_cache entry db_ref =
   let module DB : DB_ACCESS = Local_db in
@@ -46,6 +50,10 @@ let apply_delta_to_cache entry db_ref =
       debug "Redoing delete_row %s (%s)" tblname objref ;
       DB.delete_row db_ref tblname objref
   | Redo_log.WriteField (tblname, objref, fldname, newval) ->
-      debug "Redoing write_field %s (%s) [%s -> %s]" tblname objref fldname
+      debug
+        "Redoing write_field %s (%s) [%s -> %s]"
+        tblname
+        objref
+        fldname
         newval ;
       DB.write_field db_ref tblname objref fldname newval

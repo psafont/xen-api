@@ -13,7 +13,13 @@
  *)
 
 (** Recognised HTTP methods *)
-type method_t = Get | Post | Put | Connect | Options | Unknown of string
+type method_t =
+  | Get
+  | Post
+  | Put
+  | Connect
+  | Options
+  | Unknown of string
 
 val string_of_method_t : method_t -> string
 
@@ -28,7 +34,9 @@ exception Method_not_implemented
 
 exception Forbidden
 
-type authorization = Basic of string * string | UnknownAuth of string
+type authorization =
+  | Basic of string * string
+  | UnknownAuth of string
 
 val read_http_header : bytes -> Unix.file_descr -> int
 
@@ -39,13 +47,13 @@ val read_http_request_header : Unix.file_descr -> bool * string * string option
 val read_http_response_header : bytes -> Unix.file_descr -> int
 
 module Accept : sig
-  type t = {
-      (* None means '*' *)
-      ty: string option
+  type t =
+    { (* None means '*' *)
+      ty : string option
     ; (* None means '*' *)
-      subty: string option
-    ; q: int
-  }
+      subty : string option
+    ; q : int
+    }
 
   exception Parse_failure of string
 
@@ -62,26 +70,26 @@ end
 
 (** Parsed form of the HTTP request line plus cookie info *)
 module Request : sig
-  type t = {
-      m: method_t
-    ; uri: string
-    ; query: (string * string) list
-    ; version: string
-    ; frame: bool
-    ; transfer_encoding: string option
-    ; accept: string option
-    ; content_length: int64 option
-    ; auth: authorization option
-    ; cookie: (string * string) list
-    ; task: string option
-    ; subtask_of: string option
-    ; content_type: string option
-    ; host: string option
-    ; user_agent: string option
-    ; mutable close: bool
-    ; additional_headers: (string * string) list
-    ; body: string option
-  }
+  type t =
+    { m : method_t
+    ; uri : string
+    ; query : (string * string) list
+    ; version : string
+    ; frame : bool
+    ; transfer_encoding : string option
+    ; accept : string option
+    ; content_length : int64 option
+    ; auth : authorization option
+    ; cookie : (string * string) list
+    ; task : string option
+    ; subtask_of : string option
+    ; content_type : string option
+    ; host : string option
+    ; user_agent : string option
+    ; mutable close : bool
+    ; additional_headers : (string * string) list
+    ; body : string option
+    }
 
   val rpc_of_t : t -> Rpc.t
 
@@ -129,16 +137,16 @@ end
 
 (** Parsed form of the HTTP response *)
 module Response : sig
-  type t = {
-      version: string
-    ; frame: bool
-    ; code: string
-    ; message: string
-    ; content_length: int64 option
-    ; task: string option
-    ; additional_headers: (string * string) list
-    ; body: string option
-  }
+  type t =
+    { version : string
+    ; frame : bool
+    ; code : string
+    ; message : string
+    ; content_length : int64 option
+    ; task : string option
+    ; additional_headers : (string * string) list
+    ; body : string option
+    }
 
   val empty : t
 
@@ -226,23 +234,30 @@ val parse_keyvalpairs : string -> (string * string) list
 
 val urlencode : string -> string
 
-type 'a ll = End | Item of 'a * (unit -> 'a ll)
+type 'a ll =
+  | End
+  | Item of 'a * (unit -> 'a ll)
 
 val ll_iter : ('a -> unit) -> 'a ll -> unit
 
 module Url : sig
-  type http = {
-      host: string
-    ; auth: authorization option
-    ; port: int option
-    ; ssl: bool
-  }
+  type http =
+    { host : string
+    ; auth : authorization option
+    ; port : int option
+    ; ssl : bool
+    }
 
-  type file = {path: string}
+  type file = { path : string }
 
-  type scheme = Http of http | File of file
+  type scheme =
+    | Http of http
+    | File of file
 
-  type data = {uri: string; query_params: (string * string) list}
+  type data =
+    { uri : string
+    ; query_params : (string * string) list
+    }
 
   type t = scheme * data
 

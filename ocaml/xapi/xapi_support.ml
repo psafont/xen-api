@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "xapi_support" end)
+module D = Debug.Make (struct
+  let name = "xapi_support"
+end)
 
 open D
 
@@ -22,24 +24,29 @@ let upload_url name =
   let uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
   Printf.sprintf "%s%s-%s" support_url uuid name
 
+
 open Forkhelpers
 
 let do_upload label file url options =
   let proxy =
-    if List.mem_assoc "http_proxy" options then
-      List.assoc "http_proxy" options
-    else
-      try Unix.getenv "http_proxy" with _ -> ""
+    if List.mem_assoc "http_proxy" options
+    then List.assoc "http_proxy" options
+    else try Unix.getenv "http_proxy" with _ -> ""
   in
-  let env = Helpers.env_with_path [("URL", url); ("PROXY", proxy)] in
+  let env = Helpers.env_with_path [ ("URL", url); ("PROXY", proxy) ] in
   match
     with_logfile_fd label (fun log_fd ->
         let pid =
-          safe_close_and_exec ~env None (Some log_fd) (Some log_fd) []
-            !Xapi_globs.upload_wrapper [file]
+          safe_close_and_exec
+            ~env
+            None
+            (Some log_fd)
+            (Some log_fd)
+            []
+            !Xapi_globs.upload_wrapper
+            [ file ]
         in
-        waitpid_fail_if_bad_exit pid
-    )
+        waitpid_fail_if_bad_exit pid )
   with
   | Success _ ->
       debug "Upload succeeded"

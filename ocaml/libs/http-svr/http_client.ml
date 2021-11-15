@@ -13,7 +13,9 @@
  *)
 (* A very simple HTTP client *)
 
-module D = Debug.Make (struct let name = "http" end)
+module D = Debug.Make (struct
+  let name = "http"
+end)
 
 open D
 
@@ -34,8 +36,10 @@ exception Http_error of string * string
 exception Parse_error of string
 
 let http_rpc_send_query fd request =
-  Xapi_stdext_unix.Unixext.really_write_string fd
+  Xapi_stdext_unix.Unixext.really_write_string
+    fd
     (Http.Request.to_wire_string request)
+
 
 (* Internal exception thrown when reading a newline-terminated HTTP header when the
    connection is closed *)
@@ -50,17 +54,17 @@ let input_line_fd (fd : Unix.file_descr) =
   while not !finished do
     let buffer = Bytes.make 1 ' ' in
     let read = Unix.read fd buffer 0 1 in
-    if read = 1 then
-      if Bytes.to_string buffer = "\n" then
-        finished := true
-      else
-        Buffer.add_char buf (Bytes.get buffer 0)
-    else if Buffer.contents buf = "" then
-      finished := true
-    else
-      raise (Http_header_truncated (Buffer.contents buf))
+    if read = 1
+    then
+      if Bytes.to_string buffer = "\n"
+      then finished := true
+      else Buffer.add_char buf (Bytes.get buffer 0)
+    else if Buffer.contents buf = ""
+    then finished := true
+    else raise (Http_header_truncated (Buffer.contents buf))
   done ;
   Buffer.contents buf
+
 
 let response_of_fd_exn_slow fd =
   let task_id = ref None in
@@ -97,31 +101,30 @@ let response_of_fd_exn_slow fd =
         | x ->
             let k, v =
               match Astring.String.cuts ~sep:":" x with
-              | [k; v] ->
+              | [ k; v ] ->
                   (lowercase k, Astring.String.trim v)
               | _ ->
                   ("", "")
             in
-            if k = lowercase Http.Hdr.task_id then
-              task_id := Some v
-            else if k = lowercase Http.Hdr.content_length then
-              content_length := Some (Int64.of_string v)
-            else
-              headers := (k, v) :: !headers
+            if k = lowercase Http.Hdr.task_id
+            then task_id := Some v
+            else if k = lowercase Http.Hdr.content_length
+            then content_length := Some (Int64.of_string v)
+            else headers := (k, v) :: !headers
       done ;
-      {
-        Http.Response.version
-      ; frame= false
+      { Http.Response.version
+      ; frame = false
       ; code
       ; message
-      ; content_length= !content_length
-      ; task= !task_id
-      ; additional_headers= !headers
-      ; body= None
+      ; content_length = !content_length
+      ; task = !task_id
+      ; additional_headers = !headers
+      ; body = None
       }
   | _ ->
       error "Failed to parse HTTP response status line [%s]" line ;
       raise (Parse_error (Printf.sprintf "Expected initial header [%s]" line))
+
 
 (** [response_of_fd_exn fd] returns an Http.Response.t object, or throws an exception *)
 let response_of_fd_exn fd =
@@ -132,63 +135,59 @@ let response_of_fd_exn fd =
   snd
     (List.fold_left
        (fun (status, res) header ->
-         if not status then
+         if not status
+         then
            match Astring.String.cut ~sep:" " header with
-           | Some (http_version, rest) -> (
-             match Astring.String.cut ~sep:" " rest with
-             | Some (code, message) -> (
-               match Astring.String.cut ~sep:"/" http_version with
+           | Some (http_version, rest) ->
+             ( match Astring.String.cut ~sep:" " rest with
+             | Some (code, message) ->
+               ( match Astring.String.cut ~sep:"/" http_version with
                | Some ("HTTP", version) ->
-                   (true, {res with version; code; message})
+                   (true, { res with version; code; message })
                | _ ->
                    error "Failed to parse HTTP response status line [%s]" header ;
                    raise
                      (Parse_error
-                        (Printf.sprintf "Failed to parse %s" http_version)
-                     )
-             )
+                        (Printf.sprintf "Failed to parse %s" http_version) ) )
              | None ->
                  raise (Parse_error (Printf.sprintf "Failed to parse %s" rest))
-           )
+             )
            | None ->
                raise (Parse_error (Printf.sprintf "Failed to parse %s" header))
          else
            match Astring.String.cut ~sep:":" header with
-           | Some (k, v) -> (
+           | Some (k, v) ->
                let k = lowercase k in
                let v = Astring.String.trim v in
                ( true
-               , match k with
+               , ( match k with
                  | k when k = Http.Hdr.task_id ->
-                     {res with task= Some v}
+                     { res with task = Some v }
                  | k when k = Http.Hdr.content_length ->
-                     {res with content_length= Some (Int64.of_string v)}
+                     { res with content_length = Some (Int64.of_string v) }
                  | k ->
-                     {
-                       res with
-                       additional_headers= (k, v) :: res.additional_headers
-                     }
-               )
-             )
+                     { res with
+                       additional_headers = (k, v) :: res.additional_headers
+                     } ) )
            | _ ->
-               (true, res) (* end of headers? *)
-         )
+               (true, res)
+           (* end of headers? *) )
        (false, empty)
-       (Astring.String.cuts ~sep:"\n" buf)
-    )
+       (Astring.String.cuts ~sep:"\n" buf) )
+
 
 (** [response_of_fd fd] returns an optional Http.Response.t record *)
 let response_of_fd ?(use_fastpath = false) fd =
   try
-    if use_fastpath then
-      Some (response_of_fd_exn fd)
-    else
-      Some (response_of_fd_exn_slow fd)
+    if use_fastpath
+    then Some (response_of_fd_exn fd)
+    else Some (response_of_fd_exn_slow fd)
   with
   | Unix.Unix_error (_, _, _) as e ->
       raise e
   | _ ->
       None
+
 
 (** See perftest/tests.ml *)
 let last_content_length = ref 0L
@@ -197,8 +196,8 @@ let http_rpc_recv_response use_fastpath error_msg fd =
   match response_of_fd ~use_fastpath fd with
   | None ->
       raise (Http_request_rejected error_msg)
-  | Some response -> (
-    match response.Http.Response.code with
+  | Some response ->
+    ( match response.Http.Response.code with
     | ("401" | "403" | "500") as http_code ->
         raise (Http_error (http_code, error_msg))
     | "200" ->
@@ -208,7 +207,8 @@ let http_rpc_recv_response use_fastpath error_msg fd =
         response
     | code ->
         raise (Http_request_rejected (Printf.sprintf "%s: %s" code error_msg))
-  )
+    )
+
 
 (** [rpc request f] marshals the HTTP request represented by [request] and [body]
     and then parses the response. On success, [f] is called with an HTTP response record.

@@ -18,7 +18,9 @@
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 
-module D = Debug.Make (struct let name = "thread_queue" end)
+module D = Debug.Make (struct
+  let name = "thread_queue"
+end)
 
 open D
 
@@ -28,7 +30,10 @@ type 'a process_fn = 'a -> unit
 (** The type of the function which pushes new elements into the queue *)
 type 'a push_fn = string -> 'a -> bool
 
-type 'a t = {push_fn: 'a push_fn; name: string}
+type 'a t =
+  { push_fn : 'a push_fn
+  ; name : string
+  }
 
 (** Given an optional maximum queue length and a function for processing elements (which will be called in a
     single background thread), return a function which pushes items onto the queue. *)
@@ -38,7 +43,8 @@ let make ?max_q_length ?(name = "unknown") (process_fn : 'a process_fn) : 'a t =
   let m = Mutex.create () in
   let string_of_queue q =
     let items =
-      List.rev (Queue.fold (fun acc (description, _) -> description :: acc) [] q)
+      List.rev
+        (Queue.fold (fun acc (description, _) -> description :: acc) [] q)
     in
     Printf.sprintf "[ %s ](%d)" (String.concat "; " items) (List.length items)
   in
@@ -61,15 +67,15 @@ let make ?max_q_length ?(name = "unknown") (process_fn : 'a process_fn) : 'a t =
               Queue.iter
                 (fun (description, x) ->
                   debug "pop(%s) = %s" name description ;
-                  try process_fn x with _ -> ()
-                  )
-                local_q
-              )
+                  try process_fn x with _ -> () )
+                local_q )
             (fun () -> Mutex.lock m) ;
-          debug "%s: completed processing %d items: queue = %s" name
-            (Queue.length local_q) (string_of_queue q)
-        done
-    )
+          debug
+            "%s: completed processing %d items: queue = %s"
+            name
+            (Queue.length local_q)
+            (string_of_queue q)
+        done )
   in
   (* Called with lock already held *)
   let maybe_start_thread () =
@@ -88,10 +94,13 @@ let make ?max_q_length ?(name = "unknown") (process_fn : 'a process_fn) : 'a t =
             false
         | _ ->
             Queue.push (description, x) q ;
-            debug "push(%s, %s): queue = %s" name description (string_of_queue q) ;
+            debug
+              "push(%s, %s): queue = %s"
+              name
+              description
+              (string_of_queue q) ;
             Condition.signal c ;
             maybe_start_thread () ;
-            true
-    )
+            true )
   in
-  {push_fn= push; name}
+  { push_fn = push; name }

@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "memory_check" end)
+module D = Debug.Make (struct
+  let name = "memory_check"
+end)
 
 open D
 
@@ -48,6 +50,7 @@ let vm_compute_required_memory vm_record guest_memory_kib =
   let shadow_bytes = Memory.bytes_of_mib shadow_mib in
   (normal_bytes, shadow_bytes)
 
+
 (** Different users will wish to use a different VM accounting policy, depending
     on how conservative or liberal they are. *)
 type accounting_policy =
@@ -58,8 +61,8 @@ type accounting_policy =
       (** use dynamic_min: liberal: assumes that guests always co-operate. *)
 
 (** Common logic of vm_compute_start_memory and vm_compute_used_memory *)
-let choose_memory_required ~policy ~memory_dynamic_min ~memory_dynamic_max
-    ~memory_static_max =
+let choose_memory_required
+    ~policy ~memory_dynamic_min ~memory_dynamic_max ~memory_static_max =
   match policy with
   | Dynamic_min ->
       memory_dynamic_min
@@ -67,6 +70,7 @@ let choose_memory_required ~policy ~memory_dynamic_min ~memory_dynamic_max
       memory_dynamic_max
   | Static_max ->
       memory_static_max
+
 
 (** Calculates the amount of memory required in both 'normal' and 'shadow'
     memory, to start a VM. If the given VM is a PV guest and if memory ballooning
@@ -76,29 +80,33 @@ let choose_memory_required ~policy ~memory_dynamic_min ~memory_dynamic_max
     values derived from the VM's static memory maximum (since currently HVM guests
     are not able to start in a pre-ballooned state). *)
 let vm_compute_start_memory ~__context ?(policy = Dynamic_min) vm_record =
-  if Xapi_fist.disable_memory_checks () then
-    (0L, 0L)
+  if Xapi_fist.disable_memory_checks ()
+  then (0L, 0L)
   else
     let memory_required =
-      choose_memory_required ~policy
+      choose_memory_required
+        ~policy
         ~memory_dynamic_min:vm_record.API.vM_memory_dynamic_min
         ~memory_dynamic_max:vm_record.API.vM_memory_dynamic_max
         ~memory_static_max:vm_record.API.vM_memory_static_max
     in
-    vm_compute_required_memory vm_record
+    vm_compute_required_memory
+      vm_record
       (Memory.kib_of_bytes_used memory_required)
+
 
 (** Calculates the amount of memory required in both 'normal' and 'shadow'
     memory, for a running VM. If the VM is currently subject to a memory balloon
     operation, this function returns the maximum amount of memory that the VM will
     need between now, and the point in future time when the operation completes. *)
 let vm_compute_used_memory ~__context policy vm_ref =
-  if Xapi_fist.disable_memory_checks () then
-    0L
+  if Xapi_fist.disable_memory_checks ()
+  then 0L
   else
     let vm_record = Db.VM.get_record ~__context ~self:vm_ref in
     let memory_required =
-      choose_memory_required ~policy
+      choose_memory_required
+        ~policy
         ~memory_dynamic_min:
           vm_record.API.vM_memory_dynamic_min
           (* ToDo: Is vm_main_record or vm_boot_record the right thing for dynamic_max? *)
@@ -106,6 +114,7 @@ let vm_compute_used_memory ~__context policy vm_ref =
         ~memory_static_max:vm_record.API.vM_memory_static_max
     in
     memory_required +++ vm_record.API.vM_memory_overhead
+
 
 (**
    	The Pool master's view of the total memory and memory consumers on a host.
@@ -122,14 +131,14 @@ let vm_compute_used_memory ~__context policy vm_ref =
    		the sum of the dynamic_min's of all the VMs with domains + the
    		request is more than the total free.
 *)
-type host_memory_summary = {
-    host_maximum_guest_memory_bytes: int64
+type host_memory_summary =
+  { host_maximum_guest_memory_bytes : int64
         (** The maximum amount of memory that guests can use on this host. *)
-  ; resident: API.ref_VM list
+  ; resident : API.ref_VM list
         (** list of VMs which have a domain running here *)
-  ; scheduled: API.ref_VM list
+  ; scheduled : API.ref_VM list
         (** list of VMs which are in the process of having a domain created here *)
-}
+  }
 
 open Db_filter_types
 
@@ -146,15 +155,18 @@ let get_host_memory_summary ~__context ~host =
     host_memory_total_bytes --- host_memory_overhead_bytes
   in
   let resident =
-    Db.VM.get_refs_where ~__context
+    Db.VM.get_refs_where
+      ~__context
       ~expr:(Eq (Field "resident_on", Literal (Ref.string_of host)))
   in
   let scheduled =
-    Db.VM.get_refs_where ~__context
+    Db.VM.get_refs_where
+      ~__context
       ~expr:
         (Eq (Field "scheduled_to_be_resident_on", Literal (Ref.string_of host)))
   in
-  {host_maximum_guest_memory_bytes; resident; scheduled}
+  { host_maximum_guest_memory_bytes; resident; scheduled }
+
 
 (**
    	Given a host's memory summary and a policy flag (i.e. whether to only
@@ -172,6 +184,7 @@ let host_compute_free_memory_with_policy ~__context summary policy =
   in
   max 0L host_mem_available
 
+
 (**
    	Compute, from our managed data, how much memory is available on a host; this
    	takes into account both VMs that are resident_on the host and also VMs that
@@ -186,8 +199,8 @@ let host_compute_free_memory_with_policy ~__context summary policy =
    	If 'dump_stats=true' then we write to the debug log where we think the
    	memory is being used.
 *)
-let host_compute_free_memory_with_maximum_compression ?(dump_stats = false)
-    ~__context ~host ignore_scheduled_vm =
+let host_compute_free_memory_with_maximum_compression
+    ?(dump_stats = false) ~__context ~host ignore_scheduled_vm =
   (*
 		Compute host free memory from what is actually running. Don't rely on
 		reported free memory, since this is an asychronously-computed metric
@@ -200,48 +213,50 @@ let host_compute_free_memory_with_maximum_compression ?(dump_stats = false)
 		reserved resources twice.
 	*)
   let summary =
-    {
-      summary with
-      scheduled=
+    { summary with
+      scheduled =
         ( match ignore_scheduled_vm with
         | None ->
             summary.scheduled (* no change *)
         | Some ignore_me ->
-            List.filter (fun x -> x <> ignore_me) summary.scheduled
-        )
+            List.filter (fun x -> x <> ignore_me) summary.scheduled )
     }
   in
   let host_mem_available =
     host_compute_free_memory_with_policy ~__context summary Dynamic_min
     (* consider ballooning *)
   in
-  if dump_stats then (
+  if dump_stats
+  then (
     let mib x = Int64.div (Int64.div x 1024L) 1024L in
-    debug "Memory_check: total host memory: %Ld (%Ld MiB)"
+    debug
+      "Memory_check: total host memory: %Ld (%Ld MiB)"
       summary.host_maximum_guest_memory_bytes
       (mib summary.host_maximum_guest_memory_bytes) ;
     List.iter
       (fun v ->
         let reqd = vm_compute_used_memory ~__context Static_max v in
-        debug "Memory_check: VM %s (%s): memory %Ld (%Ld MiB)"
+        debug
+          "Memory_check: VM %s (%s): memory %Ld (%Ld MiB)"
           (Db.VM.get_uuid ~__context ~self:v)
-          ( if List.mem v summary.resident then
-              "resident here"
-          else
-            "scheduled to be resident here"
-          )
-          reqd (mib reqd)
-        )
+          ( if List.mem v summary.resident
+          then "resident here"
+          else "scheduled to be resident here" )
+          reqd
+          (mib reqd) )
       (summary.scheduled @ summary.resident) ;
-    debug "Memory_check: available memory: %Ld (%Ld MiB)" host_mem_available
-      (mib host_mem_available)
-  ) ;
+    debug
+      "Memory_check: available memory: %Ld (%Ld MiB)"
+      host_mem_available
+      (mib host_mem_available) ) ;
   host_mem_available
+
 
 let host_compute_memory_overhead ~__context ~host =
   (* We assume that the memory overhead of a host is constant with respect *)
   (* to time and simply fetch the existing cached value from the database. *)
   Db.Host.get_memory_overhead ~__context ~self:host
+
 
 let vm_compute_memory_overhead ~vm_record =
   let static_max_bytes = vm_record.API.vM_memory_static_max in

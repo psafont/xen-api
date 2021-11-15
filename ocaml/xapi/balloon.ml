@@ -15,7 +15,9 @@
 module Xstringext = Xapi_stdext_std.Xstringext
 module Unixext = Xapi_stdext_unix.Unixext
 
-module D = Debug.Make (struct let name = "xenops" end)
+module D = Debug.Make (struct
+  let name = "xenops"
+end)
 
 open D
 
@@ -34,17 +36,19 @@ let _high_mem_balloon = "info/high_kb"
 (** Reads /proc/xen/balloon into a string * int64 option association list *)
 let parse_proc_xen_balloon () =
   let keys =
-    [
-      _current_allocation; _requested_target; _low_mem_balloon; _high_mem_balloon
+    [ _current_allocation
+    ; _requested_target
+    ; _low_mem_balloon
+    ; _high_mem_balloon
     ]
   in
   List.map
     (fun key ->
       let s = Unixext.string_of_file (sysfs_stem ^ key) in
       let stripped = Xstringext.String.strip Xstringext.String.isspace s in
-      (key, Some (Int64.of_string stripped))
-      )
+      (key, Some (Int64.of_string stripped)) )
     keys
+
 
 let _proc_meminfo = "/proc/meminfo"
 
@@ -57,22 +61,22 @@ let parse_meminfo () =
           while true do
             let line = input_line ic in
             match Xstringext.String.split ' ' line with
-            | [key; value; "kB"] ->
+            | [ key; value; "kB" ] ->
                 table := (key, Int64.(mul (of_string value) 1024L)) :: !table
             | _ ->
                 ()
           done
-        with End_of_file -> ()
-      ) ;
-      !table
-      )
+        with
+      | End_of_file ->
+          () ) ;
+      !table )
     (fun () -> close_in ic)
+
 
 let _memtotal = "MemTotal:"
 
 let get_memtotal () =
   let table = parse_meminfo () in
-  if List.mem_assoc _memtotal table then
-    Some (List.assoc _memtotal table)
-  else
-    None
+  if List.mem_assoc _memtotal table
+  then Some (List.assoc _memtotal table)
+  else None

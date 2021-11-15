@@ -17,13 +17,18 @@ open Http
 
 let test_accept_simple _ =
   let t = Accept.t_of_string "application/json" in
-  assert_equal ~msg:"ty"
+  assert_equal
+    ~msg:"ty"
     ~printer:(Option.value ~default:"None")
-    t.Accept.ty (Some "application") ;
-  assert_equal ~msg:"subty"
+    t.Accept.ty
+    (Some "application") ;
+  assert_equal
+    ~msg:"subty"
     ~printer:(Option.value ~default:"None")
-    t.Accept.subty (Some "json") ;
+    t.Accept.subty
+    (Some "json") ;
   assert (Accept.matches ("application", "json") t)
+
 
 let test_accept_complex _ =
   let ts =
@@ -35,9 +40,9 @@ let test_accept_complex _ =
   let m = Accept.preferred_match ("foo", "bar") ts in
   assert ((Option.get m).Accept.ty = None)
 
+
 let test_strings =
-  [
-    "/import_vdi"
+  [ "/import_vdi"
   ; "/import_raw_vdi"
   ; "/export"
   ; "/export_metadata"
@@ -74,9 +79,11 @@ let test_strings =
   ; "/"
   ]
 
+
 let make_radix_tree () =
   let open Radix_tree in
   List.fold_left (fun t x -> insert x x t) empty test_strings
+
 
 let test_radix_tree1 _ =
   let open Radix_tree in
@@ -85,69 +92,64 @@ let test_radix_tree1 _ =
      	   the right key *)
   List.iter
     (fun x ->
-      if longest_prefix x t <> Some x then
-        failwith (Printf.sprintf "x = %s" x)
+      if longest_prefix x t <> Some x then failwith (Printf.sprintf "x = %s" x)
       )
     test_strings
+
 
 let test_radix_tree2 _ =
   let open Radix_tree in
   let t = make_radix_tree () in
   let all = fold (fun k _ acc -> k :: acc) [] t in
-  if List.length all <> List.length test_strings then
-    failwith "fold"
+  if List.length all <> List.length test_strings then failwith "fold"
+
 
 let test_url _ =
   let open Http in
   let open Http.Url in
   ( match of_string "file:/var/xapi/storage" with
-  | File {path= "/var/xapi/storage"}, {uri= "/"; _} ->
+  | File { path = "/var/xapi/storage" }, { uri = "/"; _ } ->
       ()
   | _ ->
-      assert false
-  ) ;
+      assert false ) ;
   ( match of_string "http://root:foo@localhost" with
-  | Http t, {uri= "/"; _} ->
+  | Http t, { uri = "/"; _ } ->
       assert (t.auth = Some (Basic ("root", "foo"))) ;
       assert (t.ssl = false) ;
       assert (t.host = "localhost")
   | _ ->
-      assert false
-  ) ;
+      assert false ) ;
   ( match of_string "https://google.com/gmail" with
-  | Http t, {uri= "/gmail"; _} ->
+  | Http t, { uri = "/gmail"; _ } ->
       assert (t.ssl = true) ;
       assert (t.host = "google.com")
   | _ ->
-      assert false
-  ) ;
+      assert false ) ;
   ( match of_string "https://xapi.xen.org/services/SM" with
-  | Http t, {uri= "/services/SM"; _} ->
+  | Http t, { uri = "/services/SM"; _ } ->
       assert (t.ssl = true) ;
       assert (t.host = "xapi.xen.org")
   | _ ->
-      assert false
-  ) ;
+      assert false ) ;
   ( match of_string "https://root:foo@xapi.xen.org:1234/services/SM" with
-  | Http t, {uri= "/services/SM"; _} ->
+  | Http t, { uri = "/services/SM"; _ } ->
       assert (t.auth = Some (Basic ("root", "foo"))) ;
       assert (t.port = Some 1234) ;
       assert (t.ssl = true) ;
       assert (t.host = "xapi.xen.org")
   | _ ->
-      assert false
-  ) ;
+      assert false ) ;
   ( match of_string "https://xapi.xen.org/services/SM?foo=bar" with
-  | Http t, {uri= "/services/SM"; query_params= [("foo", "bar")]} ->
+  | Http t, { uri = "/services/SM"; query_params = [ ("foo", "bar") ] } ->
       assert (t.ssl = true) ;
       assert (t.host = "xapi.xen.org")
   | _ ->
-      assert false
-  ) ;
+      assert false ) ;
   let u = of_string "https://xapi.xen.org/services/SM?foo=bar" in
   let u' = set_uri u (get_uri u ^ "/data") in
   let s = to_string u' in
   assert (s = "https://xapi.xen.org/services/SM/data?foo=bar")
+
 
 let with_fd input f =
   let read_fd, write_fd = Unix.pipe () in
@@ -155,8 +157,11 @@ let with_fd input f =
     Unix.write write_fd (Bytes.of_string input) 0 (String.length input)
   in
   Fun.protect
-    ~finally:(fun () -> Unix.close read_fd ; Unix.close write_fd)
+    ~finally:(fun () ->
+      Unix.close read_fd ;
+      Unix.close write_fd )
     (fun () -> f read_fd)
+
 
 let cross xs ys zs =
   xs
@@ -165,11 +170,10 @@ let cross xs ys zs =
          ys
          |> List.fold_left
               (fun acc y ->
-                zs |> List.fold_left (fun acc z -> (x, y, z) :: acc) acc
-                )
-              acc
-         )
+                zs |> List.fold_left (fun acc z -> (x, y, z) :: acc) acc )
+              acc )
        []
+
 
 let test_read_http_request_header _ =
   let proxy_str = "TCP6 ::ffff:10.71.152.135 ::ffff:10.71.152.134 53772 443" in
@@ -194,7 +198,7 @@ let test_read_http_request_header _ =
     Buffer.add_string b header ;
     Buffer.to_bytes b |> Bytes.to_string
   in
-  let test_cases = cross [true; false] [true; false] [header1; header2] in
+  let test_cases = cross [ true; false ] [ true; false ] [ header1; header2 ] in
   assert (List.length test_cases = 8) ;
   test_cases
   |> List.iter (fun (frame, proxy, header) ->
@@ -204,15 +208,13 @@ let test_read_http_request_header _ =
              in
              assert (actual_frame = frame) ;
              assert (actual_header = header) ;
-             assert (actual_proxy = if proxy then Some proxy_str else None)
-         )
-     )
+             assert (actual_proxy = if proxy then Some proxy_str else None) ) )
+
 
 let _ =
   let suite =
     "HTTP test"
-    >::: [
-           "accept_simple" >:: test_accept_simple
+    >::: [ "accept_simple" >:: test_accept_simple
          ; "accept_complex" >:: test_accept_complex
          ; "radix1" >:: test_radix_tree1
          ; "radix2" >:: test_radix_tree2

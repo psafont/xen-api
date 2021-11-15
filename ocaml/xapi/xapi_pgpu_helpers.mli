@@ -73,7 +73,7 @@ val assert_destination_pgpu_is_compatible_with_vm :
   -> vgpu:API.ref_VGPU
   -> pgpu:API.ref_PGPU
   -> host:API.ref_host
-  -> ?remote:(Rpc.call -> Rpc.response Client.Id.t) * [< `session] Ref.t
+  -> ?remote:(Rpc.call -> Rpc.response Client.Id.t) * [< `session ] Ref.t
   -> unit
   -> unit
 (** Check that the PGPU selected is compatible with the VM VGPU.
@@ -85,7 +85,7 @@ val assert_destination_has_pgpu_compatible_with_vm :
   -> vm:API.ref_VM
   -> vgpu_map:(API.ref_VGPU * API.ref_GPU_group) list
   -> host:API.ref_host
-  -> ?remote:(Rpc.call -> Rpc.response Client.Id.t) * [< `session] Ref.t
+  -> ?remote:(Rpc.call -> Rpc.response Client.Id.t) * [< `session ] Ref.t
   -> unit
   -> unit
 (** Check that the host has a PGPU compatible with the VM VGPU.

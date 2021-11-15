@@ -28,6 +28,7 @@ let test_can_borrow t =
   let b = Safe.borrow_exn t in
   Alcotest.(check int "no drop" 0 (Counting.get b))
 
+
 let test_can_release t =
   let counter = Safe.borrow_exn t in
   Safe.safe_release t ;
@@ -35,9 +36,8 @@ let test_can_release t =
   Alcotest.(
     check_raises "use-after-release" Safe.UseAfterMoveOrRelease (fun () ->
         let (_ : Counting.t) = Safe.borrow_exn t in
-        ()
-    )
-  )
+        () ))
+
 
 let test_can_release2 t =
   let counter = Safe.borrow_exn t in
@@ -47,9 +47,8 @@ let test_can_release2 t =
   Alcotest.(
     check_raises "use-after-release" Safe.UseAfterMoveOrRelease (fun () ->
         let (_ : Counting.t) = Safe.borrow_exn t in
-        ()
-    )
-  )
+        () ))
+
 
 let test_can_move_release t =
   let counter = Safe.borrow_exn t in
@@ -61,37 +60,40 @@ let test_can_move_release t =
    * In general one shouldn't do this, but for this unit test it is ok *)
   Alcotest.(check int "dropped" 1 (Counting.get counter))
 
+
 let test_borrow_exn_after_release t =
   Safe.safe_release t ;
-  Alcotest.check_raises "use-after-release" Safe.UseAfterMoveOrRelease
-    (fun () -> Safe.borrow_exn t |> Counting.get |> ignore
-  )
+  Alcotest.check_raises
+    "use-after-release"
+    Safe.UseAfterMoveOrRelease
+    (fun () -> Safe.borrow_exn t |> Counting.get |> ignore)
+
 
 let test_move_exn_after_release t =
   Safe.safe_release t ;
-  Alcotest.check_raises "use-after-release" Safe.UseAfterMoveOrRelease
-    (fun () -> Safe.move_exn t |> ignore
-  )
+  Alcotest.check_raises
+    "use-after-release"
+    Safe.UseAfterMoveOrRelease
+    (fun () -> Safe.move_exn t |> ignore)
+
 
 let test_release_after_move t =
   let counter = Safe.borrow_exn t in
   let t' = Safe.move_exn t in
   Alcotest.check_raises "use-after-move" Safe.UseAfterMoveOrRelease (fun () ->
-      Safe.borrow_exn t |> Counting.get |> ignore
-  ) ;
+      Safe.borrow_exn t |> Counting.get |> ignore ) ;
   Safe.safe_release t ;
   Alcotest.(check int "dropped" 0 (Counting.get counter)) ;
   Safe.safe_release t' ;
   Alcotest.(check int "dropped" 1 (Counting.get counter))
 
+
 let tests =
   List.map
     (fun (loc, f) ->
       let t = SafeCounting.create () in
-      (loc, `Quick, fun () -> f t)
-      )
-    [
-      (__LOC__, test_can_borrow)
+      (loc, `Quick, fun () -> f t) )
+    [ (__LOC__, test_can_borrow)
     ; (__LOC__, test_can_release)
     ; (__LOC__, test_can_release2)
     ; (__LOC__, test_can_move_release)

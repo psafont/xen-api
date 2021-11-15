@@ -24,24 +24,39 @@ type domain_action_request =
   | Needs_softreset
 [@@deriving rpcty]
 
-type device_action_request = Needs_unplug | Needs_set_qos
+type device_action_request =
+  | Needs_unplug
+  | Needs_set_qos
 
-type shutdown_request = Halt | Reboot | PowerOff | S3Suspend | Suspend
+type shutdown_request =
+  | Halt
+  | Reboot
+  | PowerOff
+  | S3Suspend
+  | Suspend
 [@@deriving rpcty]
 
-type rename_when = Pre_migration | Post_migration [@@deriving rpcty]
+type rename_when =
+  | Pre_migration
+  | Post_migration
+[@@deriving rpcty]
 
 let rpc_of : type x. x Rpc.Types.def -> x -> Rpc.t =
  fun def x -> Rpcmarshal.marshal def.Rpc.Types.ty x
 
+
 let string_of_shutdown_request x =
   x |> rpc_of shutdown_request |> Jsonrpc.to_string
+
 
 let test = Updates.empty
 
 let string_of_disk d = d |> rpc_of disk |> Jsonrpc.to_string
 
-type data = Disk of disk | FD of Unix.file_descr [@@deriving rpcty]
+type data =
+  | Disk of disk
+  | FD of Unix.file_descr
+[@@deriving rpcty]
 
 let string_of_data x = x |> rpc_of data |> Jsonrpc.to_string
 

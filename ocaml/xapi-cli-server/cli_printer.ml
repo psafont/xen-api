@@ -32,9 +32,11 @@ let pad_string s len =
   let n = len - String.length s in
   String.make (if n > 0 then n else 0) ' ' ^ s
 
+
 let pad_rhs s len =
   let n = len - String.length s in
   s ^ String.make (if n > 0 then n else 0) ' '
+
 
 let rec multi_line_record r =
   let maxlen =
@@ -46,18 +48,21 @@ let rec multi_line_record r =
   in
   String.concat "\n" (List.map (fun (f, v) -> f ^ ": " ^ v) r) ^ "\n"
 
+
 (* Used to escape commas in --minimal mode *)
 let escape_commas x =
   (* Escaping rules: *)
-  let rules = [(',', "\\,"); (* , -> \, *) ('\\', "\\\\") (* \ -> \\ *)] in
+  let rules = [ (',', "\\,"); (* , -> \, *) ('\\', "\\\\") (* \ -> \\ *) ] in
   Xapi_stdext_std.Xstringext.String.escaped ~rules x
+
 
 let make_printer sock minimal =
   let buffer = ref [] in
   let multi_line_xapi_minimal pval =
     match pval with
     | PTable rs ->
-        if List.length rs > 0 && List.length (List.hd rs) > 0 then
+        if List.length rs > 0 && List.length (List.hd rs) > 0
+        then
           let names = List.map (fun r -> snd (List.hd r)) rs in
           let escaped_names = List.map escape_commas names in
           buffer := String.concat "," escaped_names :: !buffer
@@ -84,7 +89,6 @@ let make_printer sock minimal =
     marshal sock (Command (Print (String.concat "," !buffer)))
   in
   let flush () = () in
-  if minimal then
-    (multi_line_xapi_minimal, minimal_flush)
-  else
-    (multi_line_xapi, flush)
+  if minimal
+  then (multi_line_xapi_minimal, minimal_flush)
+  else (multi_line_xapi, flush)

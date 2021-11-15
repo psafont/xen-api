@@ -12,7 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "rpc_retry" end)
+module D = Debug.Make (struct
+  let name = "rpc_retry"
+end)
 
 open D
 open Xmlrpc_client
@@ -35,30 +37,37 @@ functor
     let transport = Unix Meta.server_path
 
     let simple_rpc =
-      XMLRPC_protocol.rpc ~srcstr:Meta.client_name ~dststr:Meta.server_name
+      XMLRPC_protocol.rpc
+        ~srcstr:Meta.client_name
+        ~dststr:Meta.server_name
         ~transport
         ~http:(xmlrpc ~version:"1.0" "/")
+
 
     let rpc call =
       let rec aux ~retrying =
         let response' =
           try
             let response = simple_rpc call in
-            if retrying then
+            if retrying
+            then
               debug
                 "Successfully communicated with service at %s after retrying!"
                 Meta.server_path ;
             Some response
-          with Unix.Unix_error (code, _, _) as e ->
-            if code = Unix.ECONNREFUSED || code = Unix.ENOENT then (
-              if not retrying then
-                error
-                  "Could not reach the service at %s. Retrying every second..."
-                  Meta.server_path ;
-              Thread.delay 1. ;
-              None
-            ) else
-              raise e
+          with
+          | Unix.Unix_error (code, _, _) as e ->
+              if code = Unix.ECONNREFUSED || code = Unix.ENOENT
+              then (
+                if not retrying
+                then
+                  error
+                    "Could not reach the service at %s. Retrying every \
+                     second..."
+                    Meta.server_path ;
+                Thread.delay 1. ;
+                None )
+              else raise e
         in
         match response' with
         | Some response ->

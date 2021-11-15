@@ -37,6 +37,7 @@ module Lwt_unix_IO = struct
       (fun () -> Lwt_io.read ~count ic)
       (function End_of_file -> return "" | e -> Lwt.fail e)
 
+
   (* let read_exactly (_, ic) buf off len =
        Lwt.catch
          (fun () -> Lwt_io.read_into_exactly ic buf off len >> return true)
@@ -62,20 +63,22 @@ module Lwt_unix_IO = struct
     Ssl.init () ;
     Ssl.create_context Ssl.TLSv1_2 Ssl.Client_context
 
+
   let open_connection uri =
     ( match Uri.scheme uri with
     | Some "file" ->
         return (Unix.PF_UNIX, Unix.ADDR_UNIX (Uri.path uri), false)
     | Some "http" | Some "https" ->
-        Util.sockaddr_of_uri uri >|= fun (sockaddr, ssl) ->
+        Util.sockaddr_of_uri uri
+        >|= fun (sockaddr, ssl) ->
         (Unix.domain_of_sockaddr sockaddr, sockaddr, ssl)
     | Some x ->
         fail (Unsupported_scheme x)
     | None ->
-        fail (Unsupported_scheme "")
-    )
+        fail (Unsupported_scheme "") )
     >>= fun (domain, sockaddr, ssl) ->
-    if ssl then
+    if ssl
+    then
       let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
       Lwt.catch
         (fun () ->
@@ -83,11 +86,11 @@ module Lwt_unix_IO = struct
             (fun () -> Lwt_unix.connect fd sockaddr)
             (fun e -> Lwt_unix.close fd >>= fun () -> Lwt.fail e)
           >>= fun () ->
-          Lwt_ssl.ssl_connect fd sslctx >>= fun sock ->
+          Lwt_ssl.ssl_connect fd sslctx
+          >>= fun sock ->
           let ic = Lwt_ssl.in_channel_of_descr sock in
           let oc = Lwt_ssl.out_channel_of_descr sock in
-          return (Ok ((return, ic), ((fun () -> Lwt_ssl.close sock), oc)))
-          )
+          return (Ok ((return, ic), ((fun () -> Lwt_ssl.close sock), oc))) )
         (fun e -> return (Error e))
     else
       let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
@@ -101,16 +104,15 @@ module Lwt_unix_IO = struct
           let oc =
             Lwt_io.of_fd
               ~close:(fun () -> Lwt_unix.close fd)
-              ~mode:Lwt_io.output fd
+              ~mode:Lwt_io.output
+              fd
           in
           return
             (Ok
                ( ((fun () -> Lwt_io.close ic), ic)
-               , ((fun () -> Lwt_io.close oc), oc)
-               )
-            )
-          )
+               , ((fun () -> Lwt_io.close oc), oc) ) ) )
         (fun e -> return (Error e))
+
 
   let sleep = Lwt_unix.sleep
 
@@ -125,20 +127,22 @@ let exn_to_string = function
   | e ->
       Printexc.to_string e
 
+
 let do_it uri string =
   let uri = Uri.of_string uri in
   let connection = M.make uri in
   Lwt.finalize
     (fun () ->
-      M.rpc connection string >>= fun result ->
+      M.rpc connection string
+      >>= fun result ->
       match result with
       | Ok x ->
           return x
       | Error e ->
           Printf.fprintf stderr "Caught: %s\n%!" (exn_to_string e) ;
-          fail e
-      )
+          fail e )
     (fun () -> M.disconnect connection)
+
 
 (* TODO: modify do_it to accept the timeout and remove the warnings *)
 
@@ -146,15 +150,17 @@ let do_it uri string =
 
 let make ?(timeout = 30.) uri call =
   let string = Xmlrpc.string_of_call call in
-  do_it uri string >>= fun result ->
-  Lwt.return (Xmlrpc.response_of_string result)
+  do_it uri string
+  >>= fun result -> Lwt.return (Xmlrpc.response_of_string result)
+
 
 [@@@ocaml.warning "-27"]
 
 let make_json ?(timeout = 30.) uri call =
   let string = Jsonrpc.string_of_call call in
-  do_it uri string >>= fun result ->
-  Lwt.return (Jsonrpc.response_of_string result)
+  do_it uri string
+  >>= fun result -> Lwt.return (Jsonrpc.response_of_string result)
+
 
 module Client = Client.ClientF (Lwt)
 include Client

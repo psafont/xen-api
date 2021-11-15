@@ -35,14 +35,17 @@ module IO = struct
   let read_line (_, ic) =
     Reader.read_line ic >>| function `Ok s -> Some s | `Eof -> None
 
+
   let read (_, ic) len =
     let buf = Bytes.create len in
-    Reader.read ic ~len buf >>| function
+    Reader.read ic ~len buf
+    >>| function
     | `Ok len' ->
         let content = Bytes.sub buf ~pos:0 ~len:len' in
         Bytes.to_string content
     | `Eof ->
         ""
+
 
   (* let read_exactly (_, ic) len =
      let buf = String.create len in
@@ -51,7 +54,10 @@ module IO = struct
      |`Ok -> return (Some buf)
      |`Eof _ -> return None *)
 
-  let write (_, oc) buf = Writer.write oc buf ; return ()
+  let write (_, oc) buf =
+    Writer.write oc buf ;
+    return ()
+
 
   (* let write_line (_, oc) buf =
      Writer.write oc buf;
@@ -64,24 +70,23 @@ module IO = struct
 
   let open_connection uri =
     match Uri.scheme uri with
-    | Some "http" -> (
+    | Some "http" ->
         let port = match Uri.port uri with None -> 80 | Some port -> port in
-        match Uri.host uri with
+        ( match Uri.host uri with
         | Some host ->
             let endp = Host_and_port.create ~host ~port in
             Tcp.connect (Tcp.Where_to_connect.of_host_and_port endp)
             >>| fun (_, ic, oc) ->
             Ok
               ( ((fun () -> Reader.close ic), ic)
-              , ((fun () -> Writer.close oc), oc)
-              )
+              , ((fun () -> Writer.close oc), oc) )
         | None ->
-            return (Error (Failed_to_resolve_hostname ""))
-      )
+            return (Error (Failed_to_resolve_hostname "")) )
     | Some x ->
         return (Error (Unsupported_scheme x))
     | None ->
         return (Error (Unsupported_scheme ""))
+
 
   let sleep s = after (sec s)
 
@@ -96,20 +101,22 @@ let exn_to_string = function
   | e ->
       Printf.sprintf "Caught unexpected exception: %s" (Exn.to_string e)
 
+
 let do_it uri string =
   let uri = Uri.of_string uri in
   let connection = M.make uri in
   let ( >>= ) = Deferred.( >>= ) in
   Monitor.protect
     (fun () ->
-      M.rpc connection string >>= function
+      M.rpc connection string
+      >>= function
       | Ok x ->
           return x
       | Error e ->
           eprintf "Caught: %s\n%!" (exn_to_string e) ;
-          Exn.reraise e "connection error"
-      )
+          Exn.reraise e "connection error" )
     ~finally:(fun () -> M.disconnect connection)
+
 
 (* TODO: modify do_it to accept the timeout and remove the warnings *)
 
@@ -119,11 +126,13 @@ let make ?(timeout = 30.) uri call =
   let req = Xmlrpc.string_of_call call in
   do_it uri req >>| Xmlrpc.response_of_string
 
+
 [@@@ocaml.warning "-27"]
 
 let make_json ?(timeout = 30.) uri call =
   let req = Jsonrpc.string_of_call call in
   do_it uri req >>| Jsonrpc.response_of_string
+
 
 module Client = Client.ClientF (struct
   include Deferred

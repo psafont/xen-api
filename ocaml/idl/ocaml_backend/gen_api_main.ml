@@ -37,6 +37,7 @@ module Message = struct
   let opensource x =
     List.mem "3.0.3" x.msg_release.opensource && filter_internal x
 
+
   let closed x = List.mem "closed" x.msg_release.internal && filter_internal x
 
   let debug x = List.mem "debug" x.msg_release.internal && filter_internal x
@@ -64,45 +65,37 @@ let filter_api () =
       Printf.eprintf "Unknown filter mode: %s\n" x ;
       api_used
 
+
 let set_gendebug () = Gen_server.enable_debugging := true
 
 let mode = ref None
 
 let _ =
   Arg.parse
-    [
-      ( "-mode"
+    [ ( "-mode"
       , Arg.Symbol
-          ( ["client"; "server"; "api"; "db"; "actions"; "sql"; "rbac"; "test"]
-          , fun x -> mode := Some x
-          )
-      , "Choose which file to output"
-      )
+          ( [ "client"; "server"; "api"; "db"; "actions"; "sql"; "rbac"; "test" ]
+          , fun x -> mode := Some x )
+      , "Choose which file to output" )
     ; ( "-filter"
       , Arg.Symbol
-          ( ["opensource"; "closed"; "debug"; "nothing"]
-          , fun x -> filter := Some x
-          )
-      , "Apply a filter to the API"
-      )
+          ( [ "opensource"; "closed"; "debug"; "nothing" ]
+          , fun x -> filter := Some x )
+      , "Apply a filter to the API" )
     ; ( "-filterinternal"
       , Arg.Bool (fun x -> filterinternal := x)
-      , "Filter internal fields and messages"
-      )
+      , "Filter internal fields and messages" )
     ; ( "-gendebug"
       , Arg.Unit (fun _ -> set_gendebug ())
-      , "Add debugging code to generated output"
-      )
+      , "Add debugging code to generated output" )
     ; ( "-output"
       , Arg.String
           (fun s ->
-            ( try Unix.mkdir (Filename.dirname s) 0o755
-              with Unix.Unix_error (Unix.EEXIST, _, _) -> ()
-            ) ;
-            Gen_api.oc := open_out s
-            )
-      , "Output to the specified file"
-      )
+            ( try Unix.mkdir (Filename.dirname s) 0o755 with
+            | Unix.Unix_error (Unix.EEXIST, _, _) ->
+                () ) ;
+            Gen_api.oc := open_out s )
+      , "Output to the specified file" )
     ]
     (fun x -> Printf.eprintf "Ignoring argument: %s\n" x)
     "Generate ocaml code from the datamodel. See -help" ;

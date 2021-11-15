@@ -13,7 +13,9 @@
 
 open Features
 
-module D = Debug.Make (struct let name = "pool_features" end)
+module D = Debug.Make (struct
+  let name = "pool_features"
+end)
 
 open D
 
@@ -33,22 +35,26 @@ let get_pool_features ~__context =
   let pool = Helpers.get_pool ~__context in
   of_assoc_list (Db.Pool.get_restrictions ~__context ~self:pool)
 
+
 let is_enabled ~__context f =
   let pool_features = get_pool_features ~__context in
   List.mem f pool_features
 
+
 let assert_enabled ~__context ~f =
-  if not (is_enabled ~__context f) then
+  if not (is_enabled ~__context f)
+  then
     raise
       (Api_errors.Server_error
-         (Api_errors.license_restriction, [name_of_feature f])
-      )
+         (Api_errors.license_restriction, [ name_of_feature f ]) )
+
 
 (* The set of core restrictions of a pool is the intersection of the sets of features
    of the individual hosts. *)
 let compute_core_features all_host_params =
   List.map of_assoc_list all_host_params
   |> List.fold_left Xapi_stdext_std.Listext.List.intersect all_features
+
 
 (* Find the feature flags in the given license params that are not represented
    in the feature type. These are additional flags given to us by v6d.
@@ -57,12 +63,13 @@ let find_additional_flags params =
   let kvs =
     List.filter
       (fun (k, v) ->
-        try String.sub k 0 9 = "restrict_" && not (List.mem k all_flags)
-        with Invalid_argument _ -> false
-        )
+        try String.sub k 0 9 = "restrict_" && not (List.mem k all_flags) with
+        | Invalid_argument _ ->
+            false )
       params
   in
   List.map fst kvs
+
 
 (* Determine the set of additional features. For each restrict_ flag,
    looks for matching flags on all hosts; if one of them is restricted ("true")
@@ -75,15 +82,14 @@ let rec compute_additional_restrictions all_host_params = function
         List.map
           (function
             | params ->
-                if List.mem_assoc flag params then
-                  bool_of_string (List.assoc flag params)
-                else
-                  true
-            )
+                if List.mem_assoc flag params
+                then bool_of_string (List.assoc flag params)
+                else true )
           all_host_params
       in
       (flag, string_of_bool (List.fold_left ( || ) false switches))
       :: compute_additional_restrictions all_host_params rest
+
 
 (* Combine the host-level feature restrictions into pool-level ones, and write
    the result to the database. *)
@@ -111,10 +117,10 @@ let update_pool_features ~__context =
   (* The complete set of restrictions is formed by the core feature plus the additional features *)
   let new_restrictions = new_additional_restrictions @ new_core_restrictions in
   (* Update the DB if the restrictions have changed *)
-  if new_restrictions <> old_restrictions then (
+  if new_restrictions <> old_restrictions
+  then (
     let old_core_features = of_assoc_list old_restrictions in
     info "Old pool features enabled: %s" (to_compact_string old_core_features) ;
     info "New pool features enabled: %s" (to_compact_string new_core_features) ;
     Db.Pool.set_restrictions ~__context ~self:pool ~value:new_restrictions ;
-    Xapi_pool_helpers.apply_guest_agent_config ~__context
-  )
+    Xapi_pool_helpers.apply_guest_agent_config ~__context )

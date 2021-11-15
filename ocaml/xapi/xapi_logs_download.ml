@@ -14,7 +14,9 @@
 open Http
 open Forkhelpers
 
-module D = Debug.Make (struct let name = "xapi_logs_download" end)
+module D = Debug.Make (struct
+  let name = "xapi_logs_download"
+end)
 
 open D
 
@@ -26,5 +28,4 @@ let logs_download_handler (req : Request.t) s _ =
       let pid =
         safe_close_and_exec None (Some s) None [] !Xapi_globs.logs_download []
       in
-      waitpid_fail_if_bad_exit pid
-  )
+      waitpid_fail_if_bad_exit pid )

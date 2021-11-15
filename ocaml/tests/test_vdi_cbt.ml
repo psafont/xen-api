@@ -19,31 +19,35 @@ let register_smapiv2_server (module S : Storage_interface.Server_impl) sr_ref =
   let rpc = S.process in
   let dummy_query_result =
     Storage_interface.
-      {
-        driver= ""
-      ; name= ""
-      ; description= ""
-      ; vendor= ""
-      ; copyright= ""
-      ; version= ""
-      ; required_api_version= ""
-      ; features= []
-      ; configuration= []
-      ; required_cluster_stack= []
+      { driver = ""
+      ; name = ""
+      ; description = ""
+      ; vendor = ""
+      ; copyright = ""
+      ; version = ""
+      ; required_api_version = ""
+      ; features = []
+      ; configuration = []
+      ; required_cluster_stack = []
       }
-    
   in
 
   Storage_mux.register sr_ref rpc "" dummy_query_result
 
-let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt
-    ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () =
+
+let make_smapiv2_storage_server
+    ?vdi_enable_cbt
+    ?vdi_disable_cbt
+    ?vdi_list_changed_blocks
+    ?vdi_data_destroy
+    ?vdi_snapshot
+    ?vdi_clone
+    () =
   let default def = Option.value ~default:def in
-  (module struct
+  ( module struct
     include (
       Storage_skeleton :
-        module type of Storage_skeleton with module VDI := Storage_skeleton.VDI
-    )
+        module type of Storage_skeleton with module VDI := Storage_skeleton.VDI )
 
     module VDI = struct
       include Storage_skeleton.VDI
@@ -55,22 +59,38 @@ let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt
       let list_changed_blocks =
         default Storage_skeleton.VDI.list_changed_blocks vdi_list_changed_blocks
 
+
       let data_destroy =
         default Storage_skeleton.VDI.data_destroy vdi_data_destroy
+
 
       let snapshot = default Storage_skeleton.VDI.snapshot vdi_snapshot
 
       let clone = default Storage_skeleton.VDI.clone vdi_snapshot
-    end end : Storage_interface.Server_impl
-  )
+    end
+  end : Storage_interface.Server_impl )
 
-let register_smapiv2_server ?vdi_enable_cbt ?vdi_disable_cbt
-    ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone sr_ref =
+
+let register_smapiv2_server
+    ?vdi_enable_cbt
+    ?vdi_disable_cbt
+    ?vdi_list_changed_blocks
+    ?vdi_data_destroy
+    ?vdi_snapshot
+    ?vdi_clone
+    sr_ref =
   let s =
-    make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt
-      ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone ()
+    make_smapiv2_storage_server
+      ?vdi_enable_cbt
+      ?vdi_disable_cbt
+      ?vdi_list_changed_blocks
+      ?vdi_data_destroy
+      ?vdi_snapshot
+      ?vdi_clone
+      ()
   in
   register_smapiv2_server s sr_ref
+
 
 (** Create host -> (SM) -> PBD -> SR infrastructure for mock storage layer, return SR *)
 let make_mock_server_infrastructure ~__context =
@@ -83,12 +103,16 @@ let make_mock_server_infrastructure ~__context =
   in
   sR
 
+
 let alcotestable_of_def def =
   let pp fmt a =
-    Format.fprintf fmt "%s"
+    Format.fprintf
+      fmt
+      "%s"
       (Rpcmarshal.marshal def.Rpc.Types.ty a |> Jsonrpc.to_string)
   in
   Alcotest.testable pp ( = )
+
 
 let alco_sr = alcotestable_of_def Storage_interface.Sr.t
 
@@ -106,7 +130,8 @@ let test_cbt_enable_disable () =
   in
   let assert_vdi_cbt_enabled_is value msg =
     Alcotest.(check bool)
-      msg value
+      msg
+      value
       (Db.VDI.get_cbt_enabled ~__context ~self:vdi_ref)
   in
   let check_params = Alcotest.(check (option (pair alco_sr alco_vdi))) in
@@ -115,15 +140,15 @@ let test_cbt_enable_disable () =
   register_smapiv2_server
     ~vdi_enable_cbt:(fun _ ~dbg ~sr ~vdi -> enable_cbt_params := Some (sr, vdi))
     ~vdi_disable_cbt:(fun _ ~dbg ~sr ~vdi ->
-      disable_cbt_params := Some (sr, vdi)
-      )
+      disable_cbt_params := Some (sr, vdi) )
     sr ;
   Xapi_vdi.enable_cbt ~__context ~self:vdi_ref ;
   check_params
     "The parameters should be correctly passed to SMAPIv2 from VDI.enable_cbt"
     (Some (sr, vdi))
     !enable_cbt_params ;
-  assert_vdi_cbt_enabled_is true
+  assert_vdi_cbt_enabled_is
+    true
     "cbt_enabled should be true when VDI.enable_cbt returns successfully" ;
   Xapi_vdi.enable_cbt ~__context ~self:vdi_ref ;
   assert_vdi_cbt_enabled_is true "VDI.enable_cbt should be idempotent" ;
@@ -132,10 +157,12 @@ let test_cbt_enable_disable () =
     "The parameters should be correctly passed to SMAPIv2 from VDI.disable_cbt"
     (Some (sr, vdi))
     !disable_cbt_params ;
-  assert_vdi_cbt_enabled_is false
+  assert_vdi_cbt_enabled_is
+    false
     "cbt_enabled should be false when VDI.disable_cbt returns successfully" ;
   Xapi_vdi.disable_cbt ~__context ~self:vdi_ref ;
   assert_vdi_cbt_enabled_is false "VDI.disable_cbt should be idempotent"
+
 
 let test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi () =
   let __context = Test_common.make_test_database () in
@@ -147,10 +174,10 @@ let test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi () =
     Api_errors.(
       Server_error
         ( vdi_incompatible_type
-        , [Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata]
-        )
-    )
+        , [ Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata ]
+        ))
     (fun () -> Xapi_vdi.set_metadata_of_pool ~__context ~self ~value:pool)
+
 
 (** Much of the logic in the CBT toolstack code relies on the invariant that we
     cannot have a VBD for a cbt_metadata VDI - if we have a VBD, that must
@@ -164,26 +191,40 @@ let test_vbd_create () =
     Api_errors.(
       Server_error
         ( vdi_incompatible_type
-        , [Ref.string_of vDI; Record_util.vdi_type_to_string `cbt_metadata]
-        )
-    )
+        , [ Ref.string_of vDI; Record_util.vdi_type_to_string `cbt_metadata ] ))
     (fun () ->
-      Xapi_vbd.create ~__context ~vM ~vDI ~userdevice:"autodetect"
-        ~bootable:true ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false
-        ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
-        ~device:"" ~currently_attached:false
-      |> ignore
-      )
+      Xapi_vbd.create
+        ~__context
+        ~vM
+        ~vDI
+        ~userdevice:"autodetect"
+        ~bootable:true
+        ~mode:`RW
+        ~_type:`Disk
+        ~unpluggable:true
+        ~empty:false
+        ~other_config:[]
+        ~qos_algorithm_type:""
+        ~qos_algorithm_params:[]
+        ~device:""
+        ~currently_attached:false
+      |> ignore )
+
 
 let test_get_nbd_info =
   let assert_same_infos =
-    Alcotest.check Alcotest_comparators.vdi_nbd_server_info_set
+    Alcotest.check
+      Alcotest_comparators.vdi_nbd_server_info_set
       "same vdi_nbd_server_info set"
   in
   let make_host __context sR ?(pbd_attached = true) ?hostname pifs () =
     let host = Test_common.make_host ~__context ?hostname () in
     let (_ : _ API.Ref.t) =
-      Test_common.make_pbd ~__context ~host ~sR ~currently_attached:pbd_attached
+      Test_common.make_pbd
+        ~__context
+        ~host
+        ~sR
+        ~currently_attached:pbd_attached
         ()
     in
     List.iter
@@ -192,8 +233,7 @@ let test_get_nbd_info =
             let self =
               Test_common.make_pif ~__context ~network ~host ~iP ~iPv6 ()
             in
-            Db.PIF.set_currently_attached ~__context ~self ~value:attached
-        )
+            Db.PIF.set_currently_attached ~__context ~self ~value:attached )
       pifs ;
     host
   in
@@ -211,67 +251,66 @@ let test_get_nbd_info =
     let __context, make_host, sr_of_vdi, network_1, self = setup_test () in
     let uuid = Db.VDI.get_uuid ~__context ~self in
     let other_sr = Test_common.make_sr ~__context () in
-    Db.Network.set_purpose ~__context ~self:network_1 ~value:[`nbd] ;
-    let network_2 = Test_common.make_network ~__context ~purpose:[`nbd] () in
+    Db.Network.set_purpose ~__context ~self:network_1 ~value:[ `nbd ] ;
+    let network_2 = Test_common.make_network ~__context ~purpose:[ `nbd ] () in
     let network_3 = Test_common.make_network ~__context ~purpose:[] () in
     (* Hosts connected to both the VDI's SR and a network *)
     let host1 =
-      make_host ~hostname:"host1" sr_of_vdi
-        [
-          (network_1, "92.40.98.91", [], true)
+      make_host
+        ~hostname:"host1"
+        sr_of_vdi
+        [ (network_1, "92.40.98.91", [], true)
         ; (network_1, "92.40.98.92", [], true)
         ; (* this PIF is not currently attached: *)
           ( network_2
           , "92.40.98.93"
-          , ["10e1:bdb8:05a3:0002:03ae:8a24:0371:0001"]
-          , false
-          )
+          , [ "10e1:bdb8:05a3:0002:03ae:8a24:0371:0001" ]
+          , false )
         ]
         ()
     in
     let host2 =
-      make_host ~hostname:"host2" sr_of_vdi
-        [
-          ( network_2
+      make_host
+        ~hostname:"host2"
+        sr_of_vdi
+        [ ( network_2
           , "92.40.98.94"
-          , [
-              "10e1:bdb8:05a3:0002:03ae:8a24:0371:0002"
+          , [ "10e1:bdb8:05a3:0002:03ae:8a24:0371:0002"
             ; "10e1:bdb8:05a3:0002:03ae:8a24:0371:0003"
             ]
-          , true
-          )
+          , true )
         ]
         ()
     in
     (* Hosts not connected to a network or without an IP address *)
     let (_ : _ API.Ref.t) =
-      make_host sr_of_vdi
-        [
-          ( network_1
+      make_host
+        sr_of_vdi
+        [ ( network_1
           , "92.40.98.95"
-          , ["10e1:bdb8:05a3:0002:03ae:8a24:0371:0004"]
-          , false
-          )
+          , [ "10e1:bdb8:05a3:0002:03ae:8a24:0371:0004" ]
+          , false )
         ]
         ()
     in
     let (_ : _ API.Ref.t) =
-      make_host sr_of_vdi [(network_1, "", [], true)] ()
+      make_host sr_of_vdi [ (network_1, "", [], true) ] ()
     in
     (* Hosts not connected to the VDI's SR *)
     let (_ : _ API.Ref.t) =
-      make_host sr_of_vdi ~pbd_attached:false
-        [(network_1, "92.40.98.96", [], true)]
+      make_host
+        sr_of_vdi
+        ~pbd_attached:false
+        [ (network_1, "92.40.98.96", [], true) ]
         ()
     in
     let (_ : _ API.Ref.t) =
-      make_host other_sr
-        [
-          ( network_1
+      make_host
+        other_sr
+        [ ( network_1
           , "92.40.98.97"
-          , ["10e1:bdb8:05a3:0002:03ae:8a24:0371:0005"]
-          , true
-          )
+          , [ "10e1:bdb8:05a3:0002:03ae:8a24:0371:0005" ]
+          , true )
         ]
         ()
     in
@@ -279,16 +318,14 @@ let test_get_nbd_info =
     let (_ : _ API.Ref.t) = make_host sr_of_vdi [] () in
     (* NBD is not allowed on network_3 *)
     let (_ : _ API.Ref.t) =
-      make_host sr_of_vdi
-        [
-          ( network_3
+      make_host
+        sr_of_vdi
+        [ ( network_3
           , "92.40.98.98"
-          , [
-              "10e1:bdb8:05a3:0002:03ae:8a24:0371:0006"
+          , [ "10e1:bdb8:05a3:0002:03ae:8a24:0371:0006"
             ; "10e1:bdb8:05a3:0002:03ae:8a24:0371:0007"
             ]
-          , true
-          )
+          , true )
         ]
         ()
     in
@@ -323,12 +360,11 @@ let test_get_nbd_info =
     let host1_subject = "host1.domain.tld" in
     let host2_subject = "host2.domain.tld" in
     let get_server_certificate ~host =
-      if host = host1 then
-        host1_cert
-      else if host = host2 then
-        host2_cert
-      else
-        failwith (Printf.sprintf "unexpected host: %s" (Ref.string_of host))
+      if host = host1
+      then host1_cert
+      else if host = host2
+      then host2_cert
+      else failwith (Printf.sprintf "unexpected host: %s" (Ref.string_of host))
     in
     let nbd_info =
       Xapi_vdi._get_nbd_info ~__context ~self ~get_server_certificate
@@ -340,50 +376,43 @@ let test_get_nbd_info =
       in
       let vdi_nbd_server_info_port = 10809L in
       API.
-        [
-          {
-            vdi_nbd_server_info_exportname
-          ; vdi_nbd_server_info_address= "92.40.98.91"
+        [ { vdi_nbd_server_info_exportname
+          ; vdi_nbd_server_info_address = "92.40.98.91"
           ; vdi_nbd_server_info_port
-          ; vdi_nbd_server_info_cert= host1_cert
-          ; vdi_nbd_server_info_subject= host1_subject
+          ; vdi_nbd_server_info_cert = host1_cert
+          ; vdi_nbd_server_info_subject = host1_subject
           }
-        ; {
-            vdi_nbd_server_info_exportname=
+        ; { vdi_nbd_server_info_exportname =
               "/" ^ uuid ^ "?session_id=" ^ session_id
-          ; vdi_nbd_server_info_address= "92.40.98.92"
+          ; vdi_nbd_server_info_address = "92.40.98.92"
           ; vdi_nbd_server_info_port
-          ; vdi_nbd_server_info_cert= host1_cert
-          ; vdi_nbd_server_info_subject= host1_subject
+          ; vdi_nbd_server_info_cert = host1_cert
+          ; vdi_nbd_server_info_subject = host1_subject
           }
-        ; {
-            vdi_nbd_server_info_exportname=
+        ; { vdi_nbd_server_info_exportname =
               "/" ^ uuid ^ "?session_id=" ^ session_id
-          ; vdi_nbd_server_info_address= "92.40.98.94"
+          ; vdi_nbd_server_info_address = "92.40.98.94"
           ; vdi_nbd_server_info_port
-          ; vdi_nbd_server_info_cert= host2_cert
-          ; vdi_nbd_server_info_subject= host2_subject
+          ; vdi_nbd_server_info_cert = host2_cert
+          ; vdi_nbd_server_info_subject = host2_subject
           }
-        ; {
-            vdi_nbd_server_info_exportname=
+        ; { vdi_nbd_server_info_exportname =
               "/" ^ uuid ^ "?session_id=" ^ session_id
-          ; vdi_nbd_server_info_address=
+          ; vdi_nbd_server_info_address =
               "10e1:bdb8:05a3:0002:03ae:8a24:0371:0002"
           ; vdi_nbd_server_info_port
-          ; vdi_nbd_server_info_cert= host2_cert
-          ; vdi_nbd_server_info_subject= host2_subject
+          ; vdi_nbd_server_info_cert = host2_cert
+          ; vdi_nbd_server_info_subject = host2_subject
           }
-        ; {
-            vdi_nbd_server_info_exportname=
+        ; { vdi_nbd_server_info_exportname =
               "/" ^ uuid ^ "?session_id=" ^ session_id
-          ; vdi_nbd_server_info_address=
+          ; vdi_nbd_server_info_address =
               "10e1:bdb8:05a3:0002:03ae:8a24:0371:0003"
           ; vdi_nbd_server_info_port
-          ; vdi_nbd_server_info_cert= host2_cert
-          ; vdi_nbd_server_info_subject= host2_subject
+          ; vdi_nbd_server_info_cert = host2_cert
+          ; vdi_nbd_server_info_subject = host2_subject
           }
         ]
-      
     in
 
     assert_same_infos expected nbd_info
@@ -391,8 +420,10 @@ let test_get_nbd_info =
   let test_returns_empty_list_when_no_host_is_connected_to_sr () =
     let __context, make_host, sr_of_vdi, network, self = setup_test () in
     let (_ : _ API.Ref.t) =
-      make_host sr_of_vdi ~pbd_attached:false
-        [(network, "92.40.98.93", [], true)]
+      make_host
+        sr_of_vdi
+        ~pbd_attached:false
+        [ (network, "92.40.98.93", [], true) ]
         ()
     in
     assert_same_infos [] (Xapi_vdi.get_nbd_info ~__context ~self) ;
@@ -403,7 +434,7 @@ let test_get_nbd_info =
   let test_returns_empty_list_when_no_host_is_connected_to_network () =
     let __context, make_host, sr_of_vdi, network, self = setup_test () in
     let (_ : _ API.Ref.t) =
-      make_host sr_of_vdi [(network, "92.40.98.93", [], false)] ()
+      make_host sr_of_vdi [ (network, "92.40.98.93", [], false) ] ()
     in
     assert_same_infos [] (Xapi_vdi.get_nbd_info ~__context ~self) ;
     Db.PIF.get_all ~__context
@@ -413,51 +444,54 @@ let test_get_nbd_info =
   let test_disallowed_for_cbt_metadata_vdi () =
     let __context, make_host, sr_of_vdi, network, self = setup_test () in
     let (_ : _ API.Ref.t) =
-      make_host sr_of_vdi [(network, "92.40.98.93", [], true)] ()
+      make_host sr_of_vdi [ (network, "92.40.98.93", [], true) ] ()
     in
     Db.VDI.set_type ~__context ~self ~value:`cbt_metadata ;
     let _type = Record_util.vdi_type_to_string `cbt_metadata in
-    Alcotest.check_raises "Disallowed for cbt_metadata VDI"
+    Alcotest.check_raises
+      "Disallowed for cbt_metadata VDI"
       Api_errors.(
-        Server_error (vdi_incompatible_type, [Ref.string_of self; _type])
-      )
+        Server_error (vdi_incompatible_type, [ Ref.string_of self; _type ]))
       (fun () -> Xapi_vdi.get_nbd_info ~__context ~self |> ignore)
   in
-  [
-    ( "test_get_nbd_info_returns_correct_infos"
+  [ ( "test_get_nbd_info_returns_correct_infos"
     , `Quick
-    , test_returns_correct_infos
-    )
+    , test_returns_correct_infos )
   ; ( "test_get_nbd_info_returns_empty_list_when_no_host_is_connected_to_sr"
     , `Quick
-    , test_returns_empty_list_when_no_host_is_connected_to_sr
-    )
+    , test_returns_empty_list_when_no_host_is_connected_to_sr )
   ; ( "test_get_nbd_info_returns_empty_list_when_no_host_is_connected_to_network"
     , `Quick
-    , test_returns_empty_list_when_no_host_is_connected_to_network
-    )
+    , test_returns_empty_list_when_no_host_is_connected_to_network )
   ; ( "test_get_nbd_info_disallowed_for_cbt_metadata_vdi"
     , `Quick
-    , test_disallowed_for_cbt_metadata_vdi
-    )
+    , test_disallowed_for_cbt_metadata_vdi )
   ]
+
 
 (** Initializes the test so that Xapi_vdi.data_destroy invocations will not
     fail, registers a SMAPIv2 data_destroy function that is a no-op by default,
     and returns a CBT-enabled snapshot VDI on which it is allowed to run
     data_destroy. *)
-let setup_test_for_data_destroy ?(vdi_data_destroy = fun _ ~dbg ~sr ~vdi -> ())
-    () =
+let setup_test_for_data_destroy
+    ?(vdi_data_destroy = fun _ ~dbg ~sr ~vdi -> ()) () =
   (* data_destroy uses the event mechanism, this is required to make the unit test work *)
   let __context, _ = Test_event.event_setup_common () in
   let sR = make_mock_server_infrastructure ~__context in
   let vdi =
-    Test_common.make_vdi ~__context ~is_a_snapshot:true ~managed:true
-      ~cbt_enabled:true ~sR ()
+    Test_common.make_vdi
+      ~__context
+      ~is_a_snapshot:true
+      ~managed:true
+      ~cbt_enabled:true
+      ~sR
+      ()
   in
-  register_smapiv2_server ~vdi_data_destroy
+  register_smapiv2_server
+    ~vdi_data_destroy
     (Db.SR.get_uuid ~__context ~self:sR |> Storage_interface.Sr.of_string) ;
   (__context, sR, vdi)
+
 
 let test_allowed_operations_updated_when_necessary () =
   let __context, sR, self = setup_test_for_data_destroy () in
@@ -466,20 +500,20 @@ let test_allowed_operations_updated_when_necessary () =
     (Db.SR.get_uuid ~__context ~self:sR |> Storage_interface.Sr.of_string) ;
   let assert_allowed_operations msg check =
     Alcotest.(check bool)
-      msg true
+      msg
+      true
       (check (Db.VDI.get_allowed_operations ~__context ~self))
   in
   (* Populate the allowed_operations list after creating the VDI *)
   Xapi_vdi.update_allowed_operations ~__context ~self ;
   assert_allowed_operations "contains `copy for a newly-created VDI" (fun ops ->
-      List.mem `copy ops
-  ) ;
+      List.mem `copy ops ) ;
   (* Call data_destroy through the the message forwarding layer *)
   Api_server.Forwarder.VDI.data_destroy ~__context ~self ;
   assert_allowed_operations
-    "does not contain `copy after VDI has been data-destroyed" (fun ops ->
-      not @@ List.mem `copy ops
-  )
+    "does not contain `copy after VDI has been data-destroyed"
+    (fun ops -> not @@ List.mem `copy ops)
+
 
 let test_data_destroy =
   (* Confirm VDI.data_destroy changes requisite fields of VDI *)
@@ -489,46 +523,64 @@ let test_data_destroy =
     let vM = Test_common.make_vm ~__context () in
     let check_vdi_is_snapshot_and_type ~vDI ~snapshot ~vdi_type ~managed =
       let open Printf in
-      Alcotest.check Alcotest_comparators.vdi_type "VDI.type" vdi_type
+      Alcotest.check
+        Alcotest_comparators.vdi_type
+        "VDI.type"
+        vdi_type
         (Db.VDI.get_type ~__context ~self:vDI) ;
       Alcotest.(check bool)
-        "VDI.managed" managed
+        "VDI.managed"
+        managed
         (Db.VDI.get_managed ~__context ~self:vDI) ;
       Alcotest.(check bool)
         "VDI.is_a_snapshot"
         (Db.VDI.get_is_a_snapshot ~__context ~self:vDI)
         snapshot
     in
-    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`suspend
+    check_vdi_is_snapshot_and_type
+      ~vDI
+      ~snapshot:true
+      ~vdi_type:`suspend
       ~managed:true ;
     (* set vDI as the suspend VDI of vM *)
     Db.VM.set_suspend_VDI ~__context ~self:vM ~value:vDI ;
     Alcotest.check
       (Alcotest_comparators.ref ())
-      "VM.suspend_VDI should point to previously created VDI" vDI
+      "VM.suspend_VDI should point to previously created VDI"
+      vDI
       (Db.VM.get_suspend_VDI ~__context ~self:vM) ;
     (* run VDI.data_destroy, check it has updated VDI fields *)
     Xapi_vdi.data_destroy ~__context ~self:vDI ;
-    Alcotest.check Alcotest_comparators.vdi_type
-      "VDI.data_destroy should set VDI type to cbt_metadata" `cbt_metadata
+    Alcotest.check
+      Alcotest_comparators.vdi_type
+      "VDI.data_destroy should set VDI type to cbt_metadata"
+      `cbt_metadata
       (Db.VDI.get_type ~__context ~self:vDI) ;
     Alcotest.check
       (Alcotest_comparators.ref ())
-      "VM.suspend_VDI should be set to null" Ref.null
+      "VM.suspend_VDI should be set to null"
+      Ref.null
       (Db.VM.get_suspend_VDI ~__context ~self:vM) ;
     (* check for idempotence for metadata snapshot VDIs *)
-    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata
+    check_vdi_is_snapshot_and_type
+      ~vDI
+      ~snapshot:true
+      ~vdi_type:`cbt_metadata
       ~managed:true ;
     Xapi_vdi.data_destroy ~__context ~self:vDI ;
-    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata
+    check_vdi_is_snapshot_and_type
+      ~vDI
+      ~snapshot:true
+      ~vdi_type:`cbt_metadata
       ~managed:true
   in
   (* check VDI.data_destroy throws VDI_NOT_MANAGED if managed:false *)
   let test_vdi_managed_data_destroy () =
     let __context, sR, vDI = setup_test_for_data_destroy () in
     Db.VDI.set_managed ~__context ~self:vDI ~value:false ;
-    Alcotest.check_raises "VDI.data_destroy only works on managed VDI"
-      Api_errors.(Server_error (vdi_not_managed, [Ref.string_of vDI]))
+    Alcotest.check_raises
+      "VDI.data_destroy only works on managed VDI"
+      Api_errors.(Server_error (vdi_not_managed, [ Ref.string_of vDI ]))
       (fun () -> Xapi_vdi.data_destroy ~__context ~self:vDI)
   in
   let test_does_not_change_vdi_type_to_cbt_metadata_if_it_fails () =
@@ -538,14 +590,15 @@ let test_data_destroy =
         ()
     in
     let original_type = Db.VDI.get_type ~__context ~self:vdi in
-    try Xapi_vdi.data_destroy ~__context ~self:vdi
-    with _ ->
-      () ;
-      Alcotest.check Alcotest_comparators.vdi_type
-        "data_destroy should not change the VDI's type to cbt_metadata when it \
-         did not succeed, it should preserve the original type"
-        original_type
-        (Db.VDI.get_type ~__context ~self:vdi)
+    try Xapi_vdi.data_destroy ~__context ~self:vdi with
+    | _ ->
+        () ;
+        Alcotest.check
+          Alcotest_comparators.vdi_type
+          "data_destroy should not change the VDI's type to cbt_metadata when \
+           it did not succeed, it should preserve the original type"
+          original_type
+          (Db.VDI.get_type ~__context ~self:vdi)
   in
   let test_data_destroy_timing =
     let bg f = Thread.create f () in
@@ -557,8 +610,10 @@ let test_data_destroy =
         Test_common.make_vbd ~__context ~vDI ~vM ~currently_attached:true ()
       in
       let start_vbd_unplug () =
-        Db.VBD.set_current_operations ~__context ~self:vbd
-          ~value:[("x", `unplug)]
+        Db.VBD.set_current_operations
+          ~__context
+          ~self:vbd
+          ~value:[ ("x", `unplug) ]
       in
       let finish_vbd_unplug () =
         Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false ;
@@ -572,17 +627,16 @@ let test_data_destroy =
         let raisedexn = ref None in
         ignore
           (bg (fun () ->
-               ( try Xapi_vdi._data_destroy ~__context ~self:vDI ~timeout
-                 with e -> raisedexn := Some e
-               ) ;
-               Threadext.Delay.signal wait_hdl
-           )
-          ) ;
-        if Threadext.Delay.wait wait_hdl timebox_timeout then
+               ( try Xapi_vdi._data_destroy ~__context ~self:vDI ~timeout with
+               | e ->
+                   raisedexn := Some e ) ;
+               Threadext.Delay.signal wait_hdl ) ) ;
+        if Threadext.Delay.wait wait_hdl timebox_timeout
+        then
           Alcotest.fail
-            (Printf.sprintf "data_destroy did not return in %f seconds"
-               timebox_timeout
-            ) ;
+            (Printf.sprintf
+               "data_destroy did not return in %f seconds"
+               timebox_timeout ) ;
         match !raisedexn with None -> () | Some e -> raise e
       in
       (vDI, start_vbd_unplug, finish_vbd_unplug, destroy_vbd, data_destroy)
@@ -598,10 +652,10 @@ let test_data_destroy =
             Thread.delay 0.2 ;
             finish_vbd_unplug () ;
             Thread.delay 0.2 ;
-            destroy_vbd ()
-        )
+            destroy_vbd () )
       in
-      data_destroy ~timeout:1.0 ; Thread.join t
+      data_destroy ~timeout:1.0 ;
+      Thread.join t
     in
     let test_data_destroy_succeeds_when_vbd_is_being_unplugged () =
       let _vdi, start_vbd_unplug, finish_vbd_unplug, destroy_vbd, data_destroy =
@@ -613,10 +667,11 @@ let test_data_destroy =
             Thread.delay 0.2 ;
             finish_vbd_unplug () ;
             Thread.delay 0.2 ;
-            destroy_vbd ()
-        )
+            destroy_vbd () )
       in
-      Thread.delay 0.1 ; data_destroy ~timeout:1.0 ; Thread.join t
+      Thread.delay 0.1 ;
+      data_destroy ~timeout:1.0 ;
+      Thread.join t
     in
     let test_data_destroy_succeeds_when_vbd_is_being_destroyed () =
       let _vdi, start_vbd_unplug, finish_vbd_unplug, destroy_vbd, data_destroy =
@@ -627,10 +682,11 @@ let test_data_destroy =
             start_vbd_unplug () ;
             finish_vbd_unplug () ;
             Thread.delay 0.2 ;
-            destroy_vbd ()
-        )
+            destroy_vbd () )
       in
-      Thread.delay 0.1 ; data_destroy ~timeout:1.0 ; Thread.join t
+      Thread.delay 0.1 ;
+      data_destroy ~timeout:1.0 ;
+      Thread.join t
     in
     let test_data_destroy_times_out_when_vbd_does_not_get_unplugged_in_time () =
       let vDI, start_vbd_unplug, finish_vbd_unplug, destroy_vbd, data_destroy =
@@ -638,14 +694,12 @@ let test_data_destroy =
       in
       let t =
         bg (fun () ->
-            start_vbd_unplug () (* finish_vbd_unplug does not happen in time *)
-        )
+            start_vbd_unplug () (* finish_vbd_unplug does not happen in time *) )
       in
       Alcotest.check_raises
         "data_destroy should raise VDI_IN_USE after its timeout"
         Api_errors.(
-          Server_error (vdi_in_use, [Ref.string_of vDI; "data_destroy"])
-        )
+          Server_error (vdi_in_use, [ Ref.string_of vDI; "data_destroy" ]))
         (fun () -> data_destroy ~timeout:1.0) ;
       Thread.join t
     in
@@ -657,49 +711,40 @@ let test_data_destroy =
         bg (fun () ->
             start_vbd_unplug () ;
             Thread.delay 0.2 ;
-            finish_vbd_unplug () (* destroy_vbd does not happen in time *)
-        )
+            finish_vbd_unplug () (* destroy_vbd does not happen in time *) )
       in
       Alcotest.check_raises
         "data_destroy should raise VDI_IN_USE after its timeout"
         Api_errors.(
-          Server_error (vdi_in_use, [Ref.string_of vDI; "data_destroy"])
-        )
+          Server_error (vdi_in_use, [ Ref.string_of vDI; "data_destroy" ]))
         (fun () -> data_destroy ~timeout:1.0) ;
       Thread.join t
     in
-    [
-      ( "test_data_destroy_succeeds_when_unplug_starts_later"
+    [ ( "test_data_destroy_succeeds_when_unplug_starts_later"
       , `Slow
-      , test_data_destroy_succeeds_when_unplug_starts_later
-      )
+      , test_data_destroy_succeeds_when_unplug_starts_later )
     ; ( "test_data_destroy_succeeds_when_vbd_is_being_unplugged"
       , `Slow
-      , test_data_destroy_succeeds_when_vbd_is_being_unplugged
-      )
+      , test_data_destroy_succeeds_when_vbd_is_being_unplugged )
     ; ( "test_data_destroy_succeeds_when_vbd_is_being_destroyed"
       , `Slow
-      , test_data_destroy_succeeds_when_vbd_is_being_destroyed
-      )
+      , test_data_destroy_succeeds_when_vbd_is_being_destroyed )
     ; ( "test_data_destroy_times_out_when_vbd_does_not_get_unplugged_in_time"
       , `Slow
-      , test_data_destroy_times_out_when_vbd_does_not_get_unplugged_in_time
-      )
+      , test_data_destroy_times_out_when_vbd_does_not_get_unplugged_in_time )
     ; ( "test_data_destroy_times_out_when_vbd_does_not_get_destroyed_in_time"
       , `Slow
-      , test_data_destroy_times_out_when_vbd_does_not_get_destroyed_in_time
-      )
+      , test_data_destroy_times_out_when_vbd_does_not_get_destroyed_in_time )
     ]
   in
-  [
-    ("test_vdi_after_data_destroy", `Quick, test_vdi_after_data_destroy)
+  [ ("test_vdi_after_data_destroy", `Quick, test_vdi_after_data_destroy)
   ; ("test_vdi_managed_data_destroy", `Quick, test_vdi_managed_data_destroy)
   ; ( "test_data_destroy_does_not_change_vdi_type_to_cbt_metadata_if_it_fails"
     , `Quick
-    , test_does_not_change_vdi_type_to_cbt_metadata_if_it_fails
-    )
+    , test_does_not_change_vdi_type_to_cbt_metadata_if_it_fails )
   ]
   @ test_data_destroy_timing
+
 
 let test_vdi_list_changed_blocks () =
   let __context = Test_common.make_test_database () in
@@ -710,51 +755,62 @@ let test_vdi_list_changed_blocks () =
   let list_changed_blocks_string = "listchangedblocks000" in
   let vdi_from_location = "vdi_from_location" in
   let vdi_from_ref =
-    Test_common.make_vdi ~__context ~location:vdi_from_location
-      ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~sR ()
+    Test_common.make_vdi
+      ~__context
+      ~location:vdi_from_location
+      ~is_a_snapshot:true
+      ~managed:true
+      ~cbt_enabled:true
+      ~sR
+      ()
   in
   let vdi_from = Storage_interface.Vdi.of_string vdi_from_location in
   let vdi_to_location = "vdi_to_location" in
   let vdi_to_ref =
-    Test_common.make_vdi ~__context ~location:vdi_to_location ~sR
-      ~cbt_enabled:true ~managed:true ()
+    Test_common.make_vdi
+      ~__context
+      ~location:vdi_to_location
+      ~sR
+      ~cbt_enabled:true
+      ~managed:true
+      ()
   in
   let vdi_to = Storage_interface.Vdi.of_string vdi_to_location in
   register_smapiv2_server
     ~vdi_list_changed_blocks:(fun _ ~dbg ~sr ~vdi_from ~vdi_to ->
       list_changed_blocks_params := Some (sr, (vdi_from, vdi_to)) ;
-      list_changed_blocks_string
-      )
+      list_changed_blocks_string )
     (Db.SR.get_uuid ~__context ~self:sR |> Storage_interface.Sr.of_string) ;
   Alcotest.(check string)
     "VDI.list_changed_blocks"
-    (Xapi_vdi.list_changed_blocks ~__context ~vdi_from:vdi_from_ref
-       ~vdi_to:vdi_to_ref
-    )
+    (Xapi_vdi.list_changed_blocks
+       ~__context
+       ~vdi_from:vdi_from_ref
+       ~vdi_to:vdi_to_ref )
     list_changed_blocks_string ;
   Alcotest.(check (option (pair alco_sr (pair alco_vdi alco_vdi))))
     "VDI.list_changed_blocks parameters"
     (Some (sr, (vdi_from, vdi_to)))
     !list_changed_blocks_params
 
+
 let test =
-  [
-    ("test_cbt_enable_disable", `Quick, test_cbt_enable_disable)
+  [ ("test_cbt_enable_disable", `Quick, test_cbt_enable_disable)
   ; ( "test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi"
     , `Quick
-    , test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi
-    )
+    , test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi )
   ; ("test_vbd_create", `Quick, test_vbd_create)
   ; ( "test_allowed_operations_updated_when_necessary"
     , `Quick
-    , test_allowed_operations_updated_when_necessary
-    )
+    , test_allowed_operations_updated_when_necessary )
   ; ("test_vdi_list_changed_blocks", `Quick, test_vdi_list_changed_blocks)
   ]
   @ test_get_nbd_info
   @ test_data_destroy
 
+
 let () =
   Suite_init.harness_init () ;
-  Alcotest.run "Test Events and VDI CBT "
-    [("Test_vdi_cbt", test); ("Test_event", Test_event.test)]
+  Alcotest.run
+    "Test Events and VDI CBT "
+    [ ("Test_vdi_cbt", test); ("Test_event", Test_event.test) ]

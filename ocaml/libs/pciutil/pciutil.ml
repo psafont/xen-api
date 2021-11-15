@@ -33,40 +33,48 @@ let parse_from file vendor device =
       if line = "" || line.[0] = '#' || (line.[0] = '\t' && line.[1] = '\t')
       then (* ignore subvendors/subdevices, blank lines and comments *)
         ()
-      else if line.[0] = '\t' then (
-        if
-          (* device *)
-          (* ignore if this is some other vendor's device *)
-          !current_xvendor = vendor
+      else if line.[0] = '\t'
+      then (
+        if (* device *)
+           (* ignore if this is some other vendor's device *)
+           !current_xvendor = vendor
         then
           let xdevice = String.sub line 1 4 in
-          if xdevice = device then (
+          if xdevice = device
+          then (
             device_str := Some (String.sub line 7 (String.length line - 7)) ;
             (* abort reading, we found what we want *)
-            raise Unixext.Break
-          )
-      ) else (
+            raise Unixext.Break ) )
+      else (
         (* vendor *)
         current_xvendor := String.sub line 0 4 ;
-        if !current_xvendor = vendor then
-          vendor_str := Some (String.sub line 6 (String.length line - 6))
-      )
+        if !current_xvendor = vendor
+        then vendor_str := Some (String.sub line 6 (String.length line - 6)) )
       )
     file ;
   (!vendor_str, !device_str)
 
+
 let parse vendor device =
   let access_list l perms =
     List.filter
-      (fun path -> try Unix.access path perms ; true with _ -> false)
+      (fun path ->
+        try
+          Unix.access path perms ;
+          true
+        with
+        | _ ->
+            false )
       l
   in
   try
     (* is that the correct path ? *)
     let l =
       access_list
-        ["/usr/share/hwdata/pci.ids"; "/usr/share/misc/pci.ids"]
-        [Unix.R_OK]
+        [ "/usr/share/hwdata/pci.ids"; "/usr/share/misc/pci.ids" ]
+        [ Unix.R_OK ]
     in
     parse_from (List.hd l) vendor device
-  with _ -> (unknown_vendor vendor, unknown_device device)
+  with
+  | _ ->
+      (unknown_vendor vendor, unknown_device device)

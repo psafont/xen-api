@@ -1,6 +1,8 @@
 open Storage_interface
 
-module D = Debug.Make (struct let name = Storage_interface.service_name end)
+module D = Debug.Make (struct
+  let name = Storage_interface.service_name
+end)
 
 open D
 
@@ -16,7 +18,8 @@ module SI = struct
     | Storage_error e ->
         Rpcmarshal.marshal Errors.error.Rpc.Types.ty e
     | _ ->
-        Rpcmarshal.marshal Errors.error.Rpc.Types.ty
+        Rpcmarshal.marshal
+          Errors.error.Rpc.Types.ty
           (Errors.Internal_error (Printexc.to_string e))
 end
 
@@ -34,8 +37,11 @@ let signal id =
   try
     let handle = handle_of_id tasks id in
     let state = get_state handle in
-    debug "TASK.signal %s = %s" id
+    debug
+      "TASK.signal %s = %s"
+      id
       (state |> rpc_of Task.state |> Jsonrpc.to_string) ;
     Updates.add (Dynamic.Task id) updates
-  with Storage_error (Does_not_exist _) ->
-    debug "TASK.signal %s (object deleted)" id
+  with
+  | Storage_error (Does_not_exist _) ->
+      debug "TASK.signal %s (object deleted)" id

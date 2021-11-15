@@ -16,15 +16,23 @@
     When interpreting the metrics, consider which consolidation function you
     should be using. For example, if your concern is peak (as in numerically
     greatest) load, then you should be using the `Max consolidation function. *)
-type cf = [`Average | `Min | `Max]
+type cf =
+  [ `Average
+  | `Min
+  | `Max
+  ]
 
 module Legend : sig
-  type cls = [`VM | `Host | `Other of string]
+  type cls =
+    [ `VM
+    | `Host
+    | `Other of string
+    ]
 
   (** A legend identifies a specific data source. *)
   type t = string * cf * cls * Uuidm.t
 
-  val of_string : string -> [`Ok of t | `Error of [> `Msg of string]]
+  val of_string : string -> [ `Ok of t | `Error of [> `Msg of string ] ]
 
   val find_data_source : API.data_source_t list -> t -> API.data_source_t option
   (** Find the data_source record corresponding to a legend. The data source
@@ -39,7 +47,8 @@ type interval =
   | `Minute  (** every minute for 2 hours *)
   | `Hour  (** every hour for one week *)
   | `Day  (** every day for one year *)
-  | `Other of int ]
+  | `Other of int
+  ]
 
 val seconds_of_interval : interval -> int
 (** The length of the interval in seconds *)

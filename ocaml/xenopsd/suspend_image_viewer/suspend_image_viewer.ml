@@ -21,24 +21,31 @@ let msg ~prefix s = Printf.printf "%s: %s\n%!" prefix s
 let debug fmt =
   Printf.ksprintf (fun s -> if !opt_debug then msg ~prefix:"debug" s) fmt
 
+
 let error fmt = Printf.ksprintf (msg ~prefix:"error") fmt
 
 let verify_libxc_v2_record fd =
   let fd_uuid = Uuidm.(to_string (create `V4)) in
   let path = !Resources.verify_libxc_v2 in
-  let args = ["--in"; fd_uuid; "--syslog"] in
-  ( try Unix.(access path [X_OK])
-    with _ -> failwith (Printf.sprintf "Executable not found: %s" path)
-  ) ;
+  let args = [ "--in"; fd_uuid; "--syslog" ] in
+  ( try Unix.(access path [ X_OK ]) with
+  | _ ->
+      failwith (Printf.sprintf "Executable not found: %s" path) ) ;
   let pid =
-    Forkhelpers.safe_close_and_exec None (Some Unix.stdout) (Some Unix.stderr)
-      [(fd_uuid, fd)] path args
+    Forkhelpers.safe_close_and_exec
+      None
+      (Some Unix.stdout)
+      (Some Unix.stderr)
+      [ (fd_uuid, fd) ]
+      path
+      args
   in
   match Forkhelpers.waitpid pid with
   | _, Unix.WEXITED 0 ->
       ()
   | _ ->
       failwith "Failed to verify Libxc v2 record"
+
 
 let parse_layout fd =
   debug "Reading save signature..." ;
@@ -48,11 +55,12 @@ let parse_layout fd =
       failwith e
   | Ok Legacy ->
       []
-  | Ok Structured -> (
+  | Ok Structured ->
       let open Suspend_image.M in
       let rec aux acc =
         debug "Reading header..." ;
-        read_header fd >>= fun h ->
+        read_header fd
+        >>= fun h ->
         debug "Read header <%s>" (string_of_header h) ;
         debug "Dummy-processing record..." ;
         match h with
@@ -79,13 +87,13 @@ let parse_layout fd =
         | Qemu_xen, _ ->
             failwith "Unsupported: qemu-xen"
       in
-      match aux [] with
+      ( match aux [] with
       | Ok hs ->
           List.rev hs
       | Error e ->
           failwith
-            (Printf.sprintf "Error parsing image: %s" (Printexc.to_string e))
-    )
+            (Printf.sprintf "Error parsing image: %s" (Printexc.to_string e)) )
+
 
 let print_layout headers =
   let module S = String in
@@ -94,7 +102,8 @@ let print_layout headers =
     List.map (fun h -> string_of_header h |> S.length) headers
     |> List.fold_left max default_width
   in
-  let left_pad = "| " and right_pad = " |" in
+  let left_pad = "| "
+  and right_pad = " |" in
   let col_width =
     max_header_word_length + S.length left_pad + S.length right_pad
   in
@@ -105,7 +114,7 @@ let print_layout headers =
     | h :: hs ->
         let h_str = string_of_header h in
         let filled_space =
-          List.map S.length [left_pad; h_str; right_pad]
+          List.map S.length [ left_pad; h_str; right_pad ]
           |> List.fold_left ( + ) 0
         in
         let padding = S.make (col_width - filled_space) ' ' in
@@ -115,35 +124,43 @@ let print_layout headers =
   in
   inner headers
 
-module D = Debug.Make (struct let name = "suspend-image-viewer" end)
+
+module D = Debug.Make (struct
+  let name = "suspend-image-viewer"
+end)
 
 let print_image path =
-  Xapi_stdext_unix.Unixext.with_file path [Unix.O_RDONLY] 0o400 (fun fd ->
-      print_layout (parse_layout fd)
-  )
+  Xapi_stdext_unix.Unixext.with_file path [ Unix.O_RDONLY ] 0o400 (fun fd ->
+      print_layout (parse_layout fd) )
+
 
 (* Command line interface *)
 let () =
   let resources =
-    Resources.make_resources ~essentials:Resources.essentials
+    Resources.make_resources
+      ~essentials:Resources.essentials
       ~nonessentials:Resources.nonessentials
   in
   let doc = "Print the layout of a suspend image" in
   let path = ref "" in
   let options =
-    [
-      ( "path"
+    [ ( "path"
       , Arg.Set_string path
       , (fun () -> !path)
-      , "Path to the suspend image device"
-      )
+      , "Path to the suspend image device" )
     ]
   in
   match
-    Xcp_service.configure2 ~name:"suspend-image-viewer"
-      ~version:Build_info.version ~resources ~doc ~options ()
+    Xcp_service.configure2
+      ~name:"suspend-image-viewer"
+      ~version:Build_info.version
+      ~resources
+      ~doc
+      ~options
+      ()
   with
   | `Ok () ->
       print_image !path
   | `Error m ->
-      error "%s" m ; exit 1
+      error "%s" m ;
+      exit 1

@@ -12,10 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type reader = Rrd_reader_functor.reader = {
-    read_payload: unit -> Rrd_protocol.payload
-  ; cleanup: unit -> unit
-}
+type reader = Rrd_reader_functor.reader =
+  { read_payload : unit -> Rrd_protocol.payload
+  ; cleanup : unit -> unit
+  }
 
 include Rrd_file_reader
 include Rrd_page_reader

@@ -29,17 +29,17 @@ external domain_get_acpi_s_state : handle -> domid -> int
 
 exception Unix_error of Unix.error * string
 
-type runstateinfo = {
-    state: int32
-  ; missed_changes: int32
-  ; state_entry_time: int64
-  ; time0: int64
-  ; time1: int64
-  ; time2: int64
-  ; time3: int64
-  ; time4: int64
-  ; time5: int64
-}
+type runstateinfo =
+  { state : int32
+  ; missed_changes : int32
+  ; state_entry_time : int64
+  ; time0 : int64
+  ; time1 : int64
+  ; time2 : int64
+  ; time3 : int64
+  ; time4 : int64
+  ; time5 : int64
+  }
 
 external domain_get_runstate_info : handle -> int -> runstateinfo
   = "stub_xenctrlext_get_runstate_info"
@@ -66,11 +66,21 @@ external domain_soft_reset : handle -> domid -> unit
 external domain_update_channels : handle -> domid -> int -> int -> unit
   = "stub_xenctrlext_domain_update_channels"
 
-type meminfo = {memfree: int64; memsize: int64}
+type meminfo =
+  { memfree : int64
+  ; memsize : int64
+  }
 
-type numainfo = {memory: meminfo array; distances: int array array}
+type numainfo =
+  { memory : meminfo array
+  ; distances : int array array
+  }
 
-type cputopo = {core: int; socket: int; node: int}
+type cputopo =
+  { core : int
+  ; socket : int
+  ; node : int
+  }
 
 external vcpu_setaffinity_soft : handle -> domid -> int -> bool array -> unit
   = "stub_xenctrlext_vcpu_setaffinity_soft"

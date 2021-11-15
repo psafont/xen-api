@@ -1,4 +1,7 @@
-type result = Ok of string list | Error of string | EOF
+type result =
+  | Ok of string list
+  | Error of string
+  | EOF
 
 val read : Unix.file_descr -> result
 (** [read] calls [Unix.read] and returns zero or more newline-delimited byte

@@ -29,30 +29,27 @@ module FixCookie = Generic.MakeStateless (struct
 
   let tests =
     `QuickAndAutoDocumented
-      [
-        (* These cookies should be unchanged. *)
+      [ (* These cookies should be unchanged. *)
         ([], [])
-      ; ([("foo", "bar")], [("foo", "bar")])
+      ; ([ ("foo", "bar") ], [ ("foo", "bar") ])
       ; (* Any pairs where the key starts with '$' should be filtered out. *)
-        ([("$PATH", "baz")], [])
-      ; ([("$PATH", "baz"); ("foo", "bar")], [("foo", "bar")])
+        ([ ("$PATH", "baz") ], [])
+      ; ([ ("$PATH", "baz"); ("foo", "bar") ], [ ("foo", "bar") ])
       ; (* These cookies have got a bit mangled, and should get unmangled. *)
-        ([("foo=x, bar", "y")], [("foo", "x"); ("bar", "y")])
-      ; ([("foo=x,\tbar", "y")], [("foo", "x"); ("bar", "y")])
-      ; ([("foo=x; bar", "y")], [("foo", "x"); ("bar", "y")])
-      ; ([("foo=x;\tbar", "y")], [("foo", "x"); ("bar", "y")])
-      ; ([("foo", "x, bar=y")], [("foo", "x"); ("bar", "y")])
-      ; ([("foo", "x,\tbar=y")], [("foo", "x"); ("bar", "y")])
-      ; ([("foo", "x; bar=y")], [("foo", "x"); ("bar", "y")])
-      ; ([("foo", "x;\tbar=y")], [("foo", "x"); ("bar", "y")])
+        ([ ("foo=x, bar", "y") ], [ ("foo", "x"); ("bar", "y") ])
+      ; ([ ("foo=x,\tbar", "y") ], [ ("foo", "x"); ("bar", "y") ])
+      ; ([ ("foo=x; bar", "y") ], [ ("foo", "x"); ("bar", "y") ])
+      ; ([ ("foo=x;\tbar", "y") ], [ ("foo", "x"); ("bar", "y") ])
+      ; ([ ("foo", "x, bar=y") ], [ ("foo", "x"); ("bar", "y") ])
+      ; ([ ("foo", "x,\tbar=y") ], [ ("foo", "x"); ("bar", "y") ])
+      ; ([ ("foo", "x; bar=y") ], [ ("foo", "x"); ("bar", "y") ])
+      ; ([ ("foo", "x;\tbar=y") ], [ ("foo", "x"); ("bar", "y") ])
       ; (* These cookies need unmangling and filtering. *)
-        ( [("foo=x,\tbar", "y"); ("$Stuff", "whatever")]
-        , [("foo", "x"); ("bar", "y")]
-        )
-      ; ( [("$Stuff", "whatever"); ("foo=x,\tbar", "y")]
-        , [("foo", "x"); ("bar", "y")]
-        )
+        ( [ ("foo=x,\tbar", "y"); ("$Stuff", "whatever") ]
+        , [ ("foo", "x"); ("bar", "y") ] )
+      ; ( [ ("$Stuff", "whatever"); ("foo=x,\tbar", "y") ]
+        , [ ("foo", "x"); ("bar", "y") ] )
       ]
 end)
 
-let tests = [("test_http_fix_cookie", FixCookie.tests)]
+let tests = [ ("test_http_fix_cookie", FixCookie.tests) ]

@@ -16,7 +16,9 @@ open Network_utils
 open Xapi_stdext_pervasives
 open Xapi_stdext_threads.Threadext
 
-module D = Debug.Make (struct let name = "network_monitor_thread" end)
+module D = Debug.Make (struct
+  let name = "network_monitor_thread"
+end)
 
 open D
 
@@ -25,24 +27,30 @@ let bonds_status : (string, int * int) Hashtbl.t = Hashtbl.create 10
 
 let monitor_whitelist =
   ref
-    [
-      "eth"
+    [ "eth"
     ; "vif"
       (* This includes "tap" owing to the use of standardise_name below *)
     ]
 
+
 let xapi_rpc xml =
   let open Xmlrpc_client in
-  XMLRPC_protocol.rpc ~srcstr:"xcp-networkd" ~dststr:"xapi"
+  XMLRPC_protocol.rpc
+    ~srcstr:"xcp-networkd"
+    ~dststr:"xapi"
     ~transport:(Unix "/var/xapi/xapi")
     ~http:(xmlrpc ~version:"1.0" "/")
     xml
+
 
 let send_bond_change_alert _dev interfaces message =
   let ifaces = String.concat "+" (List.sort String.compare interfaces) in
   let module XenAPI = Client.Client in
   let session_id =
-    XenAPI.Session.login_with_password ~rpc:xapi_rpc ~uname:"" ~pwd:""
+    XenAPI.Session.login_with_password
+      ~rpc:xapi_rpc
+      ~uname:""
+      ~pwd:""
       ~version:"1.4"
       ~originator:("xcp-networkd v" ^ Build_info.version)
   in
@@ -53,13 +61,21 @@ let send_bond_change_alert _dev interfaces message =
       try
         let name, priority = Api_messages.bond_status_changed in
         let (_ : API.ref_message) =
-          XenAPI.Message.create ~rpc:xapi_rpc ~session_id ~name ~priority
-            ~cls:`Host ~obj_uuid ~body
+          XenAPI.Message.create
+            ~rpc:xapi_rpc
+            ~session_id
+            ~name
+            ~priority
+            ~cls:`Host
+            ~obj_uuid
+            ~body
         in
         ()
-      with _ -> warn "Exception sending a bond-status-change alert."
-      )
+      with
+      | _ ->
+          warn "Exception sending a bond-status-change alert." )
     (fun _ -> XenAPI.Session.logout ~rpc:xapi_rpc ~session_id)
+
 
 let check_for_changes ~(dev : string) ~(stat : Network_monitor.iface_stats) =
   let open Network_monitor in
@@ -67,40 +83,56 @@ let check_for_changes ~(dev : string) ~(stat : Network_monitor.iface_stats) =
   | true ->
       ()
   | false ->
-      if stat.nb_links > 1 then
+      if stat.nb_links > 1
+      then
         if (* It is a bond. *)
-           Hashtbl.mem bonds_status dev then (
+           Hashtbl.mem bonds_status dev
+        then (
           (* Seen before. *)
           let nb_links_old, links_up_old = Hashtbl.find bonds_status dev in
-          if links_up_old <> stat.links_up then (
-            info "Bonds status changed: %s nb_links %d up %d up_old %d" dev
-              stat.nb_links stat.links_up links_up_old ;
+          if links_up_old <> stat.links_up
+          then (
+            info
+              "Bonds status changed: %s nb_links %d up %d up_old %d"
+              dev
+              stat.nb_links
+              stat.links_up
+              links_up_old ;
             Hashtbl.replace bonds_status dev (stat.nb_links, stat.links_up) ;
             let msg =
-              Printf.sprintf "changed: %d/%d up (was %d/%d)" stat.links_up
-                stat.nb_links links_up_old nb_links_old
+              Printf.sprintf
+                "changed: %d/%d up (was %d/%d)"
+                stat.links_up
+                stat.nb_links
+                links_up_old
+                nb_links_old
             in
-            try send_bond_change_alert dev stat.interfaces msg
-            with e ->
-              debug "Error while sending alert BONDS_STATUS_CHANGED: %s\n%s"
-                (Printexc.to_string e)
-                (Printexc.get_backtrace ())
-          )
-        ) else (
+            try send_bond_change_alert dev stat.interfaces msg with
+            | e ->
+                debug
+                  "Error while sending alert BONDS_STATUS_CHANGED: %s\n%s"
+                  (Printexc.to_string e)
+                  (Printexc.get_backtrace ()) ) )
+        else (
           (* Seen for the first time. *)
           Hashtbl.add bonds_status dev (stat.nb_links, stat.links_up) ;
-          info "New bonds status: %s nb_links %d up %d" dev stat.nb_links
+          info
+            "New bonds status: %s nb_links %d up %d"
+            dev
+            stat.nb_links
             stat.links_up ;
-          if stat.links_up <> stat.nb_links then
+          if stat.links_up <> stat.nb_links
+          then
             let msg =
               Printf.sprintf "is: %d/%d up" stat.links_up stat.nb_links
             in
-            try send_bond_change_alert dev stat.interfaces msg
-            with e ->
-              debug "Error while sending alert BONDS_STATUS_CHANGED: %s\n%s"
-                (Printexc.to_string e)
-                (Printexc.get_backtrace ())
-        )
+            try send_bond_change_alert dev stat.interfaces msg with
+            | e ->
+                debug
+                  "Error while sending alert BONDS_STATUS_CHANGED: %s\n%s"
+                  (Printexc.to_string e)
+                  (Printexc.get_backtrace ()) )
+
 
 let failed_again = ref false
 
@@ -109,7 +141,10 @@ let standardise_name name =
     let d1, d2 = Scanf.sscanf name "tap%d.%d" (fun d1 d2 -> (d1, d2)) in
     let newname = Printf.sprintf "vif%d.%d" d1 d2 in
     newname
-  with _ -> name
+  with
+  | _ ->
+      name
+
 
 let get_link_stats () =
   let open Network_monitor in
@@ -137,21 +172,23 @@ let get_link_stats () =
       (fun (name, link) ->
         let convert x = Int64.of_int (Unsigned.UInt64.to_int x) in
         let eth_stat =
-          {
-            default_stats with
-            rx_bytes= Link.get_stat link Link.RX_BYTES |> convert
-          ; rx_pkts= Link.get_stat link Link.RX_PACKETS |> convert
-          ; rx_errors= Link.get_stat link Link.RX_ERRORS |> convert
-          ; tx_bytes= Link.get_stat link Link.TX_BYTES |> convert
-          ; tx_pkts= Link.get_stat link Link.TX_PACKETS |> convert
-          ; tx_errors= Link.get_stat link Link.TX_ERRORS |> convert
+          { default_stats with
+            rx_bytes = Link.get_stat link Link.RX_BYTES |> convert
+          ; rx_pkts = Link.get_stat link Link.RX_PACKETS |> convert
+          ; rx_errors = Link.get_stat link Link.RX_ERRORS |> convert
+          ; tx_bytes = Link.get_stat link Link.TX_BYTES |> convert
+          ; tx_pkts = Link.get_stat link Link.TX_PACKETS |> convert
+          ; tx_errors = Link.get_stat link Link.TX_ERRORS |> convert
           }
         in
-        (name, eth_stat)
-        )
+        (name, eth_stat) )
       links
   in
-  Cache.free cache ; Socket.close s ; Socket.free s ; devs
+  Cache.free cache ;
+  Socket.close s ;
+  Socket.free s ;
+  devs
+
 
 let rec monitor dbg () =
   let open Network_interface in
@@ -162,32 +199,37 @@ let rec monitor dbg () =
           List.filter (fun (name', _) -> List.mem name' interfaces) devs
         in
         let eth_stat =
-          {
-            default_stats with
-            rx_bytes=
+          { default_stats with
+            rx_bytes =
               List.fold_left
                 (fun ac (_, stat) -> Int64.add ac stat.rx_bytes)
-                0L devs'
-          ; rx_pkts=
+                0L
+                devs'
+          ; rx_pkts =
               List.fold_left
                 (fun ac (_, stat) -> Int64.add ac stat.rx_pkts)
-                0L devs'
-          ; rx_errors=
+                0L
+                devs'
+          ; rx_errors =
               List.fold_left
                 (fun ac (_, stat) -> Int64.add ac stat.rx_errors)
-                0L devs'
-          ; tx_bytes=
+                0L
+                devs'
+          ; tx_bytes =
               List.fold_left
                 (fun ac (_, stat) -> Int64.add ac stat.tx_bytes)
-                0L devs'
-          ; tx_pkts=
+                0L
+                devs'
+          ; tx_pkts =
               List.fold_left
                 (fun ac (_, stat) -> Int64.add ac stat.tx_pkts)
-                0L devs'
-          ; tx_errors=
+                0L
+                devs'
+          ; tx_errors =
               List.fold_left
                 (fun ac (_, stat) -> Int64.add ac stat.tx_errors)
-                0L devs'
+                0L
+                devs'
           }
         in
         (name, eth_stat)
@@ -203,49 +245,44 @@ let rec monitor dbg () =
             let tot =
               List.fold_left
                 (fun acc (_, b) ->
-                  {
-                    default_stats with
-                    rx_bytes= Int64.add acc.rx_bytes b.rx_bytes
-                  ; rx_pkts= Int64.add acc.rx_pkts b.rx_pkts
-                  ; rx_errors= Int64.add acc.rx_errors b.rx_errors
-                  ; tx_bytes= Int64.add acc.tx_bytes b.tx_bytes
-                  ; tx_pkts= Int64.add acc.tx_pkts b.tx_pkts
-                  ; tx_errors= Int64.add acc.tx_errors b.tx_errors
-                  }
-                  )
-                default_stats devs'
+                  { default_stats with
+                    rx_bytes = Int64.add acc.rx_bytes b.rx_bytes
+                  ; rx_pkts = Int64.add acc.rx_pkts b.rx_pkts
+                  ; rx_errors = Int64.add acc.rx_errors b.rx_errors
+                  ; tx_bytes = Int64.add acc.tx_bytes b.tx_bytes
+                  ; tx_pkts = Int64.add acc.tx_pkts b.tx_pkts
+                  ; tx_errors = Int64.add acc.tx_errors b.tx_errors
+                  } )
+                default_stats
+                devs'
             in
-            (name, tot)
-            )
+            (name, tot) )
           newdevnames
       in
       let add_other_stats bonds devs =
         List.map
           (fun (dev, stat) ->
-            if not (Astring.String.is_prefix ~affix:"vif" dev) then (
+            if not (Astring.String.is_prefix ~affix:"vif" dev)
+            then (
               let open Network_server.Bridge in
               let bond_slaves =
-                if List.mem_assoc dev bonds then
-                  get_bond_link_info () dbg ~name:dev
-                else
-                  []
+                if List.mem_assoc dev bonds
+                then get_bond_link_info () dbg ~name:dev
+                else []
               in
               let stat =
-                if bond_slaves = [] then
+                if bond_slaves = []
+                then
                   let carrier = Sysfs.get_carrier dev in
                   let speed, duplex =
-                    if carrier then
-                      Sysfs.get_status dev
-                    else
-                      (0, Duplex_unknown)
+                    if carrier then Sysfs.get_status dev else (0, Duplex_unknown)
                   in
                   let pci_bus_path = Sysfs.get_pcibuspath dev in
                   let vendor_id, device_id = Sysfs.get_pci_ids dev in
                   let nb_links = 1 in
                   let links_up = if carrier then 1 else 0 in
-                  let interfaces = [dev] in
-                  {
-                    stat with
+                  let interfaces = [ dev ] in
+                  { stat with
                     carrier
                   ; speed
                   ; duplex
@@ -270,14 +307,16 @@ let rec monitor dbg () =
                     List.fold_left
                       (fun (speed, duplex) info ->
                         try
-                          if info.active then
+                          if info.active
+                          then
                             let speed', duplex' = Sysfs.get_status info.slave in
                             (speed + speed', combine_duplex (duplex, duplex'))
-                          else
-                            (speed, duplex)
-                        with _ -> (speed, duplex)
-                        )
-                      (0, Duplex_unknown) bond_slaves
+                          else (speed, duplex)
+                        with
+                        | _ ->
+                            (speed, duplex) )
+                      (0, Duplex_unknown)
+                      bond_slaves
                   in
                   let pci_bus_path = "" in
                   let vendor_id, device_id = ("", "") in
@@ -288,8 +327,7 @@ let rec monitor dbg () =
                   let interfaces =
                     List.map (fun info -> info.slave) bond_slaves
                   in
-                  {
-                    stat with
+                  { stat with
                     carrier
                   ; speed
                   ; duplex
@@ -302,10 +340,8 @@ let rec monitor dbg () =
                   }
               in
               check_for_changes ~dev ~stat ;
-              (dev, stat)
-            ) else
-              (dev, stat)
-            )
+              (dev, stat) )
+            else (dev, stat) )
           devs
       in
       let from_cache = true in
@@ -318,31 +354,33 @@ let rec monitor dbg () =
         |> transform_taps
         |> add_other_stats bonds
       in
-      ( if List.length bonds <> Hashtbl.length bonds_status then
-          let dead_bonds =
-            Hashtbl.fold
-              (fun k _ acc -> if List.mem_assoc k bonds then acc else k :: acc)
-              bonds_status []
-          in
-          List.iter
-            (fun b ->
-              info "Removing bond %s" b ;
-              Hashtbl.remove bonds_status b
-              )
-            dead_bonds
-      ) ;
+      ( if List.length bonds <> Hashtbl.length bonds_status
+      then
+        let dead_bonds =
+          Hashtbl.fold
+            (fun k _ acc -> if List.mem_assoc k bonds then acc else k :: acc)
+            bonds_status
+            []
+        in
+        List.iter
+          (fun b ->
+            info "Removing bond %s" b ;
+            Hashtbl.remove bonds_status b )
+          dead_bonds ) ;
       write_stats devs ;
       failed_again := false
-    with e ->
-      if not !failed_again then (
+    with
+  | e ->
+      if not !failed_again
+      then (
         failed_again := true ;
         debug
           "Error while collecting stats (suppressing further errors): %s\n%s"
           (Printexc.to_string e)
-          (Printexc.get_backtrace ())
-      )
-  ) ;
-  Thread.delay interval ; monitor dbg ()
+          (Printexc.get_backtrace ()) ) ) ;
+  Thread.delay interval ;
+  monitor dbg ()
+
 
 let watcher_m = Mutex.create ()
 
@@ -351,14 +389,16 @@ let watcher_pid = ref None
 let signal_networking_change () =
   let module XenAPI = Client.Client in
   let session =
-    XenAPI.Session.slave_local_login_with_password ~rpc:xapi_rpc ~uname:""
+    XenAPI.Session.slave_local_login_with_password
+      ~rpc:xapi_rpc
+      ~uname:""
       ~pwd:""
   in
   Pervasiveext.finally
     (fun () ->
-      XenAPI.Host.signal_networking_change ~rpc:xapi_rpc ~session_id:session
-      )
+      XenAPI.Host.signal_networking_change ~rpc:xapi_rpc ~session_id:session )
     (fun () -> XenAPI.Session.local_logout ~rpc:xapi_rpc ~session_id:session)
+
 
 (* Remove all outstanding reads on a file descriptor *)
 let clear_input fd =
@@ -367,70 +407,83 @@ let clear_input fd =
     try
       ignore (Unix.read fd buf 0 255) ;
       loop ()
-    with _ -> ()
+    with
+    | _ ->
+        ()
   in
-  Unix.set_nonblock fd ; loop () ; Unix.clear_nonblock fd
+  Unix.set_nonblock fd ;
+  loop () ;
+  Unix.clear_nonblock fd
+
 
 let rec ip_watcher () =
   let cmd = Network_utils.iproute2 in
-  let args = ["monitor"; "address"] in
+  let args = [ "monitor"; "address" ] in
   let readme, writeme = Unix.pipe () in
   Mutex.execute watcher_m (fun () ->
       watcher_pid :=
         Some
-          (Forkhelpers.safe_close_and_exec ~env:(Unix.environment ()) None
-             (Some writeme) None [] cmd args
-          )
-  ) ;
+          (Forkhelpers.safe_close_and_exec
+             ~env:(Unix.environment ())
+             None
+             (Some writeme)
+             None
+             []
+             cmd
+             args ) ) ;
   Unix.close writeme ;
   let in_channel = Unix.in_channel_of_descr readme in
   let rec loop () =
     let line = input_line in_channel in
     (* Do not send events for link-local IPv6 addresses, and removed IPs *)
-    if
-      Astring.String.is_infix ~affix:"inet" line
-      && not (Astring.String.is_infix ~affix:"inet6 fe80" line)
+    if Astring.String.is_infix ~affix:"inet" line
+       && not (Astring.String.is_infix ~affix:"inet6 fe80" line)
     then (
       (* Ignore changes for the next second, since they usually come in bursts,
          * and signal only once. *)
       Thread.delay 1. ;
       clear_input readme ;
-      signal_networking_change ()
-    ) ;
+      signal_networking_change () ) ;
     loop ()
   in
   let restart_ip_watcher () =
-    Unix.close readme ; Thread.delay 5.0 ; ip_watcher ()
+    Unix.close readme ;
+    Thread.delay 5.0 ;
+    ip_watcher ()
   in
   while true do
     try
       info "(Re)started IP watcher thread" ;
       loop ()
-    with e -> (
-      warn "Error in IP watcher: %s\n%s" (Printexc.to_string e)
-        (Printexc.get_backtrace ()) ;
-      match !watcher_pid with
-      | None ->
-          restart_ip_watcher ()
-      | Some pid ->
-          let quitted, _ = Forkhelpers.waitpid_nohang pid in
-          if quitted <> 0 then (
-            warn "address monitoring process quitted, try to restart it" ;
+    with
+    | e ->
+        warn
+          "Error in IP watcher: %s\n%s"
+          (Printexc.to_string e)
+          (Printexc.get_backtrace ()) ;
+        ( match !watcher_pid with
+        | None ->
             restart_ip_watcher ()
-          )
-    )
+        | Some pid ->
+            let quitted, _ = Forkhelpers.waitpid_nohang pid in
+            if quitted <> 0
+            then (
+              warn "address monitoring process quitted, try to restart it" ;
+              restart_ip_watcher () ) )
   done
+
 
 let start () =
   let dbg = "monitor_thread" in
-  Debug.with_thread_associated dbg
+  Debug.with_thread_associated
+    dbg
     (fun () ->
       debug "Starting network monitor" ;
       let (_ : Thread.t) = Thread.create (monitor dbg) () in
       let (_ : Thread.t) = Thread.create ip_watcher () in
-      ()
-      )
+      () )
     ()
+
 
 let stop () =
   Mutex.execute watcher_m (fun () ->
@@ -438,5 +491,4 @@ let stop () =
       | None ->
           ()
       | Some pid ->
-          Unix.kill (Forkhelpers.getpid pid) Sys.sigterm
-  )
+          Unix.kill (Forkhelpers.getpid pid) Sys.sigterm )

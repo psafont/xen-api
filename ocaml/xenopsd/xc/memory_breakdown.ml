@@ -29,21 +29,20 @@ let cli_description =
    previous run, memory_breakdown inserts extra padding values so that all \
    lines in the output have the same number of columns.\n"
 
+
 let cli_argument_delay_period_seconds = ref 1.0
 
 let cli_argument_existing_file_to_pad = ref ""
 
 let cli_arguments_named =
-  [
-    ( "-pad"
+  [ ( "-pad"
     , Arg.Set_string cli_argument_existing_file_to_pad
-    , "Pads an existing data file"
-    )
+    , "Pads an existing data file" )
   ; ( "-period"
     , Arg.Set_float cli_argument_delay_period_seconds
-    , "Delay between updates"
-    )
+    , "Delay between updates" )
   ]
+
 
 let cli_arguments_extra x = Printf.fprintf stderr "Ignoring argument: %s" x
 
@@ -71,24 +70,27 @@ let merge xs ys =
   in
   List.rev (merge xs ys [])
 
+
 (** A total ordering on unique guest identifiers that: - orders guest
     identifiers naturally for normal guests - orders the control domain
     identifier before any other guest identifier. *)
 let compare_guests control_domain_id guest_id_1 guest_id_2 =
-  if guest_id_1 = control_domain_id then
-    -1
-  else if guest_id_2 = control_domain_id then
-    1
-  else
-    compare guest_id_1 guest_id_2
+  if guest_id_1 = control_domain_id
+  then -1
+  else if guest_id_2 = control_domain_id
+  then 1
+  else compare guest_id_1 guest_id_2
+
 
 (** {2 XenStore functions} *)
 
 let supports_ballooning_path =
   Printf.sprintf "/local/domain/%s/control/feature-balloon"
 
+
 let is_uncooperative_path =
   Printf.sprintf "/local/domain/%s/memory/uncooperative"
+
 
 let memory_offset_path = Printf.sprintf "/local/domain/%s/memory/memory-offset"
 
@@ -99,7 +101,10 @@ let xs_exists xs path =
   try
     ignore (xs.Xs.read path) ;
     true
-  with _ -> false
+  with
+  | _ ->
+      false
+
 
 (** Returns the string value at the given [path] in XenStore. *)
 let xs_read xs path = try Some (xs.Xs.read path) with _ -> None
@@ -111,6 +116,7 @@ let xs_read_bytes_from_kib_key xs path =
   | Some string ->
       Int64.to_string (Memory.bytes_of_kib (Int64.of_string string))
 
+
 (** {2 Host fields} *)
 
 let host_time h = Date.to_string (Date.of_float (Unix.gettimeofday ()))
@@ -119,21 +125,24 @@ let host_total_bytes h =
   Int64.to_string
     (Memory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.total_pages))
 
+
 let host_free_bytes h =
   Int64.to_string
     (Memory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.free_pages))
+
 
 let host_scrub_bytes h =
   Int64.to_string
     (Memory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.scrub_pages))
 
+
 let host_fields =
-  [
-    ("host_time", host_time)
+  [ ("host_time", host_time)
   ; ("host_total_bytes", host_total_bytes)
   ; ("host_free_bytes", host_free_bytes)
   ; ("host_scrub_bytes", host_scrub_bytes)
   ]
+
 
 let host_field_names = List.map fst host_fields
 
@@ -149,34 +158,42 @@ let guest_total_bytes xc xs g =
   Int64.to_string
     (Memory.bytes_of_pages (Int64.of_nativeint g.Xenctrl.total_memory_pages))
 
+
 let guest_maximum_bytes xc xs g =
   Int64.to_string
     (Memory.bytes_of_pages (Int64.of_nativeint g.Xenctrl.max_memory_pages))
 
+
 let guest_target_bytes xc xs g =
   xs_read_bytes_from_kib_key xs (memory_target_path (guest_domain_id xc xs g))
 
+
 let guest_offset_bytes xc xs g =
   xs_read_bytes_from_kib_key xs (memory_offset_path (guest_domain_id xc xs g))
+
 
 let guest_balloonable xc xs g =
   string_of_bool
     (xs_exists xs (supports_ballooning_path (guest_domain_id xc xs g)))
 
+
 let guest_uncooperative xc xs g =
-  string_of_bool (xs_exists xs (is_uncooperative_path (guest_domain_id xc xs g)))
+  string_of_bool
+    (xs_exists xs (is_uncooperative_path (guest_domain_id xc xs g)))
+
 
 let guest_shadow_bytes xc xs g =
   Int64.to_string
     ( try
         Memory.bytes_of_mib
           (Int64.of_int (Xenctrl.shadow_allocation_get xc g.Xenctrl.domid))
-      with _ -> 0L
-    )
+      with
+    | _ ->
+        0L )
+
 
 let guest_fields =
-  [
-    ("id", guest_id, "-")
+  [ ("id", guest_id, "-")
   ; ("domain_id", guest_domain_id, "-")
   ; ("maximum_bytes", guest_maximum_bytes, "0")
   ; ("shadow_bytes", guest_shadow_bytes, "0")
@@ -186,6 +203,7 @@ let guest_fields =
   ; ("balloonable", guest_balloonable, "false")
   ; ("uncooperative", guest_uncooperative, "false")
   ]
+
 
 let get_1 (x, _, _) = x
 
@@ -214,6 +232,7 @@ let print_memory_field_names () =
   print_endline " |" ;
   flush stdout
 
+
 (** Prints memory field values to the console. *)
 let print_memory_field_values xc xs =
   let host = Xenctrl.physinfo xc in
@@ -222,8 +241,7 @@ let print_memory_field_values xc xs =
   let guests =
     List.sort
       (fun g1 g2 ->
-        compare_guests control_domain_id g1.Xenctrl.handle g2.Xenctrl.handle
-        )
+        compare_guests control_domain_id g1.Xenctrl.handle g2.Xenctrl.handle )
       (Xenctrl.domain_getinfolist xc 0)
   in
   let print_host_info field =
@@ -240,8 +258,11 @@ let print_memory_field_values xc xs =
   print_endline " |" ;
   flush stdout
 
+
 (** Sleeps for the given time period in seconds. *)
-let sleep time_period_seconds = ignore (Unix.select [] [] [] time_period_seconds)
+let sleep time_period_seconds =
+  ignore (Unix.select [] [] [] time_period_seconds)
+
 
 (** Prints a header line of memory field names, and then periodically prints a
     line of memory field values. *)
@@ -251,8 +272,8 @@ let record_new_data () =
       while true do
         print_memory_field_values xc xs ;
         sleep !cli_argument_delay_period_seconds
-      done
-  )
+      done )
+
 
 (** {2 Functions that transform sparse data files into padded data files} *)
 
@@ -261,11 +282,15 @@ let sections_of_line line =
   let sections = Astring.String.cuts ~sep:"|" line in
   List.map String.trim sections
 
+
 let guest_ids_of_string guest_ids_string =
   try
     let guest_ids = Astring.String.cuts ~sep:" " guest_ids_string in
     if List.for_all Uuid.is_uuid guest_ids then guest_ids else []
-  with _ -> []
+  with
+  | _ ->
+      []
+
 
 let guest_ids_of_line line =
   match sections_of_line line with
@@ -274,15 +299,18 @@ let guest_ids_of_line line =
   | _ ->
       []
 
+
 let guest_ids_of_file file_name =
   Unixext.file_lines_fold
     (fun guest_ids line -> merge guest_ids (guest_ids_of_line line))
-    [] file_name
+    []
+    file_name
+
 
 let pad_value_list guest_ids_all guest_ids values default_value =
   let fail () =
     let rec is_sorted cmp = function
-      | [_] | [] ->
+      | [ _ ] | [] ->
           true
       | x :: y :: tl when cmp x y <= 0 ->
           is_sorted cmp (y :: tl)
@@ -292,18 +320,15 @@ let pad_value_list guest_ids_all guest_ids values default_value =
     let is_subset a b = List.for_all (fun x -> List.mem x b) a in
     raise
       (Invalid_argument
-         ( if List.length guest_ids <> List.length values then
-             "Expected: length (guest_ids) = length (values)"
-         else if not (is_sorted String.compare guest_ids) then
-           "Expected: sorted (guest_ids)"
-         else if not (is_sorted String.compare guest_ids_all) then
-           "Expected: sorted (guest_ids_all)"
-         else if not (is_subset guest_ids guest_ids_all) then
-           "Expected: guest_ids subset of guest_ids_all"
-         else
-           "Unknown failure"
-         )
-      )
+         ( if List.length guest_ids <> List.length values
+         then "Expected: length (guest_ids) = length (values)"
+         else if not (is_sorted String.compare guest_ids)
+         then "Expected: sorted (guest_ids)"
+         else if not (is_sorted String.compare guest_ids_all)
+         then "Expected: sorted (guest_ids_all)"
+         else if not (is_subset guest_ids guest_ids_all)
+         then "Expected: guest_ids subset of guest_ids_all"
+         else "Unknown failure" ) )
   in
   let rec pad ids_all ids vs vs_padded =
     match (ids_all, ids, vs) with
@@ -320,35 +345,44 @@ let pad_value_list guest_ids_all guest_ids values default_value =
   in
   List.rev (pad guest_ids_all guest_ids values [])
 
+
 let pad_value_string guest_ids_all guest_ids (value_string, default_value) =
-  Printf.sprintf "%s |"
-    (String.concat " "
-       (pad_value_list guest_ids_all guest_ids
+  Printf.sprintf
+    "%s |"
+    (String.concat
+       " "
+       (pad_value_list
+          guest_ids_all
+          guest_ids
           (Astring.String.cuts ~sep:" " value_string)
-          default_value
-       )
-    )
+          default_value ) )
+
 
 let pad_value_strings guest_ids_all guest_ids value_strings =
-  String.concat " "
+  String.concat
+    " "
     (List.map
        (pad_value_string guest_ids_all guest_ids)
-       (List.combine value_strings (List.tl guest_field_defaults))
-    )
+       (List.combine value_strings (List.tl guest_field_defaults)) )
+
 
 let pad_data_line guest_ids_all line =
   match sections_of_line line with
   | host_string :: guest_ids_string :: value_strings ->
-      Printf.sprintf "| %s | %s" host_string
-        (pad_value_strings guest_ids_all
+      Printf.sprintf
+        "| %s | %s"
+        host_string
+        (pad_value_strings
+           guest_ids_all
            (guest_ids_of_string guest_ids_string)
-           value_strings
-        )
+           value_strings )
   | _ ->
       line
 
+
 let print_padded_data_line guest_ids_all line =
   try print_endline (pad_data_line guest_ids_all line) with _ -> ()
+
 
 (* Just ignore lines that cannot be processed for any reason. *)
 
@@ -358,21 +392,22 @@ let range min max =
   in
   range min max []
 
+
 let print_padded_header_line guest_count =
-  Printf.printf "| %s | %s |\n"
+  Printf.printf
+    "| %s | %s |\n"
     (String.concat " " host_field_names)
-    (String.concat " | "
+    (String.concat
+       " | "
        (List.map
           (fun name ->
-            String.concat " "
+            String.concat
+              " "
               (List.map
                  (Printf.sprintf "%s_%i" name)
-                 (range 0 (guest_count - 1))
-              )
-            )
-          (List.tl guest_field_names)
-       )
-    )
+                 (range 0 (guest_count - 1)) ) )
+          (List.tl guest_field_names) ) )
+
 
 let pad_existing_data () =
   let guest_ids_all = guest_ids_of_file !cli_argument_existing_file_to_pad in
@@ -382,11 +417,11 @@ let pad_existing_data () =
     !cli_argument_existing_file_to_pad ;
   flush stdout
 
+
 (** {2 Command line entry point.} **)
 
 let () =
   Arg.parse cli_arguments_named cli_arguments_extra cli_description ;
-  if !cli_argument_existing_file_to_pad = "" then
-    record_new_data ()
-  else
-    pad_existing_data ()
+  if !cli_argument_existing_file_to_pad = ""
+  then record_new_data ()
+  else pad_existing_data ()

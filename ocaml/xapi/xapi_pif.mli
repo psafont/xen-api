@@ -44,46 +44,46 @@
 (** {2 API functions} *)
 
 val refresh :
-  __context:Context.t -> host:[`host] Ref.t -> self:[`PIF] Ref.t -> unit
+  __context:Context.t -> host:[ `host ] Ref.t -> self:[ `PIF ] Ref.t -> unit
 (** Refresh the metadata of an existing PIF on the current host. *)
 
-val refresh_all : __context:Context.t -> host:[`host] Ref.t -> unit
+val refresh_all : __context:Context.t -> host:[ `host ] Ref.t -> unit
 (** Refresh the metadata of all existing PIFs on the current host. *)
 
 val db_introduce :
      __context:Context.t
   -> device:string
-  -> network:[`network] Ref.t
-  -> host:[`host] Ref.t
+  -> network:[ `network ] Ref.t
+  -> host:[ `host ] Ref.t
   -> mAC:string
   -> mTU:int64
   -> vLAN:int64
   -> physical:bool
-  -> ip_configuration_mode:[< `DHCP | `None | `Static]
+  -> ip_configuration_mode:[< `DHCP | `None | `Static ]
   -> iP:string
   -> netmask:string
   -> gateway:string
   -> dNS:string
   -> bond_slave_of:'a
-  -> vLAN_master_of:[`VLAN] Ref.t
+  -> vLAN_master_of:[ `VLAN ] Ref.t
   -> management:bool
   -> other_config:(string * string) list
   -> disallow_unplug:bool
-  -> ipv6_configuration_mode:[< `DHCP | `None | `Static | `Autoconf]
+  -> ipv6_configuration_mode:[< `DHCP | `None | `Static | `Autoconf ]
   -> iPv6:string list
   -> ipv6_gateway:string
-  -> primary_address_type:[< `IPv4 | `IPv6]
+  -> primary_address_type:[< `IPv4 | `IPv6 ]
   -> managed:bool
   -> properties:(string * string) list
-  -> [`PIF] Ref.t
+  -> [ `PIF ] Ref.t
 (** Create a new PIF record in the database only *)
 
-val db_forget : __context:Context.t -> self:[`PIF] Ref.t -> unit
+val db_forget : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 (** Perform a database delete of the PIF record on the pool master. *)
 
 val introduce :
      __context:Context.t
-  -> host:[`host] Ref.t
+  -> host:[ `host ] Ref.t
   -> mAC:string
   -> device:Helpers.StringSet.elt
   -> managed:bool
@@ -93,17 +93,17 @@ val introduce :
 val forget : __context:Context.t -> self:API.ref_PIF -> unit
 (** Destroy the PIF record from the database, but only if the interface is no longer used. *)
 
-val scan : __context:Context.t -> host:[`host] Ref.t -> unit
+val scan : __context:Context.t -> host:[ `host ] Ref.t -> unit
 (** Scan for physical interfaces on this host and ensure PIF records, and
  *  corresponding networks are present and up-to-date. Uses {!introduce_internal}. *)
 
 val create_VLAN :
      __context:Context.t
   -> device:string
-  -> network:[`network] Ref.t
-  -> host:[`host] Ref.t
+  -> network:[ `network ] Ref.t
+  -> host:[ `host ] Ref.t
   -> vLAN:int64
-  -> [`PIF] Ref.t
+  -> [ `PIF ] Ref.t
 (** External facing call to create a new VLAN interface
  * @deprecated since Miami; use [VLAN.create] instead *)
 
@@ -114,7 +114,7 @@ val destroy : __context:Context.t -> self:API.ref_PIF -> unit
 val reconfigure_ip :
      __context:Context.t
   -> self:API.ref_PIF
-  -> mode:[`DHCP | `None | `Static]
+  -> mode:[ `DHCP | `None | `Static ]
   -> iP:string
   -> netmask:string
   -> gateway:string
@@ -125,7 +125,7 @@ val reconfigure_ip :
 val reconfigure_ipv6 :
      __context:Context.t
   -> self:API.ref_PIF
-  -> mode:[`DHCP | `None | `Static | `Autoconf]
+  -> mode:[ `DHCP | `None | `Static | `Autoconf ]
   -> iPv6:string
   -> gateway:string
   -> dNS:string
@@ -135,7 +135,7 @@ val reconfigure_ipv6 :
 val set_primary_address_type :
      __context:Context.t
   -> self:API.ref_PIF
-  -> primary_address_type:[`IPv4 | `IPv6]
+  -> primary_address_type:[ `IPv4 | `IPv6 ]
   -> unit
 (** Change the primary address type between IPv4 and IPv6 *)
 
@@ -154,7 +154,7 @@ val unplug : __context:Context.t -> self:API.ref_PIF -> unit
 (** Attempt to bring down the PIF: disconnect the underlying network interface from
  *  its bridge and disable the interface. *)
 
-val plug : __context:Context.t -> self:[`PIF] Ref.t -> unit
+val plug : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 (** Attempt to bring up the PIF: enable the network underlying interface and attach the network
  *  (bridge) it is on. *)
 
@@ -170,13 +170,13 @@ val read_bridges_from_inventory : unit -> string list
 
 val assert_usable_for_management :
      __context:Context.t
-  -> primary_address_type:[`IPv4 | `IPv6 | `None]
-  -> self:[`PIF] API.Ref.t
+  -> primary_address_type:[ `IPv4 | `IPv6 | `None ]
+  -> self:[ `PIF ] API.Ref.t
   -> unit
 (** Ensure the PIF can be used for management. *)
 
 val find_or_create_network :
-  string -> string -> __context:Context.t -> [`network] Ref.t
+  string -> string -> __context:Context.t -> [ `network ] Ref.t
 (** If a network for the given bridge already exists, then return a reference to this network,
  *  otherwise create a new network and return its reference.
 *)
@@ -184,59 +184,59 @@ val find_or_create_network :
 (** Convenient lookup tables for scanning etc *)
 type tables
 
-val make_tables : __context:Context.t -> host:[`host] Ref.t -> tables
+val make_tables : __context:Context.t -> host:[ `host ] Ref.t -> tables
 (** Construct and return lookup {!tables} with information about the network interfaces *)
 
-val is_my_management_pif : __context:Context.t -> self:[`PIF] Ref.t -> bool
+val is_my_management_pif : __context:Context.t -> self:[ `PIF ] Ref.t -> bool
 (** Return true if this PIF is my management interface, according to xensource-inventory *)
 
-val make_pif_metrics : __context:Context.t -> [`PIF_metrics] Ref.t
+val make_pif_metrics : __context:Context.t -> [ `PIF_metrics ] Ref.t
 (** Make a new metrics objects and return reference to it *)
 
 val pool_introduce :
      __context:Context.t
   -> device:string
-  -> network:[`network] Ref.t
-  -> host:[`host] Ref.t
+  -> network:[ `network ] Ref.t
+  -> host:[ `host ] Ref.t
   -> mAC:string
   -> mTU:int64
   -> vLAN:int64
   -> physical:bool
-  -> ip_configuration_mode:[< `DHCP | `None | `Static]
+  -> ip_configuration_mode:[< `DHCP | `None | `Static ]
   -> iP:string
   -> netmask:string
   -> gateway:string
   -> dNS:string
   -> bond_slave_of:'a
-  -> vLAN_master_of:[`VLAN] Ref.t
+  -> vLAN_master_of:[ `VLAN ] Ref.t
   -> management:bool
   -> other_config:(string * string) list
   -> disallow_unplug:bool
-  -> ipv6_configuration_mode:[< `DHCP | `None | `Static | `Autoconf]
+  -> ipv6_configuration_mode:[< `DHCP | `None | `Static | `Autoconf ]
   -> iPv6:string list
   -> ipv6_gateway:string
-  -> primary_address_type:[< `IPv4 | `IPv6]
+  -> primary_address_type:[< `IPv4 | `IPv6 ]
   -> managed:bool
   -> properties:(string * string) list
-  -> [`PIF] Ref.t
+  -> [ `PIF ] Ref.t
 (** Pool_introduce is an internal call used by pool-join to copy slave-to-be pif records to pool master *)
 
 val introduce_internal :
-     ?network:[`network] Ref.t
+     ?network:[ `network ] Ref.t
   -> ?physical:bool
   -> t:tables
   -> __context:Context.t
-  -> host:[`host] Ref.t
+  -> host:[ `host ] Ref.t
   -> mAC:Helpers.StringSet.elt
   -> mTU:int64
   -> device:Helpers.StringSet.elt
   -> vLAN:int64
-  -> vLAN_master_of:[`VLAN] Ref.t
-  -> ?metrics:[`PIF_metrics] Ref.t
+  -> vLAN_master_of:[ `VLAN ] Ref.t
+  -> ?metrics:[ `PIF_metrics ] Ref.t
   -> managed:bool
   -> ?disallow_unplug:bool
   -> unit
-  -> [`PIF] Ref.t
+  -> [ `PIF ] Ref.t
 (** Create a new PIF record with the given details. Also create a network for the
  *  new PIF, or reuses an existing one if the name matches the convention prescribed
  *  by the function {!bridge_naming_convention}. Also check whether the new PIF
@@ -247,7 +247,8 @@ val forget_internal :
   t:tables -> __context:Context.t -> self:API.ref_PIF -> unit
 (** Brings down the network interface and removes the PIF object. *)
 
-val update_management_flags : __context:Context.t -> host:[`host] Ref.t -> unit
+val update_management_flags :
+  __context:Context.t -> host:[ `host ] Ref.t -> unit
 (** Look over all this host's PIFs and reset the management flag.
  *  The management interface is ultimately defined by the inventory file,
  *  which holds the bridge of the management interface in the MANAGEMENT_INTERFACE field. *)
@@ -269,34 +270,38 @@ val start_of_day_best_effort_bring_up : unit -> unit
 (** {2 Assertion Helper Functions} *)
 
 val assert_no_clustering_enabled_on :
-  __context:Context.t -> self:[`PIF] Ref.t -> unit
+  __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 (** Raise an error if PIF attached to ENABLED cluster_host *)
 
-val assert_not_in_bond : __context:Context.t -> self:[`PIF] Ref.t -> unit
+val assert_not_in_bond : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 (** Ensure the PIF is not a bond slave or master. *)
 
-val assert_no_vlans : __context:Context.t -> self:[`PIF] Ref.t -> unit
+val assert_no_vlans : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 (** Ensure the PIF is not a VLAN slave or master. *)
 
-val assert_not_management_pif : __context:Context.t -> self:[`PIF] Ref.t -> unit
+val assert_not_management_pif :
+  __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 (** Ensure the PIF is not the management interface. *)
 
 val assert_not_slave_management_pif :
-  __context:Context.t -> self:[`PIF] Ref.t -> unit
+  __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 (** Ensure the PIF is not the management interface if the host is a pool slave. *)
 
 val assert_no_protection_enabled :
-  __context:Context.t -> self:[`PIF] Ref.t -> unit
+  __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 (** Ensure neither HA nor the general redo-log are enabled. *)
 
 val abort_if_network_attached_to_protected_vms :
-  __context:Context.t -> self:[`PIF] Ref.t -> unit
+  __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 (** Ensure the Network attached to the given PIF has not VIFs on it
  *  belonging to VMs that are protected by HA. *)
 
 val assert_no_other_local_pifs :
-  __context:Context.t -> host:[`host] Ref.t -> network:[`network] Ref.t -> unit
+     __context:Context.t
+  -> host:[ `host ] Ref.t
+  -> network:[ `network ] Ref.t
+  -> unit
 (** Ensure none of the PIFs on the given host are on the given network. *)
 
-val assert_fcoe_not_in_use : __context:Context.t -> self:[`PIF] Ref.t -> unit
+val assert_fcoe_not_in_use : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 (** Ensure PIF has no FCOE SR in use *)

@@ -19,12 +19,12 @@ end
 
 module Stat : sig
   (** Metadata associated with a database value *)
-  type t = {
-      created: Time.t  (** Time this value was created *)
-    ; modified: Time.t  (** Time this value was last modified *)
-    ; deleted: Time.t
+  type t =
+    { created : Time.t  (** Time this value was created *)
+    ; modified : Time.t  (** Time this value was last modified *)
+    ; deleted : Time.t
           (** Time this value was deleted (or 0L meaning it is still alive) *)
-  }
+    }
 end
 
 module type MAP = sig
@@ -196,18 +196,23 @@ val add_row : string -> string -> Row.t -> Database.t -> Database.t
 
 val touch : string -> string -> Database.t -> Database.t
 
-type where_record = {
-    table: string  (** table from which ... *)
-  ; return: string  (** we'd like to return this field... *)
-  ; where_field: string  (** where this other field... *)
-  ; where_value: string  (** contains this value *)
-}
+type where_record =
+  { table : string  (** table from which ... *)
+  ; return : string  (** we'd like to return this field... *)
+  ; where_field : string  (** where this other field... *)
+  ; where_value : string  (** contains this value *)
+  }
 
 val where_record_of_rpc : Rpc.t -> where_record
 
 val rpc_of_where_record : where_record -> Rpc.t
 
-type structured_op_t = AddSet | RemoveSet | AddMap | RemoveMap | AddMapLegacy
+type structured_op_t =
+  | AddSet
+  | RemoveSet
+  | AddMap
+  | RemoveMap
+  | AddMapLegacy
 
 val structured_op_t_of_rpc : Rpc.t -> structured_op_t
 

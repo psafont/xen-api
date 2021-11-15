@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "audit_log" end)
+module D = Debug.Make (struct
+  let name = "audit_log"
+end)
 
 open D
 open Http
@@ -32,33 +34,45 @@ let went_through ?filter line =
   | Some fs ->
       List.for_all (fun f -> Astring.String.is_infix ~affix:f line) fs
 
+
 let write_line line fd ?filter since =
-  if String.length line > line_timestamp_length + timestamp_index line then
+  if String.length line > line_timestamp_length + timestamp_index line
+  then
     let line_timestamp =
       String.sub line (timestamp_index line) line_timestamp_length
     in
-    if since = "" || String.compare line_timestamp since >= 0 then
-      if went_through ?filter line then
+    if since = "" || String.compare line_timestamp since >= 0
+    then
+      if went_through ?filter line
+      then
         let len = String.length line in
         Unix.write_substring fd line 0 len |> ignore
+
 
 let transfer_audit_file _path compression fd_out ?filter since : unit =
   let path = Unixext.resolve_dot_and_dotdot _path in
   let in_whitelist =
     Astring.String.is_prefix ~affix:audit_log_whitelist_prefix path
   in
-  if in_whitelist then
+  if in_whitelist
+  then
     let file_exists = Unixext.file_exists path in
-    if file_exists then (
-      debug "transfer_audit_file path=%s,compression=[%s],since=%s" path
-        compression since ;
+    if file_exists
+    then (
+      debug
+        "transfer_audit_file path=%s,compression=[%s],since=%s"
+        path
+        compression
+        since ;
       try
-        if compression = "" (* uncompressed *) then
+        if compression = "" (* uncompressed *)
+        then
           Unixext.readfile_line
             (fun line -> write_line (line ^ "\n") fd_out ?filter since)
             path
-        else if compression = "gz" then
-          Unixext.with_file path [Unix.O_RDONLY] 0o0 (fun gz_fd_in ->
+        else if compression = "gz"
+        then
+          Unixext.with_file path [ Unix.O_RDONLY ] 0o0 (fun gz_fd_in ->
               Gzip.decompress_passive gz_fd_in (fun fd_in ->
                   (*fd_in is closed by gzip module*)
                   let cin = Unix.in_channel_of_descr fd_in in
@@ -67,18 +81,24 @@ let transfer_audit_file _path compression fd_out ?filter since : unit =
                       let line = input_line cin in
                       write_line (line ^ "\n") fd_out ?filter since
                     done
-                  with End_of_file -> ()
-                  (* ok, expected *)
-              )
-          )
-        else (* nothing to do with an unknown file format *)
-          debug "unknown compression format %s in audit log file %s" compression
+                  with
+                  | End_of_file ->
+                      ()
+                  (* ok, expected *) ) )
+        else
+          (* nothing to do with an unknown file format *)
+          debug
+            "unknown compression format %s in audit log file %s"
+            compression
             path
-      with e ->
-        debug "error reading audit log file %s: %s" path
-          (ExnHelper.string_of_exn e) ;
-        raise e
-    )
+      with
+      | e ->
+          debug
+            "error reading audit log file %s: %s"
+            path
+            (ExnHelper.string_of_exn e) ;
+          raise e )
+
 
 let transfer_all_audit_files fd_out ?filter since =
   let atransfer _infix _suffix =
@@ -86,7 +106,10 @@ let transfer_all_audit_files fd_out ?filter since =
     let suffix = if _suffix = "" then "" else "." ^ _suffix in
     transfer_audit_file
       (audit_log_whitelist_prefix ^ infix ^ suffix)
-      _suffix fd_out ?filter since
+      _suffix
+      fd_out
+      ?filter
+      since
   in
   let atransfer_try_gz infix =
     ignore_exn (fun () -> atransfer infix "gz") ;
@@ -101,6 +124,7 @@ let transfer_all_audit_files fd_out ?filter since =
   (* finally transfer /var/log/audit.log (the latest one in time) *)
   atransfer_try_gz ""
 
+
 (* map the ISO8601 timestamp format into the one in our logs *)
 let log_timestamp_of_iso8601 iso8601_timestamp =
   let module Xstringext = Xapi_stdext_std.Xstringext in
@@ -108,6 +132,7 @@ let log_timestamp_of_iso8601 iso8601_timestamp =
   let step2 = Xstringext.String.replace "-" "" step1 in
   let step3 = Xstringext.String.replace "Z" "" step2 in
   step3
+
 
 (*
  Assume that RBAC access for the session_id already verified by xapi_http.ml
@@ -127,7 +152,10 @@ let handler (req : Request.t) (bio : Buf_io.t) _ =
   Buf_io.assert_buffer_empty bio ;
   req.Request.close <- true ;
   Xapi_http.with_context (* makes sure to signal task-completed to cli *)
-    (Printf.sprintf "audit_log_get request") req s (fun __context ->
+    (Printf.sprintf "audit_log_get request")
+    req
+    s
+    (fun __context ->
       let all = req.Request.cookie @ req.Request.query in
       let since_iso8601 =
         if List.mem_assoc "since" all then List.assoc "since" all else ""
@@ -135,8 +163,8 @@ let handler (req : Request.t) (bio : Buf_io.t) _ =
       let since = log_timestamp_of_iso8601 since_iso8601 in
       (*debug "since=[%s]" since;*)
       (* we need to return an http header without content-length *)
-      Http_svr.headers s
-        (http_200_ok () @ [Http.Hdr.content_type ^ ": text/plain"]) ;
+      Http_svr.headers
+        s
+        (http_200_ok () @ [ Http.Hdr.content_type ^ ": text/plain" ]) ;
       (* then the contents *)
-      transfer_all_audit_files s since
-  )
+      transfer_all_audit_files s since )

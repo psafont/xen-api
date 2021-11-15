@@ -35,14 +35,13 @@ let sr_xml' = ref ""
 
 let _ =
   Arg.parse
-    [
-      ( "-s"
+    [ ( "-s"
       , Arg.Set_string sr_xml'
-      , "specifies the location of the XE_SR_ERRORCODES.xml file"
-      )
+      , "specifies the location of the XE_SR_ERRORCODES.xml file" )
     ]
     (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
     "Generates C# bindings for the XenAPI. See -help."
+
 
 let sr_xml = !sr_xml'
 
@@ -59,33 +58,34 @@ let rec friendly_names_all errors =
   let values = List.map (Hashtbl.find friendly_names) keys' in
   List.combine keys' values
 
+
 and update_entries _ error =
   let name = error.DT.err_name in
   let desc = error.DT.err_doc in
-  if Hashtbl.mem friendly_names name then
-    ()
-  else
-    Hashtbl.add friendly_names name desc
+  if Hashtbl.mem friendly_names name
+  then ()
+  else Hashtbl.add friendly_names name desc
+
 
 and get_keys key _ tail = key :: tail
 
 let rec get_node k = function
-  | Xml.Element (k', _, [Xml.PCData v]) :: _ when k = k' ->
+  | Xml.Element (k', _, [ Xml.PCData v ]) :: _ when k = k' ->
       v
   | _ :: xs ->
       get_node k xs
   | [] ->
       ""
 
+
 let parse_sr_xml filename =
   let update_entry children =
     let description = get_node "description" children in
     let value = get_node "value" children in
     let key = "SR_BACKEND_FAILURE_" ^ value in
-    if Hashtbl.mem friendly_names key then
-      ()
-    else
-      Hashtbl.add friendly_names key description
+    if Hashtbl.mem friendly_names key
+    then ()
+    else Hashtbl.add friendly_names key description
   in
   let rec parse_xml = function
     | Xml.Element ("SM-errorcodes", _, children) ->
@@ -95,10 +95,11 @@ let parse_sr_xml filename =
     | _ ->
         ()
   in
-  try parse_xml (Xml.parse_file filename)
-  with Xml.Error e as exn ->
-    Printf.eprintf "%s\n%!" (Xml.error e) ;
-    raise exn
+  try parse_xml (Xml.parse_file filename) with
+  | Xml.Error e as exn ->
+      Printf.eprintf "%s\n%!" (Xml.error e) ;
+      raise exn
+
 
 let parse_resx filename =
   let update_entry attrs children =
@@ -114,10 +115,11 @@ let parse_resx filename =
     | _ ->
         ()
   in
-  try parse_xml (Xml.parse_file filename)
-  with Xml.Error e as exn ->
-    Printf.eprintf "%s\n%!" (Xml.error e) ;
-    raise exn
+  try parse_xml (Xml.parse_file filename) with
+  | Xml.Error e as exn ->
+      Printf.eprintf "%s\n%!" (Xml.error e) ;
+      raise exn
+
 
 let _ =
   let resx_file = "FriendlyErrorNames.resx" in
@@ -126,20 +128,15 @@ let _ =
   let errors = friendly_names_all Datamodel.errors in
   let json =
     `O
-      [
-        ( "i18n_errors"
+      [ ( "i18n_errors"
         , `A
             (List.map
                (fun (x, y) ->
                  `O
-                   [
-                     ("i18n_error_key", `String x)
+                   [ ("i18n_error_key", `String x)
                    ; ("i18n_error_description", `String y)
-                   ]
-                 )
-               errors
-            )
-        )
+                   ] )
+               errors ) )
       ]
   in
   render_file ("FriendlyErrorNames.mustache", resx_file) json templdir destdir

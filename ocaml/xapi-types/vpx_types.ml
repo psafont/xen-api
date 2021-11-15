@@ -14,7 +14,11 @@
 
 (** Types used to store vpx: *****************************************************************)
 
-type t = XenServer | ESXServer | VirtualCenter | HyperVServer
+type t =
+  | XenServer
+  | ESXServer
+  | VirtualCenter
+  | HyperVServer
 
 let of_string = function
   | "default" | "XenServer" ->
@@ -26,7 +30,8 @@ let of_string = function
   | "HyperVServer" ->
       HyperVServer
   | x ->
-      raise (Api_errors.Server_error (Api_errors.invalid_value, [x]))
+      raise (Api_errors.Server_error (Api_errors.invalid_value, [ x ]))
+
 
 let to_string = function
   | XenServer ->

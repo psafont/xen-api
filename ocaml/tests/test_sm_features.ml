@@ -15,39 +15,38 @@
 open Test_common
 open Test_highlevel
 
-type sm_object = {capabilities: string list; features: (string * int64) list}
+type sm_object =
+  { capabilities : string list
+  ; features : (string * int64) list
+  }
 
-type sm_data_sequence = {
-    (* Text feature list we get back as part of sr_get_driver_info. *)
-    raw: string list
+type sm_data_sequence =
+  { (* Text feature list we get back as part of sr_get_driver_info. *)
+    raw : string list
   ; (* SMAPIv1 driver info. *)
-    smapiv1_features: Smint.feature list
+    smapiv1_features : Smint.feature list
   ; (* SMAPIv2 driver info. *)
-    smapiv2_features: string list
+    smapiv2_features : string list
   ; (* SM object created in the database. *)
-    sm: sm_object
-}
+    sm : sm_object
+  }
 
 let string_of_sm_object sm =
-  Printf.sprintf "{capabilities = %s; features = %s}"
+  Printf.sprintf
+    "{capabilities = %s; features = %s}"
     (Test_printers.(list string) sm.capabilities)
     (Test_printers.(list string)
        (List.map
           (fun (capability, version) ->
-            Printf.sprintf "%s/%Ld" capability version
-            )
-          sm.features
-       )
-    )
+            Printf.sprintf "%s/%Ld" capability version )
+          sm.features ) )
+
 
 let test_sequences =
   let open Smint in
-  [
-    (* Test NFS driver features as of Clearwater. *)
-    {
-      raw=
-        [
-          "SR_PROBE"
+  [ (* Test NFS driver features as of Clearwater. *)
+    { raw =
+        [ "SR_PROBE"
         ; "SR_UPDATE"
         ; "SR_CACHING"
         ; (* xapi ignores this. *)
@@ -65,9 +64,8 @@ let test_sequences =
         ; "ATOMIC_PAUSE"
           (* xapi ignores this *)
         ]
-    ; smapiv1_features=
-        [
-          (Sr_probe, 1L)
+    ; smapiv1_features =
+        [ (Sr_probe, 1L)
         ; (Sr_update, 1L)
         ; (Vdi_create, 1L)
         ; (Vdi_delete, 1L)
@@ -81,9 +79,8 @@ let test_sequences =
         ; (Vdi_reset_on_boot, 2L)
         ; (Vdi_configure_cbt, 1L)
         ]
-    ; smapiv2_features=
-        [
-          "SR_PROBE/1"
+    ; smapiv2_features =
+        [ "SR_PROBE/1"
         ; "SR_UPDATE/1"
         ; "VDI_CREATE/1"
         ; "VDI_DELETE/1"
@@ -97,11 +94,9 @@ let test_sequences =
         ; "VDI_RESET_ON_BOOT/2"
         ; "VDI_CONFIG_CBT/1"
         ]
-    ; sm=
-        {
-          capabilities=
-            [
-              "SR_PROBE"
+    ; sm =
+        { capabilities =
+            [ "SR_PROBE"
             ; "SR_UPDATE"
             ; "VDI_CREATE"
             ; "VDI_DELETE"
@@ -115,9 +110,8 @@ let test_sequences =
             ; "VDI_RESET_ON_BOOT"
             ; "VDI_CONFIG_CBT"
             ]
-        ; features=
-            [
-              ("SR_PROBE", 1L)
+        ; features =
+            [ ("SR_PROBE", 1L)
             ; ("SR_UPDATE", 1L)
             ; ("VDI_CREATE", 1L)
             ; ("VDI_DELETE", 1L)
@@ -134,34 +128,35 @@ let test_sequences =
         }
     }
   ; (* Test that unknown features are discarded. *)
-    {
-      raw= ["UNKNOWN_FEATURE"; "UNKNOWN_VERSIONED_FEATURE/3"]
-    ; smapiv1_features= []
-    ; smapiv2_features= []
-    ; sm= {capabilities= []; features= []}
+    { raw = [ "UNKNOWN_FEATURE"; "UNKNOWN_VERSIONED_FEATURE/3" ]
+    ; smapiv1_features = []
+    ; smapiv2_features = []
+    ; sm = { capabilities = []; features = [] }
     }
   ; (* Test that versioned features are parsed as expected. *)
-    {
-      raw= ["SR_PROBE/5"]
-    ; smapiv1_features= [(Sr_probe, 5L)]
-    ; smapiv2_features= ["SR_PROBE/5"]
-    ; sm= {capabilities= ["SR_PROBE"]; features= [("SR_PROBE", 5L)]}
+    { raw = [ "SR_PROBE/5" ]
+    ; smapiv1_features = [ (Sr_probe, 5L) ]
+    ; smapiv2_features = [ "SR_PROBE/5" ]
+    ; sm = { capabilities = [ "SR_PROBE" ]; features = [ ("SR_PROBE", 5L) ] }
     }
   ; (* Test that unversioned features are implicitly parsed as version 1. *)
-    {
-      raw= ["VDI_RESIZE"]
-    ; smapiv1_features= [(Vdi_resize, 1L)]
-    ; smapiv2_features= ["VDI_RESIZE/1"]
-    ; sm= {capabilities= ["VDI_RESIZE"]; features= [("VDI_RESIZE", 1L)]}
+    { raw = [ "VDI_RESIZE" ]
+    ; smapiv1_features = [ (Vdi_resize, 1L) ]
+    ; smapiv2_features = [ "VDI_RESIZE/1" ]
+    ; sm =
+        { capabilities = [ "VDI_RESIZE" ]; features = [ ("VDI_RESIZE", 1L) ] }
     }
   ; (* Test SMAPIV3 SR_MULTIPATH feature *)
-    {
-      raw= ["SR_MULTIPATH"]
-    ; smapiv1_features= [(Sr_multipath, 1L)]
-    ; smapiv2_features= ["SR_MULTIPATH/1"]
-    ; sm= {capabilities= ["SR_MULTIPATH"]; features= [("SR_MULTIPATH", 1L)]}
+    { raw = [ "SR_MULTIPATH" ]
+    ; smapiv1_features = [ (Sr_multipath, 1L) ]
+    ; smapiv2_features = [ "SR_MULTIPATH/1" ]
+    ; sm =
+        { capabilities = [ "SR_MULTIPATH" ]
+        ; features = [ ("SR_MULTIPATH", 1L) ]
+        }
     }
   ]
+
 
 module ParseSMAPIv1Features = Generic.MakeStateless (struct
   module Io = struct
@@ -180,8 +175,7 @@ module ParseSMAPIv1Features = Generic.MakeStateless (struct
     `QuickAndAutoDocumented
       (List.map
          (fun sequence -> (sequence.raw, sequence.smapiv1_features))
-         test_sequences
-      )
+         test_sequences )
 end)
 
 module CreateSMAPIv2Features = Generic.MakeStateless (struct
@@ -201,8 +195,7 @@ module CreateSMAPIv2Features = Generic.MakeStateless (struct
     `QuickAndAutoDocumented
       (List.map
          (fun sequence -> (sequence.smapiv1_features, sequence.smapiv2_features))
-         test_sequences
-      )
+         test_sequences )
 end)
 
 let test_sm_name_label = "__test_sm"
@@ -221,42 +214,41 @@ module CreateSMObject = Generic.MakeStateful (struct
   module State = Test_state.XapiDb
 
   let load_input __context features =
-    Xapi_sm.create_from_query_result ~__context
-      {
-        Storage_interface.driver= ""
-      ; name= test_sm_name_label
-      ; description= ""
-      ; vendor= ""
-      ; copyright= ""
-      ; version= ""
-      ; required_api_version= ""
+    Xapi_sm.create_from_query_result
+      ~__context
+      { Storage_interface.driver = ""
+      ; name = test_sm_name_label
+      ; description = ""
+      ; vendor = ""
+      ; copyright = ""
+      ; version = ""
+      ; required_api_version = ""
       ; features
-      ; configuration= []
-      ; required_cluster_stack= []
+      ; configuration = []
+      ; required_cluster_stack = []
       }
+
 
   let extract_output __context _ =
     let sm =
       List.nth (Db.SM.get_by_name_label ~__context ~label:test_sm_name_label) 0
     in
-    {
-      capabilities= Db.SM.get_capabilities ~__context ~self:sm
-    ; features= Db.SM.get_features ~__context ~self:sm
+    { capabilities = Db.SM.get_capabilities ~__context ~self:sm
+    ; features = Db.SM.get_features ~__context ~self:sm
     }
+
 
   let tests =
     `QuickAndAutoDocumented
       (List.map
          (fun sequence -> (sequence.smapiv2_features, sequence.sm))
-         test_sequences
-      )
+         test_sequences )
 end)
 
 let tests =
   List.map
     (fun (s, t) -> (Format.sprintf "sm_features_%s" s, t))
-    [
-      ("parse_smapiv1_features", ParseSMAPIv1Features.tests)
+    [ ("parse_smapiv1_features", ParseSMAPIv1Features.tests)
     ; ("create_smapiv2_features", CreateSMAPIv2Features.tests)
     ; ("create_sm_object", CreateSMObject.tests)
     ]

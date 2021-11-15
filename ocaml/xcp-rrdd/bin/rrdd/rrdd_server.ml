@@ -19,7 +19,9 @@ module Mutex = Xapi_stdext_threads.Threadext.Mutex
 open Rrdd_shared
 open Rrd_interface
 
-module D = Debug.Make (struct let name = "rrdd_server" end)
+module D = Debug.Make (struct
+  let name = "rrdd_server"
+end)
 
 open D
 
@@ -30,42 +32,46 @@ let archive_sr_rrd (sr_uuid : string) : string =
           let rrd = Hashtbl.find sr_rrds sr_uuid in
           Hashtbl.remove sr_rrds sr_uuid ;
           rrd
-        with Not_found ->
-          let msg = Printf.sprintf "No RRD found for SR: %s." sr_uuid in
-          raise (Rrdd_error (Archive_failed msg))
-    )
+        with
+        | Not_found ->
+            let msg = Printf.sprintf "No RRD found for SR: %s." sr_uuid in
+            raise (Rrdd_error (Archive_failed msg)) )
   in
   try
     archive_rrd_internal ~uuid:sr_uuid ~rrd:sr_rrd.rrd () ;
     let archive_path =
       Filename.concat Rrdd_libs.Constants.rrd_location (sr_uuid ^ ".gz")
     in
-    ( if not (Xapi_stdext_unix.Unixext.file_exists archive_path) then
-        let msg = Printf.sprintf "Archive not found: %s." archive_path in
-        raise (Rrdd_error (Archive_failed msg))
-    ) ;
+    ( if not (Xapi_stdext_unix.Unixext.file_exists archive_path)
+    then
+      let msg = Printf.sprintf "Archive not found: %s." archive_path in
+      raise (Rrdd_error (Archive_failed msg)) ) ;
     archive_path
-  with e ->
-    let msg = Printf.sprintf "Exception raised: %s." (Printexc.to_string e) in
-    raise (Rrdd_error (Archive_failed msg))
+  with
+  | e ->
+      let msg = Printf.sprintf "Exception raised: %s." (Printexc.to_string e) in
+      raise (Rrdd_error (Archive_failed msg))
+
 
 let push_sr_rrd (sr_uuid : string) (path : string) : unit =
   try
     let path =
-      if Filename.check_suffix path ".gz" then
-        Filename.chop_suffix path ".gz"
-      else
-        path
+      if Filename.check_suffix path ".gz"
+      then Filename.chop_suffix path ".gz"
+      else path
     in
     let rrd = rrd_of_gzip path in
     debug "Pushing RRD for SR uuid=%s locally" sr_uuid ;
     Mutex.execute mutex (fun _ ->
-        Hashtbl.replace sr_rrds sr_uuid {rrd; dss= []; domid= 0}
-    )
-  with _ -> ()
+        Hashtbl.replace sr_rrds sr_uuid { rrd; dss = []; domid = 0 } )
+  with
+  | _ ->
+      ()
+
 
 let has_vm_rrd (vm_uuid : string) =
   Mutex.execute mutex (fun _ -> Hashtbl.mem vm_rrds vm_uuid)
+
 
 (** [archive_rrd] is used exclusively to send rrds to the pool master when
     suspending/halting vms *)
@@ -77,10 +83,7 @@ let archive_rrd vm_uuid (remote_address : string option) : unit =
           SSL
             ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
             , address
-            , !https_port
-            )
-        )
-        )
+            , !https_port )) )
       remote_address
   in
   Mutex.execute mutex (fun () ->
@@ -88,8 +91,10 @@ let archive_rrd vm_uuid (remote_address : string option) : unit =
         let rrd = (Hashtbl.find vm_rrds vm_uuid).rrd in
         Hashtbl.remove vm_rrds vm_uuid ;
         archive_rrd_internal ~transport ~uuid:vm_uuid ~rrd ()
-      with Not_found -> ()
-  )
+      with
+      | Not_found ->
+          () )
+
 
 (** This functionality is used by xapi to backup rrds to local disk or to the
     master host, exclusively. Any attempt to send the rrds to pools outside
@@ -102,10 +107,7 @@ let backup_rrds (remote_address : string option) () : unit =
           SSL
             ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
             , address
-            , !https_port
-            )
-        )
-        )
+            , !https_port )) )
       remote_address
   in
   let destination =
@@ -119,50 +121,54 @@ let backup_rrds (remote_address : string option) () : unit =
   let total_cycles = 5 in
   let cycles_tried = ref 0 in
   while !cycles_tried < total_cycles do
-    if Mutex.try_lock mutex then (
+    if Mutex.try_lock mutex
+    then (
       cycles_tried := total_cycles ;
       let vrrds =
-        try Hashtbl.fold (fun k v acc -> (k, v.rrd) :: acc) vm_rrds []
-        with exn -> Mutex.unlock mutex ; raise exn
+        try Hashtbl.fold (fun k v acc -> (k, v.rrd) :: acc) vm_rrds [] with
+        | exn ->
+            Mutex.unlock mutex ;
+            raise exn
       in
       Mutex.unlock mutex ;
       List.iter
         (fun (uuid, rrd) ->
           debug "Backup: saving RRD for VM uuid=%s %s" uuid destination ;
           let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
-          archive_rrd_internal ~transport ~uuid ~rrd ()
-          )
+          archive_rrd_internal ~transport ~uuid ~rrd () )
         vrrds ;
       Mutex.lock mutex ;
       let srrds =
-        try Hashtbl.fold (fun k v acc -> (k, v.rrd) :: acc) sr_rrds []
-        with exn -> Mutex.unlock mutex ; raise exn
+        try Hashtbl.fold (fun k v acc -> (k, v.rrd) :: acc) sr_rrds [] with
+        | exn ->
+            Mutex.unlock mutex ;
+            raise exn
       in
       Mutex.unlock mutex ;
       List.iter
         (fun (uuid, rrd) ->
           debug "Backup: saving RRD for SR uuid=%s %s" uuid destination ;
           let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
-          archive_rrd_internal ~transport ~uuid ~rrd ()
-          )
+          archive_rrd_internal ~transport ~uuid ~rrd () )
         srrds ;
       match !host_rrd with
       | Some rrdi ->
           debug "Backup: saving RRD for host %s" destination ;
           let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
-          archive_rrd_internal ~transport
+          archive_rrd_internal
+            ~transport
             ~uuid:(Inventory.lookup Inventory._installation_uuid)
-            ~rrd ()
+            ~rrd
+            ()
       | None ->
-          ()
-    ) else (
+          () )
+    else (
       cycles_tried := 1 + !cycles_tried ;
-      if !cycles_tried >= total_cycles then
-        debug "Could not acquire RRD lock, skipping RRD backup"
-      else
-        Thread.delay 1.
-    )
+      if !cycles_tried >= total_cycles
+      then debug "Could not acquire RRD lock, skipping RRD backup"
+      else Thread.delay 1. )
   done
+
 
 (* Load an RRD from the local filesystem. Will return an RRD or throw an
    exception. *)
@@ -170,6 +176,7 @@ let load_rrd_from_local_filesystem uuid =
   debug "Loading RRD from local filesystem for object uuid=%s" uuid ;
   let path = Rrdd_libs.Constants.rrd_location ^ "/" ^ uuid in
   rrd_of_gzip path
+
 
 module Deprecated = struct
   (* DEPRECATED *)
@@ -181,19 +188,21 @@ module Deprecated = struct
        to redirect here! *)
     let uri = uri ^ "?uuid=" ^ uuid ^ "&dbsync=true" in
     let request =
-      Http.Request.make ~user_agent:Rrdd_libs.Constants.rrdd_user_agent
-        ~cookie:[("pool_secret", pool_secret)]
-        Http.Get uri
+      Http.Request.make
+        ~user_agent:Rrdd_libs.Constants.rrdd_user_agent
+        ~cookie:[ ("pool_secret", pool_secret) ]
+        Http.Get
+        uri
     in
     let open Xmlrpc_client in
     let transport =
       SSL
         ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
         , master_address
-        , !Rrdd_shared.https_port
-        )
+        , !Rrdd_shared.https_port )
     in
-    with_transport transport
+    with_transport
+      transport
       (with_http request (fun (response, s) ->
            match response.Http.Response.content_length with
            | None ->
@@ -204,9 +213,8 @@ module Deprecated = struct
                in
                let input = Xmlm.make_input (`String (0, body)) in
                debug "Pulled rrd for uuid=%s" uuid ;
-               Rrd.from_xml input
-       )
-      )
+               Rrd.from_xml input ) )
+
 
   (* DEPRECATED *)
   (* This used to be called from dbsync in two cases: 1. For the local host
@@ -221,50 +229,57 @@ module Deprecated = struct
           debug
             "RRD loaded from local filesystem for object uuid=%s (deprecation \
              warning: timescale %d is ignored)."
-            uuid timescale ;
+            uuid
+            timescale ;
           rrd
-        with e -> (
-          match master_address with
+        with
+        | e ->
+          ( match master_address with
           | None ->
               info
                 "Failed to load RRD from local filesystem: metrics not \
                  available for uuid=%s"
                 uuid ;
               raise e
-          | Some x -> (
+          | Some x ->
               debug
                 "Failed to load RRD from local filesystem for object uuid=%s; \
                  asking master"
                 uuid ;
-              try
-                let rrd = pull_rrd_from_master ~uuid ~master_address:x in
-                debug "RRD pulled from master for object uuid=%s" uuid ;
-                rrd
-              with e ->
-                info
-                  "Failed to fetch RRD from master: metrics not available for \
-                   uuid=%s"
-                  uuid ;
-                raise e
-            )
-        )
+              ( try
+                  let rrd = pull_rrd_from_master ~uuid ~master_address:x in
+                  debug "RRD pulled from master for object uuid=%s" uuid ;
+                  rrd
+                with
+              | e ->
+                  info
+                    "Failed to fetch RRD from master: metrics not available \
+                     for uuid=%s"
+                    uuid ;
+                  raise e ) )
       in
-      Mutex.execute mutex (fun () -> host_rrd := Some {rrd; dss= []; domid= 0})
-    with _ -> ()
+      Mutex.execute mutex (fun () ->
+          host_rrd := Some { rrd; dss = []; domid = 0 } )
+    with
+    | _ ->
+        ()
 end
 
 let get_rrd ~vm_uuid =
   let path = Filename.concat Rrdd_libs.Constants.rrd_location vm_uuid in
   rrd_of_gzip path
 
+
 let push_rrd_local vm_uuid domid : unit =
   try
     let rrd = get_rrd ~vm_uuid in
     debug "Pushing RRD for VM uuid=%s locally" vm_uuid ;
     Mutex.execute mutex (fun _ ->
-        Hashtbl.replace vm_rrds vm_uuid {rrd; dss= []; domid}
-    )
-  with _ -> ()
+        Hashtbl.replace vm_rrds vm_uuid { rrd; dss = []; domid } )
+  with
+  | _ ->
+      ()
+
 
 let push_rrd_remote vm_uuid member_address : unit =
   try
@@ -274,14 +289,22 @@ let push_rrd_remote vm_uuid member_address : unit =
       SSL
         ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
         , member_address
-        , !Rrdd_shared.https_port
-        )
+        , !Rrdd_shared.https_port )
     in
-    debug "Pushing RRD for VM uuid=%s to another pool member with %s" vm_uuid
+    debug
+      "Pushing RRD for VM uuid=%s to another pool member with %s"
+      vm_uuid
       (Xmlrpc_client.string_of_transport transport) ;
-    send_rrd ~transport ~to_archive:false ~uuid:vm_uuid ~rrd:(Rrd.copy_rrd rrd)
+    send_rrd
+      ~transport
+      ~to_archive:false
+      ~uuid:vm_uuid
+      ~rrd:(Rrd.copy_rrd rrd)
       ()
-  with _ -> ()
+  with
+  | _ ->
+      ()
+
 
 (** Remove an RRD from the local filesystem, if it exists. *)
 let remove_rrd (uuid : string) : unit =
@@ -290,35 +313,45 @@ let remove_rrd (uuid : string) : unit =
   (try Unix.unlink path with _ -> ()) ;
   try Unix.unlink gz_path with _ -> ()
 
+
 (* Migrate_push - used by the migrate code to push an RRD directly to a remote
    host without going via the master. If the host is on a different pool, you
    must pass both the remote_address and session_id parameters. Remote address
    is assumed to be valid, since it is set by monitor_master. *)
-let migrate_rrd (session_id : string option) (remote_address : string)
-    (vm_uuid : string) (host_uuid : string) : unit =
+let migrate_rrd
+    (session_id : string option)
+    (remote_address : string)
+    (vm_uuid : string)
+    (host_uuid : string) : unit =
   try
     let rrdi =
       Mutex.execute mutex (fun () ->
           let rrdi = Hashtbl.find vm_rrds vm_uuid in
-          debug "Sending RRD for VM uuid=%s to remote host %s for migrate"
-            vm_uuid host_uuid ;
+          debug
+            "Sending RRD for VM uuid=%s to remote host %s for migrate"
+            vm_uuid
+            host_uuid ;
           Hashtbl.remove vm_rrds vm_uuid ;
-          rrdi
-      )
+          rrdi )
     in
     let transport =
       Xmlrpc_client.(
-        SSL (SSL.make ~verify_cert:None (), remote_address, !https_port)
-      )
+        SSL (SSL.make ~verify_cert:None (), remote_address, !https_port))
     in
-    send_rrd ?session_id ~transport ~to_archive:false ~uuid:vm_uuid
-      ~rrd:rrdi.rrd ()
+    send_rrd
+      ?session_id
+      ~transport
+      ~to_archive:false
+      ~uuid:vm_uuid
+      ~rrd:rrdi.rrd
+      ()
   with
   | Not_found ->
       debug "VM %s RRDs not found on migrate! Continuing anyway..." vm_uuid ;
       log_backtrace ()
   | _ ->
       log_backtrace ()
+
 
 (* Called on host shutdown/reboot to send the Host RRD to the master for backup.
    Note all VMs will have been shutdown by now. *)
@@ -330,16 +363,19 @@ let send_host_rrd_to_master master_address =
         SSL
           ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
           , master_address
-          , !Rrdd_shared.https_port
-          )
+          , !Rrdd_shared.https_port )
       in
       debug "sending host RRD to master" ;
       let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
-      send_rrd ~transport ~to_archive:true
+      send_rrd
+        ~transport
+        ~to_archive:true
         ~uuid:(Inventory.lookup Inventory._installation_uuid)
-        ~rrd ()
+        ~rrd
+        ()
   | None ->
       ()
+
 
 (** {add_ds rrdi ds_name} creates a new time series (rrd) in {rrdi} with the
     name {ds_name}. The operation fails if rrdi does not contain any live
@@ -348,8 +384,11 @@ let add_ds ~rrdi ~ds_name =
   let open Ds in
   let ds = List.find (fun ds -> ds.ds_name = ds_name) rrdi.dss in
   let now = Unix.gettimeofday () in
-  Rrd.rrd_add_ds rrdi.rrd now
+  Rrd.rrd_add_ds
+    rrdi.rrd
+    now
     (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
+
 
 let add_host_ds (ds_name : string) : unit =
   Mutex.execute mutex (fun () ->
@@ -358,8 +397,8 @@ let add_host_ds (ds_name : string) : unit =
           ()
       | Some rrdi ->
           let rrd = add_ds ~rrdi ~ds_name in
-          host_rrd := Some {rrdi with rrd}
-  )
+          host_rrd := Some { rrdi with rrd } )
+
 
 let forget_host_ds (ds_name : string) : unit =
   Mutex.execute mutex (fun () ->
@@ -367,8 +406,9 @@ let forget_host_ds (ds_name : string) : unit =
       | None ->
           ()
       | Some rrdi ->
-          host_rrd := Some {rrdi with rrd= Rrd.rrd_remove_ds rrdi.rrd ds_name}
-  )
+          host_rrd :=
+            Some { rrdi with rrd = Rrd.rrd_remove_ds rrdi.rrd ds_name } )
+
 
 let query_possible_dss rrdi =
   (* We have data sources coming from different places, so we want the union of
@@ -393,48 +433,43 @@ let query_possible_dss rrdi =
     |> List.to_seq
     |> Seq.map (fun ds ->
            ( ds.ds_name
-           , {
-               name= ds.ds_name
-             ; description= ds.ds_description
-             ; enabled= is_live_ds_enabled ds
-             ; standard= ds.ds_default
-             ; min= ds.ds_min
-             ; max= ds.ds_max
-             ; units= ds.ds_units
-             }
-           )
-       )
+           , { name = ds.ds_name
+             ; description = ds.ds_description
+             ; enabled = is_live_ds_enabled ds
+             ; standard = ds.ds_default
+             ; min = ds.ds_min
+             ; max = ds.ds_max
+             ; units = ds.ds_units
+             } ) )
     |> SMap.of_seq
   in
   let name_to_disabled_dss =
     archival_sources
     |> Seq.filter_map (fun ds ->
-           if SMap.mem ds.Rrd.ds_name name_to_live_dss then
-             None
+           if SMap.mem ds.Rrd.ds_name name_to_live_dss
+           then None
            else
              Some
                ( ds.ds_name
-               , {
-                   name= ds.ds_name
-                 ; description= "description not available"
-                 ; enabled= false
-                 ; standard= false
-                 ; units= "unknown"
-                 ; min= ds.ds_min
-                 ; max= ds.ds_max
-                 }
-               )
-       )
+               , { name = ds.ds_name
+                 ; description = "description not available"
+                 ; enabled = false
+                 ; standard = false
+                 ; units = "unknown"
+                 ; min = ds.ds_min
+                 ; max = ds.ds_max
+                 } ) )
   in
   SMap.add_seq name_to_disabled_dss name_to_live_dss
   |> SMap.to_seq
   |> Seq.map snd
   |> List.of_seq
 
+
 let query_possible_host_dss () : Data_source.t list =
   Mutex.execute mutex (fun () ->
-      match !host_rrd with None -> [] | Some rrdi -> query_possible_dss rrdi
-  )
+      match !host_rrd with None -> [] | Some rrdi -> query_possible_dss rrdi )
+
 
 let query_host_ds (ds_name : string) : float =
   let now = Unix.gettimeofday () in
@@ -443,8 +478,8 @@ let query_host_ds (ds_name : string) : float =
       | None ->
           failwith "No data source!"
       | Some rrdi ->
-          Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
-  )
+          Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average )
+
 
 (** {add_vm_ds vm_uuid domid ds_name} enables collection of the data produced by
     the data sourced with name {ds_name} for the VM {vm_uuid} into a time series
@@ -455,29 +490,31 @@ let add_vm_ds (vm_uuid : string) (domid : int) (ds_name : string) : unit =
   Mutex.execute mutex (fun () ->
       let rrdi = Hashtbl.find vm_rrds vm_uuid in
       let rrd = add_ds ~rrdi ~ds_name in
-      Hashtbl.replace vm_rrds vm_uuid {rrd; dss= rrdi.dss; domid}
-  )
+      Hashtbl.replace vm_rrds vm_uuid { rrd; dss = rrdi.dss; domid } )
+
 
 let forget_vm_ds (vm_uuid : string) (ds_name : string) : unit =
   Mutex.execute mutex (fun () ->
       let rrdi = Hashtbl.find vm_rrds vm_uuid in
       let rrd = rrdi.rrd in
-      Hashtbl.replace vm_rrds vm_uuid
-        {rrdi with rrd= Rrd.rrd_remove_ds rrd ds_name}
-  )
+      Hashtbl.replace
+        vm_rrds
+        vm_uuid
+        { rrdi with rrd = Rrd.rrd_remove_ds rrd ds_name } )
+
 
 let query_possible_vm_dss (vm_uuid : string) : Data_source.t list =
   Mutex.execute mutex (fun () ->
       let rrdi = Hashtbl.find vm_rrds vm_uuid in
-      query_possible_dss rrdi
-  )
+      query_possible_dss rrdi )
+
 
 let query_vm_ds (vm_uuid : string) (ds_name : string) : float =
   let now = Unix.gettimeofday () in
   Mutex.execute mutex (fun () ->
       let rrdi = Hashtbl.find vm_rrds vm_uuid in
-      Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
-  )
+      Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average )
+
 
 (** {add_sr_ds sr_uuid domid ds_name} enables collection of the data produced by
     the data source with name {ds_name} for the SR {sr_uuid} into a time series
@@ -488,46 +525,53 @@ let add_sr_ds (sr_uuid : string) (ds_name : string) : unit =
   Mutex.execute mutex (fun () ->
       let rrdi = Hashtbl.find sr_rrds sr_uuid in
       let rrd = add_ds ~rrdi ~ds_name in
-      Hashtbl.replace sr_rrds sr_uuid {rrd; dss= rrdi.dss; domid= 0}
-  )
+      Hashtbl.replace sr_rrds sr_uuid { rrd; dss = rrdi.dss; domid = 0 } )
+
 
 let forget_sr_ds (sr_uuid : string) (ds_name : string) : unit =
   Mutex.execute mutex (fun () ->
       let rrdi = Hashtbl.find sr_rrds sr_uuid in
       let rrd = rrdi.rrd in
-      Hashtbl.replace sr_rrds sr_uuid
-        {rrdi with rrd= Rrd.rrd_remove_ds rrd ds_name}
-  )
+      Hashtbl.replace
+        sr_rrds
+        sr_uuid
+        { rrdi with rrd = Rrd.rrd_remove_ds rrd ds_name } )
+
 
 let query_possible_sr_dss (sr_uuid : string) : Data_source.t list =
   Mutex.execute mutex (fun () ->
       try
         let rrdi = Hashtbl.find sr_rrds sr_uuid in
         query_possible_dss rrdi
-      with Not_found -> []
-  )
+      with
+      | Not_found ->
+          [] )
+
 
 let query_sr_ds (sr_uuid : string) (ds_name : string) : float =
   let now = Unix.gettimeofday () in
   Mutex.execute mutex (fun () ->
       let rrdi = Hashtbl.find sr_rrds sr_uuid in
-      Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
-  )
+      Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average )
+
 
 let update_use_min_max (value : bool) : unit =
   debug "Updating use_min_max: New value=%b" value ;
   use_min_max := value
 
+
 let update_vm_memory_target (domid : int) (target : int64) : unit =
   Mutex.execute memory_targets_m (fun _ ->
-      Hashtbl.replace memory_targets domid target
-  )
+      Hashtbl.replace memory_targets domid target )
+
 
 let set_cache_sr (sr_uuid : string) : unit =
   Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := Some sr_uuid)
 
+
 let unset_cache_sr () =
   Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := None)
+
 
 module Plugin = struct
   (* Static values. *)
@@ -587,12 +631,12 @@ module Plugin = struct
 
          - Can the code for backwards compatibility be expunged? *)
 
-      type plugin = {
-          info: P.info
-        ; reader: Rrd_reader.reader
-        ; mutable skip_init: int  (** initial value for skip after read err *)
-        ; mutable skip: int  (** number of cycles to skip b/f next read *)
-      }
+      type plugin =
+        { info : P.info
+        ; reader : Rrd_reader.reader
+        ; mutable skip_init : int  (** initial value for skip after read err *)
+        ; mutable skip : int  (** number of cycles to skip b/f next read *)
+        }
 
       (* A map storing currently registered plugins, and any data required to
          process the plugins. *)
@@ -610,29 +654,33 @@ module Plugin = struct
             let skips = min (plugin.skip_init * 2) skip_max in
             plugin.skip_init <- skips ;
             plugin.skip <- skips ;
-            skips
-        )
-        |> debug "setting skip-cycles-after-error for plugin %s to %d"
+            skips )
+        |> debug
+             "setting skip-cycles-after-error for plugin %s to %d"
              (P.string_of_uid ~uid)
+
 
       (* success - set skip to 0, reset initial value *)
       let reset_skip_count uid plugin =
-        if plugin.skip_init > 1 then (
-          warn "re-setting skip-cycles-after-error for plugin %s to 1"
+        if plugin.skip_init > 1
+        then (
+          warn
+            "re-setting skip-cycles-after-error for plugin %s to 1"
             (P.string_of_uid ~uid) ;
           Mutex.execute registered_m (fun () ->
               plugin.skip_init <- 1 ;
-              plugin.skip <- 0
-          )
-        )
+              plugin.skip <- 0 ) )
+
 
       (* true, iff the plugin skips the next reading *)
       let skip (_uid, plugin) = plugin.skip > 0
 
       (* we are skipping a reading *)
       let decr_skip_count ((_uid, plugin) as p) =
-        if skip p then
+        if skip p
+        then
           Mutex.execute registered_m (fun () -> plugin.skip <- plugin.skip - 1)
+
 
       let get_payload ~(uid : P.uid) plugin : Rrd_protocol.payload =
         try
@@ -640,35 +688,41 @@ module Plugin = struct
           reset_skip_count uid plugin ;
           (* reset skip counts *)
           payload
-        with e -> (
-          incr_skip_count uid plugin ;
-          (* increase skip count *)
-          let log e =
-            info "Failed to process plugin metrics file: %s (%s)"
-              (P.string_of_uid ~uid) (Printexc.to_string e) ;
-            log_backtrace ()
-          in
-          let open Rrd_protocol in
-          match e with
-          | No_update ->
-              raise No_update
-          | (Invalid_header_string | Invalid_length | Invalid_checksum) as e ->
-              log e ; raise e
-          | e ->
-              log e ; raise Read_error
-        )
+        with
+        | e ->
+            incr_skip_count uid plugin ;
+            (* increase skip count *)
+            let log e =
+              info
+                "Failed to process plugin metrics file: %s (%s)"
+                (P.string_of_uid ~uid)
+                (Printexc.to_string e) ;
+              log_backtrace ()
+            in
+            let open Rrd_protocol in
+            ( match e with
+            | No_update ->
+                raise No_update
+            | (Invalid_header_string | Invalid_length | Invalid_checksum) as e
+              ->
+                log e ;
+                raise e
+            | e ->
+                log e ;
+                raise Read_error )
+
 
       (* Returns the number of seconds until the next reading phase for the
          sampling frequency given at registration by the plugin with the
          specified unique ID. If the plugin is not registered, -1 is returned. *)
       let next_reading (uid : P.uid) : float =
         let open Rrdd_shared in
-        if Mutex.execute registered_m (fun _ -> Hashtbl.mem registered uid) then
+        if Mutex.execute registered_m (fun _ -> Hashtbl.mem registered uid)
+        then
           Mutex.execute last_loop_end_time_m (fun _ ->
-              !last_loop_end_time +. !timeslice -. Unix.gettimeofday ()
-          )
-        else
-          -1.
+              !last_loop_end_time +. !timeslice -. Unix.gettimeofday () )
+        else -1.
+
 
       let choose_protocol = function
         | Rrd_interface.V1 ->
@@ -676,42 +730,50 @@ module Plugin = struct
         | Rrd_interface.V2 ->
             Rrd_protocol_v2.protocol
 
+
       (* The function registers a plugin, and returns the number of seconds
          until the next reading phase for the specified sampling frequency. *)
-      let register (uid : P.uid) (info : P.info)
+      let register
+          (uid : P.uid)
+          (info : P.info)
           (protocol : Rrd_interface.plugin_protocol) : float =
         Mutex.execute registered_m (fun _ ->
-            if not (Hashtbl.mem registered uid) then
+            if not (Hashtbl.mem registered uid)
+            then
               let reader =
                 P.make_reader ~uid ~info ~protocol:(choose_protocol protocol)
               in
-              Hashtbl.add registered uid {info; reader; skip_init= 1; skip= 0}
-        ) ;
+              Hashtbl.add
+                registered
+                uid
+                { info; reader; skip_init = 1; skip = 0 } ) ;
         next_reading uid
+
 
       (* The function deregisters a plugin. After this call, the framework will
          process its output at most once more. *)
       let deregister (uid : P.uid) : unit =
         Mutex.execute registered_m (fun _ ->
-            if Hashtbl.mem registered uid then (
+            if Hashtbl.mem registered uid
+            then (
               let plugin = Hashtbl.find registered uid in
               plugin.reader.Rrd_reader.cleanup () ;
-              Hashtbl.remove registered uid
-            )
-        )
+              Hashtbl.remove registered uid ) )
+
 
       (* Read, parse, and combine metrics from all registered plugins. *)
       let read_stats () : (Rrd.ds_owner * Ds.ds) list =
         let plugins =
           Mutex.execute registered_m (fun _ ->
-              List.of_seq (Hashtbl.to_seq registered)
-          )
+              List.of_seq (Hashtbl.to_seq registered) )
         in
         let process_plugin acc (uid, plugin) =
           try
             let payload = get_payload ~uid plugin in
             List.rev_append payload.Rrd_protocol.datasources acc
-          with _ -> acc
+          with
+          | _ ->
+              acc
         in
         List.iter decr_skip_count plugins ;
         plugins
@@ -726,7 +788,9 @@ module Plugin = struct
 
     let string_of_uid ~(uid : string) = uid
 
-    let make_reader ~(uid : string) ~(info : Rrd.sampling_frequency)
+    let make_reader
+        ~(uid : string)
+        ~(info : Rrd.sampling_frequency)
         ~(protocol : Rrd_protocol.protocol) =
       let _ = info in
       (* this lie is used only to silence a warning *)
@@ -741,15 +805,17 @@ module Plugin = struct
     type info = Rrd_interface.interdomain_info
 
     let string_of_uid ~(uid : uid) : string =
-      Printf.sprintf "%s:domid%d" uid.Rrd_interface.name
+      Printf.sprintf
+        "%s:domid%d"
+        uid.Rrd_interface.name
         uid.Rrd_interface.frontend_domid
 
-    let make_reader ~(uid : uid) ~(info : info)
-        ~(protocol : Rrd_protocol.protocol) =
+
+    let make_reader
+        ~(uid : uid) ~(info : info) ~(protocol : Rrd_protocol.protocol) =
       Rrd_reader.PageReader.create
-        {
-          Rrd_reader.frontend_domid= uid.Rrd_interface.frontend_domid
-        ; Rrd_reader.shared_page_refs= info.Rrd_interface.shared_page_refs
+        { Rrd_reader.frontend_domid = uid.Rrd_interface.frontend_domid
+        ; Rrd_reader.shared_page_refs = info.Rrd_interface.shared_page_refs
         }
         protocol
   end)
@@ -760,6 +826,7 @@ module Plugin = struct
   let register (uid : string) (frequency : Rrd.sampling_frequency) =
     Local.register uid frequency Rrd_interface.V1
 
+
   let deregister = Local.deregister
 
   (* Read, parse, and combine metrics from all registered plugins. *)
@@ -768,14 +835,16 @@ module Plugin = struct
 end
 
 module HA = struct
-  let enable_and_update (statefile_latencies : Rrd.Statefile_latency.t list)
-      (heartbeat_latency : float) (xapi_latency : float) =
+  let enable_and_update
+      (statefile_latencies : Rrd.Statefile_latency.t list)
+      (heartbeat_latency : float)
+      (xapi_latency : float) =
     Mutex.execute Rrdd_ha_stats.m (fun _ ->
         Rrdd_ha_stats.enabled := true ;
         Rrdd_ha_stats.Statefile_latency.all := statefile_latencies ;
         Rrdd_ha_stats.Heartbeat_latency.raw := Some heartbeat_latency ;
-        Rrdd_ha_stats.Xapi_latency.raw := Some xapi_latency
-    )
+        Rrdd_ha_stats.Xapi_latency.raw := Some xapi_latency )
+
 
   let disable () =
     Mutex.execute Rrdd_ha_stats.m (fun _ -> Rrdd_ha_stats.enabled := false)

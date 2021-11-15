@@ -11,4 +11,5 @@ let stubgen prefix c_headers bindings =
   close_out ml_out ;
   close_out c_out
 
+
 let () = stubgen "xxhash" "#include <xxhash.h>" (module Xxhash_bindings.C)

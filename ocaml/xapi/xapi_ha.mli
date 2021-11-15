@@ -81,9 +81,9 @@ val ha_wait_for_shutdown_via_statefile : 'a -> 'b -> unit
 
 val preconfigure_host :
      Context.t
-  -> [`host] API.Ref.t
-  -> [`VDI] API.Ref.t list
-  -> [`VDI] API.Ref.t
+  -> [ `host ] API.Ref.t
+  -> [ `VDI ] API.Ref.t list
+  -> [ `VDI ] API.Ref.t
   -> string
   -> unit
 (** Internal API call to preconfigure localhost *)
@@ -105,7 +105,8 @@ val abort_new_master : __context:'a -> address:string -> unit
 
 val disable : Context.t -> unit
 
-val enable : Context.t -> [`SR] API.Ref.t list -> (string * string) list -> unit
+val enable :
+  Context.t -> [ `SR ] API.Ref.t list -> (string * string) list -> unit
 
 (** {3 Functions called by host.* API calls} *)
 

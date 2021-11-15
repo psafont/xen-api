@@ -22,7 +22,9 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 open Client
 open Db_cache_types
 
-module D = Debug.Make (struct let name = "pool_db_sync" end)
+module D = Debug.Make (struct
+  let name = "pool_db_sync"
+end)
 
 open D
 
@@ -43,31 +45,35 @@ let minimally_compliant_miami_database =
    /><table name=\"host_cpu\" /><table name=\"VIF\" /><table name=\"session\" \
    /><table name=\"PIF_metrics\" /></database>"
 
+
 (** Write the database dump out to a file/socket *)
 let write_database (s : Unix.file_descr) ~__context =
-  if Helpers.rolling_upgrade_in_progress ~__context then
+  if Helpers.rolling_upgrade_in_progress ~__context
+  then
     (* CA-18377: If we're in the middle of a rolling upgrade from Miami *)
     (* to Orlando, then only send a minimally-compliant Miami database. *)
     (* Orlando hosts will ignore this database and carry on.            *)
     let len = String.length minimally_compliant_miami_database in
     ignore (Unix.write_substring s minimally_compliant_miami_database 0 len)
-  else
-    Db_xml.To.fd s (Db_ref.get_database (Context.database_of __context))
+  else Db_xml.To.fd s (Db_ref.get_database (Context.database_of __context))
+
 
 (** Make sure the backup database version is compatible *)
 let version_check db =
   let major, minor = Manifest.schema (Database.manifest db) in
-  if
-    major <> Datamodel_common.schema_major_vsn
-    || minor <> Datamodel_common.schema_minor_vsn
+  if major <> Datamodel_common.schema_major_vsn
+     || minor <> Datamodel_common.schema_minor_vsn
   then (
     error
       "Pool backup file was created with incompatible product version - \
        expected: (%d,%d), actual: (%d,%d)"
-      Datamodel_common.schema_major_vsn Datamodel_common.schema_minor_vsn major
+      Datamodel_common.schema_major_vsn
+      Datamodel_common.schema_minor_vsn
+      major
       minor ;
     raise (Api_errors.Server_error (Api_errors.restore_incompatible_version, []))
-  )
+    )
+
 
 (** Makes a new database suitable for xapi by rewriting some configuration from the current
     database. *)
@@ -80,19 +86,20 @@ let prepare_database_for_restore ~old_context ~new_context =
   (* Remove all slaves from the database *)
   List.iter
     (fun self ->
-      if self <> master then (
+      if self <> master
+      then (
         List.iter
           (fun self -> Db.PIF.destroy ~__context:new_context ~self)
           (Db.Host.get_PIFs ~__context:new_context ~self) ;
-        Db.Host.destroy ~__context:new_context ~self
-      )
-      )
+        Db.Host.destroy ~__context:new_context ~self ) )
     (Db.Host.get_all ~__context:new_context) ;
   (* Set the master's uuid to ours *)
   let my_installation_uuid =
     Xapi_inventory.lookup Xapi_inventory._installation_uuid
   in
-  Db.Host.set_uuid ~__context:new_context ~self:master
+  Db.Host.set_uuid
+    ~__context:new_context
+    ~self:master
     ~value:my_installation_uuid ;
   (* Set the master's dom0 to ours *)
   let my_control_uuid =
@@ -106,7 +113,8 @@ let prepare_database_for_restore ~old_context ~new_context =
   (* First inspect the current machine's configuration and build up a table of
         device name -> PIF reference. *)
   let all_pifs =
-    Db.Host.get_PIFs ~__context:old_context
+    Db.Host.get_PIFs
+      ~__context:old_context
       ~self:(Helpers.get_localhost ~__context:old_context)
   in
   let device_to_ref =
@@ -128,7 +136,7 @@ let prepare_database_for_restore ~old_context ~new_context =
         (fun self -> Db.PIF.get_management ~__context:old_context ~self)
         all_pifs
     with
-    | [dev] ->
+    | [ dev ] ->
         Some (Db.PIF.get_device ~__context:old_context ~self:dev)
     | _ ->
         None
@@ -157,31 +165,36 @@ let prepare_database_for_restore ~old_context ~new_context =
       Db.PIF.set_management ~__context:new_context ~self ~value:is_mgmt ;
       if is_mgmt then found_mgmt_if := true ;
       (* We only need to rewrite the MAC addresses of physical PIFs *)
-      if physical then (
+      if physical
+      then (
         (* If this is a physical PIF but we can't find the device name
            on the restore target, bail out. *)
-        if not (List.mem_assoc device device_to_ref) then
+        if not (List.mem_assoc device device_to_ref)
+        then
           raise
             (Api_errors.Server_error
-               (Api_errors.restore_target_missing_device, [device])
-            ) ;
+               (Api_errors.restore_target_missing_device, [ device ]) ) ;
         (* Otherwise rewrite the MAC address to match the current machine
            and set the management flag accordingly *)
         let existing_pif = List.assoc device device_to_ref in
-        Db.PIF.set_MAC ~__context:new_context ~self
-          ~value:(Db.PIF.get_MAC ~__context:old_context ~self:existing_pif)
-      ) ;
-      debug "Rewriting PIF uuid %s device %s management %b MAC %s" uuid device
+        Db.PIF.set_MAC
+          ~__context:new_context
+          ~self
+          ~value:(Db.PIF.get_MAC ~__context:old_context ~self:existing_pif) ) ;
+      debug
+        "Rewriting PIF uuid %s device %s management %b MAC %s"
+        uuid
+        device
         is_mgmt
-        (Db.PIF.get_MAC ~__context:new_context ~self)
-      )
+        (Db.PIF.get_MAC ~__context:new_context ~self) )
     (Db.Host.get_PIFs ~__context:new_context ~self:master) ;
   (* Check that management interface was synced up *)
-  if (not !found_mgmt_if) && mgmt_dev <> None then
+  if (not !found_mgmt_if) && mgmt_dev <> None
+  then
     raise
       (Api_errors.Server_error
-         (Api_errors.restore_target_mgmt_if_not_in_backup, !ifs_in_backup)
-      )
+         (Api_errors.restore_target_mgmt_if_not_in_backup, !ifs_in_backup) )
+
 
 (** Restore all of our state from an XML backup. This includes the pool config, token etc *)
 let restore_from_xml __context dry_run (xml_filename : string) =
@@ -195,9 +208,12 @@ let restore_from_xml __context dry_run (xml_filename : string) =
   let new_context = Context.make ~database:db_ref "restore_db" in
   prepare_database_for_restore ~old_context:__context ~new_context ;
   (* write manifest and unmarshalled db directly to db_temporary_restore_path, so its ready for us on restart *)
-  if not dry_run then
-    Db_xml.To.file Xapi_globs.db_temporary_restore_path
+  if not dry_run
+  then
+    Db_xml.To.file
+      Xapi_globs.db_temporary_restore_path
       (Db_ref.get_database (Context.database_of new_context))
+
 
 (** Called when a CLI user downloads a backup of the database *)
 let pull_database_backup_handler (req : Http.Request.t) s _ =
@@ -208,8 +224,8 @@ let pull_database_backup_handler (req : Http.Request.t) s _ =
       Http_svr.headers s (Http.http_200_ok ~keep_alive:false ()) ;
       debug "writing database xml" ;
       write_database s ~__context ;
-      debug "finished writing database xml"
-  )
+      debug "finished writing database xml" )
+
 
 (** Invoked only by the explicit database restore code *)
 let push_database_restore_handler (req : Http.Request.t) s _ =
@@ -224,7 +240,9 @@ let push_database_restore_handler (req : Http.Request.t) s _ =
           debug "sent headers" ;
           (* XXX: write to temp file *)
           let tmp_xml_file = Filename.temp_file "" "xml_file" in
-          let xml_file_fd = Unix.openfile tmp_xml_file [Unix.O_WRONLY] 0o600 in
+          let xml_file_fd =
+            Unix.openfile tmp_xml_file [ Unix.O_WRONLY ] 0o600
+          in
           let () =
             finally
               (fun () -> ignore (Unixext.copy_file ~limit:l s xml_file_fd))
@@ -234,27 +252,27 @@ let push_database_restore_handler (req : Http.Request.t) s _ =
             List.mem_assoc "dry_run" req.Http.Request.query
             && List.assoc "dry_run" req.Http.Request.query = "true"
           in
-          if dry_run then
-            debug "performing dry-run database restore"
-          else
-            debug "performing full restore and restart" ;
+          if dry_run
+          then debug "performing dry-run database restore"
+          else debug "performing full restore and restart" ;
           Unixext.unlink_safe Xapi_globs.db_temporary_restore_path ;
           restore_from_xml __context dry_run tmp_xml_file ;
           Unixext.unlink_safe tmp_xml_file ;
-          if not dry_run then (
+          if not dry_run
+          then (
             (* We will restart as a master *)
             Xapi_pool_transition.set_role Pool_role.Master ;
             (* now restart *)
             debug
               "xapi has received new database via xml; will reboot and use \
                that db..." ;
-            info "Rebooting to use restored database after delay of: %f"
+            info
+              "Rebooting to use restored database after delay of: %f"
               !Constants.db_restore_fuse_time ;
             Xapi_fuse.light_fuse_and_reboot
               ~fuse_length:!Constants.db_restore_fuse_time
-              ()
-          )
-  )
+              () ) )
+
 
 let http_fetch_db ~master_address ~pool_secret =
   let request =
@@ -266,10 +284,10 @@ let http_fetch_db ~master_address ~pool_secret =
     SSL
       ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
       , master_address
-      , !Constants.https_port
-      )
+      , !Constants.https_port )
   in
-  with_transport transport
+  with_transport
+    transport
     (with_http request (fun (response, fd) ->
          (* no content length since it's streaming *)
          let inchan = Unix.in_channel_of_descr fd in
@@ -277,9 +295,9 @@ let http_fetch_db ~master_address ~pool_secret =
          let db =
            Db_xml.From.channel (Datamodel_schema.of_datamodel ()) inchan
          in
-         version_check db ; db
-     )
-    )
+         version_check db ;
+         db ) )
+
 
 (* When we eject from a pool, a slave deletes its backup files. This mutex is used to ensure that
    we're not trying to delete these backup files concurrently with making more! *)
@@ -294,7 +312,8 @@ let fetch_database_backup ~master_address ~pool_secret ~force =
         Slave_backup.determine_backup_connections generation
   in
   (* if there's nothing to do then we don't even bother requesting backup *)
-  if connections <> [] then
+  if connections <> []
+  then
     let db = http_fetch_db ~master_address ~pool_secret in
     (* flush backup to each of our database connections *)
     List.iter
@@ -302,18 +321,18 @@ let fetch_database_backup ~master_address ~pool_secret ~force =
         Xapi_stdext_threads.Threadext.Mutex.execute slave_backup_m (fun () ->
             Db_connections.flush dbconn db ;
             Slave_backup.notify_write dbconn
-            (* update writes_this_period for this connection *)
-        )
-        )
+            (* update writes_this_period for this connection *) ) )
       connections
   else
     debug
       "Not requesting backup from master, no candidate db connections to \
        backup to"
 
+
 (* Master sync thread *)
 let pool_db_backup_thread () =
-  Debug.with_thread_named "pool_db_backup_thread"
+  Debug.with_thread_named
+    "pool_db_backup_thread"
     (fun () ->
       Server_helpers.exec_with_new_task "Pool DB sync" (fun __context ->
           while true do
@@ -328,33 +347,37 @@ let pool_db_backup_thread () =
                 Db_lock.with_lock (fun () ->
                     Manifest.generation
                       (Database.manifest
-                         (Db_ref.get_database (Context.database_of __context))
-                      )
-                )
+                         (Db_ref.get_database (Context.database_of __context)) ) )
               in
               let dohost host =
                 try
                   Thread.delay !Xapi_globs.pool_db_sync_interval ;
-                  debug "Starting DB synchronise with host %s"
+                  debug
+                    "Starting DB synchronise with host %s"
                     (Ref.string_of host) ;
                   Helpers.call_api_functions ~__context (fun rpc session_id ->
-                      Client.Host.request_backup rpc session_id host generation
-                        false
-                  ) ;
+                      Client.Host.request_backup
+                        rpc
+                        session_id
+                        host
+                        generation
+                        false ) ;
                   debug "Finished DB synchronise"
-                with e ->
-                  error "Failed to synchronise DB with host %s: %s"
-                    (Ref.string_of host) (Printexc.to_string e)
+                with
+                | e ->
+                    error
+                      "Failed to synchronise DB with host %s: %s"
+                      (Ref.string_of host)
+                      (Printexc.to_string e)
               in
               (* since thread.delay is inside dohost fn make sure we don't spin if hosts=[]: *)
-              if hosts = [] then
-                Thread.delay !Xapi_globs.pool_db_sync_interval
-              else
-                List.iter dohost hosts
-            with e ->
-              debug "Exception in DB synchronise thread: %s"
-                (ExnHelper.string_of_exn e)
-          done
-      )
-      )
+              if hosts = []
+              then Thread.delay !Xapi_globs.pool_db_sync_interval
+              else List.iter dohost hosts
+            with
+            | e ->
+                debug
+                  "Exception in DB synchronise thread: %s"
+                  (ExnHelper.string_of_exn e)
+          done ) )
     ()

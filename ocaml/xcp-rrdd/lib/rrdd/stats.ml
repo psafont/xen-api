@@ -14,27 +14,34 @@
 (** Time activities, monitor the mean and standard deviation. Try to help
     understand how long key operations take under load. *)
 
-module D = Debug.Make (struct let name = "stats" end)
+module D = Debug.Make (struct
+  let name = "stats"
+end)
 
 open D
 module Mutex = Xapi_stdext_threads.Threadext.Mutex
 
 module Normal_population = struct
   (** Stats on a normally-distributed population *)
-  type t = {sigma_x: float; sigma_xx: float; n: int}
+  type t =
+    { sigma_x : float
+    ; sigma_xx : float
+    ; n : int
+    }
 
-  let empty = {sigma_x= 0.; sigma_xx= 0.; n= 0}
+  let empty = { sigma_x = 0.; sigma_xx = 0.; n = 0 }
 
   let sample (p : t) (x : float) : t =
-    {sigma_x= p.sigma_x +. x; sigma_xx= p.sigma_xx +. (x *. x); n= p.n + 1}
+    { sigma_x = p.sigma_x +. x; sigma_xx = p.sigma_xx +. (x *. x); n = p.n + 1 }
+
 
   exception Unknown
 
   let mean (p : t) : float = p.sigma_x /. float_of_int p.n
 
   let sd (p : t) : float =
-    if p.n = 0 then
-      raise Unknown
+    if p.n = 0
+    then raise Unknown
     else
       let n = float_of_int p.n in
       sqrt ((n *. p.sigma_xx) -. (p.sigma_x *. p.sigma_x)) /. n
@@ -57,6 +64,7 @@ let mean (p : Normal_population.t) =
   let mu = Normal_population.mean p in
   exp (mu +. (sigma *. sigma /. 2.))
 
+
 let sd (p : Normal_population.t) =
   let sigma = Normal_population.sd p in
   let mu = Normal_population.mean p in
@@ -65,22 +73,23 @@ let sd (p : Normal_population.t) =
   in
   sqrt v
 
+
 let string_of (p : Normal_population.t) =
   Printf.sprintf "%f [sd = %f]" (mean p) (sd p)
+
 
 let sample (name : string) (x : float) : unit =
   (* Use the lognormal distribution: *)
   let x' = log x in
   Mutex.execute timings_m (fun () ->
       let p =
-        if Hashtbl.mem timings name then
-          Hashtbl.find timings name
-        else
-          Normal_population.empty
+        if Hashtbl.mem timings name
+        then Hashtbl.find timings name
+        else Normal_population.empty
       in
       let p' = Normal_population.sample p x' in
-      Hashtbl.replace timings name p'
-  )
+      Hashtbl.replace timings name p' )
+
 
 (** Helper function to time a specific thing *)
 let time_this (name : string) f =
@@ -89,23 +98,36 @@ let time_this (name : string) f =
     try
       let end_time = Unix.gettimeofday () in
       sample name (end_time -. start_time)
-    with e ->
-      warn "Ignoring exception %s while timing: %s" (Printexc.to_string e) name
+    with
+    | e ->
+        warn
+          "Ignoring exception %s while timing: %s"
+          (Printexc.to_string e)
+          name
   in
   try
     let result = f () in
-    endfn () ; result
-  with e -> endfn () ; raise e
+    endfn () ;
+    result
+  with
+  | e ->
+      endfn () ;
+      raise e
+
 
 let summarise () =
   Mutex.execute timings_m (fun () ->
-      Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings []
-  )
+      Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings [] )
+
 
 (*****************************)
 (* Database stats            *)
 
-type dbcallty = Read | Write | Create | Drop
+type dbcallty =
+  | Read
+  | Write
+  | Create
+  | Drop
 
 let dbstats_m = Mutex.create ()
 
@@ -120,14 +142,16 @@ let dbstats_drop_dbcalls : (string, int) Hashtbl.t = Hashtbl.create 100
 let dbstats_task : (string, (string * dbcallty) list) Hashtbl.t =
   Hashtbl.create 100
 
+
 let dbstats_threads : (int, (string * dbcallty) list) Hashtbl.t =
   Hashtbl.create 100
+
 
 let log_stats = ref false
 
 let log_db_call task_opt dbcall ty =
-  if not !log_stats then
-    ()
+  if not !log_stats
+  then ()
   else
     Mutex.execute dbstats_m (fun () ->
         let hashtbl =
@@ -141,22 +165,26 @@ let log_db_call task_opt dbcall ty =
           | Drop ->
               dbstats_drop_dbcalls
         in
-        Hashtbl.replace hashtbl dbcall
+        Hashtbl.replace
+          hashtbl
+          dbcall
           (1 + try Hashtbl.find hashtbl dbcall with _ -> 0) ;
         let threadid = Thread.id (Thread.self ()) in
-        Hashtbl.replace dbstats_threads threadid
+        Hashtbl.replace
+          dbstats_threads
+          threadid
           ((dbcall, ty)
-           :: (try Hashtbl.find dbstats_threads threadid with _ -> [])
-          ) ;
+           :: (try Hashtbl.find dbstats_threads threadid with _ -> []) ) ;
         match task_opt with
         | Some task ->
-            Hashtbl.replace dbstats_task task
+            Hashtbl.replace
+              dbstats_task
+              task
               ((dbcall, ty)
-               :: (try Hashtbl.find dbstats_task task with _ -> [])
-              )
+               :: (try Hashtbl.find dbstats_task task with _ -> []) )
         | None ->
-            ()
-    )
+            () )
+
 
 let summarise_db_calls () =
   let string_of_ty = function
@@ -186,11 +214,10 @@ let summarise_db_calls () =
             ( k
             , List.map
                 (fun (dbcall, ty) -> (string_of_ty ty, dbcall))
-                (List.rev v)
-            )
-            :: acc
-            )
-          dbstats_task []
+                (List.rev v) )
+            :: acc )
+          dbstats_task
+          []
       , List.sort
           (fun (a, _) (b, _) -> compare a b)
           (Hashtbl.fold
@@ -198,11 +225,7 @@ let summarise_db_calls () =
                ( k
                , List.map
                    (fun (dbcall, ty) -> (string_of_ty ty, dbcall))
-                   (List.rev v)
-               )
-               :: acc
-               )
-             dbstats_threads []
-          )
-      )
-  )
+                   (List.rev v) )
+               :: acc )
+             dbstats_threads
+             [] ) ) )

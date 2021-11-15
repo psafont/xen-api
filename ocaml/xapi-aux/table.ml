@@ -15,14 +15,15 @@
     Modified from Richard's code in the CLI *)
 
 let pad n s before =
-  if String.length s > n then
-    if String.length s > 2 then
-      String.sub s 0 (n - 2) ^ ".."
-    else
-      String.sub s 0 n
+  if String.length s > n
+  then
+    if String.length s > 2
+    then String.sub s 0 (n - 2) ^ ".."
+    else String.sub s 0 n
   else
     let padding = String.make (n - String.length s) ' ' in
     if before then padding ^ s else s ^ padding
+
 
 let left n s = pad n s false
 
@@ -38,6 +39,7 @@ let compute_col_widths rows =
   let cols = List.map column (mkints numcols) in
   let max n str = max n (String.length str) in
   List.map (List.fold_left max 0) cols
+
 
 let print (rows : string list list) =
   match rows with

@@ -27,7 +27,7 @@ type 'a test_case = string * Alcotest.speed_level * 'a
 (** A filter takes a list of tests and returns a new list of transformed test cases *)
 type ('a, 'b) filter = 'a test_case list -> 'b test_case list
 
-val conn : (Qt.rpc -> [`session] Ref.t -> 'c, 'c) filter
+val conn : (Qt.rpc -> [ `session ] Ref.t -> 'c, 'c) filter
 (** Provides connection details: passes the rpc and session_id to the test *)
 
 module SR : sig

@@ -38,6 +38,7 @@ let to_class_param =
   | BestEffort x ->
       (2, to_param x)
 
+
 let of_class_param_exn cls param =
   let param =
     match param with
@@ -64,6 +65,7 @@ let of_class_param_exn cls param =
   | _ ->
       raise Not_found
 
+
 (* caught below *)
 
 exception Parse_failed of string
@@ -71,23 +73,25 @@ exception Parse_failed of string
 let parse_result_exn s : qos_scheduler option =
   try
     match Astring.String.fields ~empty:false s with
-    | [cls_colon; "prio"; param] -> (
-      match String.sub cls_colon 0 (String.length cls_colon - 1) with
+    | [ cls_colon; "prio"; param ] ->
+      ( match String.sub cls_colon 0 (String.length cls_colon - 1) with
       | "unknown" | "none" ->
           None
       | cls ->
-          Some (of_class_param_exn cls param)
-    )
+          Some (of_class_param_exn cls param) )
     | _ ->
         raise (Parse_failed s)
-  with _ -> raise (Parse_failed s)
+  with
+  | _ ->
+      raise (Parse_failed s)
+
 
 let set_args qos pid =
   let cls, param = to_class_param qos in
-  [
-    Printf.sprintf "-c%d" cls
+  [ Printf.sprintf "-c%d" cls
   ; Printf.sprintf "-n%d" param
   ; Printf.sprintf "-p%d" pid
   ]
 
-let get_args pid = [Printf.sprintf "-p%d" pid]
+
+let get_args pid = [ Printf.sprintf "-p%d" pid ]

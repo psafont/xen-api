@@ -40,7 +40,7 @@ val attach_internal :
      ?management_interface:bool
   -> ?force_bringup:bool
   -> __context:Context.t
-  -> self:[`network] Ref.t
+  -> self:[ `network ] Ref.t
   -> unit
   -> unit
 (** Instantiate the bridge associated to this network on the localhost, and bring
@@ -52,7 +52,8 @@ val attach_internal :
     {!Nm.bring_pif_up} with the [management_interface] argument so it can make sure
     the default gateway is set up correctly *)
 
-val attach : __context:Context.t -> network:[`network] Ref.t -> host:'a -> unit
+val attach :
+  __context:Context.t -> network:[ `network ] Ref.t -> host:'a -> unit
 (** Makes the network immediately available on a particular host (Network.attach is hidden from docs) *)
 
 val register_vif : __context:Context.t -> API.ref_VIF -> unit
@@ -73,7 +74,7 @@ val pool_introduce :
   -> bridge:string
   -> managed:bool
   -> purpose:API.network_purpose list
-  -> [`network] Ref.t
+  -> [ `network ] Ref.t
 (** Internal fn used by slave to create new network records on master during pool join operation *)
 
 val create :
@@ -85,58 +86,58 @@ val create :
   -> bridge:string
   -> managed:bool
   -> tags:string list
-  -> [`network] Ref.t
+  -> [ `network ] Ref.t
 (** Attempt to create a bridge with a unique name *)
 
-val destroy : __context:Context.t -> self:[`network] Ref.t -> unit
+val destroy : __context:Context.t -> self:[ `network ] Ref.t -> unit
 (** WARNING WARNING WARNING: called with the master dispatcher lock; do nothing but basic DB calls
     here without being really sure *)
 
 val create_new_blob :
      __context:Context.t
-  -> network:[`network] Ref.t
+  -> network:[ `network ] Ref.t
   -> name:string
   -> mime_type:string
   -> public:bool
-  -> [`blob] Ref.t
+  -> [ `blob ] Ref.t
 (** Create a placeholder for a named binary blob of data that is associated with this pool *)
 
 val set_default_locking_mode :
      __context:Context.t
-  -> network:[`network] Ref.t
+  -> network:[ `network ] Ref.t
   -> value:API.network_default_locking_mode
   -> unit
 
 (** {2 Networking helper functions for VMs and VIFs} *)
 
-val attach_for_vif : __context:Context.t -> vif:[`VIF] Ref.t -> unit -> unit
+val attach_for_vif : __context:Context.t -> vif:[ `VIF ] Ref.t -> unit -> unit
 
 val attach_for_vm :
-  __context:Context.t -> host:[`host] Ref.t -> vm:[`VM] Ref.t -> unit
+  __context:Context.t -> host:[ `host ] Ref.t -> vm:[ `VM ] Ref.t -> unit
 
 val detach_for_vm :
-  __context:Context.t -> host:[`host] Ref.t -> vm:[`VM] Ref.t -> unit
+  __context:Context.t -> host:[ `host ] Ref.t -> vm:[ `VM ] Ref.t -> unit
 
 val with_networks_attached_for_vm :
      __context:Context.t
-  -> ?host:[`host] Ref.t
-  -> vm:[`VM] Ref.t
+  -> ?host:[ `host ] Ref.t
+  -> vm:[ `VM ] Ref.t
   -> (unit -> 'a)
   -> 'a
 
 val add_purpose :
      __context:Context.t
-  -> self:[`network] Ref.t
+  -> self:[ `network ] Ref.t
   -> value:API.network_purpose
   -> unit
 
 val remove_purpose :
      __context:Context.t
-  -> self:[`network] Ref.t
+  -> self:[ `network ] Ref.t
   -> value:API.network_purpose
   -> unit
 
 (** {2 Assertion Helper Functions} *)
 
 val assert_network_is_managed :
-  __context:Context.t -> self:[`network] Ref.t -> unit
+  __context:Context.t -> self:[ `network ] Ref.t -> unit

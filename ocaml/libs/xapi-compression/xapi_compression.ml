@@ -2,7 +2,9 @@ module type ALGORITHM = sig
   val executable : string
 end
 
-module D = Debug.Make (struct let name = "xapi_compression" end)
+module D = Debug.Make (struct
+  let name = "xapi_compression"
+end)
 
 open D
 
@@ -11,7 +13,9 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 module Make (Algorithm : ALGORITHM) = struct
   let available () = Sys.file_exists Algorithm.executable
 
-  type zcat_mode = Compress | Decompress
+  type zcat_mode =
+    | Compress
+    | Decompress
 
   type input_type =
     | Active
@@ -24,15 +28,16 @@ module Make (Algorithm : ALGORITHM) = struct
   *)
   let lower_priority cmd args =
     let ionice = "/usr/bin/ionice" in
-    let ionice_args = ["-c"; "3"] in
+    let ionice_args = [ "-c"; "3" ] in
     (*io idle*)
     let nice = "/bin/nice" in
-    let nice_args = ["-n"; "19"] in
+    let nice_args = [ "-n"; "19" ] in
     (*lowest priority*)
-    let extra_args = nice_args @ [ionice] @ ionice_args in
+    let extra_args = nice_args @ [ ionice ] @ ionice_args in
     let new_cmd = nice in
-    let new_args = extra_args @ [cmd] @ args in
+    let new_args = extra_args @ [ cmd ] @ args in
     (new_cmd, new_args)
+
 
   (** Runs a zcat process which is either:
       i) a compressor; or (ii) a decompressor
@@ -42,9 +47,12 @@ module Make (Algorithm : ALGORITHM) = struct
   *)
   let go (mode : zcat_mode) (input : input_type) fd f =
     let open Safe_resources in
-    Unixfd.with_pipe ~loc:__LOC__ () @@ fun zcat_out zcat_in ->
+    Unixfd.with_pipe ~loc:__LOC__ ()
+    @@ fun zcat_out zcat_in ->
     let args =
-      if mode = Compress then [] else ["--decompress"] @ ["--stdout"; "--force"]
+      if mode = Compress
+      then []
+      else [ "--decompress" ] @ [ "--stdout"; "--force" ]
     in
     let stdin, stdout, close_now, close_later =
       match input with
@@ -55,8 +63,7 @@ module Make (Algorithm : ALGORITHM) = struct
           , (* supplied fd is written to *)
             zcat_out
           , (* we close this now *)
-            zcat_in
-          )
+            zcat_in )
           (* close this before waitpid *)
       | Passive ->
           ( Some fd
@@ -65,8 +72,7 @@ module Make (Algorithm : ALGORITHM) = struct
           , (* output goes into the pipe+fn *)
             zcat_in
           , (* we close this now *)
-            zcat_out
-          )
+            zcat_out )
     in
     (* close this before waitpid *)
     let executable, args = lower_priority Algorithm.executable args in
@@ -85,11 +91,14 @@ module Make (Algorithm : ALGORITHM) = struct
                 "decompress"
           in
           let msg =
-            Printf.sprintf "%s failed to %s: %s"
+            Printf.sprintf
+              "%s failed to %s: %s"
               (Filename.basename executable)
-              (string_of_mode mode) s
+              (string_of_mode mode)
+              s
           in
-          error "%s" msg ; failwith msg
+          error "%s" msg ;
+          failwith msg
         in
         Unixfd.safe_close close_later ;
         let open Xapi_stdext_unix in
@@ -100,15 +109,15 @@ module Make (Algorithm : ALGORITHM) = struct
             failwith_error (Printf.sprintf "exit code %d" i)
         | Unix.WSIGNALED i ->
             failwith_error
-              (Printf.sprintf "killed by signal: %s"
-                 (Unixext.string_of_signal i)
-              )
+              (Printf.sprintf
+                 "killed by signal: %s"
+                 (Unixext.string_of_signal i) )
         | Unix.WSTOPPED i ->
             failwith_error
-              (Printf.sprintf "stopped by signal: %s"
-                 (Unixext.string_of_signal i)
-              )
-        )
+              (Printf.sprintf
+                 "stopped by signal: %s"
+                 (Unixext.string_of_signal i) ) )
+
 
   let compress fd f = go Compress Active fd f
 

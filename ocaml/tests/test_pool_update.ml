@@ -19,8 +19,10 @@ let test_pool_update_destroy () =
   let self = make_pool_update ~__context () in
   Xapi_pool_update.destroy ~__context ~self ;
   Alcotest.(check bool)
-    "test_pool_update_destroy: pool update ref should be invalid" false
+    "test_pool_update_destroy: pool update ref should be invalid"
+    false
     (Db.is_valid_ref __context self)
+
 
 let test_pool_update_refcount () =
   let assert_equal =
@@ -28,34 +30,46 @@ let test_pool_update_refcount () =
   in
   let __context = make_test_database () in
   let vdi = make_vdi ~__context ~virtual_size:4096L () in
-  Xapi_pool_update.with_inc_refcount ~__context ~uuid:"a" ~vdi
-    (fun ~__context ~uuid ~vdi -> ()
-  ) ;
-  Xapi_pool_update.with_inc_refcount ~__context ~uuid:"a" ~vdi
-    (fun ~__context ~uuid ~vdi -> assert_equal 0 1
-  ) ;
-  Xapi_pool_update.with_dec_refcount ~__context ~uuid:"a" ~vdi
-    (fun ~__context ~uuid ~vdi -> assert_equal 0 1
-  ) ;
-  Xapi_pool_update.with_dec_refcount ~__context ~uuid:"a" ~vdi
-    (fun ~__context ~uuid ~vdi -> ()
-  )
+  Xapi_pool_update.with_inc_refcount
+    ~__context
+    ~uuid:"a"
+    ~vdi
+    (fun ~__context ~uuid ~vdi -> ()) ;
+  Xapi_pool_update.with_inc_refcount
+    ~__context
+    ~uuid:"a"
+    ~vdi
+    (fun ~__context ~uuid ~vdi -> assert_equal 0 1) ;
+  Xapi_pool_update.with_dec_refcount
+    ~__context
+    ~uuid:"a"
+    ~vdi
+    (fun ~__context ~uuid ~vdi -> assert_equal 0 1) ;
+  Xapi_pool_update.with_dec_refcount
+    ~__context
+    ~uuid:"a"
+    ~vdi
+    (fun ~__context ~uuid ~vdi -> ())
+
 
 let test_assert_space_available () =
   let free_bytes = 1_000_000L in
-  Alcotest.check_raises "test_assert_space_available should raise out_of_space"
-    Api_errors.(Server_error (out_of_space, [!Xapi_globs.host_update_dir]))
+  Alcotest.check_raises
+    "test_assert_space_available should raise out_of_space"
+    Api_errors.(Server_error (out_of_space, [ !Xapi_globs.host_update_dir ]))
     (fun () ->
       Xapi_pool_update.assert_space_available
         ~get_free_bytes:(fun _ -> free_bytes)
-        "./" (Int64.div free_bytes 2L)
-      )
+        "./"
+        (Int64.div free_bytes 2L) )
+
 
 let test_download_restriction () =
   Xapi_globs.host_update_dir := "." ;
   let assert_no_dots (_, s) =
     Alcotest.(check bool)
-      "test_download_restriction: path must not contain ." true
+      "test_download_restriction: path must not contain ."
+      true
       (String.index_opt s '.' = None)
   in
   let test path =
@@ -64,7 +78,8 @@ let test_download_restriction () =
     |> Xapi_pool_update.path_and_host_from_uri
     |> assert_no_dots
   in
-  List.iter test ["/myfile"; "/.."; "/%2e%2e"]
+  List.iter test [ "/myfile"; "/.."; "/%2e%2e" ]
+
 
 let test_parse_update_info () =
   let no_key_xml =
@@ -78,7 +93,8 @@ let test_parse_update_info () =
   in
   let update_info = Xapi_pool_update.parse_update_info no_key_xml in
   Alcotest.(check (option string) "unsigned update must have no key")
-    update_info.key None ;
+    update_info.key
+    None ;
   let key_xml =
     Xml.parse_string
       {|
@@ -90,11 +106,12 @@ let test_parse_update_info () =
   in
   let update_info = Xapi_pool_update.parse_update_info key_xml in
   Alcotest.(check (option string) "unsigned update must have no key")
-    update_info.key (Some "SOME_KEY")
+    update_info.key
+    (Some "SOME_KEY")
+
 
 let test =
-  [
-    ("test_pool_update_destroy", `Quick, test_pool_update_destroy)
+  [ ("test_pool_update_destroy", `Quick, test_pool_update_destroy)
   ; ("test_pool_update_refcount", `Quick, test_pool_update_refcount)
   ; ("test_assert_space_available", `Quick, test_assert_space_available)
   ; ("test_download_restriction", `Quick, test_download_restriction)

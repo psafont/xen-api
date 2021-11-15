@@ -15,22 +15,25 @@
  * @group Performance Monitoring
 *)
 
-type pif = {
-    pif_name: string
-  ; pif_carrier: bool
-  ; pif_speed: int
-  ; pif_duplex: Network_interface.duplex
-  ; pif_pci_bus_path: string
-  ; pif_vendor_id: string
-  ; pif_device_id: string
-}
+type pif =
+  { pif_name : string
+  ; pif_carrier : bool
+  ; pif_speed : int
+  ; pif_duplex : Network_interface.duplex
+  ; pif_pci_bus_path : string
+  ; pif_vendor_id : string
+  ; pif_device_id : string
+  }
 
 let vif_device_of_string x =
   try
     let ty, params = Astring.String.span ~max:3 x in
     let domid, devid = Scanf.sscanf params "%d.%d" (fun x y -> (x, y)) in
     match ty with "vif" -> Some (domid, devid) | _ -> None
-  with _ -> None
+  with
+  | _ ->
+      None
+
 
 let find_rrd_files () = Sys.readdir Xapi_globs.metrics_root |> Array.to_list
 

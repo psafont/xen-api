@@ -26,11 +26,13 @@ let parse_lines ls =
           inner ls ((token, value) :: cur)
       | _ ->
           cur
-    with Not_found ->
-      Printf.fprintf stderr "Error parsing rc file. No defaults loaded\n" ;
-      []
+    with
+    | Not_found ->
+        Printf.fprintf stderr "Error parsing rc file. No defaults loaded\n" ;
+        []
   in
   inner ls []
+
 
 let read_rc () =
   try
@@ -40,8 +42,12 @@ let read_rc () =
       try
         let line = input_line rc_file in
         getlines (line :: cur)
-      with _ -> cur
+      with
+      | _ ->
+          cur
     in
     let lines = getlines [] in
     parse_lines lines
-  with _ -> []
+  with
+  | _ ->
+      []

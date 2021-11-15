@@ -22,16 +22,16 @@ let set f (m : string) =
   | _ ->
       raise (Failure m)
 
+
 let map f g (m : string) =
   match SExpr_TS.of_string m with
   | SExpr.Node xs ->
       List.map
         (function
-          | SExpr.Node [SExpr.String k; SExpr.String v] ->
+          | SExpr.Node [ SExpr.String k; SExpr.String v ] ->
               (f k, g v)
           | _ ->
-              raise (Failure m)
-          )
+              raise (Failure m) )
         xs
   | _ ->
       raise (Failure m)

@@ -42,8 +42,14 @@ let string_of_data_source owner ds =
     | Rrd.Derive ->
         "derive"
   in
-  Printf.sprintf "owner: %s\nname: %s\ntype: %s\nvalue: %s\nunits: %s"
-    owner_string ds.Ds.ds_name type_string value_string ds.Ds.ds_units
+  Printf.sprintf
+    "owner: %s\nname: %s\ntype: %s\nvalue: %s\nunits: %s"
+    owner_string
+    ds.Ds.ds_name
+    type_string
+    value_string
+    ds.Ds.ds_units
+
 
 let interpret_payload payload =
   print_endline "------------ Metadata ------------" ;
@@ -52,26 +58,28 @@ let interpret_payload payload =
   List.iter
     (fun (owner, ds) ->
       print_endline (string_of_data_source owner ds) ;
-      print_endline "----------"
-      )
+      print_endline "----------" )
     payload.datasources
 
+
 let main_loop reader interval =
-  Sys.set_signal Sys.sigint
+  Sys.set_signal
+    Sys.sigint
     (Sys.Signal_handle
        (fun _ ->
          reader.Rrd_reader.cleanup () ;
-         exit 0
-         )
-    ) ;
+         exit 0 ) ) ;
   try
     while true do
       let payload = reader.Rrd_reader.read_payload () in
-      interpret_payload payload ; Thread.delay interval
+      interpret_payload payload ;
+      Thread.delay interval
     done
-  with e ->
-    reader.Rrd_reader.cleanup () ;
-    raise e
+  with
+  | e ->
+      reader.Rrd_reader.cleanup () ;
+      raise e
+
 
 let protocol_of_string = function
   | "v1" ->
@@ -81,20 +89,22 @@ let protocol_of_string = function
   | _ ->
       failwith "Unknown protocol"
 
+
 let read_file once path protocol =
   let protocol = protocol_of_string protocol in
   let reader = Rrd_reader.FileReader.create path protocol in
-  if once then (
+  if once
+  then (
     reader.Rrd_reader.read_payload () |> interpret_payload ;
-    reader.Rrd_reader.cleanup ()
-  ) else
-    main_loop reader 5.0
+    reader.Rrd_reader.cleanup () )
+  else main_loop reader 5.0
+
 
 let read_page domid grantref protocol =
   let protocol = protocol_of_string protocol in
   let reader =
     Rrd_reader.PageReader.create
-      {Rrd_reader.frontend_domid= domid; shared_page_refs= [grantref]}
+      { Rrd_reader.frontend_domid = domid; shared_page_refs = [ grantref ] }
       protocol
   in
   main_loop reader 5.0

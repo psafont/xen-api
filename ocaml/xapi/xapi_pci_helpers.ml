@@ -12,22 +12,27 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "xapi_pci_helpers" end)
+module D = Debug.Make (struct
+  let name = "xapi_pci_helpers"
+end)
 
 open D
 
-type pci_property = {id: int; name: string}
+type pci_property =
+  { id : int
+  ; name : string
+  }
 
-type pci = {
-    address: string
-  ; vendor: pci_property
-  ; device: pci_property
-  ; pci_class: pci_property
-  ; subsystem_vendor: pci_property option
-  ; subsystem_device: pci_property option
-  ; related: string list
-  ; driver_name: string option
-}
+type pci =
+  { address : string
+  ; vendor : pci_property
+  ; device : pci_property
+  ; pci_class : pci_property
+  ; subsystem_vendor : pci_property option
+  ; subsystem_device : pci_property option
+  ; related : string list
+  ; driver_name : string option
+  }
 
 let get_driver_name address =
   try
@@ -39,11 +44,15 @@ let get_driver_name address =
         Some suffix
     | None ->
         None
-  with _ -> None
+  with
+  | _ ->
+      None
+
 
 let address_of_dev x =
   let open Pci.Pci_dev in
   Printf.sprintf "%04x:%02x:%02x.%d" x.domain x.bus x.dev x.func
+
 
 (* Check for a PCI device whether it is virtual and remember the result
  * such that it can be looked up later *)
@@ -69,15 +78,19 @@ end = struct
     try
       ignore @@ Unix.readlink path ;
       true
-    with _ -> false
+    with
+    | _ ->
+        false
+
 
   let make () = Hashtbl.create 100
 
   let is_virtual t addr =
-    try Hashtbl.find t addr
-    with Not_found ->
-      let v = is_virtual addr in
-      Hashtbl.replace t addr v ; v
+    try Hashtbl.find t addr with
+    | Not_found ->
+        let v = is_virtual addr in
+        Hashtbl.replace t addr v ;
+        v
 end
 
 (** [is_related_to x y] is true, if two non-virtual PCI devices
@@ -91,6 +104,7 @@ let is_related_to cache (x : Pci.Pci_dev.t) (y : Pci.Pci_dev.t) =
   && x.func <> y.func
   && (not @@ PCIcache.is_virtual cache @@ address_of_dev x)
   && (not @@ PCIcache.is_virtual cache @@ address_of_dev y)
+
 
 let get_host_pcis () =
   let default ~msg v =
@@ -108,20 +122,21 @@ let get_host_pcis () =
       List.map
         (fun d ->
           let open Pci_dev in
-          debug "get_host_pcis: vendor=%04x device=%04x class=%04x" d.vendor_id
-            d.device_id d.device_class ;
+          debug
+            "get_host_pcis: vendor=%04x device=%04x class=%04x"
+            d.vendor_id
+            d.device_id
+            d.device_class ;
           let vendor =
-            {
-              id= d.vendor_id
-            ; name=
+            { id = d.vendor_id
+            ; name =
                 lookup_vendor_name access d.vendor_id
                 |> default ~msg:"vendor name"
             }
           in
           let device =
-            {
-              id= d.device_id
-            ; name=
+            { id = d.device_id
+            ; name =
                 lookup_device_name access d.vendor_id d.device_id
                 |> default ~msg:"device name"
             }
@@ -138,36 +153,36 @@ let get_host_pcis () =
                   |> default ~msg:"subsystem vendor name"
                 in
                 let sd_name =
-                  lookup_subsystem_device_name access d.vendor_id d.device_id
-                    sv_id sd_id
+                  lookup_subsystem_device_name
+                    access
+                    d.vendor_id
+                    d.device_id
+                    sv_id
+                    sd_id
                   |> default ~msg:"susbsytem device name"
                 in
-                ( Some {id= sv_id; name= sv_name}
-                , Some {id= sd_id; name= sd_name}
-                )
+                ( Some { id = sv_id; name = sv_name }
+                , Some { id = sd_id; name = sd_name } )
           in
           let pci_class =
-            {
-              id= d.device_class
-            ; name=
+            { id = d.device_class
+            ; name =
                 lookup_class_name access d.device_class
                 |> default ~msg:"class name"
             }
           in
           let related_devs = List.filter (is_related_to cache d) devs in
-          {
-            address
+          { address
           ; vendor
           ; device
           ; subsystem_vendor
           ; subsystem_device
           ; pci_class
-          ; related= List.map address_of_dev related_devs
+          ; related = List.map address_of_dev related_devs
           ; driver_name
-          }
-          )
-        devs
-  )
+          } )
+        devs )
+
 
 let igd_is_whitelisted ~__context pci =
   let vendor_id = Db.PCI.get_vendor_id ~__context ~self:pci in

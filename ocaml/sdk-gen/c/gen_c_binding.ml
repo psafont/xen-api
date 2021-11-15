@@ -60,10 +60,14 @@ let api =
     && msg.msg_name <> "get"
     && msg.msg_name <> "get_data_sources"
   in
-  filter obj_filter field_filter message_filter
-    (Datamodel_utils.add_implicit_messages ~document_order:false
-       (filter obj_filter field_filter message_filter Datamodel.all_api)
-    )
+  filter
+    obj_filter
+    field_filter
+    message_filter
+    (Datamodel_utils.add_implicit_messages
+       ~document_order:false
+       (filter obj_filter field_filter message_filter Datamodel.all_api) )
+
 
 let classes = objects_of_api api
 
@@ -85,6 +89,7 @@ let joined sep f l =
   let r = List.map f l in
   String.concat sep (List.filter (fun x -> String.compare x "" != 0) r)
 
+
 let rec main () =
   let include_dir = Filename.concat destdir "include" in
   let src_dir = Filename.concat destdir "src" in
@@ -94,17 +99,15 @@ let rec main () =
 
   let filtered_classes =
     List.filter
-      (fun x -> not (List.mem x.name ["session"; "debug"; "data_source"]))
+      (fun x -> not (List.mem x.name [ "session"; "debug"; "data_source" ]))
       classes
   in
   List.iter
     (fun x ->
       ( gen_class write_predecl predecl_filename x include_dir ;
         gen_class write_decl decl_filename x include_dir ;
-        gen_class write_impl impl_filename x
-      )
-        src_dir
-      )
+        gen_class write_impl impl_filename x )
+        src_dir )
     filtered_classes ;
 
   all_headers := List.map (fun x -> x.name) filtered_classes ;
@@ -128,58 +131,63 @@ let rec main () =
 
   let class_records =
     filtered_classes
-    |> List.map (fun {name; _} -> record_typename name)
+    |> List.map (fun { name; _ } -> record_typename name)
     |> List.sort String.compare
   in
   let json1 =
     `O
-      [
-        ( "api_class_records"
+      [ ( "api_class_records"
         , `A
             (List.map
-               (fun x -> `O [("api_class_record", `String x)])
-               class_records
-            )
-        )
+               (fun x -> `O [ ("api_class_record", `String x) ])
+               class_records ) )
       ]
   in
   render_file
     ("xen_internal.mustache", "include/xen_internal.h")
-    json1 templates_dir destdir ;
+    json1
+    templates_dir
+    destdir ;
 
   let sorted_headers =
     List.sort String.compare (List.map decl_filename !all_headers)
   in
   let json2 =
     `O
-      [
-        ( "api_headers"
-        , `A (List.map (fun x -> `O [("api_header", `String x)]) sorted_headers)
-        )
+      [ ( "api_headers"
+        , `A
+            (List.map
+               (fun x -> `O [ ("api_header", `String x) ])
+               sorted_headers ) )
       ]
   in
   render_file
     ("xen_all.h.mustache", "include/xen/api/xen_all.h")
-    json2 templates_dir destdir
+    json2
+    templates_dir
+    destdir
+
 
 and gen_class f g clas targetdir =
   let out_chan = open_out (Filename.concat targetdir (g clas.name)) in
   finally (fun () -> f clas out_chan) ~always:(fun () -> close_out out_chan)
 
+
 and gen_enum f g targetdir = function
   | Enum (name, _) as x ->
-      if not (List.mem name !all_headers) then
-        all_headers := name :: !all_headers ;
+      if not (List.mem name !all_headers)
+      then all_headers := name :: !all_headers ;
       let out_chan = open_out (Filename.concat targetdir (g name)) in
       finally (fun () -> f x out_chan) ~always:(fun () -> close_out out_chan)
   | _ ->
       assert false
 
+
 and gen_map f g targetdir = function
   | Map (l, r) ->
       let name = mapname l r in
-      if not (List.mem name !all_headers) then
-        all_headers := name :: !all_headers ;
+      if not (List.mem name !all_headers)
+      then all_headers := name :: !all_headers ;
       let out_chan = open_out (Filename.concat targetdir (g name)) in
       finally
         (fun () -> f name l r out_chan)
@@ -187,7 +195,8 @@ and gen_map f g targetdir = function
   | _ ->
       assert false
 
-and write_predecl {name= classname; _} out_chan =
+
+and write_predecl { name = classname; _ } out_chan =
   let print format = fprintf out_chan format in
   let protect = protector (classname ^ "_decl") in
   let tn = typename classname in
@@ -196,19 +205,21 @@ and write_predecl {name= classname; _} out_chan =
 
   print_h_header out_chan protect ;
 
-  if classname <> "event" then (
+  if classname <> "event"
+  then (
     print "typedef void *%s;\n\n" tn ;
-    print "%s\n" (predecl_set tn)
-  ) ;
+    print "%s\n" (predecl_set tn) ) ;
   print "%s\n" (predecl record_tn) ;
   print "%s\n" (predecl_set record_tn) ;
-  if classname <> "event" then (
+  if classname <> "event"
+  then (
     print "%s\n" (predecl record_opt_tn) ;
-    print "%s\n" (predecl_set record_opt_tn)
-  ) ;
+    print "%s\n" (predecl_set record_opt_tn) ) ;
   print_h_footer out_chan
 
-and write_decl {name= classname; contents; description; messages; _} out_chan =
+
+and write_decl { name = classname; contents; description; messages; _ } out_chan
+    =
   let print format = fprintf out_chan format in
   let protect = protector classname in
   let tn = typename classname in
@@ -219,11 +230,12 @@ and write_decl {name= classname; contents; description; messages; _} out_chan =
   let record = decl_record needed tn record_tn contents in
   let record_opt = decl_record_opt tn record_tn record_opt_tn in
   let message_decls =
-    decl_messages needed classname
+    decl_messages
+      needed
+      classname
       (List.filter
          (fun x -> not (classname = "event" && x.msg_name = "from"))
-         messages
-      )
+         messages )
   in
   let full_stop =
     if Astring.String.is_suffix ~affix:"." description then "" else "."
@@ -241,24 +253,25 @@ and write_decl {name= classname; contents; description; messages; _} out_chan =
   print_h_header out_chan protect ;
   print "%s\n" (hash_includes !needed) ;
 
-  print "\n\n%s\n\n\n"
-    (Helper.comment false
-       (sprintf "The %s class.\n\n%s%s" classname description full_stop)
-    ) ;
+  print
+    "\n\n%s\n\n\n"
+    (Helper.comment
+       false
+       (sprintf "The %s class.\n\n%s%s" classname description full_stop) ) ;
 
-  if classname <> "event" then (
-    print "%s\n\n"
+  if classname <> "event"
+  then (
+    print
+      "%s\n\n"
       (decl_free tn (String.lowercase_ascii classname) false "handle") ;
-    print "%s\n" (decl_set tn false)
-  ) ;
+    print "%s\n" (decl_set tn false) ) ;
   print "%s\n" record ;
-  if classname <> "event" then
-    print "%s\n" record_opt ;
+  if classname <> "event" then print "%s\n" record_opt ;
   print "%s\n\n" (decl_set record_tn class_has_refs) ;
-  if classname <> "event" then
-    print "%s\n\n" (decl_set record_opt_tn true) ;
+  if classname <> "event" then print "%s\n\n" (decl_set record_opt_tn true) ;
   print "%s\n" message_decls ;
   print_h_footer out_chan
+
 
 and predecl_set tn = predecl (tn ^ "_set")
 
@@ -280,22 +293,29 @@ and decl_set tn referenced =
      extern %s_set *\n\
      %s_set_alloc(size_t size);\n\n\
      %s\n"
-    tn tn tn alloc_com tn tn
+    tn
+    tn
+    tn
+    alloc_com
+    tn
+    tn
     (decl_free (sprintf "%s_set" tn) "*set" referenced "set")
+
 
 and decl_free tn cn referenced thing =
   let com =
-    Helper.comment true
+    Helper.comment
+      true
       (sprintf
          "Free the given %s%s.  The given %s must have been allocated by this \
           library."
          tn
          (if referenced then ", and all referenced values" else "")
-         thing
-      )
+         thing )
   in
 
   sprintf "%s\nextern void\n%s_free(%s %s);" com tn tn cn
+
 
 and decl_record needed tn record_tn contents =
   sprintf
@@ -313,8 +333,10 @@ and decl_record needed tn record_tn contents =
     (record_fields contents needed)
     record_tn
     (Helper.comment true (sprintf "Allocate a %s." record_tn))
-    record_tn record_tn
+    record_tn
+    record_tn
     (decl_free record_tn "*record" true "record")
+
 
 and decl_record_opt tn record_tn record_opt_tn =
   sprintf
@@ -332,44 +354,59 @@ and decl_record_opt tn record_tn record_opt_tn =
      extern %s *\n\
      %s_alloc(void);\n\n\
      %s\n"
-    record_opt_tn tn record_tn record_opt_tn
+    record_opt_tn
+    tn
+    record_tn
+    record_opt_tn
     (Helper.comment true (sprintf "Allocate a %s." record_opt_tn))
-    record_opt_tn record_opt_tn
+    record_opt_tn
+    record_opt_tn
     (decl_free record_opt_tn "*record_opt" true "record_opt")
+
 
 and record_fields contents needed =
   joined "\n    " (record_field needed "") contents
 
+
 and record_field needed prefix content =
   match content with
   | Field fr ->
-      sprintf "%s%s%s;"
+      sprintf
+        "%s%s%s;"
         (c_type_of_ty needed true fr.ty)
-        prefix (fieldname fr.field_name)
+        prefix
+        (fieldname fr.field_name)
   | Namespace (p, c) ->
       joined "\n    " (record_field needed (prefix ^ fieldname p ^ "_")) c
+
 
 and decl_messages needed classname messages =
   joined "\n\n" (decl_message needed classname) messages
 
+
 and decl_message needed classname message =
   let message_sig = message_signature needed classname message in
   let messageAsyncVersion = decl_message_async needed classname message in
-  sprintf "%s\n%sextern %s;\n%s"
+  sprintf
+    "%s\n%sextern %s;\n%s"
     (get_message_comment message)
     (get_deprecated_message message)
-    message_sig messageAsyncVersion
+    message_sig
+    messageAsyncVersion
+
 
 and decl_message_async needed classname message =
-  if message.msg_async then (
+  if message.msg_async
+  then (
     let messageSigAsync = message_signature_async needed classname message in
     needed := StringSet.add "task_decl" !needed ;
-    sprintf "\n%s\n%sextern %s;\n"
+    sprintf
+      "\n%s\n%sextern %s;\n"
       (get_message_comment message)
       (get_deprecated_message message)
-      messageSigAsync
-  ) else
-    ""
+      messageSigAsync )
+  else ""
+
 
 and get_message_comment message =
   let full_stop =
@@ -377,16 +414,18 @@ and get_message_comment message =
   in
   Helper.comment true (sprintf "%s%s" message.msg_doc full_stop)
 
+
 and impl_messages needed classname messages =
   joined "\n\n" (impl_message needed classname) messages
+
 
 and impl_message needed classname message =
   let message_sig = message_signature needed classname message in
   let param_count = List.length message.msg_params in
 
   let param_decl, param_call =
-    if param_count = 0 then
-      ("", "NULL")
+    if param_count = 0
+    then ("", "NULL")
     else
       let param_pieces = abstract_params message.msg_params in
 
@@ -396,8 +435,7 @@ and impl_message needed classname message =
           \            %s\n\
           \        };\n"
           param_pieces
-      , "param_values"
-      )
+      , "param_values" )
   in
 
   let result_bits =
@@ -408,22 +446,31 @@ and impl_message needed classname message =
         sprintf
           "    xen_call_(session, \"%s.%s\", %s, %d, NULL, NULL);\n\
           \    return session->ok;\n"
-          classname message.msg_name param_call param_count
+          classname
+          message.msg_name
+          param_call
+          param_count
   in
 
   let messageAsyncImpl = impl_message_async needed classname message in
-  sprintf "%s%s\n{\n%s\n%s}\n%s"
+  sprintf
+    "%s%s\n{\n%s\n%s}\n%s"
     (get_deprecated_message message)
-    message_sig param_decl result_bits messageAsyncImpl
+    message_sig
+    param_decl
+    result_bits
+    messageAsyncImpl
+
 
 and impl_message_async needed classname message =
-  if message.msg_async then
+  if message.msg_async
+  then
     let messageSigAsync = message_signature_async needed classname message in
     let param_count = List.length message.msg_params in
 
     let param_decl, _ =
-      if param_count = 0 then
-        ("", "NULL")
+      if param_count = 0
+      then ("", "NULL")
       else
         let param_pieces = abstract_params message.msg_params in
 
@@ -433,26 +480,31 @@ and impl_message_async needed classname message =
             \            %s\n\
             \        };\n"
             param_pieces
-        , "param_values"
-        )
+        , "param_values" )
     in
 
     let result_bits =
       abstract_result_handling_async classname message.msg_name param_count
     in
-    sprintf "\n%s%s\n{\n%s\n%s}"
+    sprintf
+      "\n%s%s\n{\n%s\n%s}"
       (get_deprecated_message message)
-      messageSigAsync param_decl result_bits
-  else
-    ""
+      messageSigAsync
+      param_decl
+      result_bits
+  else ""
+
 
 and abstract_params params = joined ",\n            " abstract_param params
 
 and abstract_param p =
   let ab_typ = abstract_type false p.param_type in
-  sprintf "{ .type = &%s,\n              .u.%s_val = %s }" ab_typ
+  sprintf
+    "{ .type = &%s,\n              .u.%s_val = %s }"
+    ab_typ
     (abstract_member p.param_type)
     (abstract_param_conv p.param_name p.param_type)
+
 
 and abstract_param_conv name = function
   | Set _ | Map _ ->
@@ -461,6 +513,7 @@ and abstract_param_conv name = function
       sprintf "%s->session_id" (paramname name)
   | _ ->
       paramname name
+
 
 and abstract_member = function
   | SecretString | String | Ref _ ->
@@ -485,21 +538,26 @@ and abstract_member = function
       eprintf "%s" (Types.to_string x) ;
       assert false
 
+
 and abstract_result_handling classname msg_name param_count = function
-  | typ, _ -> (
+  | typ, _ ->
       let call =
-        if param_count = 0 then
+        if param_count = 0
+        then
           sprintf
             "xen_call_(session, \"%s.%s\", NULL, 0, &result_type, result);"
-            classname msg_name
-        else
-          sprintf "XEN_CALL_(\"%s.%s\");" classname msg_name
+            classname
+            msg_name
+        else sprintf "XEN_CALL_(\"%s.%s\");" classname msg_name
       in
 
-      match typ with
+      ( match typ with
       | String | Ref _ | Int | Float | Bool | DateTime | Set _ | Map _ ->
-          sprintf "%s\n\n%s    %s\n    return session->ok;\n"
-            (abstract_result_type typ) (initialiser_of_ty typ) call
+          sprintf
+            "%s\n\n%s    %s\n    return session->ok;\n"
+            (abstract_result_type typ)
+            (initialiser_of_ty typ)
+            call
       | Record n ->
           let record_tn = record_typename n in
           sprintf
@@ -514,21 +572,24 @@ and abstract_result_handling classname msg_name param_count = function
             (initialiser_of_ty (Record n))
             call
       | Enum (_, _) ->
-          sprintf "%s\n    %s\n    return session->ok;\n"
-            (abstract_result_type typ) call
+          sprintf
+            "%s\n    %s\n    return session->ok;\n"
+            (abstract_result_type typ)
+            call
       | x ->
           eprintf "%s" (Types.to_string x) ;
-          assert false
-    )
+          assert false )
+
 
 and abstract_result_handling_async classname msg_name param_count =
   let call =
-    if param_count = 0 then
+    if param_count = 0
+    then
       sprintf
         "xen_call_(session, \"Async.%s.%s\", NULL, 0, &result_type, result);"
-        classname msg_name
-    else
-      sprintf "XEN_CALL_(\"Async.%s.%s\");" classname msg_name
+        classname
+        msg_name
+    else sprintf "XEN_CALL_(\"Async.%s.%s\");" classname msg_name
   in
   sprintf
     "    abstract_type result_type = abstract_type_string;\n\n\
@@ -537,6 +598,7 @@ and abstract_result_handling_async classname msg_name param_count =
     \    return session->ok;\n"
     call
 
+
 and abstract_record_field classname prefix prefix_caps content =
   match content with
   | Field fr ->
@@ -544,21 +606,27 @@ and abstract_record_field classname prefix prefix_caps content =
       sprintf
         "{ .key = \"%s%s\",\n\
         \          .type = &%s,\n\
-        \          .offset = offsetof(%s, %s%s) }" prefix_caps fr.field_name
+        \          .offset = offsetof(%s, %s%s) }"
+        prefix_caps
+        fr.field_name
         (abstract_type true fr.ty)
         (record_typename classname)
-        prefix fn
+        prefix
+        fn
   | Namespace (p, c) ->
-      joined ",\n        "
-        (abstract_record_field classname
+      joined
+        ",\n        "
+        (abstract_record_field
+           classname
            (prefix ^ fieldname p ^ "_")
-           (prefix_caps ^ p ^ "_")
-        )
+           (prefix_caps ^ p ^ "_") )
         c
+
 
 and abstract_result_type typ =
   let ab_typ = abstract_type false typ in
   sprintf "    abstract_type result_type = %s;" ab_typ
+
 
 and abstract_type record = function
   | SecretString | String ->
@@ -566,10 +634,7 @@ and abstract_type record = function
   | Enum (n, _) ->
       sprintf "%s_abstract_type_" (typename n)
   | Ref _ ->
-      if record then
-        "abstract_type_ref"
-      else
-        "abstract_type_string"
+      if record then "abstract_type_ref" else "abstract_type_string"
   | Int ->
       "abstract_type_int"
   | Float ->
@@ -585,17 +650,15 @@ and abstract_type record = function
   | Set memtype ->
       abstract_type record memtype ^ "_set"
   | Map (Ref _, Ref _) ->
-      if record then
-        "abstract_type_string_ref_map"
-      else
-        "abstract_type_string_string_map"
+      if record
+      then "abstract_type_string_ref_map"
+      else "abstract_type_string_string_map"
   | Map (Ref _, r) ->
       sprintf "abstract_type_string_%s_map" (name_of_ty r)
   | Map (l, Ref _) ->
-      if record then
-        sprintf "abstract_type_%s_ref_map" (name_of_ty l)
-      else
-        sprintf "abstract_type_%s_string_map" (name_of_ty l)
+      if record
+      then sprintf "abstract_type_%s_ref_map" (name_of_ty l)
+      else sprintf "abstract_type_%s_string_map" (name_of_ty l)
   | Map ((Enum (_, _) as l), r) ->
       mapname l r ^ "_abstract_type_"
   | Map (l, (Enum (_, _) as r)) ->
@@ -607,58 +670,54 @@ and abstract_type record = function
   | Option n ->
       abstract_type record n
 
+
 and get_deprecated_message message =
   let deprecatedMessage = get_deprecated_info_message message in
-  if deprecatedMessage = "" then
-    sprintf ""
-  else
-    sprintf "/* " ^ deprecatedMessage ^ " */\n"
+  if deprecatedMessage = ""
+  then sprintf ""
+  else sprintf "/* " ^ deprecatedMessage ^ " */\n"
+
 
 and message_signature needed classname message =
   let front =
-    {
-      param_type= Ref "session"
-    ; param_name= "session"
-    ; param_doc= ""
-    ; param_release= message.msg_release
-    ; param_default= None
+    { param_type = Ref "session"
+    ; param_name = "session"
+    ; param_doc = ""
+    ; param_release = message.msg_release
+    ; param_default = None
     }
     ::
     ( match message.msg_result with
     | Some res ->
-        [
-          {
-            param_type= fst res
-          ; param_name= "*result"
-          ; param_doc= ""
-          ; param_release= message.msg_release
-          ; param_default= None
+        [ { param_type = fst res
+          ; param_name = "*result"
+          ; param_doc = ""
+          ; param_release = message.msg_release
+          ; param_default = None
           }
         ]
     | None ->
-        []
-    )
+        [] )
   in
   let params = joined ", " (param needed) (front @ message.msg_params) in
   sprintf "bool\n%s(%s)" (messagename classname message.msg_name) params
 
+
 and message_signature_async needed classname message =
   let sessionParam =
-    {
-      param_type= Ref "session"
-    ; param_name= "session"
-    ; param_doc= ""
-    ; param_release= message.msg_release
-    ; param_default= None
+    { param_type = Ref "session"
+    ; param_name = "session"
+    ; param_doc = ""
+    ; param_release = message.msg_release
+    ; param_default = None
     }
   in
   let taskParam =
-    {
-      param_type= Ref "task"
-    ; param_name= "*result"
-    ; param_doc= ""
-    ; param_release= message.msg_release
-    ; param_default= None
+    { param_type = Ref "task"
+    ; param_name = "*result"
+    ; param_doc = ""
+    ; param_release = message.msg_release
+    ; param_default = None
     }
   in
   let params =
@@ -666,27 +725,30 @@ and message_signature_async needed classname message =
   in
   sprintf "bool\n%s(%s)" (messagename_async classname message.msg_name) params
 
+
 and param needed p =
   let t = p.param_type in
   let n = p.param_name in
   sprintf "%s%s" (c_type_of_ty needed false t) (paramname n)
 
+
 and hash_includes needed =
-  String.concat "\n"
-    (List.sort String.compare
+  String.concat
+    "\n"
+    (List.sort
+       String.compare
        (List.filter
           (function s -> s <> "")
-          (List.map hash_include ("common" :: StringSet.elements needed))
-       )
-    )
+          (List.map hash_include ("common" :: StringSet.elements needed)) ) )
+
 
 and hash_include n =
-  if Astring.String.is_suffix ~affix:"internal" n then
-    sprintf "#include \"%s\"" (decl_filename n)
-  else if n = "session" then
-    ""
-  else
-    sprintf "#include <%s>" (decl_filename n)
+  if Astring.String.is_suffix ~affix:"internal" n
+  then sprintf "#include \"%s\"" (decl_filename n)
+  else if n = "session"
+  then ""
+  else sprintf "#include <%s>" (decl_filename n)
+
 
 and write_enum_decl x out_chan =
   match x with
@@ -719,41 +781,51 @@ and write_enum_decl x out_chan =
          %s\n\
          extern enum %s\n\
          %s_from_string(xen_session *session, const char *str);\n\n"
-        (hash_include "common") tn
-        (joined ",\n\n" (enum_entry name)
-           (contents
-           @ [("undefined", "Unknown to this version of the bindings.")]
-           )
-        )
-        tn tn tn
-        (Helper.comment true (sprintf "Allocate a %s_set of the given size." tn))
-        tn tn
+        (hash_include "common")
+        tn
+        (joined
+           ",\n\n"
+           (enum_entry name)
+           ( contents
+           @ [ ("undefined", "Unknown to this version of the bindings.") ] ) )
+        tn
+        tn
+        tn
+        (Helper.comment
+           true
+           (sprintf "Allocate a %s_set of the given size." tn) )
+        tn
+        tn
         (decl_free (sprintf "%s_set" tn) "*set" false "set")
-        (Helper.comment true
+        (Helper.comment
+           true
            "Return the name corresponding to the given code.  This string must \
-            not be modified or freed."
-        )
-        tn tn
-        (Helper.comment true
+            not be modified or freed." )
+        tn
+        tn
+        (Helper.comment
+           true
            "Return the correct code for the given string, or set the session \
             object to failure and return an undefined value if the given \
-            string does not match a known code."
-        )
-        tn tn ;
+            string does not match a known code." )
+        tn
+        tn ;
 
       print_h_footer out_chan
   | _ ->
       ()
 
+
 and enum_entry enum_name = function
   | n, c ->
-      sprintf "%s\n    XEN_%s_%s"
+      sprintf
+        "%s\n    XEN_%s_%s"
         (Helper.comment true ~indent:4 c)
         (String.uppercase_ascii enum_name)
         (Astring.String.map
            (fun x -> match x with '-' -> '_' | _ -> x)
-           (String.uppercase_ascii n)
-        )
+           (String.uppercase_ascii n) )
+
 
 and write_enum_impl x out_chan =
   match x with
@@ -804,21 +876,38 @@ and write_enum_impl x out_chan =
         \        .enum_demarshaller =\n\
         \             (int (*)(xen_session *, const char *))&%s_from_string\n\
         \    };\n\n\n"
-        Licence.bsd_two_clause (hash_include "internal") (hash_include name)
+        Licence.bsd_two_clause
+        (hash_include "internal")
+        (hash_include name)
         (hash_include (name ^ "_internal"))
-        (enum_lookup_entries (contents @ [("undefined", "")]))
-        tn tn tn tn tn tn tn tn tn tn tn tn tn ;
+        (enum_lookup_entries (contents @ [ ("undefined", "") ]))
+        tn
+        tn
+        tn
+        tn
+        tn
+        tn
+        tn
+        tn
+        tn
+        tn
+        tn
+        tn
+        tn ;
 
-      if name <> "event_operation" then
+      if name <> "event_operation"
+      then
         print
           "const abstract_type %s_set_abstract_type_ =\n\
           \    {\n\
           \        .XEN_API_TYPE = SET,\n\
           \        .child = &%s_abstract_type_\n\
           \    };\n\n\n"
-          tn tn
+          tn
+          tn
   | _ ->
       ()
+
 
 and enum_lookup_entries contents = joined ",\n" enum_lookup_entry contents
 
@@ -832,10 +921,9 @@ and write_enum_internal_decl x out_chan =
       let tn = typename name in
 
       let set_abstract_type =
-        if name = "event_operations" then
-          ""
-        else
-          sprintf "extern const abstract_type %s_set_abstract_type_;\n" tn
+        if name = "event_operations"
+        then ""
+        else sprintf "extern const abstract_type %s_set_abstract_type_;\n" tn
       in
 
       print
@@ -848,16 +936,20 @@ and write_enum_internal_decl x out_chan =
          %s\n\n\
          #endif\n"
         Licence.bsd_two_clause
-        (Helper.comment false
+        (Helper.comment
+           false
            (sprintf
               "Declarations of the abstract types used during demarshalling of \
                enum %s.  Internal to this library -- do not use from outside."
-              tn
-           )
-        )
-        protect protect (hash_include "internal") tn set_abstract_type
+              tn ) )
+        protect
+        protect
+        (hash_include "internal")
+        tn
+        set_abstract_type
   | _ ->
       ()
+
 
 and write_map_decl name l r out_chan =
   let print format = fprintf out_chan format in
@@ -886,12 +978,22 @@ and write_map_decl name l r out_chan =
      extern %s *\n\
      %s_alloc(size_t size);\n\n\
      %s\n\n"
-    (hash_include "common") (hash_include_enum l) (hash_include_enum r) tn
+    (hash_include "common")
+    (hash_include_enum l)
+    (hash_include_enum r)
+    tn
     (c_type_of_ty needed false l)
     (c_type_of_ty needed true r)
-    tn tn tn tn alloc_com tn tn
+    tn
+    tn
+    tn
+    tn
+    alloc_com
+    tn
+    tn
     (decl_free tn "*map" true "map") ;
   print_h_footer out_chan
+
 
 and write_map_impl name l r out_chan =
   let print format = fprintf out_chan format in
@@ -907,8 +1009,7 @@ and write_map_impl name l r out_chan =
   | Set String ->
       needed := StringSet.add "string_set" !needed
   | _ ->
-      ()
-  ) ;
+      () ) ;
 
   print
     "%s\n\n\n\
@@ -924,9 +1025,16 @@ and write_map_impl name l r out_chan =
      void\n\
      %s_free(%s *map)\n\
      {\n"
-    Licence.bsd_two_clause (hash_includes !needed) tn tn tn tn
+    Licence.bsd_two_clause
+    (hash_includes !needed)
+    tn
+    tn
+    tn
+    tn
     (String.make (String.length tn) ' ')
-    tn tn tn ;
+    tn
+    tn
+    tn ;
 
   if String.compare l_free_impl "" != 0 || String.compare r_free_impl "" != 0
   then
@@ -941,7 +1049,8 @@ and write_map_impl name l r out_chan =
       \        %s\n\
       \        %s\n\
       \    }\n\n"
-      l_free_impl r_free_impl ;
+      l_free_impl
+      r_free_impl ;
 
   print "    free(map);\n}\n" ;
 
@@ -952,6 +1061,7 @@ and write_map_impl name l r out_chan =
       gen_enum_map_abstract_type print l r
   | _ ->
       ()
+
 
 and gen_enum_map_abstract_type print l r =
   let tn = mapname l r in
@@ -972,7 +1082,16 @@ and gen_enum_map_abstract_type print l r =
     \           sizeof(%s_struct_members) / sizeof(struct_member),\n\
     \       .members = %s_struct_members\n\
     \    };\n"
-    tn (abstract_type false l) tn (abstract_type false r) tn tn tn tn tn
+    tn
+    (abstract_type false l)
+    tn
+    (abstract_type false r)
+    tn
+    tn
+    tn
+    tn
+    tn
+
 
 and write_enum_map_internal_decl name l r out_chan =
   let print format = fprintf out_chan format in
@@ -982,11 +1101,13 @@ and write_enum_map_internal_decl name l r out_chan =
   print "\nextern const abstract_type %s_abstract_type_;\n\n" (mapname l r) ;
   print_h_footer out_chan
 
+
 and hash_include_enum = function
   | Enum (x, _) ->
       "\n" ^ hash_include x
   | _ ->
       ""
+
 
 and gen_failure_h () =
   let protect = protector "api_failure" in
@@ -998,36 +1119,40 @@ and gen_failure_h () =
       print_h_header out_chan protect ;
       gen_failure_enum out_chan ;
       gen_failure_funcs out_chan ;
-      print_h_footer out_chan
-      )
+      print_h_footer out_chan )
     ~always:(fun () -> close_out out_chan)
+
 
 and gen_failure_enum out_chan =
   let print format = fprintf out_chan format in
-  print "\nenum xen_api_failure\n{\n%s\n};\n\n\n"
+  print
+    "\nenum xen_api_failure\n{\n%s\n};\n\n\n"
     (String.concat ",\n\n" (failure_enum_entries ()))
+
 
 and failure_enum_entries () =
   let r = Hashtbl.fold failure_enum_entry Datamodel.errors [] in
   let r = List.sort (fun (x, _) (y, _) -> String.compare y x) r in
   let r =
-    failure_enum_entry "UNDEFINED"
-      {
-        err_doc= "Unknown to this version of the bindings."
-      ; err_params= []
-      ; err_name= "UNDEFINED"
+    failure_enum_entry
+      "UNDEFINED"
+      { err_doc = "Unknown to this version of the bindings."
+      ; err_params = []
+      ; err_name = "UNDEFINED"
       }
       r
   in
   List.map (fun (_, y) -> y) (List.rev r)
 
+
 and failure_enum_entry name err acc =
   ( name
-  , sprintf "%s\n    %s"
+  , sprintf
+      "%s\n    %s"
       (Helper.comment true ~indent:4 err.Datamodel_types.err_doc)
-      (failure_enum name)
-  )
+      (failure_enum name) )
   :: acc
+
 
 and gen_failure_funcs out_chan =
   let print format = fprintf out_chan format in
@@ -1038,14 +1163,15 @@ and gen_failure_funcs out_chan =
      %s\n\
      extern enum xen_api_failure\n\
      xen_api_failure_from_string(const char *str);\n\n"
-    (Helper.comment true
+    (Helper.comment
+       true
        "Return the name corresponding to the given code.  This string must not \
-        be modified or freed."
-    )
-    (Helper.comment true
+        be modified or freed." )
+    (Helper.comment
+       true
        "Return the correct code for the given string, or UNDEFINED if the \
-        given string does not match a known code."
-    )
+        given string does not match a known code." )
+
 
 and gen_failure_c () =
   let out_chan = open_out (Filename.concat destdir "src/xen_api_failure.c") in
@@ -1074,19 +1200,21 @@ and gen_failure_c () =
         \    return ENUM_LOOKUP(str, lookup_table);\n\
          }\n\n\n"
         Licence.bsd_two_clause
-        (String.concat ",\n    " (failure_lookup_entries ()))
-      )
+        (String.concat ",\n    " (failure_lookup_entries ())) )
     ~always:(fun () -> close_out out_chan)
 
+
 and failure_lookup_entries () =
-  List.sort String.compare
+  List.sort
+    String.compare
     (Hashtbl.fold failure_lookup_entry Datamodel.errors [])
+
 
 and failure_lookup_entry name _ acc = sprintf "\"%s\"" name :: acc
 
 and failure_enum name = "XEN_API_FAILURE_" ^ String.uppercase_ascii name
 
-and write_impl {name= classname; contents; messages; _} out_chan =
+and write_impl { name = classname; contents; messages; _ } out_chan =
   let is_event = classname = "event" in
   let print format = fprintf out_chan format in
   let needed = ref StringSet.empty in
@@ -1094,11 +1222,12 @@ and write_impl {name= classname; contents; messages; _} out_chan =
   let record_tn = record_typename classname in
   let record_opt_tn = record_opt_typename classname in
   let msgs =
-    impl_messages needed classname
+    impl_messages
+      needed
+      classname
       (List.filter
          (fun x -> not (classname = "event" && x.msg_name = "from"))
-         messages
-      )
+         messages )
   in
   let record_free_handle =
     if classname = "event" then "" else "    free(record->handle);\n"
@@ -1113,7 +1242,8 @@ and write_impl {name= classname; contents; messages; _} out_chan =
     if is_event then List.filter not_obj_uuid contents else contents
   in
   let record_fields =
-    joined ",\n        "
+    joined
+      ",\n        "
       (abstract_record_field classname "" "")
       filtered_record_fields
   in
@@ -1128,30 +1258,30 @@ and write_impl {name= classname; contents; messages; _} out_chan =
   let mappingName = sprintf "%s_%s" tn record_tn in
 
   let free_block =
-    String.concat "\n"
-      (( if is_event then
-           []
-       else
-         [sprintf "XEN_FREE(%s)" tn; sprintf "XEN_SET_ALLOC_FREE(%s)" tn]
-       )
-      @ [
-          sprintf "XEN_ALLOC(%s)" record_tn
+    String.concat
+      "\n"
+      ( ( if is_event
+        then []
+        else [ sprintf "XEN_FREE(%s)" tn; sprintf "XEN_SET_ALLOC_FREE(%s)" tn ]
+        )
+      @ [ sprintf "XEN_ALLOC(%s)" record_tn
         ; sprintf "XEN_SET_ALLOC_FREE(%s)" record_tn
         ]
       @
-      if is_event then
-        []
+      if is_event
+      then []
       else
-        [
-          sprintf "XEN_ALLOC(%s)" record_opt_tn
+        [ sprintf "XEN_ALLOC(%s)" record_opt_tn
         ; sprintf "XEN_RECORD_OPT_FREE(%s)" tn
         ; sprintf "XEN_SET_ALLOC_FREE(%s)" record_opt_tn
-        ]
-      )
+        ] )
   in
 
-  print "%s\n\n\n#include <stddef.h>\n#include <stdlib.h>\n\n%s\n\n\n%s\n\n\n"
-    Licence.bsd_two_clause (hash_includes !needed) free_block ;
+  print
+    "%s\n\n\n#include <stddef.h>\n#include <stdlib.h>\n\n%s\n\n\n%s\n\n\n"
+    Licence.bsd_two_clause
+    (hash_includes !needed)
+    free_block ;
 
   print
     "static const struct_member %s_struct_members[] =\n\
@@ -1166,7 +1296,12 @@ and write_impl {name= classname; contents; messages; _} out_chan =
     \           sizeof(%s_struct_members) / sizeof(struct_member),\n\
     \       .members = %s_struct_members\n\
     \    };\n\n\n"
-    record_tn record_fields record_tn record_tn record_tn record_tn ;
+    record_tn
+    record_fields
+    record_tn
+    record_tn
+    record_tn
+    record_tn ;
 
   print
     "const abstract_type %s_set_abstract_type_ =\n\
@@ -1174,9 +1309,11 @@ and write_impl {name= classname; contents; messages; _} out_chan =
     \       .XEN_API_TYPE = SET,\n\
     \        .child = &%s_abstract_type_\n\
     \    };\n\n\n"
-    record_tn record_tn ;
+    record_tn
+    record_tn ;
 
-  if getAllRecordsExists then
+  if getAllRecordsExists
+  then
     print
       "static const struct struct_member %s_members[] =\n\
        {\n\
@@ -1195,7 +1332,12 @@ and write_impl {name= classname; contents; messages; _} out_chan =
       \    .struct_size = sizeof(%s_map_contents),\n\
       \    .members = %s_members\n\
        };\n\n\n"
-      mappingName mappingName record_tn mappingName record_tn mappingName
+      mappingName
+      mappingName
+      record_tn
+      mappingName
+      record_tn
+      mappingName
       mappingName ;
 
   print
@@ -1209,9 +1351,13 @@ and write_impl {name= classname; contents; messages; _} out_chan =
      %s    %s\n\
     \    free(record);\n\
      }\n\n\n"
-    record_tn record_tn record_free_handle record_free_impls ;
+    record_tn
+    record_tn
+    record_free_handle
+    record_free_impls ;
 
   print "%s\n" msgs
+
 
 and find_needed needed messages = List.iter (find_needed' needed) messages
 
@@ -1222,6 +1368,7 @@ and find_needed' needed message =
       find_needed'' needed x
   | None ->
       ()
+
 
 and find_needed'' needed = function
   | SecretString | String | Int | Float | Bool | DateTime ->
@@ -1250,11 +1397,13 @@ and find_needed'' needed = function
   | Option x ->
       find_needed'' needed x
 
+
 and record_free_impl prefix = function
   | Field fr ->
       free_impl (prefix ^ fieldname fr.field_name) true fr.ty
   | Namespace (p, c) ->
       joined "\n    " (record_free_impl (prefix ^ fieldname p ^ "_")) c
+
 
 and free_impl val_name record = function
   | SecretString | String ->
@@ -1262,7 +1411,8 @@ and free_impl val_name record = function
   | Int | Float | Bool | DateTime | Enum (_, _) ->
       ""
   | Ref n ->
-      sprintf "%s_free(%s);"
+      sprintf
+        "%s_free(%s);"
         (if record then record_opt_typename n else typename n)
         val_name
   | Set (Ref n) ->
@@ -1287,11 +1437,13 @@ and free_impl val_name record = function
       eprintf "%s" (Types.to_string x) ;
       assert false
 
+
 and add_enum_internal needed = function
   | Enum (x, _) ->
       StringSet.add (x ^ "_internal") needed
   | _ ->
       needed
+
 
 and add_enum_map_internal needed l r =
   match (l, r) with
@@ -1301,6 +1453,7 @@ and add_enum_map_internal needed l r =
       StringSet.add (mapname l r ^ "_internal") needed
   | _ ->
       needed
+
 
 and c_type_of_ty needed record = function
   | SecretString | String ->
@@ -1317,20 +1470,18 @@ and c_type_of_ty needed record = function
       "xen_session *"
   | Ref name ->
       needed := StringSet.add (name ^ "_decl") !needed ;
-      if record then
-        sprintf "struct %s *" (record_opt_typename name)
-      else
-        sprintf "%s " (typename name)
+      if record
+      then sprintf "struct %s *" (record_opt_typename name)
+      else sprintf "%s " (typename name)
   | Enum (name, _) as x ->
       needed := StringSet.add name !needed ;
       enums := TypeSet.add x !enums ;
       c_type_of_enum name
   | Set (Ref name) ->
       needed := StringSet.add (name ^ "_decl") !needed ;
-      if record then
-        sprintf "struct %s_set *" (record_opt_typename name)
-      else
-        sprintf "struct %s_set *" (typename name)
+      if record
+      then sprintf "struct %s_set *" (record_opt_typename name)
+      else sprintf "struct %s_set *" (typename name)
   | Set (Enum (e, _) as x) ->
       let enum_typename = typename e in
       needed := StringSet.add e !needed ;
@@ -1359,14 +1510,12 @@ and c_type_of_ty needed record = function
       | _, Enum (_, _) ->
           enum_maps := TypeSet.add x !enum_maps
       | _ ->
-          ()
-      ) ;
+          () ) ;
       sprintf "%s *" (typename n)
   | Record n ->
-      if record then
-        sprintf "struct %s *" (record_typename n)
-      else
-        sprintf "%s *" (record_typename n)
+      if record
+      then sprintf "struct %s *" (record_typename n)
+      else sprintf "%s *" (record_typename n)
   | Option Int ->
       "int64_t *"
   | Option Float ->
@@ -1385,6 +1534,7 @@ and c_type_of_ty needed record = function
       eprintf "%s" (Types.to_string x) ;
       assert false
 
+
 and c_type_of_enum name = sprintf "enum %s " (typename name)
 
 and initialiser_of_ty = function
@@ -1392,6 +1542,7 @@ and initialiser_of_ty = function
       "    *result = NULL;\n"
   | _ ->
       ""
+
 
 and mapname l r = sprintf "%s_%s_map" (name_of_ty l) (name_of_ty r)
 
@@ -1420,22 +1571,27 @@ and name_of_ty = function
       eprintf "%s" (Types.to_string x) ;
       assert false
 
+
 and decl_filename name =
   let dir =
     if Astring.String.is_suffix ~affix:"internal" name then "" else "xen/api/"
   in
   sprintf "%sxen_%s.h" dir (String.lowercase_ascii name)
 
+
 and predecl_filename name =
   sprintf "xen/api/xen_%s_decl.h" (String.lowercase_ascii name)
 
+
 and internal_decl_filename name =
   sprintf "xen_%s_internal.h" (String.lowercase_ascii name)
+
 
 and impl_filename name = sprintf "xen_%s.c" (String.lowercase_ascii name)
 
 and internal_impl_filename name =
   sprintf "xen_%s_internal.c" (String.lowercase_ascii name)
+
 
 and protector classname = sprintf "XEN_%s_H" (String.uppercase_ascii classname)
 
@@ -1448,18 +1604,23 @@ and record_typename classname = sprintf "%s_record" (typename classname)
 and record_opt_typename classname = sprintf "%s_record_opt" (typename classname)
 
 and messagename classname name =
-  sprintf "xen_%s_%s"
+  sprintf
+    "xen_%s_%s"
     (String.lowercase_ascii classname)
     (String.lowercase_ascii name)
+
 
 and messagename_async classname name =
-  sprintf "xen_%s_%s_async"
+  sprintf
+    "xen_%s_%s_async"
     (String.lowercase_ascii classname)
     (String.lowercase_ascii name)
 
+
 and keyword_map name =
-  let keywords = [("class", "XEN_CLAZZ"); ("public", "pubblic")] in
+  let keywords = [ ("class", "XEN_CLAZZ"); ("public", "pubblic") ] in
   if List.mem_assoc name keywords then List.assoc name keywords else name
+
 
 and paramname name = keyword_map (String.lowercase_ascii name)
 
@@ -1471,15 +1632,18 @@ and print_h_header out_chan protect =
   print "#ifndef %s\n" protect ;
   print "#define %s\n\n" protect
 
+
 and print_h_footer out_chan = fprintf out_chan "\n#endif\n"
 
 and populate_version () =
   List.iter
     (fun x -> render_file x json_releases templates_dir destdir)
-    [
-      ("Makefile.mustache", "Makefile")
+    [ ("Makefile.mustache", "Makefile")
     ; ("xen_api_version.h.mustache", "include/xen/api/xen_api_version.h")
     ; ("xen_api_version.c.mustache", "src/xen_api_version.c")
     ]
 
-let _ = main () ; populate_version ()
+
+let _ =
+  main () ;
+  populate_version ()

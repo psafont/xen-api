@@ -27,7 +27,9 @@
  * http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-17 
  *)
 
-type protocol = Hixie76 | Hybi10
+type protocol =
+  | Hixie76
+  | Hybi10
 
 (* Defined in the websockets protocol document *)
 let ws_uuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -36,23 +38,22 @@ let http_101_websocket_upgrade_76 origin host protocol uri =
   let extra =
     match protocol with
     | Some x ->
-        [Printf.sprintf "Sec-WebSocket-Protocol: %s" x]
+        [ Printf.sprintf "Sec-WebSocket-Protocol: %s" x ]
     | None ->
         []
   in
-  [
-    "HTTP/1.1 101 WebSocket Protocol Handshake"
+  [ "HTTP/1.1 101 WebSocket Protocol Handshake"
   ; "Upgrade: WebSocket"
   ; "Connection: Upgrade"
   ; Printf.sprintf "Sec-WebSocket-Origin: %s" origin
   ; Printf.sprintf "Sec-WebSocket-Location: ws://%s%s" host uri
   ]
   @ extra
-  @ [""]
+  @ [ "" ]
+
 
 let http_101_websocket_upgrade_15 key =
-  [
-    "HTTP/1.1 101 Switching Protocols"
+  [ "HTTP/1.1 101 Switching Protocols"
   ; "Upgrade: websocket"
   ; "Connection: Upgrade"
   ; Printf.sprintf "Sec-WebSocket-Accept: %s" key
@@ -60,11 +61,14 @@ let http_101_websocket_upgrade_15 key =
   ; ""
   ]
 
+
 exception MissingHeader of string
 
 let find_header headers header_name =
-  try List.assoc header_name headers
-  with _ -> raise (MissingHeader header_name)
+  try List.assoc header_name headers with
+  | _ ->
+      raise (MissingHeader header_name)
+
 
 let extract_numbers str =
   let num =
@@ -72,13 +76,16 @@ let extract_numbers str =
   in
   Int64.of_string num
 
+
 let count_spaces str =
   Astring.String.fold_left
     (fun acc -> function ' ' -> acc + 1 | _ -> acc)
-    0 str
+    0
+    str
+
 
 let marshal_int32 x =
-  let offsets = [|3; 2; 1; 0|] in
+  let offsets = [| 3; 2; 1; 0 |] in
   let ( >!> ) a b = Int32.shift_right_logical a b
   and ( && ) a b = Int32.logand a b in
   let a = x >!> 0 && 0xffl
@@ -92,6 +99,7 @@ let marshal_int32 x =
   Bytes.set s offsets.(3) @@ char_of_int (Int32.to_int d) ;
   Bytes.unsafe_to_string s
 
+
 let v10_upgrade req s =
   let headers = req.Http.Request.additional_headers in
   let key = find_header headers "sec-websocket-key" in
@@ -100,6 +108,7 @@ let v10_upgrade req s =
   let key = Base64.encode_string result in
   let headers = http_101_websocket_upgrade_15 key in
   Http.output_http s headers
+
 
 let hixie_v76_upgrade req s =
   let headers = req.Http.Request.additional_headers in
@@ -125,23 +134,25 @@ let hixie_v76_upgrade req s =
   let real_uri =
     req.Http.Request.uri
     ^ "?"
-    ^ String.concat "&"
+    ^ String.concat
+        "&"
         (List.map
            (fun (x, y) -> Printf.sprintf "%s=%s" x y)
-           req.Http.Request.query
-        )
+           req.Http.Request.query )
   in
   let headers = http_101_websocket_upgrade_76 origin host protocol real_uri in
   Http.output_http s headers ;
   Unix.write s (Bytes.unsafe_of_string digest) 0 16 |> ignore
 
+
 let upgrade req s =
   if List.mem_assoc "sec-websocket-key1" req.Http.Request.additional_headers
   then (
-    hixie_v76_upgrade req s ; Hixie76
-  ) else (
-    v10_upgrade req s ; Hybi10
-  )
+    hixie_v76_upgrade req s ;
+    Hixie76 )
+  else (
+    v10_upgrade req s ;
+    Hybi10 )
 
 (* The following copyright notice is relevant to the function marked above *)
 

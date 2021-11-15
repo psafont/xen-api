@@ -11,12 +11,15 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "xapi_vmpp" end)
+module D = Debug.Make (struct
+  let name = "xapi_vmpp"
+end)
 
 open D
 
 let raise_removed () =
   raise (Api_errors.Server_error (Api_errors.message_removed, []))
+
 
 let protect_now ~__context ~vmpp = raise_removed ()
 
@@ -70,10 +73,22 @@ let set_archive_last_run_time ~__context ~self ~value = raise_removed ()
 
 let set_backup_retention_value ~__context ~self ~value = raise_removed ()
 
-let create ~__context ~name_label ~name_description ~is_policy_enabled
-    ~backup_type ~backup_retention_value ~backup_frequency ~backup_schedule
-    ~archive_target_type ~archive_target_config ~archive_frequency
-    ~archive_schedule ~is_alarm_enabled ~alarm_config : API.ref_VMPP =
+let create
+    ~__context
+    ~name_label
+    ~name_description
+    ~is_policy_enabled
+    ~backup_type
+    ~backup_retention_value
+    ~backup_frequency
+    ~backup_schedule
+    ~archive_target_type
+    ~archive_target_config
+    ~archive_frequency
+    ~archive_schedule
+    ~is_alarm_enabled
+    ~alarm_config : API.ref_VMPP =
   raise_removed ()
+
 
 let destroy ~__context ~self = raise_removed ()

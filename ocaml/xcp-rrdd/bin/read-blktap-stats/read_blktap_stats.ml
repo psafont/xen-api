@@ -17,21 +17,26 @@ let usage () =
   Printf.printf "%s <stats-file>\n" Sys.argv.(0) ;
   exit 1
 
+
 let () =
   match Sys.argv with
-  | [|_; filename|] ->
+  | [| _; filename |] ->
       let stats = Blktap3_stats.of_file filename in
       let s = Blktap3_stats.copy stats in
       let open Blktap3_stats in
-      Printf.printf "read_reqs_submitted = %Ld\n"
+      Printf.printf
+        "read_reqs_submitted = %Ld\n"
         (get_stats_read_reqs_submitted s) ;
-      Printf.printf "read_reqs_completed = %Ld\n"
+      Printf.printf
+        "read_reqs_completed = %Ld\n"
         (get_stats_read_reqs_completed s) ;
       Printf.printf "read_sectors = %Ld\n" (get_stats_read_sectors s) ;
       Printf.printf "read_total_ticks = %Ld\n" (get_stats_read_total_ticks s) ;
-      Printf.printf "write_reqs_submitted = %Ld\n"
+      Printf.printf
+        "write_reqs_submitted = %Ld\n"
         (get_stats_write_reqs_submitted s) ;
-      Printf.printf "write_reqs_completed = %Ld\n"
+      Printf.printf
+        "write_reqs_completed = %Ld\n"
         (get_stats_write_reqs_completed s) ;
       Printf.printf "write_sectors = %Ld\n" (get_stats_write_sectors s) ;
       Printf.printf "write_total_ticks = %Ld\n" (get_stats_write_total_ticks s) ;

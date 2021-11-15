@@ -1,6 +1,9 @@
 let ( |> ) a b = b a
 
-type value = String of string | Int of int | List of value list
+type value =
+  | String of string
+  | Int of int
+  | List of value list
 [@@deriving rpc]
 
 exception Type_error of string * string
@@ -11,11 +14,13 @@ let string = function
   | x ->
       raise (Type_error ("string", x |> rpc_of_value |> Jsonrpc.to_string))
 
+
 let int = function
   | Int x ->
       x
   | x ->
       raise (Type_error ("int", x |> rpc_of_value |> Jsonrpc.to_string))
+
 
 let bool = function
   | Int 1 ->
@@ -25,11 +30,13 @@ let bool = function
   | x ->
       raise (Type_error ("bool", x |> rpc_of_value |> Jsonrpc.to_string))
 
+
 let list f = function
   | List vs ->
       List.map f vs
   | x ->
       raise (Type_error ("int", x |> rpc_of_value |> Jsonrpc.to_string))
+
 
 type config = (string * value) list [@@deriving rpc]
 

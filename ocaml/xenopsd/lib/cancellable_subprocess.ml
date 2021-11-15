@@ -14,21 +14,28 @@
 open Xenops_utils
 open Xenops_task
 
-module D = Debug.Make (struct let name = "xenops" end)
+module D = Debug.Make (struct
+  let name = "xenops"
+end)
 
 open D
 open Forkhelpers
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-let run (task : Xenops_task.task_handle) ?env ?stdin fds
-    ?(syslog_stdout = NoSyslogging) cmd args =
+let run
+    (task : Xenops_task.task_handle)
+    ?env
+    ?stdin
+    fds
+    ?(syslog_stdout = NoSyslogging)
+    cmd
+    args =
   let stdinandpipes =
     Option.map
       (fun str ->
         let x, y = Unix.pipe () in
-        (str, x, y)
-        )
+        (str, x, y) )
       stdin
   in
   (* Used so that cancel -> kills subprocess -> Unix.WSIGNALED -> raise
@@ -40,36 +47,37 @@ let run (task : Xenops_task.task_handle) ?env ?stdin fds
         with_logfile_fd "execute_command_get_out" (fun out_fd ->
             with_logfile_fd "execute_command_get_err" (fun err_fd ->
                 let t =
-                  safe_close_and_exec ?env
+                  safe_close_and_exec
+                    ?env
                     (Option.map (fun (_, fd, _) -> fd) stdinandpipes)
-                    (Some out_fd) (Some err_fd) fds ~syslog_stdout cmd args
+                    (Some out_fd)
+                    (Some err_fd)
+                    fds
+                    ~syslog_stdout
+                    cmd
+                    args
                 in
                 let done_waitpid = ref false in
                 finally
                   (fun () ->
                     let pid' = Forkhelpers.getpid t in
-                    Xenops_task.with_cancel task
+                    Xenops_task.with_cancel
+                      task
                       (fun () ->
                         cancelled := true ;
                         info "Cancelling: sending SIGKILL to %d" pid' ;
-                        try Unix.kill pid' Sys.sigkill with _ -> ()
-                        )
+                        try Unix.kill pid' Sys.sigkill with _ -> () )
                       (fun () ->
                         Option.iter
                           (fun (str, _, wr) ->
-                            Unixext.really_write wr str 0 (String.length str)
-                            )
+                            Unixext.really_write wr str 0 (String.length str) )
                           stdinandpipes ;
                         done_waitpid := true ;
-                        snd (Forkhelpers.waitpid t)
-                        )
-                    )
-                  (fun () -> if not !done_waitpid then Forkhelpers.dontwaitpid t)
-            )
-        )
+                        snd (Forkhelpers.waitpid t) ) )
+                  (fun () -> if not !done_waitpid then Forkhelpers.dontwaitpid t) ) )
       with
-      | Success (out, Success (err, status)) -> (
-        match status with
+      | Success (out, Success (err, status)) ->
+        ( match status with
         | Unix.WEXITED 0 ->
             (out, err)
         | Unix.WEXITED n ->
@@ -77,20 +85,22 @@ let run (task : Xenops_task.task_handle) ?env ?stdin fds
         | Unix.WSTOPPED n ->
             raise (Spawn_internal_error (err, out, Unix.WSTOPPED n))
         | Unix.WSIGNALED n ->
-            if !cancelled then (
+            if !cancelled
+            then (
               debug
                 "Subprocess %s exited with signal %d and cancel requested; \
                  raising Cancelled"
-                cmd n ;
-              Xenops_task.raise_cancelled task
-            ) else (
+                cmd
+                n ;
+              Xenops_task.raise_cancelled task )
+            else (
               debug "Subprocess %s exited with signal %d" cmd n ;
-              raise (Spawn_internal_error (err, out, Unix.WSIGNALED n))
-            )
-      )
+              raise (Spawn_internal_error (err, out, Unix.WSIGNALED n)) ) )
       | Success (_, Failure (_, exn)) | Failure (_, exn) ->
-          raise exn
-      )
+          raise exn )
     (fun () ->
-      Option.iter (fun (_, x, y) -> Unix.close x ; Unix.close y) stdinandpipes
-      )
+      Option.iter
+        (fun (_, x, y) ->
+          Unix.close x ;
+          Unix.close y )
+        stdinandpipes )

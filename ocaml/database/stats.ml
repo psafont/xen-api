@@ -16,20 +16,25 @@
 
 module Normal_population = struct
   (** Stats on a normally-distributed population *)
-  type t = {sigma_x: float; sigma_xx: float; n: int}
+  type t =
+    { sigma_x : float
+    ; sigma_xx : float
+    ; n : int
+    }
 
-  let empty = {sigma_x= 0.; sigma_xx= 0.; n= 0}
+  let empty = { sigma_x = 0.; sigma_xx = 0.; n = 0 }
 
   let sample (p : t) (x : float) : t =
-    {sigma_x= p.sigma_x +. x; sigma_xx= p.sigma_xx +. (x *. x); n= p.n + 1}
+    { sigma_x = p.sigma_x +. x; sigma_xx = p.sigma_xx +. (x *. x); n = p.n + 1 }
+
 
   exception Unknown
 
   let mean (p : t) : float = p.sigma_x /. float_of_int p.n
 
   let sd (p : t) : float =
-    if p.n = 0 then
-      raise Unknown
+    if p.n = 0
+    then raise Unknown
     else
       let n = float_of_int p.n in
       sqrt ((n *. p.sigma_xx) -. (p.sigma_x *. p.sigma_x)) /. n
@@ -44,7 +49,9 @@ end
    lognormal transformations here.
 *)
 
-module D = Debug.Make (struct let name = "stats" end)
+module D = Debug.Make (struct
+  let name = "stats"
+end)
 
 open D
 open Xapi_stdext_threads.Threadext
@@ -59,6 +66,7 @@ let mean (p : Normal_population.t) =
   let mu = Normal_population.mean p in
   exp (mu +. (sigma *. sigma /. 2.))
 
+
 let sd (p : Normal_population.t) =
   let sigma = Normal_population.sd p in
   let mu = Normal_population.mean p in
@@ -67,8 +75,10 @@ let sd (p : Normal_population.t) =
   in
   sqrt v
 
+
 let string_of (p : Normal_population.t) =
   Printf.sprintf "%f [sd = %f]" (mean p) (sd p)
+
 
 (** [sample thing t] records new time [t] for population named [thing] *)
 let sample (name : string) (x : float) : unit =
@@ -76,15 +86,14 @@ let sample (name : string) (x : float) : unit =
   let x' = log x in
   Mutex.execute timings_m (fun () ->
       let p =
-        if Hashtbl.mem timings name then
-          Hashtbl.find timings name
-        else
-          Normal_population.empty
+        if Hashtbl.mem timings name
+        then Hashtbl.find timings name
+        else Normal_population.empty
       in
       let p' = Normal_population.sample p x' in
       Hashtbl.replace timings name p'
-      (*       debug "Population %s time = %f mean = %s" name x (string_of p'); *)
-  )
+      (*       debug "Population %s time = %f mean = %s" name x (string_of p'); *) )
+
 
 (*
   (* Check to see if the value is > 3 standard deviations from the mean *)
@@ -99,12 +108,14 @@ let time_this (name : string) f =
       try
         let end_time = Unix.gettimeofday () in
         sample name (end_time -. start_time)
-      with e ->
-        warn "Ignoring exception %s while timing: %s" (Printexc.to_string e)
-          name
-  )
+      with
+      | e ->
+          warn
+            "Ignoring exception %s while timing: %s"
+            (Printexc.to_string e)
+            name )
+
 
 let summarise () =
   Mutex.execute timings_m (fun () ->
-      Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings []
-  )
+      Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings [] )

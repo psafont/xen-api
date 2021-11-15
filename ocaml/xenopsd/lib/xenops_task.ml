@@ -12,7 +12,8 @@ module XI = struct
     | Xenopsd_error e' ->
         Rpcmarshal.marshal Errors.error.Rpc.Types.ty e'
     | _ ->
-        Rpcmarshal.marshal Errors.error.Rpc.Types.ty
+        Rpcmarshal.marshal
+          Errors.error.Rpc.Types.ty
           (Errors.Internal_error (Printexc.to_string e))
 end
 
@@ -30,7 +31,8 @@ let event_wait local_updates task ?from ?timeout_start timeout p =
     match timeout_start with Some s -> s | None -> Unix.gettimeofday ()
   in
   let rec inner remaining event_id =
-    if remaining > 0.0 then
+    if remaining > 0.0
+    then
       let _, deltas, next_id =
         Updates.get
           (Printf.sprintf "event_wait task %s" (Xenops_task.id_of_handle task))
@@ -41,17 +43,17 @@ let event_wait local_updates task ?from ?timeout_start timeout p =
       in
       let success = List.fold_left (fun acc d -> acc || p d) false deltas in
       let finished = success in
-      if not finished then
+      if not finished
+      then
         let elapsed = Unix.gettimeofday () -. start in
         inner (timeout -. elapsed) (Some next_id)
-      else
-        success
-    else
-      false
+      else success
+    else false
   in
   let result = inner timeout from in
   Xenops_task.check_cancelling task ;
   result
+
 
 let task_ended id =
   let handle = Xenops_task.handle_of_id tasks id in
@@ -60,6 +62,7 @@ let task_ended id =
       true
   | Pending _ ->
       false
+
 
 let task_finished_p task =
   let open Xenops_interface in

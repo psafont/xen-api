@@ -17,7 +17,9 @@
 
 (* include Custom_actions.DebugVersion.Session *)
 
-module D = Debug.Make (struct let name = "xapi_session" end)
+module D = Debug.Make (struct
+  let name = "xapi_session"
+end)
 
 open D
 open Xapi_stdext_threads.Threadext
@@ -38,31 +40,28 @@ module AuthFail : sig
     -> now:Date.iso8601
     -> uname:string option
     -> originator:string option
-    -> record:[< `log_only | `log_and_alert]
+    -> record:[< `log_only | `log_and_alert ]
     -> unit
 end = struct
-  type client = {
-      user_agent: string option
-    ; uname: string option
-    ; originator: string option
-    ; ip: string option
-  }
+  type client =
+    { user_agent : string option
+    ; uname : string option
+    ; originator : string option
+    ; ip : string option
+    }
 
   let client_of_info ~__context ~originator ~uname =
     let user_agent = Context.get_user_agent __context in
     let ip = Context.get_client_ip __context in
     (* check to make sure we have at least _some_ information *)
-    if
-      [user_agent; originator; uname; ip]
-      |> List.for_all (function None | Some "" -> true | _ -> false)
-    then
-      None
-    else
-      Some {originator; uname; user_agent; ip}
+    if [ user_agent; originator; uname; ip ]
+       |> List.for_all (function None | Some "" -> true | _ -> false)
+    then None
+    else Some { originator; uname; user_agent; ip }
+
 
   let string_of_client x =
-    [
-      ("username", x.uname)
+    [ ("username", x.uname)
     ; ("originator", x.originator)
     ; ("useragent", x.user_agent)
     ; ("ip", x.ip)
@@ -72,15 +71,15 @@ end = struct
            | None | Some "" ->
                None
            | Some value ->
-               Some (Printf.sprintf "<%s>%s</%s>" label value label)
-       )
+               Some (Printf.sprintf "<%s>%s</%s>" label value label) )
     |> String.concat "\n"
 
-  type client_failed_attempts = {
-      client: client
-    ; num_failed_attempts: int
-    ; last_failed_attempt: Date.iso8601
-  }
+
+  type client_failed_attempts =
+    { client : client
+    ; num_failed_attempts : int
+    ; last_failed_attempt : Date.iso8601
+    }
 
   let up_to_3 xs x =
     List.stable_sort
@@ -88,8 +87,10 @@ end = struct
       (x :: xs)
     |> Listext.List.take 3
 
+
   let string_of_client_failed_attempts x =
-    Printf.sprintf {|
+    Printf.sprintf
+      {|
 <known>
 %s
 <number>%i</number>
@@ -99,39 +100,41 @@ end = struct
       x.num_failed_attempts
       (Date.to_string x.last_failed_attempt)
 
-  type stats = {
-      total_num_failed_attempts: int
-    ; top_3_worst_clients: client_failed_attempts list
+
+  type stats =
+    { total_num_failed_attempts : int
+    ; top_3_worst_clients : client_failed_attempts list
           (* not necessarily 3, but <=3 *)
-    ; unknown_client_failed_attempts: int
-  }
+    ; unknown_client_failed_attempts : int
+    }
 
   let string_of_stats
-      {
-        total_num_failed_attempts
+      { total_num_failed_attempts
       ; top_3_worst_clients
       ; unknown_client_failed_attempts
       } =
     let unknown =
-      if unknown_client_failed_attempts = 0 then
-        ""
+      if unknown_client_failed_attempts = 0
+      then ""
       else
         Printf.sprintf {|
 <unknown>%i</unknown>|} unknown_client_failed_attempts
     in
     let known_with_total =
-      if top_3_worst_clients = [] then
-        ""
+      if top_3_worst_clients = []
+      then ""
       else
-        Printf.sprintf {|
-<total>%i</total>%s|} total_num_failed_attempts
-          (top_3_worst_clients
+        Printf.sprintf
+          {|
+<total>%i</total>%s|}
+          total_num_failed_attempts
+          ( top_3_worst_clients
           |> List.map string_of_client_failed_attempts
-          |> String.concat ""
-          )
+          |> String.concat "" )
     in
     Printf.sprintf {|<body>%s%s
 </body>|} known_with_total unknown
+
 
   module Stats : sig
     val get : unit -> stats option
@@ -150,12 +153,15 @@ end = struct
       Mutex.execute m (fun () ->
           let ctr = !unknown_ctr + 1 in
           unknown_ctr := ctr ;
-          ctr
-      )
+          ctr )
+
 
     type key = client
 
-    type value = {num_failed_attempts: int; last_failed_attempt: Date.iso8601}
+    type value =
+      { num_failed_attempts : int
+      ; last_failed_attempt : Date.iso8601
+      }
 
     type table_t = (key, value) Hashtbl.t
 
@@ -165,15 +171,19 @@ end = struct
       Mutex.execute m (fun () ->
           match Hashtbl.find_opt table k with
           | None ->
-              Hashtbl.add table k
-                {num_failed_attempts= 1; last_failed_attempt= now} ;
+              Hashtbl.add
+                table
+                k
+                { num_failed_attempts = 1; last_failed_attempt = now } ;
               1
-          | Some ({num_failed_attempts} : value) ->
+          | Some ({ num_failed_attempts } : value) ->
               let num_failed_attempts = num_failed_attempts + 1 in
-              Hashtbl.replace table k
-                {num_failed_attempts; last_failed_attempt= now} ;
-              num_failed_attempts
-      )
+              Hashtbl.replace
+                table
+                k
+                { num_failed_attempts; last_failed_attempt = now } ;
+              num_failed_attempts )
+
 
     let get () =
       let reset () =
@@ -182,30 +192,29 @@ end = struct
       in
       Mutex.execute m (fun () ->
           let unknown_client_failed_attempts = !unknown_ctr in
-          if Hashtbl.length table = 0 && unknown_client_failed_attempts = 0 then
-            None
+          if Hashtbl.length table = 0 && unknown_client_failed_attempts = 0
+          then None
           else
             let num_known_client_failed_attempts, top_3_worst_clients =
               Hashtbl.fold
-                (fun client {num_failed_attempts; last_failed_attempt}
+                (fun client
+                     { num_failed_attempts; last_failed_attempt }
                      (ctr, worst_so_far) ->
                   ( ctr + num_failed_attempts
-                  , up_to_3 worst_so_far
-                      {client; num_failed_attempts; last_failed_attempt}
-                  )
-                  )
-                table (0, [])
+                  , up_to_3
+                      worst_so_far
+                      { client; num_failed_attempts; last_failed_attempt } ) )
+                table
+                (0, [])
             in
             reset () ;
             Some
-              {
-                total_num_failed_attempts=
+              { total_num_failed_attempts =
                   num_known_client_failed_attempts
                   + unknown_client_failed_attempts
               ; top_3_worst_clients
               ; unknown_client_failed_attempts
-              }
-      )
+              } )
   end
 
   let get_stats_string () = Stats.get () |> Option.map string_of_stats
@@ -217,18 +226,23 @@ end = struct
           warn "login failure from unknown client"
       | None, `log_and_alert ->
           let total_unknown_login_failures = Stats.record_unknown () in
-          warn "login failure from unknown client, total= %i"
+          warn
+            "login failure from unknown client, total= %i"
             total_unknown_login_failures
       | Some client, `log_only ->
           info "failed login attempt by client: %s" (string_of_client client)
       | Some client, _ ->
           let num_failed_attempts = Stats.record_client client ~now in
-          info "failed login attempt #%i by client: %s" num_failed_attempts
+          info
+            "failed login attempt #%i by client: %s"
+            num_failed_attempts
             (string_of_client client)
-    with e ->
-      (* we don't expect this function to fail, but if it does we don't want to block callers *)
-      error "AuthFail.on_fail_with_uname: unexpected error: '%s'"
-        (Printexc.to_string e)
+    with
+    | e ->
+        (* we don't expect this function to fail, but if it does we don't want to block callers *)
+        error
+          "AuthFail.on_fail_with_uname: unexpected error: '%s'"
+          (Printexc.to_string e)
 end
 
 let _record_login_failure ~__context ~now ~uname ~originator ~record f =
@@ -243,9 +257,11 @@ let _record_login_failure ~__context ~now ~uname ~originator ~record f =
     when code = Api_errors.session_authentication_failed ->
       on_fail e
 
+
 let record_login_failure ~__context ~uname ~originator ~record f =
   let now = Unix.time () |> Date.of_float in
   _record_login_failure ~__context ~now ~uname ~originator ~record f
+
 
 let get_failed_login_stats = AuthFail.get_stats_string
 
@@ -260,41 +276,47 @@ let wipe_string_contents str =
     Bytes.set str i '\000'
   done
 
+
 let wipe ss = List.iter (fun s -> wipe_string_contents s) ss
 
 (* wrapper that erases sensitive string parameters from functions *)
 let wipe_params_after_fn params fn =
   try
     let r = fn () in
-    wipe params ; r
-  with e -> wipe params ; raise e
+    wipe params ;
+    r
+  with
+  | e ->
+      wipe params ;
+      raise e
+
 
 let do_external_auth uname pwd =
   Mutex.execute serialize_auth (fun () ->
-      (Ext_auth.d ()).authenticate_username_password uname
-        (Bytes.unsafe_to_string pwd)
-  )
+      (Ext_auth.d ()).authenticate_username_password
+        uname
+        (Bytes.unsafe_to_string pwd) )
+
 
 let do_local_auth uname pwd =
   Mutex.execute serialize_auth (fun () ->
-      try Pam.authenticate uname (Bytes.unsafe_to_string pwd)
-      with Failure msg ->
-        raise
-          Api_errors.(
-            Server_error (session_authentication_failed, [uname; msg])
-          )
-  )
+      try Pam.authenticate uname (Bytes.unsafe_to_string pwd) with
+      | Failure msg ->
+          raise
+            Api_errors.(
+              Server_error (session_authentication_failed, [ uname; msg ])) )
+
 
 let do_local_change_password uname newpwd =
   Mutex.execute serialize_auth (fun () ->
-      Pam.change_password uname (Bytes.unsafe_to_string newpwd)
-  )
+      Pam.change_password uname (Bytes.unsafe_to_string newpwd) )
+
 
 let trackid session_id = Context.trackid_of_session (Some session_id)
 
 (* finds the intersection between group_membership_closure and pool's table of subject_ids *)
-let get_intersection ~__context subject_ids_in_db subject_identifier
-    group_membership_closure =
+let get_intersection
+    ~__context subject_ids_in_db subject_identifier group_membership_closure =
   let reflexive_membership_closure =
     subject_identifier :: group_membership_closure
   in
@@ -303,14 +325,15 @@ let get_intersection ~__context subject_ids_in_db subject_identifier
   in
   intersection
 
+
 let get_subject_in_intersection ~__context subjects_in_db intersection =
   List.find
     (fun subj ->
       (* is this the subject ref that returned the non-empty intersection?*)
       List.hd intersection
-      = Db.Subject.get_subject_identifier ~__context ~self:subj
-      )
+      = Db.Subject.get_subject_identifier ~__context ~self:subj )
     subjects_in_db
+
 
 let get_permissions ~__context ~subject_membership =
   (* see also rbac.ml *)
@@ -318,8 +341,8 @@ let get_permissions ~__context ~subject_membership =
     Listext.List.setify
       (List.fold_left (* efficiently compute unions of subsets in set *)
          (fun accu elem -> List.rev_append (get_subset_fn elem) accu)
-         [] set
-      )
+         []
+         set )
   in
   let role_membership =
     get_union_of_subsets (*automatically removes duplicated roles*)
@@ -332,40 +355,44 @@ let get_permissions ~__context ~subject_membership =
         try
           Xapi_role.get_name_label ~__context ~self:role
           :: Xapi_role.get_permissions_name_label ~__context ~self:role
-        with _ -> []
-        (* if the role disappeared, ignore it *)
-        )
+        with
+        | _ ->
+            []
+        (* if the role disappeared, ignore it *) )
       ~set:role_membership
   in
   permission_membership
+
 
 (* CP-827: finds out if the subject was suspended (ie. disabled,expired,locked-out) *)
 let is_subject_suspended ~__context ~cache subject_identifier =
   (* obtains the subject's info containing suspension information *)
   let info =
     try
-      Xapi_subject.get_subject_information_from_identifier ~__context ~cache
+      Xapi_subject.get_subject_information_from_identifier
+        ~__context
+        ~cache
         subject_identifier
-    with Auth_signature.Subject_cannot_be_resolved | Not_found ->
-      (* user was not found in external directory in order to obtain info *)
-      debug "Subject %s not found in external directory while re-obtaining info"
-        subject_identifier ;
-      []
+    with
+    | Auth_signature.Subject_cannot_be_resolved | Not_found ->
+        (* user was not found in external directory in order to obtain info *)
+        debug
+          "Subject %s not found in external directory while re-obtaining info"
+          subject_identifier ;
+        []
     (* returns no user info, which will result in is_suspended = true *)
   in
   let subject_name =
     if List.mem_assoc Auth_signature.subject_information_field_subject_name info
-    then
-      List.assoc Auth_signature.subject_information_field_subject_name info
-    else
-      ""
+    then List.assoc Auth_signature.subject_information_field_subject_name info
+    else ""
   in
   let get_suspension_value name info =
-    if List.mem_assoc name info (* is the required field present? *) then
+    if List.mem_assoc name info (* is the required field present? *)
+    then
       String.lowercase_ascii (List.assoc name info) <> "false"
-    (* no suspension only if value is explicitly false *)
-    else
-      true
+      (* no suspension only if value is explicitly false *)
+    else true
     (* if we didn't find the field, assumes the worse, ie. subject is suspended *)
   in
   (* obtains each field that could suspend an existing subject *)
@@ -384,8 +411,10 @@ let is_subject_suspended ~__context ~cache subject_identifier =
   debug
     "Subject Suspension Status: a.disabled=%B a.expired=%B a.locked=%B \
      p.expired=%B"
-    is_subject_account_disabled is_subject_account_expired
-    is_subject_account_locked is_subject_password_expired ;
+    is_subject_account_disabled
+    is_subject_account_expired
+    is_subject_account_locked
+    is_subject_password_expired ;
   (* decides if the subject is suspended *)
   let is_suspended =
     (* either one of those is sufficient for suspension *)
@@ -394,9 +423,10 @@ let is_subject_suspended ~__context ~cache subject_identifier =
     || is_subject_account_locked
     || is_subject_password_expired
   in
-  if is_suspended then
-    debug "Subject identifier %s is suspended" subject_identifier ;
+  if is_suspended
+  then debug "Subject identifier %s is suspended" subject_identifier ;
   (is_suspended, subject_name)
+
 
 let destroy_db_session ~__context ~self =
   Xapi_event.on_session_deleted self ;
@@ -411,6 +441,7 @@ let destroy_db_session ~__context ~self =
   (try Db.Session.destroy ~__context ~self with _ -> ()) ;
   Rbac.destroy_session_permissions_tbl ~session_id:self
 
+
 (* CP-703: ensure that activate sessions are invalidated in a bounded time *)
 (* in response to external authentication/directory services updates, such as *)
 (* e.g. group membership changes, or even account disabled *)
@@ -418,16 +449,15 @@ let revalidate_external_session ~__context ~session =
   try
     (* guard: we only want to revalidate external sessions, where is_local_superuser is false *)
     (* Neither do we want to revalidate the special read-only external database sessions, since they can exist independent of external authentication. *)
-    if
-      not
-        (Db.Session.get_is_local_superuser ~__context ~self:session
-        || Db_backend.is_session_registered (Ref.string_of session)
-        )
+    if not
+         ( Db.Session.get_is_local_superuser ~__context ~self:session
+         || Db_backend.is_session_registered (Ref.string_of session) )
     then (
       (* 1. is the external authentication disabled in the pool? *)
       let master = Helpers.get_master ~__context in
       let auth_type = Db.Host.get_external_auth_type ~__context ~self:master in
-      if auth_type = "" then (
+      if auth_type = ""
+      then (
         (* if so, we must immediatelly destroy this external session *)
         let msg =
           Printf.sprintf
@@ -435,8 +465,8 @@ let revalidate_external_session ~__context ~session =
             (trackid session)
         in
         debug "%s" msg ;
-        destroy_db_session ~__context ~self:session
-      ) else
+        destroy_db_session ~__context ~self:session )
+      else
         (* otherwise, we try to revalidate it against the external authentication service *)
         let session_lifespan = 60.0 *. 30.0 in
         (* allowed session lifespan = 30 minutes *)
@@ -446,14 +476,16 @@ let revalidate_external_session ~__context ~session =
 
         (* 2. has the external session expired/does it need revalidation? *)
         let session_last_validation_time =
-          Date.to_float (Db.Session.get_validation_time ~__context ~self:session)
+          Date.to_float
+            (Db.Session.get_validation_time ~__context ~self:session)
         in
         let now = Unix.time () in
         let session_needs_revalidation =
           now
           > session_last_validation_time +. session_lifespan +. random_lifespan
         in
-        if session_needs_revalidation then (
+        if session_needs_revalidation
+        then (
           (* if so, then:*)
           debug "session %s needs revalidation" (trackid session) ;
           let authenticated_user_sid =
@@ -467,116 +499,140 @@ let revalidate_external_session ~__context ~session =
             is_subject_suspended ~__context ~cache:true authenticated_user_sid
           in
           let suspended =
-            if suspended then
-              is_subject_suspended ~__context ~cache:false
+            if suspended
+            then
+              is_subject_suspended
+                ~__context
+                ~cache:false
                 authenticated_user_sid
               |> fst
-            else
-              suspended
+            else suspended
           in
-          if suspended then (
+          if suspended
+          then (
             debug
               "Subject (identifier %s) has been suspended, destroying session \
                %s"
-              authenticated_user_sid (trackid session) ;
+              authenticated_user_sid
+              (trackid session) ;
             (* we must destroy the session in this case *)
-            destroy_db_session ~__context ~self:session
-          ) else
+            destroy_db_session ~__context ~self:session )
+          else
             try
               (* if the user is not in the external directory service anymore, this call raises Not_found *)
               let group_membership_closure =
                 (Ext_auth.d ()).query_group_membership authenticated_user_sid
               in
-              debug "obtained group membership for session %s, sid %s "
-                (trackid session) authenticated_user_sid ;
+              debug
+                "obtained group membership for session %s, sid %s "
+                (trackid session)
+                authenticated_user_sid ;
               (* 2b. revalidate membership intersection *)
               (* this verifies if the user still has permission to have a session *)
               let subjects_in_db = Db.Subject.get_all ~__context in
               let subject_ids_in_db =
                 List.map
                   (fun subj ->
-                    Db.Subject.get_subject_identifier ~__context ~self:subj
-                    )
+                    Db.Subject.get_subject_identifier ~__context ~self:subj )
                   subjects_in_db
               in
               let intersection =
-                get_intersection ~__context subject_ids_in_db
-                  authenticated_user_sid group_membership_closure
+                get_intersection
+                  ~__context
+                  subject_ids_in_db
+                  authenticated_user_sid
+                  group_membership_closure
               in
-              debug "verified intersection for session %s, sid %s "
-                (trackid session) authenticated_user_sid ;
+              debug
+                "verified intersection for session %s, sid %s "
+                (trackid session)
+                authenticated_user_sid ;
               let in_intersection = List.length intersection > 0 in
-              if not in_intersection then (
+              if not in_intersection
+              then (
                 (* empty intersection: externally-authenticated subject no longer has login rights in the pool *)
                 let msg =
                   Printf.sprintf
                     "Subject (identifier %s) has no access rights in this \
                      pool, destroying session %s"
-                    authenticated_user_sid (trackid session)
+                    authenticated_user_sid
+                    (trackid session)
                 in
                 debug "%s" msg ;
                 (* we must destroy the session in this case *)
-                destroy_db_session ~__context ~self:session
-              ) else (
+                destroy_db_session ~__context ~self:session )
+              else (
                 (* non-empty intersection: externally-authenticated subject still has login rights in the pool *)
 
                 (* OK, SESSION REVALIDATED SUCCESSFULLY *)
                 (* 2c. update session state *)
 
                 (* session passed revalidation, let's update its last revalidation time *)
-                Db.Session.set_validation_time ~__context ~self:session
+                Db.Session.set_validation_time
+                  ~__context
+                  ~self:session
                   ~value:(Date.of_float now) ;
-                debug "updated validation time for session %s, sid %s "
-                  (trackid session) authenticated_user_sid ;
+                debug
+                  "updated validation time for session %s, sid %s "
+                  (trackid session)
+                  authenticated_user_sid ;
                 (* let's also update the session's subject ref *)
                 try
                   let subject_in_intersection =
-                    get_subject_in_intersection ~__context subjects_in_db
+                    get_subject_in_intersection
+                      ~__context
+                      subjects_in_db
                       intersection
                   in
-                  if
-                    subject_in_intersection
-                    <> Db.Session.get_subject ~__context ~self:session
+                  if subject_in_intersection
+                     <> Db.Session.get_subject ~__context ~self:session
                   then (
                     (* the subject in the intersection has changed!!! *)
-                    Db.Session.set_subject ~__context ~self:session
+                    Db.Session.set_subject
+                      ~__context
+                      ~self:session
                       ~value:subject_in_intersection ;
-                    debug "updated subject for session %s, sid %s "
-                      (trackid session) authenticated_user_sid
-                  )
-                with Not_found ->
-                  (* subject ref for intersection's sid does not exist in our metadata!!! *)
-                  (* this should never happen, it's an internal metadata inconsistency between steps 2b and 2c *)
-                  let msg =
-                    Printf.sprintf
-                      "Subject (identifier %s) is not present in this pool, \
-                       destroying session %s"
-                      authenticated_user_sid (trackid session)
-                  in
-                  debug "%s" msg ;
-                  (* we must destroy the session in this case *)
-                  destroy_db_session ~__context ~self:session
-              )
-            with Auth_signature.Subject_cannot_be_resolved | Not_found ->
-              (* user was not found in external directory in order to obtain group membership *)
-              let msg =
-                Printf.sprintf
-                  "Subject %s not found in external directory while \
-                   re-obtaining its group membership closure, destroying \
-                   session %s"
-                  authenticated_user_sid (trackid session)
-              in
-              debug "%s" msg ;
-              (* user is not in the external directory anymore: we must destroy the session in this case *)
-              destroy_db_session ~__context ~self:session
-        ) ;
-        debug "end revalidation of session %s " (trackid session)
-    )
-  with e ->
-    (*unexpected exception: we absorb it and print out a debug line *)
-    debug "Unexpected exception while revalidating session %s: %s"
-      (trackid session)
-      (ExnHelper.string_of_exn e)
+                    debug
+                      "updated subject for session %s, sid %s "
+                      (trackid session)
+                      authenticated_user_sid )
+                with
+                | Not_found ->
+                    (* subject ref for intersection's sid does not exist in our metadata!!! *)
+                    (* this should never happen, it's an internal metadata inconsistency between steps 2b and 2c *)
+                    let msg =
+                      Printf.sprintf
+                        "Subject (identifier %s) is not present in this pool, \
+                         destroying session %s"
+                        authenticated_user_sid
+                        (trackid session)
+                    in
+                    debug "%s" msg ;
+                    (* we must destroy the session in this case *)
+                    destroy_db_session ~__context ~self:session )
+            with
+            | Auth_signature.Subject_cannot_be_resolved | Not_found ->
+                (* user was not found in external directory in order to obtain group membership *)
+                let msg =
+                  Printf.sprintf
+                    "Subject %s not found in external directory while \
+                     re-obtaining its group membership closure, destroying \
+                     session %s"
+                    authenticated_user_sid
+                    (trackid session)
+                in
+                debug "%s" msg ;
+                (* user is not in the external directory anymore: we must destroy the session in this case *)
+                destroy_db_session ~__context ~self:session ) ;
+        debug "end revalidation of session %s " (trackid session) )
+  with
+  | e ->
+      (*unexpected exception: we absorb it and print out a debug line *)
+      debug
+        "Unexpected exception while revalidating session %s: %s"
+        (trackid session)
+        (ExnHelper.string_of_exn e)
+
 
 (* CP-703: ensure that activate sessions are invalidated in a bounded time *)
 (* in response to external authentication/directory services updates, such as *)
@@ -591,22 +647,33 @@ let revalidate_all_sessions ~__context =
     let external_sessions =
       List.filter
         (fun session ->
-          not (Db.Session.get_is_local_superuser ~__context ~self:session)
-          )
+          not (Db.Session.get_is_local_superuser ~__context ~self:session) )
         sessions
     in
     (* revalidate each external session *)
     List.iter
       (fun session -> revalidate_external_session ~__context ~session)
       external_sessions
-  with e ->
-    (*unexpected exception: we absorb it and print out a debug line *)
-    debug "Unexpected exception while revalidating external sessions: %s"
-      (ExnHelper.string_of_exn e)
+  with
+  | e ->
+      (*unexpected exception: we absorb it and print out a debug line *)
+      debug
+        "Unexpected exception while revalidating external sessions: %s"
+        (ExnHelper.string_of_exn e)
 
-let login_no_password_common ~__context ~uname ~originator ~host ~pool
-    ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name
-    ~rbac_permissions ~db_ref =
+
+let login_no_password_common
+    ~__context
+    ~uname
+    ~originator
+    ~host
+    ~pool
+    ~is_local_superuser
+    ~subject
+    ~auth_user_sid
+    ~auth_user_name
+    ~rbac_permissions
+    ~db_ref =
   let create_session () =
     let session_id = Ref.make () in
     let uuid = Uuid.to_string (Uuid.make_uuid ()) in
@@ -625,15 +692,30 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
     info
       "Session.create %s pool=%b uname=%s originator=%s is_local_superuser=%b \
        auth_user_sid=%s parent=%s"
-      (trackid session_id) pool
+      (trackid session_id)
+      pool
       (match uname with None -> "" | Some u -> u)
-      originator is_local_superuser auth_user_sid (trackid parent) ;
-    Db.Session.create ~__context ~ref:session_id ~uuid ~this_user:user
-      ~this_host:host ~pool
+      originator
+      is_local_superuser
+      auth_user_sid
+      (trackid parent) ;
+    Db.Session.create
+      ~__context
+      ~ref:session_id
+      ~uuid
+      ~this_user:user
+      ~this_host:host
+      ~pool
       ~last_active:(Date.of_float (Unix.time ()))
-      ~other_config:[] ~subject ~is_local_superuser ~auth_user_sid
+      ~other_config:[]
+      ~subject
+      ~is_local_superuser
+      ~auth_user_sid
       ~validation_time:(Date.of_float (Unix.time ()))
-      ~auth_user_name ~rbac_permissions ~parent ~originator ;
+      ~auth_user_name
+      ~rbac_permissions
+      ~parent
+      ~originator ;
     Ref.string_of session_id
   in
   let session_id =
@@ -642,8 +724,7 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
       | Some db_ref ->
           Db_backend.create_registered_session create_session db_ref
       | None ->
-          create_session ()
-      )
+          create_session () )
   in
   Rbac_audit.session_create ~__context ~session_id ~uname ;
   (* At this point, the session is created, but with an incorrect time *)
@@ -652,13 +733,32 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
   ignore (Client.Pool.get_all rpc session_id) ;
   session_id
 
+
 (* XXX: only used internally by the code which grants the guest access to the API.
    Needs to be protected by a proper access control system *)
-let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject
-    ~auth_user_sid ~auth_user_name ~rbac_permissions =
-  login_no_password_common ~__context ~uname
-    ~originator:xapi_internal_originator ~host ~pool ~is_local_superuser
-    ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions ~db_ref:None
+let login_no_password
+    ~__context
+    ~uname
+    ~host
+    ~pool
+    ~is_local_superuser
+    ~subject
+    ~auth_user_sid
+    ~auth_user_name
+    ~rbac_permissions =
+  login_no_password_common
+    ~__context
+    ~uname
+    ~originator:xapi_internal_originator
+    ~host
+    ~pool
+    ~is_local_superuser
+    ~subject
+    ~auth_user_sid
+    ~auth_user_name
+    ~rbac_permissions
+    ~db_ref:None
+
 
 (** Cause the master to update the session last_active every 30s or so *)
 let consider_touching_session rpc session_id =
@@ -666,27 +766,38 @@ let consider_touching_session rpc session_id =
   let interval = 30. in
   (* 30 seconds *)
   fun () ->
-    if Unix.gettimeofday () -. !time > interval then (
+    if Unix.gettimeofday () -. !time > interval
+    then (
       time := Unix.gettimeofday () ;
       (* a side-effect is that the master updates the session *)
-      ignore (Client.Session.get_uuid rpc session_id session_id)
-    )
+      ignore (Client.Session.get_uuid rpc session_id session_id) )
+
 
 (* Make sure the pool secret matches *)
 let slave_login_common ~__context ~host_str ~psecret =
-  if not (Helpers.PoolSecret.is_authorized psecret) then (
+  if not (Helpers.PoolSecret.is_authorized psecret)
+  then (
     let msg = "Pool credentials invalid" in
     debug "Failed to authenticate slave %s: %s" host_str msg ;
     raise
-      Api_errors.(Server_error (session_authentication_failed, [host_str; msg]))
-  )
+      Api_errors.(
+        Server_error (session_authentication_failed, [ host_str; msg ])) )
+
 
 (* Normal login, uses the master's database *)
 let slave_login ~__context ~host ~psecret =
   slave_login_common ~__context ~host_str:(Ref.string_of host) ~psecret ;
-  login_no_password ~__context ~uname:None ~host ~pool:true
-    ~is_local_superuser:true ~subject:Ref.null ~auth_user_sid:""
-    ~auth_user_name:(Ref.string_of host) ~rbac_permissions:[]
+  login_no_password
+    ~__context
+    ~uname:None
+    ~host
+    ~pool:true
+    ~is_local_superuser:true
+    ~subject:Ref.null
+    ~auth_user_sid:""
+    ~auth_user_name:(Ref.string_of host)
+    ~rbac_permissions:[]
+
 
 (* Emergency mode login, uses local storage *)
 let slave_local_login ~__context ~psecret =
@@ -694,24 +805,25 @@ let slave_local_login ~__context ~psecret =
   debug "Add session to local storage" ;
   Xapi_local_session.create ~__context ~pool:true
 
+
 (* Emergency mode login, uses local storage *)
 let slave_local_login_with_password ~__context ~uname ~pwd =
   let pwd = Bytes.of_string pwd in
-  wipe_params_after_fn [pwd] (fun () ->
-      if Context.preauth ~__context <> Some `root then (
+  wipe_params_after_fn [ pwd ] (fun () ->
+      if Context.preauth ~__context <> Some `root
+      then (
         try
           (* CP696 - only tries to authenticate against LOCAL superuser account *)
           do_local_auth uname pwd
-        with Failure msg ->
-          debug "Failed to authenticate user %s: %s" uname msg ;
-          raise
-            (Api_errors.Server_error
-               (Api_errors.session_authentication_failed, [uname; msg])
-            )
-      ) ;
+        with
+        | Failure msg ->
+            debug "Failed to authenticate user %s: %s" uname msg ;
+            raise
+              (Api_errors.Server_error
+                 (Api_errors.session_authentication_failed, [ uname; msg ]) ) ) ;
       debug "Add session to local storage" ;
-      Xapi_local_session.create ~__context ~pool:false
-  )
+      Xapi_local_session.create ~__context ~pool:false )
+
 
 (* CP-714: Modify session.login_with_password to first try local super-user login; and then call into external auth plugin if this is enabled *)
 (* 1. If the pool master's Host.external_auth_type field is not none, then the Session.login_with_password XenAPI method will:
@@ -721,16 +833,23 @@ let slave_local_login_with_password ~__context ~uname ~pwd =
 *)
 let login_with_password ~__context ~uname ~pwd ~version ~originator =
   let pwd = Bytes.of_string pwd in
-  wipe_params_after_fn [pwd] (fun () ->
+  wipe_params_after_fn [ pwd ] (fun () ->
       (* !!! Do something with the version number *)
       match Context.preauth ~__context with
       | Some `root ->
           (* in this case, the context origin of this login request is a unix socket bound locally to a filename *)
           (* we trust requests from local unix filename sockets, so no need to authenticate them before login *)
-          login_no_password_common ~__context ~uname:(Some uname) ~originator
+          login_no_password_common
+            ~__context
+            ~uname:(Some uname)
+            ~originator
             ~host:(Helpers.get_localhost ~__context)
-            ~pool:false ~is_local_superuser:true ~subject:Ref.null
-            ~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions:[]
+            ~pool:false
+            ~is_local_superuser:true
+            ~subject:Ref.null
+            ~auth_user_sid:""
+            ~auth_user_name:uname
+            ~rbac_permissions:[]
             ~db_ref:None
       | Some `client_cert ->
           (* The session was authenticated by stunnel's verification of the client certificate,
@@ -738,7 +857,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
              based on the special "client_cert" RBAC role. *)
           let role =
             match
-              Xapi_role.get_by_name_label ~__context
+              Xapi_role.get_by_name_label
+                ~__context
                 ~label:Datamodel_roles.role_client_cert
             with
             | role :: _ ->
@@ -747,348 +867,415 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                 raise
                   (Api_errors.Server_error
                      ( Api_errors.internal_error
-                     , [Datamodel_roles.role_client_cert ^ " role not found"]
-                     )
-                  )
+                     , [ Datamodel_roles.role_client_cert ^ " role not found" ]
+                     ) )
           in
           let rbac_permissions =
             Xapi_role.get_permissions_name_label ~__context ~self:role
           in
-          login_no_password_common ~__context ~uname:(Some uname) ~originator
+          login_no_password_common
+            ~__context
+            ~uname:(Some uname)
+            ~originator
             ~host:(Helpers.get_localhost ~__context)
-            ~pool:false ~is_local_superuser:false ~subject:Ref.null
-            ~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions
+            ~pool:false
+            ~is_local_superuser:false
+            ~subject:Ref.null
+            ~auth_user_sid:""
+            ~auth_user_name:uname
+            ~rbac_permissions
             ~db_ref:None
-      | None -> (
+      | None ->
           let () =
-            if Pool_role.is_slave () then
+            if Pool_role.is_slave ()
+            then
               raise
                 (Api_errors.Server_error
-                   (Api_errors.host_is_slave, [Pool_role.get_master_address ()])
-                )
+                   ( Api_errors.host_is_slave
+                   , [ Pool_role.get_master_address () ] ) )
           in
           let login_as_local_superuser auth_type =
-            if auth_type <> "" && uname <> local_superuser then
+            if auth_type <> "" && uname <> local_superuser
+            then
               (* makes local superuser = root only*)
               failwith ("Local superuser must be " ^ local_superuser)
             else (
               do_local_auth uname pwd ;
-              debug "Success: local auth, user %s from %s" uname
+              debug
+                "Success: local auth, user %s from %s"
+                uname
                 (Context.get_origin __context) ;
-              login_no_password_common ~__context ~uname:(Some uname)
+              login_no_password_common
+                ~__context
+                ~uname:(Some uname)
                 ~originator
                 ~host:(Helpers.get_localhost ~__context)
-                ~pool:false ~is_local_superuser:true ~subject:Ref.null
-                ~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions:[]
-                ~db_ref:None
-            )
+                ~pool:false
+                ~is_local_superuser:true
+                ~subject:Ref.null
+                ~auth_user_sid:""
+                ~auth_user_name:uname
+                ~rbac_permissions:[]
+                ~db_ref:None )
           in
           let thread_delay_and_raise_error ~error uname msg =
             let some_seconds = 5.0 in
             Thread.delay some_seconds ;
             (* sleep a bit to avoid someone brute-forcing the password *)
-            if error = Api_errors.session_authentication_failed then
-              raise (Api_errors.Server_error (error, [uname; msg]))
-            else if error = Api_errors.session_authorization_failed then
-              raise Api_errors.(Server_error (error, [uname; msg]))
+            if error = Api_errors.session_authentication_failed
+            then raise (Api_errors.Server_error (error, [ uname; msg ]))
+            else if error = Api_errors.session_authorization_failed
+            then raise Api_errors.(Server_error (error, [ uname; msg ]))
             else
               raise
                 (Api_errors.Server_error
-                   (error, ["session.login_with_password"; msg])
-                )
+                   (error, [ "session.login_with_password"; msg ]) )
           in
-          match
-            Db.Host.get_external_auth_type ~__context
-              ~self:(Helpers.get_localhost ~__context)
-          with
-          | "" as auth_type -> (
-            try
-              (* no external authentication *)
+          ( match
+              Db.Host.get_external_auth_type
+                ~__context
+                ~self:(Helpers.get_localhost ~__context)
+            with
+          | "" as auth_type ->
+            ( try
+                (* no external authentication *)
 
-              (*debug "External authentication is disabled";*)
-              (* only attempts to authenticate against the local superuser credentials *)
-              login_as_local_superuser auth_type
-            with Failure msg ->
-              info "Failed to locally authenticate user %s from %s: %s" uname
-                (Context.get_origin __context)
-                msg ;
-              thread_delay_and_raise_error
-                ~error:Api_errors.session_authentication_failed uname msg
-          )
-          | _ as auth_type -> (
+                (*debug "External authentication is disabled";*)
+                (* only attempts to authenticate against the local superuser credentials *)
+                login_as_local_superuser auth_type
+              with
+            | Failure msg ->
+                info
+                  "Failed to locally authenticate user %s from %s: %s"
+                  uname
+                  (Context.get_origin __context)
+                  msg ;
+                thread_delay_and_raise_error
+                  ~error:Api_errors.session_authentication_failed
+                  uname
+                  msg )
+          | _ as auth_type ->
               (* external authentication required *)
               debug "External authentication %s is enabled" auth_type ;
               (* 1. first attempts to authenticate against the local superuser *)
-              try login_as_local_superuser auth_type
-              with Failure msg -> (
-                try
-                  debug "Failed to locally authenticate user %s from %s: %s"
-                    uname
-                    (Context.get_origin __context)
-                    msg ;
-                  (* 2. then against the external auth service *)
-                  (* 2.1. we first check the external auth service status *)
-                  let rec waiting_event_hook_auth_on_xapi_initialize_succeeded
-                      seconds =
-                    if
-                      not
-                        !Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded
-                    then (
-                      if seconds <= 0 then (
-                        let msg =
-                          Printf.sprintf
-                            "External authentication %s service still \
-                             initializing"
-                            auth_type
-                        in
-                        error "%s" msg ;
-                        thread_delay_and_raise_error uname msg
-                          ~error:Api_errors.internal_error
-                      ) else
-                        debug
-                          "External authentication %s service initializing..."
-                          auth_type ;
-                      Thread.delay 1.0 ;
-                      waiting_event_hook_auth_on_xapi_initialize_succeeded
-                        (seconds - 1)
-                    )
-                  in
-                  waiting_event_hook_auth_on_xapi_initialize_succeeded 120 ;
-                  (* 2.2. we then authenticate the usee using the external authentication plugin *)
-                  (* so that we know that he/she exists there *)
-                  let subject_identifier =
-                    try
-                      let _subject_identifier = do_external_auth uname pwd in
-                      debug
-                        "Successful external authentication user %s \
-                         (subject_identifier, %s from %s)"
-                        uname _subject_identifier
-                        (Context.get_origin __context) ;
-                      _subject_identifier
-                    with Auth_signature.Auth_failure msg ->
-                      info
-                        "Failed to externally authenticate user %s from %s: %s"
-                        uname
-                        (Context.get_origin __context)
-                        msg ;
-                      thread_delay_and_raise_error
-                        ~error:Api_errors.session_authentication_failed uname
-                        msg
-                  in
-                  (* as per tests in CP-827, there should be no need to call is_subject_suspended function here, *)
-                  (* because the authentication server in 2.1 will already reflect if account/password expired, *)
-                  (* disabled, locked-out etc, but since likewise doesn't timely reflect this information *)
-                  (* at the same time for both authentication and subject info queries (modification in the AD *)
-                  (* reflects immediately for AD authentication, but can take 1 hour to reflect on subject info), *)
-                  (* we need to call it here in order to be consistent with the session revalidation function. *)
-                  (* Otherwise, there might be cases where the initial authentication/login succeeds, but *)
-                  (* then a few minutes later the revalidation finds that the user is 'suspended' (due to *)
-                  (* subject info caching problems in likewise) and closes the user's session *)
-                  let subject_suspended, subject_name =
-                    try
-                      let suspended, name =
-                        is_subject_suspended ~__context ~cache:true
-                          subject_identifier
-                      in
-                      if suspended then
-                        is_subject_suspended ~__context ~cache:false
-                          subject_identifier
-                      else
-                        (suspended, name)
-                    with Auth_signature.Auth_service_error (errtag, msg) ->
-                      debug
-                        "Failed to find if user %s (subject_id %s, from %s) is \
-                         suspended: %s"
-                        uname subject_identifier
-                        (Context.get_origin __context)
-                        msg ;
-                      thread_delay_and_raise_error
-                        ~error:Api_errors.session_authorization_failed uname msg
-                  in
-                  if subject_suspended then (
-                    let msg =
-                      Printf.sprintf
-                        "User %s (subject_id %s, from %s) suspended in \
-                         external directory"
-                        uname subject_identifier
-                        (Context.get_origin __context)
-                    in
-                    debug "%s" msg ;
-                    thread_delay_and_raise_error
-                      ~error:Api_errors.session_authorization_failed uname msg
-                  ) else
-                    (* 2.2. then, we verify if any elements of the the membership closure of the externally *)
-                    (* authenticated subject_id is inside our local allowed-to-login subjects list *)
-                    (* finds all the groups a user belongs to (non-reflexive closure of member-of relation) *)
-                    let group_membership_closure =
-                      try
-                        (Ext_auth.d ()).query_group_membership
-                          subject_identifier
-                      with
-                      | Not_found | Auth_signature.Subject_cannot_be_resolved ->
+              ( try login_as_local_superuser auth_type with
+              | Failure msg ->
+                ( try
+                    debug
+                      "Failed to locally authenticate user %s from %s: %s"
+                      uname
+                      (Context.get_origin __context)
+                      msg ;
+                    (* 2. then against the external auth service *)
+                    (* 2.1. we first check the external auth service status *)
+                    let rec waiting_event_hook_auth_on_xapi_initialize_succeeded
+                        seconds =
+                      if not
+                           !Xapi_globs
+                            .event_hook_auth_on_xapi_initialize_succeeded
+                      then (
+                        if seconds <= 0
+                        then (
                           let msg =
                             Printf.sprintf
-                              "Failed to obtain the group membership closure \
-                               for user %s (subject_id %s, from %s): user not \
-                               found in external directory"
-                              uname
-                              (Context.get_origin __context)
-                              subject_identifier
+                              "External authentication %s service still \
+                               initializing"
+                              auth_type
                           in
-                          debug "%s" msg ;
+                          error "%s" msg ;
                           thread_delay_and_raise_error
-                            ~error:Api_errors.session_authorization_failed uname
+                            uname
                             msg
-                      | Auth_signature.Auth_service_error (errtag, msg) ->
+                            ~error:Api_errors.internal_error )
+                        else
                           debug
-                            "Failed to obtain the group membership closure for \
-                             user %s (subject_id %s, from %s): %s"
-                            uname subject_identifier
+                            "External authentication %s service initializing..."
+                            auth_type ;
+                        Thread.delay 1.0 ;
+                        waiting_event_hook_auth_on_xapi_initialize_succeeded
+                          (seconds - 1) )
+                    in
+                    waiting_event_hook_auth_on_xapi_initialize_succeeded 120 ;
+                    (* 2.2. we then authenticate the usee using the external authentication plugin *)
+                    (* so that we know that he/she exists there *)
+                    let subject_identifier =
+                      try
+                        let _subject_identifier = do_external_auth uname pwd in
+                        debug
+                          "Successful external authentication user %s \
+                           (subject_identifier, %s from %s)"
+                          uname
+                          _subject_identifier
+                          (Context.get_origin __context) ;
+                        _subject_identifier
+                      with
+                      | Auth_signature.Auth_failure msg ->
+                          info
+                            "Failed to externally authenticate user %s from \
+                             %s: %s"
+                            uname
                             (Context.get_origin __context)
                             msg ;
                           thread_delay_and_raise_error
-                            ~error:Api_errors.session_authorization_failed uname
+                            ~error:Api_errors.session_authentication_failed
+                            uname
                             msg
                     in
-                    (* finds the intersection between group_membership_closure and pool's table of subject_ids *)
-                    let subjects_in_db = Db.Subject.get_all ~__context in
-                    let subject_ids_in_db =
-                      List.map
-                        (fun subj ->
-                          ( subj
-                          , Db.Subject.get_subject_identifier ~__context
-                              ~self:subj
-                          )
-                          )
-                        subjects_in_db
+                    (* as per tests in CP-827, there should be no need to call is_subject_suspended function here, *)
+                    (* because the authentication server in 2.1 will already reflect if account/password expired, *)
+                    (* disabled, locked-out etc, but since likewise doesn't timely reflect this information *)
+                    (* at the same time for both authentication and subject info queries (modification in the AD *)
+                    (* reflects immediately for AD authentication, but can take 1 hour to reflect on subject info), *)
+                    (* we need to call it here in order to be consistent with the session revalidation function. *)
+                    (* Otherwise, there might be cases where the initial authentication/login succeeds, but *)
+                    (* then a few minutes later the revalidation finds that the user is 'suspended' (due to *)
+                    (* subject info caching problems in likewise) and closes the user's session *)
+                    let subject_suspended, subject_name =
+                      try
+                        let suspended, name =
+                          is_subject_suspended
+                            ~__context
+                            ~cache:true
+                            subject_identifier
+                        in
+                        if suspended
+                        then
+                          is_subject_suspended
+                            ~__context
+                            ~cache:false
+                            subject_identifier
+                        else (suspended, name)
+                      with
+                      | Auth_signature.Auth_service_error (errtag, msg) ->
+                          debug
+                            "Failed to find if user %s (subject_id %s, from \
+                             %s) is suspended: %s"
+                            uname
+                            subject_identifier
+                            (Context.get_origin __context)
+                            msg ;
+                          thread_delay_and_raise_error
+                            ~error:Api_errors.session_authorization_failed
+                            uname
+                            msg
                     in
-                    let reflexive_membership_closure =
-                      subject_identifier :: group_membership_closure
-                    in
-                    (* returns all elements of reflexive_membership_closure that are inside subject_ids_in_db *)
-                    let intersect ext_sids db_sids =
-                      List.filter
-                        (fun (subj, db_sid) -> List.mem db_sid ext_sids)
-                        db_sids
-                    in
-                    let intersection =
-                      intersect reflexive_membership_closure subject_ids_in_db
-                    in
-                    (* 2.3. finally, we create the session for the authenticated subject if any membership intersection was found *)
-                    let in_intersection = List.length intersection > 0 in
-                    if not in_intersection then (
-                      (* empty intersection: externally-authenticated subject has no login rights in the pool *)
+                    if subject_suspended
+                    then (
                       let msg =
                         Printf.sprintf
-                          "Subject %s (identifier %s, from %s) has no access \
-                           rights in this pool"
-                          uname subject_identifier
+                          "User %s (subject_id %s, from %s) suspended in \
+                           external directory"
+                          uname
+                          subject_identifier
                           (Context.get_origin __context)
                       in
-                      info "%s" msg ;
+                      debug "%s" msg ;
                       thread_delay_and_raise_error
-                        ~error:Api_errors.session_authorization_failed uname msg
-                    ) else (* compute RBAC structures for the session *)
-                      let subject_membership =
-                        List.map (fun (subj_ref, sid) -> subj_ref) intersection
-                      in
-                      debug
-                        "subject membership intersection with subject-list=[%s]"
-                        (List.fold_left
-                           (fun i (subj_ref, sid) ->
-                             let subj_ref =
-                               try
-                                 (* attempt to resolve subject_ref -> subject_name *)
-                                 List.assoc
-                                   Auth_signature
-                                   .subject_information_field_subject_name
-                                   (Db.Subject.get_other_config ~__context
-                                      ~self:subj_ref
-                                   )
-                               with _ -> Ref.string_of subj_ref
-                             in
-                             if i = "" then
-                               subj_ref ^ " (" ^ sid ^ ")"
-                             else
-                               i ^ "," ^ subj_ref ^ " (" ^ sid ^ ")"
-                             )
-                           "" intersection
-                        ) ;
-                      let rbac_permissions =
-                        get_permissions ~__context ~subject_membership
-                      in
-                      (* CP-1260: If a subject has no roles assigned, then authentication will fail with an error such as PERMISSION_DENIED.*)
-                      if List.length rbac_permissions < 1 then (
-                        let msg =
-                          Printf.sprintf
-                            "Subject %s (identifier %s) has no roles in this \
-                             pool"
-                            uname subject_identifier
-                        in
-                        info "%s" msg ;
-                        thread_delay_and_raise_error uname msg
-                          ~error:Api_errors.rbac_permission_denied
-                      ) else
-                        (* non-empty intersection: externally-authenticated subject has login rights in the pool *)
-                        let subject =
-                          (* return reference for the subject obj in the db *)
-                          (* obs: this obj ref can point to either a user or a group contained in the local subject db list *)
-                          try
-                            List.find
-                              (fun subj ->
-                                (* is this the subject ref that returned the non-empty intersection?*)
-                                List.hd intersection
-                                = ( subj
-                                  , Db.Subject.get_subject_identifier ~__context
-                                      ~self:subj
-                                  )
-                                )
-                              subjects_in_db
-                            (* goes through exactly the same subject list that we went when computing the intersection, *)
-                            (* so that no one is able to undetectably remove/add another subject with the same subject_identifier *)
-                            (* between that time 2.2 and now 2.3 *)
-                          with Not_found ->
-                            (* this should never happen, it shows an inconsistency in the db between 2.2 and 2.3 *)
+                        ~error:Api_errors.session_authorization_failed
+                        uname
+                        msg )
+                    else
+                      (* 2.2. then, we verify if any elements of the the membership closure of the externally *)
+                      (* authenticated subject_id is inside our local allowed-to-login subjects list *)
+                      (* finds all the groups a user belongs to (non-reflexive closure of member-of relation) *)
+                      let group_membership_closure =
+                        try
+                          (Ext_auth.d ()).query_group_membership
+                            subject_identifier
+                        with
+                        | Not_found | Auth_signature.Subject_cannot_be_resolved
+                          ->
                             let msg =
                               Printf.sprintf
-                                "Subject %s (identifier %s, from %s) is not \
-                                 present in this pool"
-                                uname subject_identifier
+                                "Failed to obtain the group membership closure \
+                                 for user %s (subject_id %s, from %s): user \
+                                 not found in external directory"
+                                uname
                                 (Context.get_origin __context)
+                                subject_identifier
                             in
                             debug "%s" msg ;
                             thread_delay_and_raise_error
                               ~error:Api_errors.session_authorization_failed
-                              uname msg
+                              uname
+                              msg
+                        | Auth_signature.Auth_service_error (errtag, msg) ->
+                            debug
+                              "Failed to obtain the group membership closure \
+                               for user %s (subject_id %s, from %s): %s"
+                              uname
+                              subject_identifier
+                              (Context.get_origin __context)
+                              msg ;
+                            thread_delay_and_raise_error
+                              ~error:Api_errors.session_authorization_failed
+                              uname
+                              msg
+                      in
+                      (* finds the intersection between group_membership_closure and pool's table of subject_ids *)
+                      let subjects_in_db = Db.Subject.get_all ~__context in
+                      let subject_ids_in_db =
+                        List.map
+                          (fun subj ->
+                            ( subj
+                            , Db.Subject.get_subject_identifier
+                                ~__context
+                                ~self:subj ) )
+                          subjects_in_db
+                      in
+                      let reflexive_membership_closure =
+                        subject_identifier :: group_membership_closure
+                      in
+                      (* returns all elements of reflexive_membership_closure that are inside subject_ids_in_db *)
+                      let intersect ext_sids db_sids =
+                        List.filter
+                          (fun (subj, db_sid) -> List.mem db_sid ext_sids)
+                          db_sids
+                      in
+                      let intersection =
+                        intersect reflexive_membership_closure subject_ids_in_db
+                      in
+                      (* 2.3. finally, we create the session for the authenticated subject if any membership intersection was found *)
+                      let in_intersection = List.length intersection > 0 in
+                      if not in_intersection
+                      then (
+                        (* empty intersection: externally-authenticated subject has no login rights in the pool *)
+                        let msg =
+                          Printf.sprintf
+                            "Subject %s (identifier %s, from %s) has no access \
+                             rights in this pool"
+                            uname
+                            subject_identifier
+                            (Context.get_origin __context)
                         in
-                        login_no_password_common ~__context ~uname:(Some uname)
-                          ~originator
-                          ~host:(Helpers.get_localhost ~__context)
-                          ~pool:false ~is_local_superuser:false ~subject
-                          ~auth_user_sid:subject_identifier
-                          ~auth_user_name:subject_name ~rbac_permissions
-                          ~db_ref:None
-                  (* we only reach this point if for some reason a function above forgot to catch a possible exception in the Auth_signature module*)
-                with
+                        info "%s" msg ;
+                        thread_delay_and_raise_error
+                          ~error:Api_errors.session_authorization_failed
+                          uname
+                          msg )
+                      else
+                        (* compute RBAC structures for the session *)
+                        let subject_membership =
+                          List.map
+                            (fun (subj_ref, sid) -> subj_ref)
+                            intersection
+                        in
+                        debug
+                          "subject membership intersection with \
+                           subject-list=[%s]"
+                          (List.fold_left
+                             (fun i (subj_ref, sid) ->
+                               let subj_ref =
+                                 try
+                                   (* attempt to resolve subject_ref -> subject_name *)
+                                   List.assoc
+                                     Auth_signature
+                                     .subject_information_field_subject_name
+                                     (Db.Subject.get_other_config
+                                        ~__context
+                                        ~self:subj_ref )
+                                 with
+                                 | _ ->
+                                     Ref.string_of subj_ref
+                               in
+                               if i = ""
+                               then subj_ref ^ " (" ^ sid ^ ")"
+                               else i ^ "," ^ subj_ref ^ " (" ^ sid ^ ")" )
+                             ""
+                             intersection ) ;
+                        let rbac_permissions =
+                          get_permissions ~__context ~subject_membership
+                        in
+                        (* CP-1260: If a subject has no roles assigned, then authentication will fail with an error such as PERMISSION_DENIED.*)
+                        if List.length rbac_permissions < 1
+                        then (
+                          let msg =
+                            Printf.sprintf
+                              "Subject %s (identifier %s) has no roles in this \
+                               pool"
+                              uname
+                              subject_identifier
+                          in
+                          info "%s" msg ;
+                          thread_delay_and_raise_error
+                            uname
+                            msg
+                            ~error:Api_errors.rbac_permission_denied )
+                        else
+                          (* non-empty intersection: externally-authenticated subject has login rights in the pool *)
+                          let subject =
+                            (* return reference for the subject obj in the db *)
+                            (* obs: this obj ref can point to either a user or a group contained in the local subject db list *)
+                            try
+                              List.find
+                                (fun subj ->
+                                  (* is this the subject ref that returned the non-empty intersection?*)
+                                  List.hd intersection
+                                  = ( subj
+                                    , Db.Subject.get_subject_identifier
+                                        ~__context
+                                        ~self:subj ) )
+                                subjects_in_db
+                              (* goes through exactly the same subject list that we went when computing the intersection, *)
+                              (* so that no one is able to undetectably remove/add another subject with the same subject_identifier *)
+                              (* between that time 2.2 and now 2.3 *)
+                            with
+                            | Not_found ->
+                                (* this should never happen, it shows an inconsistency in the db between 2.2 and 2.3 *)
+                                let msg =
+                                  Printf.sprintf
+                                    "Subject %s (identifier %s, from %s) is \
+                                     not present in this pool"
+                                    uname
+                                    subject_identifier
+                                    (Context.get_origin __context)
+                                in
+                                debug "%s" msg ;
+                                thread_delay_and_raise_error
+                                  ~error:Api_errors.session_authorization_failed
+                                  uname
+                                  msg
+                          in
+                          login_no_password_common
+                            ~__context
+                            ~uname:(Some uname)
+                            ~originator
+                            ~host:(Helpers.get_localhost ~__context)
+                            ~pool:false
+                            ~is_local_superuser:false
+                            ~subject
+                            ~auth_user_sid:subject_identifier
+                            ~auth_user_name:subject_name
+                            ~rbac_permissions
+                            ~db_ref:None
+                    (* we only reach this point if for some reason a function above forgot to catch a possible exception in the Auth_signature module*)
+                  with
                 | Not_found | Auth_signature.Subject_cannot_be_resolved ->
                     let msg =
                       Printf.sprintf
-                        "user %s from %s not found in external directory" uname
+                        "user %s from %s not found in external directory"
+                        uname
                         (Context.get_origin __context)
                     in
                     debug
                       "A function failed to catch this exception for user %s \
                        during external authentication: %s"
-                      uname msg ;
+                      uname
+                      msg ;
                     thread_delay_and_raise_error
-                      ~error:Api_errors.session_authorization_failed uname msg
+                      ~error:Api_errors.session_authorization_failed
+                      uname
+                      msg
                 | Auth_signature.Auth_failure msg ->
                     debug
                       "A function failed to catch this exception for user %s. \
                        Auth_failure: %s"
-                      uname msg ;
+                      uname
+                      msg ;
                     thread_delay_and_raise_error
-                      ~error:Api_errors.session_authentication_failed uname msg
+                      ~error:Api_errors.session_authentication_failed
+                      uname
+                      msg
                 | Auth_signature.Auth_service_error (_, msg) ->
                     debug
                       "A function failed to catch this exception for user %s \
@@ -1097,7 +1284,9 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                       (Context.get_origin __context)
                       msg ;
                     thread_delay_and_raise_error
-                      ~error:Api_errors.session_authorization_failed uname msg
+                      ~error:Api_errors.session_authorization_failed
+                      uname
+                      msg
                 | Api_errors.Server_error _ as e ->
                     (* bubble up any api_error already generated *)
                     raise e
@@ -1111,22 +1300,22 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                       (Context.get_origin __context)
                       msg ;
                     thread_delay_and_raise_error
-                      ~error:Api_errors.internal_error uname msg
-              )
-            )
-        )
-  )
+                      ~error:Api_errors.internal_error
+                      uname
+                      msg ) ) ) )
+
 
 let change_password ~__context ~old_pwd ~new_pwd =
   let old_pwd = Bytes.of_string old_pwd in
   let new_pwd = Bytes.of_string new_pwd in
-  wipe_params_after_fn [old_pwd; new_pwd] (fun () ->
+  wipe_params_after_fn [ old_pwd; new_pwd ] (fun () ->
       let session_id = Context.get_session_id __context in
       (*let user = Db.Session.get_this_user ~__context ~self:session_id in
         	let uname = Db.User.get_short_name ~__context ~self:user in*)
       let uname = local_superuser in
       (* user class has been deprecated *)
-      if Db.Session.get_is_local_superuser ~__context ~self:session_id then (
+      if Db.Session.get_is_local_superuser ~__context ~self:session_id
+      then (
         try
           (* CP-696: only change password if session has is_local_superuser bit set *)
           (*
@@ -1156,22 +1345,26 @@ let change_password ~__context ~old_pwd ~new_pwd =
               List.iter
                 (fun host ->
                   try
-                    Client.Host.request_config_file_sync rpc session_id host
+                    Client.Host.request_config_file_sync
+                      rpc
+                      session_id
+                      host
                       hash
-                  with e ->
-                    error "Failed to sync password to host %s: %s"
-                      (Db.Host.get_name_label ~__context ~self:host)
-                      (Printexc.to_string e)
-                  )
-                hosts
-          ) ;
+                  with
+                  | e ->
+                      error
+                        "Failed to sync password to host %s: %s"
+                        (Db.Host.get_name_label ~__context ~self:host)
+                        (Printexc.to_string e) )
+                hosts ) ;
           info "Finished syncing password across pool"
-        with Failure msg ->
-          error "Failed to change password for user %s: %s" uname msg ;
-          raise
-            (Api_errors.Server_error (Api_errors.change_password_rejected, [msg])
-            )
-      ) else
+        with
+        | Failure msg ->
+            error "Failed to change password for user %s: %s" uname msg ;
+            raise
+              (Api_errors.Server_error
+                 (Api_errors.change_password_rejected, [ msg ]) ) )
+      else
         (* CP-696: session does not have is_local_superuser bit set, so we must fail *)
         let msg =
           Printf.sprintf "Failed to change password for user %s" uname
@@ -1179,17 +1372,18 @@ let change_password ~__context ~old_pwd ~new_pwd =
         debug "User %s is not local superuser: %s" uname msg ;
         raise
           (Api_errors.Server_error
-             (Api_errors.user_is_not_local_superuser, [msg])
-          )
-  )
+             (Api_errors.user_is_not_local_superuser, [ msg ]) ) )
+
 
 let logout ~__context =
   let session_id = Context.get_session_id __context in
   destroy_db_session ~__context ~self:session_id
 
+
 let local_logout ~__context =
   let session_id = Context.get_session_id __context in
   Xapi_local_session.destroy ~__context ~self:session_id
+
 
 let get_group_subject_identifier_from_session ~__context ~session =
   let subj = Db.Session.get_subject ~__context ~self:session in
@@ -1199,10 +1393,13 @@ let get_group_subject_identifier_from_session ~__context ~session =
       ""
   | e ->
       (* unexpected error *)
-      debug "error obtaining sid from subject %s from session %s: %s"
-        (Ref.string_of subj) (Ref.string_of session)
+      debug
+        "error obtaining sid from subject %s from session %s: %s"
+        (Ref.string_of subj)
+        (Ref.string_of session)
         (ExnHelper.string_of_exn e) ;
       ""
+
 
 let get_all_subject_identifiers ~__context =
   let all_sessions = Db.Session.get_all ~__context in
@@ -1210,8 +1407,7 @@ let get_all_subject_identifiers ~__context =
     List.filter
       (fun session ->
         (* an externally-authenticated session is one which is not a local_superuser session *)
-        not (Db.Session.get_is_local_superuser ~__context ~self:session)
-        )
+        not (Db.Session.get_is_local_superuser ~__context ~self:session) )
       all_sessions
   in
   (* we only want to return sids of externally-authenticated sessions *)
@@ -1226,14 +1422,13 @@ let get_all_subject_identifiers ~__context =
       (List.map
          (fun session ->
            (* TODO: better to look up the membership closure *)
-           get_group_subject_identifier_from_session ~__context ~session
-           )
-         all_extauth_sessions
-      )
+           get_group_subject_identifier_from_session ~__context ~session )
+         all_extauth_sessions )
   in
   (* avoid returning repeated sids *)
   Listext.List.setify
     (all_auth_user_sids_in_sessions @ all_subject_list_sids_in_sessions)
+
 
 let logout_subject_identifier ~__context ~subject_identifier =
   let all_sessions = Db.Session.get_all ~__context in
@@ -1248,45 +1443,44 @@ let logout_subject_identifier ~__context ~subject_identifier =
         && Db.Session.get_uuid ~__context ~self:s
            <> Db.Session.get_uuid ~__context ~self:current_session
         && (* 3. we only consider those sessions associated with the specific subject_id received as parameter *)
-        ((* 3.1. the sid of the authenticated user *)
-         Db.Session.get_auth_user_sid ~__context ~self:s = subject_identifier
+        ( (* 3.1. the sid of the authenticated user *)
+          Db.Session.get_auth_user_sid ~__context ~self:s = subject_identifier
         || (* 3.2. any sids of the group that authenticated the user *)
            (* TODO: better to look up the membership closure *)
         get_group_subject_identifier_from_session ~__context ~session:s
-        = subject_identifier
-        )
-        )
+        = subject_identifier ) )
       all_sessions
   in
   debug
     "This session %s (user=%s subject_identifier=%s) is forcing the logout of \
      these other sessions associated with subject_identifier=%s: trackids=[%s]"
     (trackid current_session)
-    ( if Db.Session.get_is_local_superuser ~__context ~self:current_session then
-        local_superuser
-    else
-      ""
-    )
+    ( if Db.Session.get_is_local_superuser ~__context ~self:current_session
+    then local_superuser
+    else "" )
     (Db.Session.get_auth_user_sid ~__context ~self:current_session)
     subject_identifier
     (List.fold_right (fun s str -> trackid s ^ "," ^ str) sessions "") ;
   (* kill all filtered sessions *)
   List.iter (fun s -> destroy_db_session ~__context ~self:s) sessions
 
+
 (* returns the ancestry chain of session s, starting with s *)
 let rec get_ancestry ~__context ~self =
-  if self = Ref.null then
-    [] (* top of session tree *)
+  if self = Ref.null
+  then [] (* top of session tree *)
   else
     let parent =
-      try Db.Session.get_parent ~__context ~self
-      with e ->
-        debug "error %s getting ancestry for session %s"
-          (ExnHelper.string_of_exn e)
-          (trackid self) ;
-        Ref.null
+      try Db.Session.get_parent ~__context ~self with
+      | e ->
+          debug
+            "error %s getting ancestry for session %s"
+            (ExnHelper.string_of_exn e)
+            (trackid self) ;
+          Ref.null
     in
     self :: get_ancestry ~__context ~self:parent
+
 
 (* returns the original session up the ancestry chain that created s *)
 let get_top ~__context ~self =
@@ -1297,23 +1491,33 @@ let get_top ~__context ~self =
   | ancestry ->
       List.nth ancestry (List.length ancestry - 1)
 
+
 (* This function should only be called from inside XAPI. *)
 let create_readonly_session ~__context ~uname ~db_ref =
   debug "Creating readonly session." ;
   let role =
     List.hd
-      (Xapi_role.get_by_name_label ~__context
-         ~label:Datamodel_roles.role_read_only
-      )
+      (Xapi_role.get_by_name_label
+         ~__context
+         ~label:Datamodel_roles.role_read_only )
   in
   let rbac_permissions =
     Xapi_role.get_permissions_name_label ~__context ~self:role
   in
   let master = Helpers.get_master ~__context in
-  login_no_password_common ~__context ~uname:(Some uname)
-    ~originator:xapi_internal_originator ~host:master ~pool:false
-    ~is_local_superuser:false ~subject:Ref.null ~auth_user_sid:"readonly-sid"
-    ~auth_user_name:uname ~rbac_permissions ~db_ref
+  login_no_password_common
+    ~__context
+    ~uname:(Some uname)
+    ~originator:xapi_internal_originator
+    ~host:master
+    ~pool:false
+    ~is_local_superuser:false
+    ~subject:Ref.null
+    ~auth_user_sid:"readonly-sid"
+    ~auth_user_name:uname
+    ~rbac_permissions
+    ~db_ref
+
 
 (* Create a database reference from a DB dump, and register it with a new readonly session. *)
 let create_from_db_file ~__context ~filename =

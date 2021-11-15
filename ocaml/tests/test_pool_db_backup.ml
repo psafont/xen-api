@@ -27,12 +27,24 @@ let test_prepare_restore () =
       T.make_network ~__context ~name_label:"management network" ()
     in
     let (_ : API.ref_PIF) =
-      T.make_pif ~__context ~network:management_net ~device:"eth0" ~host:master
-        ~management:true ~mAC:mac1 ()
+      T.make_pif
+        ~__context
+        ~network:management_net
+        ~device:"eth0"
+        ~host:master
+        ~management:true
+        ~mAC:mac1
+        ()
     in
     let (_ : API.ref_PIF) =
-      T.make_pif ~__context ~network:management_net ~device:"eth0" ~host:slave
-        ~management:true ~mAC:mac2 ()
+      T.make_pif
+        ~__context
+        ~network:management_net
+        ~device:"eth0"
+        ~host:slave
+        ~management:true
+        ~mAC:mac2
+        ()
     in
     __context
   in
@@ -48,7 +60,9 @@ let test_prepare_restore () =
   let all_hosts = Db.Host.get_all ~__context:new_context in
   (* new_context should have exactly 1 host: the master *)
   Alcotest.(check int)
-    "test_prepare_restore: should only be 1 host" (List.length all_hosts) 1 ;
+    "test_prepare_restore: should only be 1 host"
+    (List.length all_hosts)
+    1 ;
   let master = List.hd all_hosts in
   (* new_context master host should have PIF with MAC "a" *)
   let pif = List.hd (Db.Host.get_PIFs ~__context:new_context ~self:master) in
@@ -57,13 +71,18 @@ let test_prepare_restore () =
   (* new_context should have correct master host uuid *)
   let host_uuid = Db.Host.get_uuid ~__context:new_context ~self:master in
   Alcotest.(check string)
-    "test_prepare_restore: master uuid wrong" host_uuid my_installation_uuid ;
+    "test_prepare_restore: master uuid wrong"
+    host_uuid
+    my_installation_uuid ;
   (* new_context should have correct master dom0 uuid *)
   let dom0 =
     List.hd (Db.Host.get_resident_VMs ~__context:new_context ~self:master)
   in
   let dom0_uuid = Db.VM.get_uuid ~__context:new_context ~self:dom0 in
   Alcotest.(check string)
-    "test_prepare_restore: master dom0 uuid wrong" dom0_uuid my_control_uuid
+    "test_prepare_restore: master dom0 uuid wrong"
+    dom0_uuid
+    my_control_uuid
 
-let test = [("test_prepare_restore", `Quick, test_prepare_restore)]
+
+let test = [ ("test_prepare_restore", `Quick, test_prepare_restore) ]

@@ -14,7 +14,9 @@
 
 open Network_interface
 
-module D = Debug.Make (struct let name = "network_config" end)
+module D = Debug.Make (struct
+  let name = "network_config"
+end)
 
 open D
 
@@ -29,10 +31,10 @@ let config_file_path = "/var/lib/xcp/networkd.db"
 let temp_vlan = "xentemp"
 
 let bridge_naming_convention (device : string) =
-  if Astring.String.is_prefix ~affix:"eth" device then
-    "xenbr" ^ String.sub device 3 (String.length device - 3)
-  else
-    "br" ^ device
+  if Astring.String.is_prefix ~affix:"eth" device
+  then "xenbr" ^ String.sub device 3 (String.length device - 3)
+  else "br" ^ device
+
 
 let read_management_conf () =
   try
@@ -47,14 +49,14 @@ let read_management_conf () =
       List.map
         (fun s ->
           match Astring.String.cuts ~sep:"=" s with
-          | [k; v] ->
+          | [ k; v ] ->
               (k, Astring.String.trim ~drop:(( = ) '\'') v)
           | _ ->
-              ("", "")
-          )
+              ("", "") )
         args
     in
-    debug "Firstboot file management.conf has: %s"
+    debug
+      "Firstboot file management.conf has: %s"
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) args)) ;
     let device = List.assoc "LABEL" args in
     let vlan =
@@ -63,14 +65,15 @@ let read_management_conf () =
     Inventory.reread_inventory () ;
     let bridge_name =
       let inventory_bridge =
-        try Some (Inventory.lookup Inventory._management_interface)
-        with Inventory.Missing_inventory_key _ -> None
+        try Some (Inventory.lookup Inventory._management_interface) with
+        | Inventory.Missing_inventory_key _ ->
+            None
       in
       match inventory_bridge with
       | Some "" | None ->
           let bridge =
-            if vlan = None then
-              bridge_naming_convention device
+            if vlan = None
+            then bridge_naming_convention device
             else
               (* At this point, we don't know what the VLAN bridge name will be,
                * so use a temporary name. Xapi will replace the bridge once the name
@@ -90,85 +93,89 @@ let read_management_conf () =
           let ip = List.assoc "IP" args |> Unix.inet_addr_of_string in
           let prefixlen = List.assoc "NETMASK" args |> netmask_to_prefixlen in
           let gateway =
-            if List.mem_assoc "GATEWAY" args then
-              Some (List.assoc "GATEWAY" args |> Unix.inet_addr_of_string)
-            else
-              None
+            if List.mem_assoc "GATEWAY" args
+            then Some (List.assoc "GATEWAY" args |> Unix.inet_addr_of_string)
+            else None
           in
           let nameservers =
-            if List.mem_assoc "DNS" args && List.assoc "DNS" args <> "" then
-              List.map Unix.inet_addr_of_string
-                (Astring.String.cuts ~empty:false ~sep:","
-                   (List.assoc "DNS" args)
-                )
-            else
-              []
+            if List.mem_assoc "DNS" args && List.assoc "DNS" args <> ""
+            then
+              List.map
+                Unix.inet_addr_of_string
+                (Astring.String.cuts
+                   ~empty:false
+                   ~sep:","
+                   (List.assoc "DNS" args) )
+            else []
           in
           let domains =
             if List.mem_assoc "DOMAIN" args && List.assoc "DOMAIN" args <> ""
             then
-              Astring.String.cuts ~empty:false ~sep:" "
+              Astring.String.cuts
+                ~empty:false
+                ~sep:" "
                 (List.assoc "DOMAIN" args)
-            else
-              []
+            else []
           in
           let dns = (nameservers, domains) in
-          (Static4 [(ip, prefixlen)], gateway, dns)
+          (Static4 [ (ip, prefixlen) ], gateway, dns)
       | "dhcp" | _ ->
           (DHCP4, None, ([], []))
     in
-    let phy_interface = {default_interface with persistent_i= true} in
+    let phy_interface = { default_interface with persistent_i = true } in
     let bridge_interface =
-      {default_interface with ipv4_conf; ipv4_gateway; persistent_i= true; dns}
+      { default_interface with
+        ipv4_conf
+      ; ipv4_gateway
+      ; persistent_i = true
+      ; dns
+      }
     in
     let interface_config, bridge_config =
       let primary_bridge_conf =
-        {
-          default_bridge with
-          bridge_mac= Some mac
-        ; ports= [(device, {default_port with interfaces= [device]})]
-        ; persistent_b= true
+        { default_bridge with
+          bridge_mac = Some mac
+        ; ports = [ (device, { default_port with interfaces = [ device ] }) ]
+        ; persistent_b = true
         }
       in
       match vlan with
       | None ->
-          ( [(device, phy_interface); (bridge_name, bridge_interface)]
-          , [(bridge_name, primary_bridge_conf)]
-          )
+          ( [ (device, phy_interface); (bridge_name, bridge_interface) ]
+          , [ (bridge_name, primary_bridge_conf) ] )
       | Some vlan ->
           let parent = bridge_naming_convention device in
           let secondary_bridge_conf =
-            {
-              default_bridge with
-              vlan= Some (parent, int_of_string vlan)
-            ; bridge_mac= Some mac
-            ; persistent_b= true
+            { default_bridge with
+              vlan = Some (parent, int_of_string vlan)
+            ; bridge_mac = Some mac
+            ; persistent_b = true
             }
           in
           let parent_bridge_interface =
-            {default_interface with persistent_i= true}
+            { default_interface with persistent_i = true }
           in
-          ( [
-              (device, phy_interface)
+          ( [ (device, phy_interface)
             ; (parent, parent_bridge_interface)
             ; (bridge_name, bridge_interface)
             ]
-          , [
-              (parent, primary_bridge_conf); (bridge_name, secondary_bridge_conf)
-            ]
-          )
+          , [ (parent, primary_bridge_conf)
+            ; (bridge_name, secondary_bridge_conf)
+            ] )
     in
-    {
-      interface_config
+    { interface_config
     ; bridge_config
-    ; gateway_interface= Some bridge_name
-    ; dns_interface= Some bridge_name
+    ; gateway_interface = Some bridge_name
+    ; dns_interface = Some bridge_name
     }
-  with e ->
-    error "Error while trying to read firstboot data: %s\n%s"
-      (Printexc.to_string e)
-      (Printexc.get_backtrace ()) ;
-    raise Read_error
+  with
+  | e ->
+      error
+        "Error while trying to read firstboot data: %s\n%s"
+        (Printexc.to_string e)
+        (Printexc.get_backtrace ()) ;
+      raise Read_error
+
 
 let write_config config =
   try
@@ -176,11 +183,14 @@ let write_config config =
       config |> Rpcmarshal.marshal typ_of_config_t |> Jsonrpc.to_string
     in
     Xapi_stdext_unix.Unixext.write_string_to_file config_file_path config_json
-  with e ->
-    error "Error while trying to write networkd configuration: %s\n%s"
-      (Printexc.to_string e)
-      (Printexc.get_backtrace ()) ;
-    raise Write_error
+  with
+  | e ->
+      error
+        "Error while trying to write networkd configuration: %s\n%s"
+        (Printexc.to_string e)
+        (Printexc.get_backtrace ()) ;
+      raise Write_error
+
 
 (* Porting network interaface to ppx: convert ipv4_routes from [(string * int *
    string) list] to [{gateway:string; netmask:int; subnet:string}] *)
@@ -189,11 +199,10 @@ let convert_configuration cfg =
   let convert_ipv4_routes cfg =
     let convert_ipv4_route cfg =
       match cfg with
-      | `List [`String gateway; `Int netmask; `String subnet] ->
+      | `List [ `String gateway; `Int netmask; `String subnet ] ->
           debug "convert ipv4 route" ;
           `Assoc
-            [
-              ("gateway", `String gateway)
+            [ ("gateway", `String gateway)
             ; ("netmask", `Int netmask)
             ; ("subnet", `String subnet)
             ]
@@ -213,10 +222,8 @@ let convert_configuration cfg =
           (List.map
              (fun (k, v) ->
                let v = if k = "ipv4_routes" then convert_ipv4_routes v else v in
-               (k, v)
-               )
-             l
-          )
+               (k, v) )
+             l )
     | other ->
         other
   in
@@ -234,19 +241,17 @@ let convert_configuration cfg =
           (List.map
              (fun (k, v) ->
                let v =
-                 if k = "interface_config" then
-                   convert_interface_config v
-                 else
-                   v
+                 if k = "interface_config"
+                 then convert_interface_config v
+                 else v
                in
-               (k, v)
-               )
-             l
-          )
+               (k, v) )
+             l )
     | other ->
         other
   in
   to_string json
+
 
 let read_config () =
   try
@@ -269,7 +274,8 @@ let read_config () =
         file ;
       raise Read_error
   | e ->
-      info "Error while trying to read networkd configuration: %s\n%s"
+      info
+        "Error while trying to read networkd configuration: %s\n%s"
         (Printexc.to_string e)
         (Printexc.get_backtrace ()) ;
       raise Read_error

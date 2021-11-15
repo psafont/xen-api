@@ -21,8 +21,7 @@ let text_export rrd =
       -. Int64.to_float
            (Int64.mul
               (Int64.of_int (rra.rra_pdp_cnt * rra.rra_row_cnt))
-              rrd.timestep
-           )
+              rrd.timestep )
     in
     Printf.printf "start=%f\n" start ;
     let rra_timestep = Int64.mul rrd.timestep (Int64.of_int rra.rra_pdp_cnt) in
@@ -35,40 +34,43 @@ let text_export rrd =
       Printf.printf "Doing ds: %s\n" rrd.rrd_dss.(j).ds_name ;
       let oc =
         open_out
-          (Printf.sprintf "rrd_data_%s_%s_%Ld.dat" rrd.rrd_dss.(j).ds_name
+          (Printf.sprintf
+             "rrd_data_%s_%s_%Ld.dat"
+             rrd.rrd_dss.(j).ds_name
              (cf_type_to_string rra.rra_cf)
              (Int64.mul
                 (Int64.of_int (rra.rra_pdp_cnt * rra.rra_row_cnt))
-                rrd.timestep
-             )
-          )
+                rrd.timestep ) )
       in
       let rec do_data i accum =
-        if time i < Int64.of_float start || i >= rra.rra_row_cnt then
-          List.rev accum
-        else
-          do_data (i + 1) ((time i, Fring.peek rra.rra_data.(j) i) :: accum)
+        if time i < Int64.of_float start || i >= rra.rra_row_cnt
+        then List.rev accum
+        else do_data (i + 1) ((time i, Fring.peek rra.rra_data.(j) i) :: accum)
       in
       let data = do_data 0 [] in
       List.iter
         (fun (t, d) ->
-          if not (Utils.isnan d) then Printf.fprintf oc "%Ld %f\n" t d
-          )
+          if not (Utils.isnan d) then Printf.fprintf oc "%Ld %f\n" t d )
         data ;
       close_out oc
     done
   done
 
+
 let finally f ~(always : unit -> unit) =
   match f () with
   | result ->
-      always () ; result
+      always () ;
+      result
   | exception e ->
-      always () ; raise e
+      always () ;
+      raise e
+
 
 let with_input_file filename f =
   let ic = open_in filename in
   finally (fun () -> f ic) ~always:(fun () -> close_in ic)
+
 
 let _ =
   let dump_channel ic =

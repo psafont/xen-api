@@ -24,15 +24,13 @@ let print s = output_string !oc (s ^ "\n")
 let between = Xapi_stdext_std.Listext.List.between
 
 let overrides =
-  [
-    ( "vm_operations_to_string_map"
+  [ ( "vm_operations_to_string_map"
     , "let rpc_of_vm_operations_to_string_map x = Rpc.Dict (List.map (fun \
        (x,y) -> (match rpc_of_vm_operations x with Rpc.String x -> x | _ -> \
        failwith \"Marshalling error\"), Rpc.String y) x)\n"
       ^ "let vm_operations_to_string_map_of_rpc x = match x with Rpc.Dict l -> \
          List.map (function (x,y) -> vm_operations_of_rpc (Rpc.String x), \
-         string_of_rpc y) l | _ -> failwith \"Unmarshalling error\"\n"
-    )
+         string_of_rpc y) l | _ -> failwith \"Unmarshalling error\"\n" )
   ; ( "bond_mode"
     , "let rpc_of_bond_mode x = match x with `balanceslb -> Rpc.String \
        \"balance-slb\" | `activebackup -> Rpc.String \"active-backup\" | `lacp \
@@ -40,37 +38,33 @@ let overrides =
       ^ "let bond_mode_of_rpc x = match x with Rpc.String \"balance-slb\" -> \
          `balanceslb | Rpc.String \"active-backup\" -> `activebackup | \
          Rpc.String \"lacp\" -> `lacp | _ -> failwith \"Unmarshalling error in \
-         bond-mode\"\n"
-    )
+         bond-mode\"\n" )
   ; ( "int64_to_float_map"
     , "let rpc_of_int64_to_float_map x = Rpc.Dict (List.map (fun (x,y) -> \
        Int64.to_string x, Rpc.Float y) x)\n"
       ^ "let int64_to_float_map_of_rpc x = match x with Rpc.Dict x -> List.map \
          (fun (x,y) -> Int64.of_string x, float_of_rpc y) x | _ -> failwith \
-         \"Unmarshalling error\""
-    )
+         \"Unmarshalling error\"" )
   ; ( "int64_to_int64_map"
     , "let rpc_of_int64_to_int64_map x = Rpc.Dict (List.map (fun (x,y) -> \
        Int64.to_string x, Rpc.Int y) x)\n"
       ^ "let int64_to_int64_map_of_rpc x = match x with Rpc.Dict x -> List.map \
          (fun (x,y) -> Int64.of_string x, int64_of_rpc y) x | _ -> failwith \
-         \"Unmarshalling error\""
-    )
+         \"Unmarshalling error\"" )
   ; ( "int64_to_string_set_map"
     , "let rpc_of_int64_to_string_set_map x = Rpc.Dict (List.map (fun (x,y) -> \
        Int64.to_string x, rpc_of_string_set y) x)\n"
       ^ "let int64_to_string_set_map_of_rpc x = match x with Rpc.Dict x -> \
          List.map (fun (x,y) -> Int64.of_string x, string_set_of_rpc y) x | _ \
-         -> failwith \"Unmarshalling error\""
-    )
+         -> failwith \"Unmarshalling error\"" )
   ; ( "event_operation"
     , "let rpc_of_event_operation x = match x with | `add -> Rpc.String \
        \"add\" | `del -> Rpc.String \"del\" | `_mod -> Rpc.String \"mod\"\n"
       ^ "let event_operation_of_rpc x = match x with | Rpc.String \"add\" -> \
          `add | Rpc.String \"del\" -> `del | Rpc.String \"mod\" -> `_mod | _ \
-         -> failwith \"Unmarshalling error\""
-    )
+         -> failwith \"Unmarshalling error\"" )
   ]
+
 
 (** Generate a single type declaration for simple types (eg not containing references to record objects) *)
 let gen_non_record_type highapi tys =
@@ -88,29 +82,35 @@ let gen_non_record_type highapi tys =
         aux accu t
     | (DT.Set (DT.Enum (n, _) as e) as ty) :: t ->
         aux
-          (sprintf "type %s = %s list [@@deriving rpc]" (OU.alias_of_ty ty)
+          (sprintf
+             "type %s = %s list [@@deriving rpc]"
+             (OU.alias_of_ty ty)
              (OU.alias_of_ty e)
-           :: accu
-          )
+           :: accu )
           t
     | ty :: t ->
         let alias = OU.alias_of_ty ty in
-        if List.mem_assoc alias overrides then
+        if List.mem_assoc alias overrides
+        then
           aux
-            (sprintf "type %s = %s\n%s\n" alias (OU.ocaml_of_ty ty)
+            (sprintf
+               "type %s = %s\n%s\n"
+               alias
+               (OU.ocaml_of_ty ty)
                (List.assoc alias overrides)
-             :: accu
-            )
+             :: accu )
             t
         else
           aux
-            (sprintf "type %s = %s [@@deriving rpc]" (OU.alias_of_ty ty)
+            (sprintf
+               "type %s = %s [@@deriving rpc]"
+               (OU.alias_of_ty ty)
                (OU.ocaml_of_ty ty)
-             :: accu
-            )
+             :: accu )
             t
   in
   aux [] tys
+
 
 (** Generate a list of modules for each record kind *)
 let gen_record_type ~with_module highapi tys =
@@ -171,22 +171,28 @@ let gen_record_type ~with_module highapi tys =
           | None ->
               "None"
           | Some default ->
-              sprintf "(Some (%s))"
+              sprintf
+                "(Some (%s))"
                 (Datamodel_values.to_ocaml_string ~v2:true default)
         in
         let make_to_field fld =
           let rpc_field = rpc_field fld in
           let get_field ty =
             let of_rpc_fn ty = sprintf "%s_of_rpc" (OU.alias_of_ty ty) in
-            sprintf "(%s (assocer %s x %s))" (of_rpc_fn ty) rpc_field
+            sprintf
+              "(%s (assocer %s x %s))"
+              (of_rpc_fn ty)
+              rpc_field
               (get_default fld)
           in
           let value =
             let open DT in
             match fld.ty with
             | Option ty ->
-                sprintf "(if List.mem_assoc %s x then Some (%s) else None)"
-                  rpc_field (get_field ty)
+                sprintf
+                  "(if List.mem_assoc %s x then Some (%s) else None)"
+                  rpc_field
+                  (get_field ty)
             | SecretString
             | String
             | Int
@@ -206,21 +212,31 @@ let gen_record_type ~with_module highapi tys =
           sprintf "type %s_t = { %s }" obj_name (map_fields regular_def)
         in
         let others =
-          if not with_module then
-            []
+          if not with_module
+          then []
           else
-            [
-              sprintf "let rpc_of_%s_t x = Rpc.Dict (unbox_list [ %s ])"
-                obj_name (map_fields make_of_field)
-            ; sprintf "let %s_t_of_rpc x = on_dict (fun x -> { %s }) x" obj_name
+            [ sprintf
+                "let rpc_of_%s_t x = Rpc.Dict (unbox_list [ %s ])"
+                obj_name
+                (map_fields make_of_field)
+            ; sprintf
+                "let %s_t_of_rpc x = on_dict (fun x -> { %s }) x"
+                obj_name
                 (map_fields make_to_field)
             ; sprintf
                 "type ref_%s_to_%s_t_map = (ref_%s * %s_t) list [@@deriving \
                  rpc]"
-                record obj_name record obj_name
-            ; sprintf "type %s_t_set = %s_t list [@@deriving rpc]" obj_name
+                record
                 obj_name
-            ; sprintf "type %s_t_option = %s_t option [@@deriving rpc]" obj_name
+                record
+                obj_name
+            ; sprintf
+                "type %s_t_set = %s_t list [@@deriving rpc]"
+                obj_name
+                obj_name
+            ; sprintf
+                "type %s_t_option = %s_t option [@@deriving rpc]"
+                obj_name
                 obj_name
             ; ""
             ]
@@ -231,12 +247,13 @@ let gen_record_type ~with_module highapi tys =
   in
   aux [] tys
 
+
 let gen_client highapi =
-  List.iter (List.iter print)
-    (between [""]
-       [
-         [
-           "open API"
+  List.iter
+    (List.iter print)
+    (between
+       [ "" ]
+       [ [ "open API"
          ; "open Rpc"
          ; "module type RPC = sig val rpc: Rpc.t -> Rpc.t end"
          ; "module type IO = sig type 'a t val bind : 'a t -> ('a -> 'b t) -> \
@@ -247,13 +264,12 @@ let gen_client highapi =
             (code, args))"
          ]
        ; O.Module.strings_of (Gen_client.gen_module highapi)
-       ; [
-           "module Id = struct type 'a t = 'a let bind x f = f x let return x \
+       ; [ "module Id = struct type 'a t = 'a let bind x f = f x let return x \
             = x end"
          ; "module Client = ClientF(Id)"
          ]
-       ]
-    )
+       ] )
+
 
 let add_set_enums types =
   List.concat
@@ -261,15 +277,13 @@ let add_set_enums types =
        (fun ty ->
          match ty with
          | DT.Enum _ ->
-             if List.exists (fun ty2 -> ty2 = DT.Set ty) types then
-               [ty]
-             else
-               [DT.Set ty; ty]
+             if List.exists (fun ty2 -> ty2 = DT.Set ty) types
+             then [ ty ]
+             else [ DT.Set ty; ty ]
          | _ ->
-             [ty]
-         )
-       types
-    )
+             [ ty ] )
+       types )
+
 
 let all_types_of highapi = DU.Types.of_objects (Dm_api.objects_of_api highapi)
 
@@ -310,8 +324,7 @@ let toposort_types highapi types =
               let referencing = List.filter (references name) remaining in
               List.length referencing > 1
           | _ ->
-              false
-          )
+              false )
         remaining
     in
     match ty_ref with
@@ -325,22 +338,22 @@ let toposort_types highapi types =
   assert (List.sort compare result = List.sort compare types) ;
   result
 
+
 let gen_client_types highapi =
   let all_types = all_types_of highapi in
   let all_types = add_set_enums all_types in
-  List.iter (List.iter print)
-    (between [""]
-       [
-         [
-           "type failure = (string list) [@@deriving rpc]"
+  List.iter
+    (List.iter print)
+    (between
+       [ "" ]
+       [ [ "type failure = (string list) [@@deriving rpc]"
          ; "let response_of_failure code params ="
          ; "  Rpc.failure (rpc_of_failure (code::params))"
          ; "let response_of_fault code ="
          ; "  Rpc.failure (rpc_of_failure ([\"Fault\"; code]))"
          ]
-       ; ["include Rpc"; "type string_list = string list [@@deriving rpc]"]
-       ; [
-           "module Ref = struct"
+       ; [ "include Rpc"; "type string_list = string list [@@deriving rpc]" ]
+       ; [ "module Ref = struct"
          ; "  include Ref"
          ; "  let rpc_of_t (_:'a -> Rpc.t) (x: 'a Ref.t) = rpc_of_string \
             (Ref.string_of x)"
@@ -348,8 +361,7 @@ let gen_client_types highapi =
             x);"
          ; "end"
          ]
-       ; [
-           "module Date = struct"
+       ; [ "module Date = struct"
          ; "  open Xapi_stdext_date"
          ; "  include Date"
          ; "  let rpc_of_iso8601 x = DateTime (Date.to_string x)"
@@ -357,20 +369,17 @@ let gen_client_types highapi =
             Date.of_string x | _ -> failwith \"Date.iso8601_of_rpc\""
          ; "end"
          ]
-       ; [
-           "let on_dict f = function | Rpc.Dict x -> f x | _ -> failwith \
+       ; [ "let on_dict f = function | Rpc.Dict x -> f x | _ -> failwith \
             \"Expected Dictionary\""
          ]
-       ; ["let opt_map f = function | None -> None | Some x -> Some (f x)"]
-       ; [
-           "let unbox_list = let rec loop aux = function"
+       ; [ "let opt_map f = function | None -> None | Some x -> Some (f x)" ]
+       ; [ "let unbox_list = let rec loop aux = function"
          ; "| [] -> List.rev aux"
          ; "| None :: tl -> loop aux tl"
          ; "| Some hd :: tl -> loop (hd :: aux) tl in"
          ; "loop []"
          ]
-       ; [
-           "let assocer key map default = "
+       ; [ "let assocer key map default = "
          ; "  try"
          ; "    List.assoc key map"
          ; "  with Not_found ->"
@@ -380,33 +389,38 @@ let gen_client_types highapi =
             rpc\" key)"
          ]
        ; gen_non_record_type highapi all_types
-       ; gen_record_type ~with_module:true highapi
+       ; gen_record_type
+           ~with_module:true
+           highapi
            (toposort_types highapi all_types)
        ; O.Signature.strings_of (Gen_client.gen_signature highapi)
-       ]
-    )
+       ] )
+
 
 let gen_server highapi =
-  List.iter (List.iter print)
-    (between [""]
-       [
-         ["open API"; "open Server_helpers"]
+  List.iter
+    (List.iter print)
+    (between
+       [ "" ]
+       [ [ "open API"; "open Server_helpers" ]
        ; O.Module.strings_of (Gen_server.gen_module highapi)
-       ]
-    )
+       ] )
+
 
 let gen_custom_actions highapi =
-  List.iter (List.iter print)
-    (between [""]
-       [
-         ["open API"]
+  List.iter
+    (List.iter print)
+    (between
+       [ "" ]
+       [ [ "open API" ]
        ; O.Signature.strings_of
-           (Gen_empty_custom.gen_signature Gen_empty_custom.signature_name None
-              highapi
-           )
+           (Gen_empty_custom.gen_signature
+              Gen_empty_custom.signature_name
+              None
+              highapi )
        ; O.Module.strings_of (Gen_empty_custom.gen_release_module highapi)
-       ]
-    )
+       ] )
+
 
 open Gen_db_actions
 
@@ -422,22 +436,25 @@ let gen_db_actions highapi =
   let only_records =
     List.filter (function DT.Record _ -> true | _ -> false) all_types_in_db
   in
-  List.iter (List.iter print)
-    (between [""]
-       [
-         ["open API"]
-       ; (* These records have the hidden fields inside.
-            This excludes records not stored in the database, which must not
-            have hidden fields. *)
-         gen_record_type ~with_module:false highapi
-           (toposort_types highapi only_records)
-       ; (* NB record types are ignored by dm_to_string and string_to_dm *)
-         O.Module.strings_of (dm_to_string all_types_in_db)
-       ; O.Module.strings_of (string_to_dm all_types_in_db)
-       ; O.Module.strings_of (db_action highapi_in_db)
-       ]
+  List.iter
+    (List.iter print)
+    ( between
+        [ "" ]
+        [ [ "open API" ]
+        ; (* These records have the hidden fields inside.
+             This excludes records not stored in the database, which must not
+             have hidden fields. *)
+          gen_record_type
+            ~with_module:false
+            highapi
+            (toposort_types highapi only_records)
+        ; (* NB record types are ignored by dm_to_string and string_to_dm *)
+          O.Module.strings_of (dm_to_string all_types_in_db)
+        ; O.Module.strings_of (string_to_dm all_types_in_db)
+        ; O.Module.strings_of (db_action highapi_in_db)
+        ]
     @ List.map O.Module.strings_of (Gen_db_check.all highapi_in_db)
-    @ []
-    )
+    @ [] )
+
 
 let gen_rbac highapi = print (Gen_rbac.gen_permissions_of_static_roles highapi)

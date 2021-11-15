@@ -6,6 +6,7 @@ let rec wait_for_task_complete rpc session_id task =
   | _ ->
       ()
 
+
 let extract_ref xml =
   xml
   |> Astring.String.cuts ~empty:false ~sep:"<value>"
@@ -13,6 +14,7 @@ let extract_ref xml =
   |> Astring.String.cuts ~empty:false ~sep:"</value>"
   |> List.hd
   |> API.Ref.of_string
+
 
 (* Test a couple of async calls - VDIs are good for this, again! *)
 let async_test rpc session_id sr_info () =
@@ -27,7 +29,8 @@ let async_test rpc session_id sr_info () =
       let status = Client.Client.Task.get_status rpc session_id task in
       let result = Client.Client.Task.get_result rpc session_id task in
       print_endline
-        (Printf.sprintf "Status: %s  result: %s%!"
+        (Printf.sprintf
+           "Status: %s  result: %s%!"
            ( match status with
            | `pending ->
                "pending"
@@ -38,30 +41,28 @@ let async_test rpc session_id sr_info () =
            | `cancelling ->
                "cancelling"
            | `cancelled ->
-               "cancelled"
-           )
-           result
-        ) ;
+               "cancelled" )
+           result ) ;
       match status with
       | `failure ->
-          Alcotest.failf "Failure of VDI copy! error_info: %s"
-            (String.concat ","
-               (Client.Client.Task.get_error_info rpc session_id task)
-            )
+          Alcotest.failf
+            "Failure of VDI copy! error_info: %s"
+            (String.concat
+               ","
+               (Client.Client.Task.get_error_info rpc session_id task) )
       | `success ->
           let self = result |> extract_ref in
           Client.Client.VDI.destroy ~rpc ~session_id ~self
       | `cancelled ->
           ()
       | `cancelling | `pending ->
-          Alcotest.fail "Task should be finished!"
-  )
+          Alcotest.fail "Task should be finished!" )
+
 
 let tests () =
   let open Qt_filter in
-  [
-    [("async", `Slow, async_test)]
+  [ [ ("async", `Slow, async_test) ]
     |> conn
-    |> sr SR.(all |> not_iso |> allowed_operations [`vdi_create] |> random)
+    |> sr SR.(all |> not_iso |> allowed_operations [ `vdi_create ] |> random)
   ]
   |> List.concat

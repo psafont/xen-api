@@ -11,9 +11,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "xapi" end)
+module D = Debug.Make (struct
+  let name = "xapi"
+end)
 
-module R = Debug.Make (struct let name = "redo_log" end)
+module R = Debug.Make (struct
+  let name = "redo_log"
+end)
 
 open D
 
@@ -21,6 +25,7 @@ let get_dbs_and_gen_counts () =
   List.map
     (fun conn -> (Parse_db_conf.generation_read conn, conn))
     (Db_conn_store.read_db_connections ())
+
 
 (** Returns true if the supplied connection actually exists, false otherwise.
     	Note that, although the two files should be present (or absent) together,
@@ -37,22 +42,25 @@ let choose connections =
   | c :: cs as connections ->
       List.iter
         (fun c ->
-          debug "Dbconf contains: %s (generation %Ld)" c.Parse_db_conf.path
-            (Parse_db_conf.generation_read c)
-          )
+          debug
+            "Dbconf contains: %s (generation %Ld)"
+            c.Parse_db_conf.path
+            (Parse_db_conf.generation_read c) )
         connections ;
       let gen, most_recent =
         List.fold_left
           (fun (g, c) c' ->
             let g' = Parse_db_conf.generation_read c' in
-            if g' > g then (g', c') else (g, c)
-            )
+            if g' > g then (g', c') else (g, c) )
           (Parse_db_conf.generation_read c, c)
           cs
       in
-      debug "Most recent db is %s (generation %Ld)"
-        most_recent.Parse_db_conf.path gen ;
+      debug
+        "Most recent db is %s (generation %Ld)"
+        most_recent.Parse_db_conf.path
+        gen ;
       Some most_recent
+
 
 let preferred_write_db () = List.hd (Db_conn_store.read_db_connections ())
 
@@ -70,19 +78,20 @@ let db_flush_thread_refcount = ref 0
 
 let inc_db_flush_thread_refcount () =
   Threadext.Mutex.execute db_flush_thread_refcount_m (fun () ->
-      db_flush_thread_refcount := !db_flush_thread_refcount + 1
-  )
+      db_flush_thread_refcount := !db_flush_thread_refcount + 1 )
+
 
 let dec_and_read_db_flush_thread_refcount () =
   Threadext.Mutex.execute db_flush_thread_refcount_m (fun () ->
       db_flush_thread_refcount := !db_flush_thread_refcount - 1 ;
-      !db_flush_thread_refcount
-  )
+      !db_flush_thread_refcount )
+
 
 let pre_exit_hook () =
   (* We're about to exit. Close the active redo logs. *)
   Redo_log.with_active_redo_logs Redo_log.shutdown ;
   R.debug "Closed all active redo logs."
+
 
 (* The connection flushing calls each lock the connection they're flushing to.
    The backend flush calls have to do enough locking (i.e. with the db_lock) to ensure that they
@@ -93,27 +102,27 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
   Db_conn_store.with_db_conn_lock dbconn (fun () ->
       (* if we're being told to shutdown by signal handler then flush every connection
          	  - the rationale is that we're not sure which db connections will be available on next restart *)
-      ( if !exit_on_next_flush then
-          let (_ : bool) = Backend_xml.flush_dirty dbconn in
-          let refcount = dec_and_read_db_flush_thread_refcount () in
-          (* last flushing thread close the door on the way out.. *)
-          if refcount = 0 then (
-            debug "refcount is 0; exiting" ;
-            pre_exit_hook () ;
-            exit 0
-          ) else
-            debug "refcount is %d; not exiting" refcount
-      ) ;
+      ( if !exit_on_next_flush
+      then
+        let (_ : bool) = Backend_xml.flush_dirty dbconn in
+        let refcount = dec_and_read_db_flush_thread_refcount () in
+        (* last flushing thread close the door on the way out.. *)
+        if refcount = 0
+        then (
+          debug "refcount is 0; exiting" ;
+          pre_exit_hook () ;
+          exit 0 )
+        else debug "refcount is %d; not exiting" refcount ) ;
       let was_anything_flushed = Backend_xml.flush_dirty dbconn in
       (* exit if we've been told to by caller *)
       ( match exit_spec with
       | None ->
           ()
       | Some ret_code ->
-          pre_exit_hook () ; exit ret_code
-      ) ;
-      was_anything_flushed
-  )
+          pre_exit_hook () ;
+          exit ret_code ) ;
+      was_anything_flushed )
+
 
 let flush dbconn db =
   debug "About to flush database: %s" dbconn.Parse_db_conf.path ;

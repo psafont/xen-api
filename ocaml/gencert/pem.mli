@@ -13,7 +13,11 @@
  *)
 
 (** the content of a PEM file *)
-type t = {private_key: string; host_cert: string; other_certs: string list}
+type t =
+  { private_key : string
+  ; host_cert : string
+  ; other_certs : string list
+  }
 
 val parse_string : string -> (t, string) result
 (** [parse_string str] parses a PEM encoded sequence of certificates and

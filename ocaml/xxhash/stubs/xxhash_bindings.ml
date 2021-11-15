@@ -55,8 +55,10 @@ module C (F : Cstubs.FOREIGN) = struct
     let reset = F.foreign "XXH32_reset" (ptr state_t @-> uint @-> returning int)
 
     let update =
-      F.foreign "XXH32_update"
+      F.foreign
+        "XXH32_update"
         (ptr state_t @-> string @-> size_t @-> returning int)
+
 
     let digest = F.foreign "XXH32_digest" (ptr state_t @-> returning uint)
   end
@@ -75,6 +77,7 @@ module C (F : Cstubs.FOREIGN) = struct
     let hash =
       F.foreign "XXH64" (string @-> size_t @-> ullong @-> returning ullong)
 
+
     type state_s
 
     type state = state_s structure ptr
@@ -88,9 +91,12 @@ module C (F : Cstubs.FOREIGN) = struct
     let reset =
       F.foreign "XXH64_reset" (ptr state_t @-> ullong @-> returning int)
 
+
     let update =
-      F.foreign "XXH64_update"
+      F.foreign
+        "XXH64_update"
         (ptr state_t @-> string @-> size_t @-> returning int)
+
 
     let digest = F.foreign "XXH64_digest" (ptr state_t @-> returning ullong)
   end

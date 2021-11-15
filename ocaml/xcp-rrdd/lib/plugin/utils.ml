@@ -17,21 +17,26 @@ let now () = Int64.of_float (Unix.gettimeofday ())
 let cut str =
   Astring.String.fields ~empty:false ~is_sep:(fun c -> c = ' ' || c = '\t') str
 
+
 let list_directory_unsafe name =
   let handle = Unix.opendir name in
   let rec read_directory_contents acc handle =
     try
       let next_entry = Unix.readdir handle in
       read_directory_contents (next_entry :: acc) handle
-    with End_of_file -> List.rev acc
+    with
+    | End_of_file ->
+        List.rev acc
   in
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () -> read_directory_contents [] handle)
     (fun () -> Unix.closedir handle)
 
+
 let list_directory_entries_unsafe dir =
   let dirlist = list_directory_unsafe dir in
   List.filter (fun x -> x <> "." && x <> "..") dirlist
+
 
 let exec_cmd (module D : Debug.DEBUG) ~cmdstring ~(f : string -> 'a option) =
   D.debug "Forking command %s" cmdstring ;
@@ -65,6 +70,5 @@ let exec_cmd (module D : Debug.DEBUG) ~cmdstring ~(f : string -> 'a option) =
   | Unix.WSIGNALED s ->
       D.debug "Process %d was killed by signal %d" pid s
   | Unix.WSTOPPED s ->
-      D.debug "Process %d was stopped by signal %d" pid s
-  ) ;
+      D.debug "Process %d was stopped by signal %d" pid s ) ;
   List.rev !vals

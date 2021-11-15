@@ -15,7 +15,9 @@
  * @group Access Control
 *)
 
-module D = Debug.Make (struct let name = "extauth_plugin_PAM_NSS" end)
+module D = Debug.Make (struct
+  let name = "extauth_plugin_PAM_NSS"
+end)
 
 open D
 
@@ -42,43 +44,47 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
     in
     debug "Executing cmd [%s]" debug_cmd ;
     let output_str, _ =
-      try Forkhelpers.execute_command_get_output cmd params_list
-      with e ->
-        let errmsg =
-          Printf.sprintf "[%s]: %s" debug_cmd (Printexc.to_string e)
-        in
-        debug "Error executing cmd %s" errmsg ;
-        raise
-          (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errmsg))
+      try Forkhelpers.execute_command_get_output cmd params_list with
+      | e ->
+          let errmsg =
+            Printf.sprintf "[%s]: %s" debug_cmd (Printexc.to_string e)
+          in
+          debug "Error executing cmd %s" errmsg ;
+          raise
+            (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errmsg)
+            )
     in
     let output_lines = String.split_on_char '\n' output_str in
     fn output_lines
 
+
   let getent_common nss_database fn =
-    with_cmd "/usr/bin/getent" [nss_database] (fun lines ->
+    with_cmd "/usr/bin/getent" [ nss_database ] (fun lines ->
         try
           (* getent passwd returns several lines *)
           let rec get_next_line lines =
             match lines with
             | [] ->
                 raise Not_found
-            | line :: lines -> (
+            | line :: lines ->
                 let recs = Xapi_stdext_std.Xstringext.String.split ':' line in
                 let username = List.nth recs 0 in
                 let uid = List.nth recs 2 in
-                match fn username uid recs with
+                ( match fn username uid recs with
                 | None ->
                     get_next_line lines
                 | Some x ->
-                    x
-              )
+                    x )
           in
           get_next_line lines
-        with e ->
-          debug "error looking up nss_database=%s: %s" nss_database
-            (Printexc.to_string e) ;
-          raise Not_found
-    )
+        with
+        | e ->
+            debug
+              "error looking up nss_database=%s: %s"
+              nss_database
+              (Printexc.to_string e) ;
+            raise Not_found )
+
 
   (* Verifies if a subject_name is in one of the NSS databases *)
   (* Useful databases are: *)
@@ -88,23 +94,23 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
   (* Raises Not_found if subject_name not in NSS database *)
   let getent_idbyname nss_database subject_name =
     getent_common nss_database (fun username uid recs ->
-        if username = subject_name then Some uid else None
-    )
+        if username = subject_name then Some uid else None )
+
 
   let getent_namebyid nss_database subject_id =
     getent_common nss_database (fun username uid recs ->
-        if uid = subject_id then Some username else None
-    )
+        if uid = subject_id then Some username else None )
+
 
   let getent_idbyid nss_database subject_id =
     getent_common nss_database (fun username uid recs ->
-        if uid = subject_id then Some uid else None
-    )
+        if uid = subject_id then Some uid else None )
+
 
   let getent_allbyid nss_database subject_id =
     getent_common nss_database (fun username uid recs ->
-        if uid = subject_id then Some recs else None
-    )
+        if uid = subject_id then Some recs else None )
+
 
   (* subject_id get_subject_identifier(string subject_name)
 
@@ -114,11 +120,14 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
      	Raises Not_found if authentication is not succesful.
   *)
   let get_subject_identifier subject_name =
-    try (* looks up list of users*)
-        "u" ^ getent_idbyname "passwd" subject_name
-    with Not_found ->
-      (* looks up list of groups*)
-      "g" ^ getent_idbyname "group" subject_name
+    try
+      (* looks up list of users*)
+      "u" ^ getent_idbyname "passwd" subject_name
+    with
+    | Not_found ->
+        (* looks up list of groups*)
+        "g" ^ getent_idbyname "group" subject_name
+
 
   (* subject_id Authenticate_username_password(string username, string password)
 
@@ -137,17 +146,18 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
       try
         Pam.authenticate username password
         (* no exception raised, then authentication succeeded *)
-      with Failure msg -> raise (Auth_signature.Auth_failure msg)
+      with
+      | Failure msg ->
+          raise (Auth_signature.Auth_failure msg)
     in
-    try get_subject_identifier username
-    with Not_found ->
-      raise
-        (Auth_signature.Auth_failure
-           (Printf.sprintf
-              "Could not find either the user id or the group id for '%s'"
-              username
-           )
-        )
+    try get_subject_identifier username with
+    | Not_found ->
+        raise
+          (Auth_signature.Auth_failure
+             (Printf.sprintf
+                "Could not find either the user id or the group id for '%s'"
+                username ) )
+
 
   (* subject_id Authenticate_ticket(string ticket)
 
@@ -157,6 +167,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
   (* future single sign-on feature *)
   let authenticate_ticket tgt =
     failwith "authx authenticate_ticket not implemented"
+
 
   (* ((string*string) list) query_subject_information(string subject_identifier)
 
@@ -182,26 +193,20 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
         let infolist = getent_allbyid "passwd" subject_identifier in
         let passwd = List.nth infolist 1 in
         let account_disabled =
-          if String.length passwd < 1 then
-            true (* no password *)
-          else
-            passwd.[0] = '*' (* disabled account *) || passwd.[0] = '!'
+          if String.length passwd < 1
+          then true (* no password *)
+          else passwd.[0] = '*' (* disabled account *) || passwd.[0] = '!'
           (* disabled password *)
         in
-        [
-          ("subject-name", List.nth infolist 0)
+        [ ("subject-name", List.nth infolist 0)
         ; (*("subject-pwd", List.nth infolist 1);*)
           ("subject-uid", "u" ^ List.nth infolist 2)
         ; ("subject-gid", "g" ^ List.nth infolist 3)
         ; ("subject-gecos", List.nth infolist 4)
         ; ( "subject-displayname"
           , let n = List.nth infolist 4 in
-            if n <> "" then
-              n (* gecos *)
-            else
-              List.nth infolist 0
-            (* name *)
-          )
+            if n <> "" then n (* gecos *) else List.nth infolist 0
+            (* name *) )
         ; (*("subject-homedir", List.nth infolist 5);*)
           (*("subject-shell", List.nth infolist 6);*)
           (* comma-separated list of subjects that are contained in this subject *)
@@ -222,8 +227,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
           String.sub subject_identifier 1 (String.length subject_identifier - 1)
         in
         let infolist = getent_allbyid "group" subject_identifier in
-        [
-          ("subject-name", List.nth infolist 0)
+        [ ("subject-name", List.nth infolist 0)
         ; (*("subject-pwd", List.nth infolist 1);*)
           ("subject-uid", "g" ^ List.nth infolist 2)
         ; ("subject-gid", "g" ^ List.nth infolist 2)
@@ -237,6 +241,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
         ]
     | _ ->
         raise Not_found
+
 
   (* (string list) query_group_membership(string subject_identifier)
 
@@ -262,29 +267,31 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
         let subject_name = getent_namebyid "passwd" sanitized_subject_id in
         (* Not necessary to escape subject_name because we call execv in forkhelpers *)
         (* Also, escaping will break unicode chars in usernames *)
-        with_cmd "/usr/bin/id" ["-G"; subject_name] (fun lines ->
+        with_cmd "/usr/bin/id" [ "-G"; subject_name ] (fun lines ->
             (* id -G always returns at most one line in stdout *)
             match lines with
             | [] ->
                 raise Not_found
             | gidline :: _ ->
                 let gids = String.split_on_char ' ' gidline in
-                debug "Resolved %i group ids for subject %s (%s): %s"
-                  (List.length gids) subject_name subject_identifier
+                debug
+                  "Resolved %i group ids for subject %s (%s): %s"
+                  (List.length gids)
+                  subject_name
+                  subject_identifier
                   (List.fold_left
                      (fun p pp -> if p = "" then pp else p ^ "," ^ pp)
-                     "" gids
-                  ) ;
-                List.map (fun gid -> "g" ^ gid) gids
-        )
+                     ""
+                     gids ) ;
+                List.map (fun gid -> "g" ^ gid) gids )
     | 'g' ->
-        [
-          (* 2. if (1) fails, we try to see if our subject identifier is a group id...*)
+        [ (* 2. if (1) fails, we try to see if our subject identifier is a group id...*)
           (* in Unix, a group cannot contain other groups, so no need to go recursively *)
           "g" ^ getent_idbyid "group" sanitized_subject_id
         ]
     | _ ->
         raise Not_found
+
 
   (*
 	In addition, there are some event hooks that auth modules implement as follows:
@@ -308,6 +315,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
     (* nothing to do in this unix plugin, we always have /etc/passwd and /etc/group *)
     ()
 
+
   (* unit on_disable()
 
      	Called internally by xapi _on each host_ when a client disables an auth service via the XenAPI.
@@ -319,6 +327,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
     (* nothing to disable in this unix plugin, we should not disable /etc/passwd and /etc/group:) *)
     ()
 
+
   (* unit on_xapi_initialize(bool system_boot)
 
      	Called internally by xapi whenever it starts up. The system_boot flag is true iff xapi is
@@ -328,6 +337,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
     (* again, nothing to be initialized here in this unix plugin *)
     ()
 
+
   (* unit on_xapi_exit()
 
      	Called internally when xapi is doing a clean exit.
@@ -336,10 +346,10 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
     (* nothing to do here in this unix plugin *)
     ()
 
+
   (* Implement the single value required for the module signature *)
   let methods =
-    {
-      Auth_signature.authenticate_username_password
+    { Auth_signature.authenticate_username_password
     ; Auth_signature.authenticate_ticket
     ; Auth_signature.get_subject_identifier
     ; Auth_signature.query_subject_information

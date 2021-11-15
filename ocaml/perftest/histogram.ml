@@ -27,10 +27,9 @@ let _ =
   let min_percentile = ref 1. in
   let max_percentile = ref 95. in
   Arg.parse
-    [
-      ( "-format"
+    [ ( "-format"
       , Arg.Symbol
-          ( ["eps"; "gif"; "x11"]
+          ( [ "eps"; "gif"; "x11" ]
           , function
             | "eps" ->
                 format := `Eps
@@ -39,47 +38,42 @@ let _ =
             | "x11" ->
                 format := `X11
             | _ ->
-                failwith "huh ?"
-          )
-      , " Set output format (default: X11)"
-      )
+                failwith "huh ?" )
+      , " Set output format (default: X11)" )
     ; ( "-output"
       , Arg.Set_string graphic_filename
-      , " Set default output file (for non-X11 modes)"
-      )
+      , " Set default output file (for non-X11 modes)" )
     ; ( "-sigma"
       , Arg.Set_float sigma
-      , Printf.sprintf " Set sigma for the gaussian (default %f)" !sigma
-      )
+      , Printf.sprintf " Set sigma for the gaussian (default %f)" !sigma )
     ; ( "-integrate"
       , Arg.Set integrate
       , Printf.sprintf
-          " Integrate the probability density function (default: %b)" !integrate
-      )
+          " Integrate the probability density function (default: %b)"
+          !integrate )
     ; ( "-normal"
       , Arg.Set normal
       , Printf.sprintf " Use a 'normal probability axis' (default: %b)" !normal
       )
     ; ( "-log"
       , Arg.Set log_axis
-      , Printf.sprintf " Use a log x axis (default: %b)" !log_axis
-      )
+      , Printf.sprintf " Use a log x axis (default: %b)" !log_axis )
     ; ( "-minpercentile"
       , Arg.Set_float min_percentile
-      , Printf.sprintf " Minimum percentile to plot (default: %.2f)"
-          !min_percentile
-      )
+      , Printf.sprintf
+          " Minimum percentile to plot (default: %.2f)"
+          !min_percentile )
     ; ( "-maxpercentile"
       , Arg.Set_float max_percentile
-      , Printf.sprintf " Maximum percentile to plot (default: %.2f)"
-          !max_percentile
-      )
+      , Printf.sprintf
+          " Maximum percentile to plot (default: %.2f)"
+          !max_percentile )
     ]
     (fun x -> inputs := x :: !inputs)
     "Generate a histogram by convolving sample points with a gaussian.\nusage:" ;
   if !inputs = [] then failwith "Needs at least one input filename" ;
-  if !format <> `X11 && !graphic_filename = "" then
-    failwith "This format needs an -output" ;
+  if !format <> `X11 && !graphic_filename = ""
+  then failwith "This format needs an -output" ;
   let sigma = !sigma in
   let inputs = get_info !inputs in
   let output_files =
@@ -91,10 +85,12 @@ let _ =
       (* Write some summary statistics on stderr *)
       List.iter
         (fun (info, points) ->
-          debug ~out:stderr "%s has lognormal mean %f +/- %f"
+          debug
+            ~out:stderr
+            "%s has lognormal mean %f +/- %f"
             (short_info_to_string info)
-            (LogNormal.mean points) (LogNormal.sigma points)
-          )
+            (LogNormal.mean points)
+            (LogNormal.sigma points) )
         inputs ;
       let min_point = get_min inputs in
       let max_point = get_max inputs in
@@ -105,7 +101,8 @@ let _ =
         List.map (fun (r, n) -> (r, n +. (3. *. sigma))) max_point
       in
       (* Attempt to zoom the graph in on the 10% to 90% region *)
-      let xrange_min = ref max_point and xrange_max = ref min_point in
+      let xrange_min = ref max_point
+      and xrange_max = ref min_point in
       List.iter
         (fun ((info, points), output_file) ->
           let result = get_result info in
@@ -126,20 +123,22 @@ let _ =
           let num_points = float_of_int (List.length points) in
           List.iter
             (fun y ->
-              Hist.convolve x (fun z -> gaussian y sigma z /. num_points)
-              )
+              Hist.convolve x (fun z -> gaussian y sigma z /. num_points) )
             points ;
           (* Sanity-check: area under histogram should be almost 1.0 *)
           let total_area =
-            Hist.fold x
+            Hist.fold
+              x
               (fun bin_start bin_end height acc ->
-                ((bin_end -. bin_start) *. height) +. acc
-                )
+                ((bin_end -. bin_start) *. height) +. acc )
               0.
           in
-          if abs_float (1. -. total_area) > 0.01 then
-            debug ~out:stderr
-              "WARNING: area under histogram should be 1.0 but is %f" total_area ;
+          if abs_float (1. -. total_area) > 0.01
+          then
+            debug
+              ~out:stderr
+              "WARNING: area under histogram should be 1.0 but is %f"
+              total_area ;
           let cumulative = Hist.integrate x in
           let t_10 = Hist.find_x cumulative 0.1 in
           let t_80 = Hist.find_x cumulative 0.8 in
@@ -149,69 +148,68 @@ let _ =
           debug ~out:stderr "80th percentile: %f" t_80 ;
           debug ~out:stderr "90th percentile: %f" t_90 ;
           debug ~out:stderr "95th percentile: %f" t_95 ;
-          debug ~out:stderr "Clipping data between %.0f and %.0f percentiles"
-            !min_percentile !max_percentile ;
+          debug
+            ~out:stderr
+            "Clipping data between %.0f and %.0f percentiles"
+            !min_percentile
+            !max_percentile ;
           xrange_min :=
-            replace_assoc result
+            replace_assoc
+              result
               (min
                  (List.assoc result !xrange_min)
-                 (Hist.find_x cumulative (!min_percentile /. 100.))
-              )
+                 (Hist.find_x cumulative (!min_percentile /. 100.)) )
               !xrange_min ;
           xrange_max :=
-            replace_assoc result
+            replace_assoc
+              result
               (max
                  (List.assoc result !xrange_max)
-                 (Hist.find_x cumulative (!max_percentile /. 100.))
-              )
+                 (Hist.find_x cumulative (!max_percentile /. 100.)) )
               !xrange_max ;
           let x = if !integrate then Hist.integrate x else x in
-          Xapi_stdext_unix.Unixext.with_file output_file
-            [Unix.O_WRONLY; Unix.O_TRUNC; Unix.O_CREAT]
-            0o644 (Hist.to_gnuplot x)
-          )
+          Xapi_stdext_unix.Unixext.with_file
+            output_file
+            [ Unix.O_WRONLY; Unix.O_TRUNC; Unix.O_CREAT ]
+            0o644
+            (Hist.to_gnuplot x) )
         all ;
       let ls =
         List.map
           (fun ((info, floats), output) ->
-            {
-              Gnuplot.filename= output
-            ; title= short_info_to_title info
-            ; graphname= get_result info
-            ; field= 2
-            ; yaxis= 1
-            ; scale= 1.
-            ; style= "linespoints"
-            }
-            )
+            { Gnuplot.filename = output
+            ; title = short_info_to_title info
+            ; graphname = get_result info
+            ; field = 2
+            ; yaxis = 1
+            ; scale = 1.
+            ; style = "linespoints"
+            } )
           all
       in
       let ylabel =
-        if !integrate then
-          "Cumulative probability"
-        else
-          "Estimate of the probability density function"
+        if !integrate
+        then "Cumulative probability"
+        else "Estimate of the probability density function"
       in
       List.iter
         (fun result ->
           let g =
-            {
-              Gnuplot.xlabel=
-                Printf.sprintf "Time for %s XenAPI calls to complete / seconds"
+            { Gnuplot.xlabel =
+                Printf.sprintf
+                  "Time for %s XenAPI calls to complete / seconds"
                   (string_of_result result)
             ; ylabel
-            ; y2label= None
-            ; lines= List.filter (fun l -> l.Gnuplot.graphname = result) ls
-            ; log_x_axis= !log_axis
-            ; xrange=
+            ; y2label = None
+            ; lines = List.filter (fun l -> l.Gnuplot.graphname = result) ls
+            ; log_x_axis = !log_axis
+            ; xrange =
                 Some
                   (List.assoc result !xrange_min, List.assoc result !xrange_max)
-            ; normal_probability_y_axis=
-                ( if !normal then
-                    Some (!min_percentile /. 100., !max_percentile /. 100.)
-                else
-                  None
-                )
+            ; normal_probability_y_axis =
+                ( if !normal
+                then Some (!min_percentile /. 100., !max_percentile /. 100.)
+                else None )
             }
           in
           let output =
@@ -219,12 +217,11 @@ let _ =
             | `Eps ->
                 Gnuplot.Ps (Printf.sprintf "%s-%s.eps" !graphic_filename result)
             | `Gif ->
-                Gnuplot.Gif (Printf.sprintf "%s-%s.gif" !graphic_filename result)
+                Gnuplot.Gif
+                  (Printf.sprintf "%s-%s.gif" !graphic_filename result)
             | `X11 ->
                 Gnuplot.X11
           in
-          ignore (Gnuplot.render g output)
-          )
-        (get_result_types inputs)
-      )
+          ignore (Gnuplot.render g output) )
+        (get_result_types inputs) )
     (fun () -> List.iter Xapi_stdext_unix.Unixext.unlink_safe output_files)

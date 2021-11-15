@@ -18,10 +18,12 @@ let xenstored_proc_port = "/proc/xen/xsd_port"
 let xenstored_proc_kva = "/proc/xen/xsd_kva"
 
 let open_ring0 () =
-  let fd = Unix.openfile xenstored_proc_kva [Unix.O_RDWR] 0o600 in
+  let fd = Unix.openfile xenstored_proc_kva [ Unix.O_RDWR ] 0o600 in
   let sz = Xenmmap.getpagesize () in
   let intf = Xenmmap.mmap fd Xenmmap.RDWR Xenmmap.SHARED sz 0 in
-  Unix.close fd ; intf
+  Unix.close fd ;
+  intf
+
 
 let open_ringU domid mfn =
   let xc = Xenctrl.interface_open () in
@@ -29,11 +31,10 @@ let open_ringU domid mfn =
     (fun () -> Xenctrl.map_foreign_range xc domid (Xenmmap.getpagesize ()) mfn)
     (fun () -> Xenctrl.interface_close xc)
 
+
 let open_ring domid mfn =
-  if domid = 0 then
-    open_ring0 ()
-  else
-    open_ringU domid mfn
+  if domid = 0 then open_ring0 () else open_ringU domid mfn
+
 
 let hexify s =
   let hexseq_of_char c = Printf.sprintf "%02x" (Char.code c) in
@@ -45,39 +46,38 @@ let hexify s =
   done ;
   Bytes.to_string hs
 
+
 let ring_size = 1024
 
 let alpha ~req_cons ~req_prod ~rsp_cons ~rsp_prod s =
   let s = Bytes.of_string s in
   for i = 0 to Bytes.length s - 1 do
-    if
-      (i < 2 * ring_size && i >= req_cons && i <= req_prod)
-      || (i < 4 * ring_size && i >= rsp_cons && i <= rsp_prod)
-    then
-      Bytes.set s i '$'
-    else if
-      (Bytes.get s i >= 'a' && Bytes.get s i <= 'z')
-      || (Bytes.get s i >= 'A' && Bytes.get s i <= 'Z')
-      || (Bytes.get s i >= '0' && Bytes.get s i <= '9')
-      || Bytes.get s i = '/'
-      || Bytes.get s i = '-'
-      || Bytes.get s i = '@'
-    then
-      ()
-    else
-      Bytes.set s i '+'
+    if (i < 2 * ring_size && i >= req_cons && i <= req_prod)
+       || (i < 4 * ring_size && i >= rsp_cons && i <= rsp_prod)
+    then Bytes.set s i '$'
+    else if (Bytes.get s i >= 'a' && Bytes.get s i <= 'z')
+            || (Bytes.get s i >= 'A' && Bytes.get s i <= 'Z')
+            || (Bytes.get s i >= '0' && Bytes.get s i <= '9')
+            || Bytes.get s i = '/'
+            || Bytes.get s i = '-'
+            || Bytes.get s i = '@'
+    then ()
+    else Bytes.set s i '+'
   done ;
   Bytes.to_string s
+
 
 let int_from_page ss n =
   let b1 = String.sub ss n 2 in
   let b2 = String.sub ss (n + 2) 2 in
   int_of_string ("0x" ^ b2 ^ b1) mod ring_size
 
+
 let _ =
   let domid, mfn =
-    try (int_of_string Sys.argv.(1), Nativeint.of_string Sys.argv.(2))
-    with _ -> (0, Nativeint.zero)
+    try (int_of_string Sys.argv.(1), Nativeint.of_string Sys.argv.(2)) with
+    | _ ->
+        (0, Nativeint.zero)
   in
   let sz = Xenmmap.getpagesize () - 1024 - 512 in
   let intf = open_ring domid mfn in
@@ -88,14 +88,16 @@ let _ =
   let rsp_cons = ring_size + int_from_page ss (16 + (4 * ring_size)) in
   let rsp_prod = ring_size + int_from_page ss (24 + (4 * ring_size)) in
   let ss2 = alpha ~req_cons ~req_prod ~rsp_cons ~rsp_prod s in
-  Printf.printf "req-cons=%i \t req-prod=%i \t rsp-cons=%i \t rsp-prod=%i\n"
-    req_cons req_prod (rsp_cons - ring_size) (rsp_prod - ring_size) ;
+  Printf.printf
+    "req-cons=%i \t req-prod=%i \t rsp-cons=%i \t rsp-prod=%i\n"
+    req_cons
+    req_prod
+    (rsp_cons - ring_size)
+    (rsp_prod - ring_size) ;
   Printf.printf "==== requests ====\n" ;
   for i = 0 to (sz / 64) - 1 do
-    if i = ring_size / 64 then
-      Printf.printf "==== replied ====\n" ;
-    if i = 2 * ring_size / 64 then
-      Printf.printf "==== other ====\n" ;
+    if i = ring_size / 64 then Printf.printf "==== replied ====\n" ;
+    if i = 2 * ring_size / 64 then Printf.printf "==== other ====\n" ;
     let x = String.sub ss (i * 128) 128 in
     Printf.printf "%.4d " (i * 64) ;
     for j = 0 to (128 / 4) - 1 do

@@ -29,34 +29,34 @@
 
 val pool_introduce :
      __context:Context.t
-  -> tagged_PIF:[`PIF] Ref.t
-  -> untagged_PIF:[`PIF] Ref.t
+  -> tagged_PIF:[ `PIF ] Ref.t
+  -> untagged_PIF:[ `PIF ] Ref.t
   -> tag:int64
   -> other_config:(string * string) list
-  -> [`VLAN] Ref.t
+  -> [ `VLAN ] Ref.t
 (** Pool_introduce is an internal call used by pool-join to copy management vlan record to pool master *)
 
 val create :
      __context:Context.t
-  -> tagged_PIF:[`PIF] Ref.t
+  -> tagged_PIF:[ `PIF ] Ref.t
   -> tag:int64
-  -> network:[`network] Ref.t
-  -> [`VLAN] Ref.t
+  -> network:[ `network ] Ref.t
+  -> [ `VLAN ] Ref.t
 (** Create a VLAN with the given [tag] using the [tagged_PIF] as VLAN slave.
  *  Creates a new PIF object as VLAN master (untagged PIF) and connects it to the
  *  given [network]. No other PIFs on the same host may be connected to this network. *)
 
 val create_internal :
      __context:Context.t
-  -> host:[`host] Ref.t
-  -> tagged_PIF:[`PIF] Ref.t
+  -> host:[ `host ] Ref.t
+  -> tagged_PIF:[ `PIF ] Ref.t
   -> tag:int64
-  -> network:[`network] Ref.t
+  -> network:[ `network ] Ref.t
   -> device:string
-  -> [`VLAN] Ref.t * [`PIF] Ref.t
+  -> [ `VLAN ] Ref.t * [ `PIF ] Ref.t
 (** Internal version of [create] without checks/exceptions *)
 
-val destroy : __context:Context.t -> self:[`VLAN] Ref.t -> unit
+val destroy : __context:Context.t -> self:[ `VLAN ] Ref.t -> unit
 (** Destroy a VLAN. Removes the VLAN object as well as the VLAN master PIF. *)
 
 val vlan_mac : string

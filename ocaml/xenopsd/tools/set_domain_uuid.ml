@@ -5,20 +5,23 @@
 let is_uuid_valid uuid =
   match Uuidm.of_string uuid with None -> false | Some _ -> true
 
+
 let set domain uuid =
-  if not (is_uuid_valid uuid) then
-    `Error (false, "Invalid uuid")
+  if not (is_uuid_valid uuid)
+  then `Error (false, "Invalid uuid")
   else
     let xc = Xenctrl.interface_open () in
     try
       Xenctrl.domain_sethandle xc domain uuid ;
       `Ok ()
-    with e ->
-      `Error
-        ( false
-        , Printf.sprintf "Caught exception while setting uuid: %s"
-            (Printexc.to_string e)
-        )
+    with
+    | e ->
+        `Error
+          ( false
+          , Printf.sprintf
+              "Caught exception while setting uuid: %s"
+              (Printexc.to_string e) )
+
 
 open Cmdliner
 
@@ -27,13 +30,16 @@ let info =
   let man = [] in
   Term.info "set_domain_uuid" ~version:"1.0" ~doc ~man
 
+
 let uuid =
   let doc = "Uuid of the domain" in
   Arg.(required & pos 0 (some string) None & info [] ~docv:"UUID" ~doc)
 
+
 let domid =
   let doc = "Id of the domain" in
   Arg.(required & pos 1 (some int) None & info [] ~docv:"DOMID" ~doc)
+
 
 let cmd = Term.(ret (pure set $ domid $ uuid))
 

@@ -17,5 +17,5 @@ type t = string [@@deriving rpc]
 let of_string s = s
 
 let with_cookie t request =
-  let cookie = [("pool_secret", t)] in
-  {request with Http.Request.cookie}
+  let cookie = [ ("pool_secret", t) ] in
+  { request with Http.Request.cookie }

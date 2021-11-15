@@ -38,6 +38,7 @@ let int_of = function
   | Closed ->
       6
 
+
 let of_int = function
   | 0 ->
       Unknown
@@ -55,6 +56,7 @@ let of_int = function
       Closed
   | _ ->
       Unknown
+
 
 let of_string x = of_int (int_of_string x)
 
@@ -76,33 +78,34 @@ let to_string_desc = function
   | Closed ->
       "closed"
 
+
 (** Allows a guest to read/write this node and children *)
 let rwperm_for_guest domid =
-  Xs_protocol.ACL.{owner= domid; other= NONE; acl= []}
+  Xs_protocol.ACL.{ owner = domid; other = NONE; acl = [] }
+
 
 (** Dom0 can read/write this node and children, domU can only read children *)
 let roperm_for_guest domid =
-  Xs_protocol.ACL.{owner= 0; other= NONE; acl= [(domid, READ)]}
+  Xs_protocol.ACL.{ owner = 0; other = NONE; acl = [ (domid, READ) ] }
+
 
 open Device_common
 
 let device_frontend device =
   Xs_protocol.ACL.
-    {
-      owner= device.frontend.domid
-    ; other= NONE
-    ; acl= [(device.backend.domid, READ)]
+    { owner = device.frontend.domid
+    ; other = NONE
+    ; acl = [ (device.backend.domid, READ) ]
     }
-  
+
 
 let device_backend device =
   Xs_protocol.ACL.
-    {
-      owner= device.backend.domid
-    ; other= NONE
-    ; acl= [(device.frontend.domid, READ)]
+    { owner = device.backend.domid
+    ; other = NONE
+    ; acl = [ (device.frontend.domid, READ) ]
     }
-  
+
 
 let hotplug device =
-  Xs_protocol.ACL.{owner= device.backend.domid; other= NONE; acl= []}
+  Xs_protocol.ACL.{ owner = device.backend.domid; other = NONE; acl = [] }

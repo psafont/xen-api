@@ -13,7 +13,9 @@
  *)
 (** Periodic scheduler for background tasks. *)
 
-module D = Debug.Make (struct let name = "backgroundscheduler" end)
+module D = Debug.Make (struct
+  let name = "backgroundscheduler"
+end)
 
 open D
 
@@ -22,10 +24,9 @@ let register () =
   let master = Pool_role.is_master () in
   (* blob/message/rrd file syncing - sync once a day *)
   let sync_timer =
-    if Xapi_fist.reduce_blob_sync_interval () then
-      60.0 *. 5.0
-    else
-      !Xapi_globs.pool_data_sync_interval
+    if Xapi_fist.reduce_blob_sync_interval ()
+    then 60.0 *. 5.0
+    else !Xapi_globs.pool_data_sync_interval
   in
   let sync_func () = Xapi_sync.do_sync () in
   let sync_delay =
@@ -38,10 +39,9 @@ let register () =
   let hb_func () = debug "Periodic scheduler heartbeat" in
   (* Periodic backup of RRDs *)
   let rrdbackup_timer =
-    if Xapi_fist.reduce_rrd_backup_interval () then
-      60.0 *. 5.0
-    else
-      !Xapi_globs.rrd_backup_interval
+    if Xapi_fist.reduce_rrd_backup_interval ()
+    then 60.0 *. 5.0
+    else !Xapi_globs.rrd_backup_interval
   in
   let rrdbackup_func () =
     Server_helpers.exec_with_new_task "rrdbackup_func" (fun __context ->
@@ -51,66 +51,81 @@ let register () =
               (List.fold_left
                  (fun delay member ->
                    Client.Client.Host.backup_rrds rpc session_id member delay ;
-                   delay +. 60.0
-                   )
-                 0.0 hosts
-              )
-        )
-    )
+                   delay +. 60.0 )
+                 0.0
+                 hosts ) ) )
   in
   let rrdbackup_delay =
     if Xapi_fist.reduce_rrd_backup_interval () then 60.0 *. 6.0 else 3600.0
   in
   let session_revalidation_func () =
-    Server_helpers.exec_with_new_task "session_revalidation_func"
-      (fun __context -> Xapi_session.revalidate_all_sessions ~__context
-    )
+    Server_helpers.exec_with_new_task
+      "session_revalidation_func"
+      (fun __context -> Xapi_session.revalidate_all_sessions ~__context)
   in
   let session_revalidation_delay = 60.0 *. 5.0 in
   (* initial delay = 5 minutes *)
   let update_all_subjects_func () =
-    Server_helpers.exec_with_new_task "update_all_subjects_func"
-      (fun __context -> Xapi_subject.update_all_subjects ~__context
-    )
+    Server_helpers.exec_with_new_task
+      "update_all_subjects_func"
+      (fun __context -> Xapi_subject.update_all_subjects ~__context)
   in
   let update_all_subjects_delay = 10.0 in
   (* initial delay = 10 seconds *)
-  if master then
-    Xapi_periodic_scheduler.add_to_queue "Synchronising RRDs/messages"
-      (Xapi_periodic_scheduler.Periodic sync_timer) sync_delay sync_func ;
-  if master then
-    Xapi_periodic_scheduler.add_to_queue "Backing up RRDs"
-      (Xapi_periodic_scheduler.Periodic rrdbackup_timer) rrdbackup_delay
+  if master
+  then
+    Xapi_periodic_scheduler.add_to_queue
+      "Synchronising RRDs/messages"
+      (Xapi_periodic_scheduler.Periodic sync_timer)
+      sync_delay
+      sync_func ;
+  if master
+  then
+    Xapi_periodic_scheduler.add_to_queue
+      "Backing up RRDs"
+      (Xapi_periodic_scheduler.Periodic rrdbackup_timer)
+      rrdbackup_delay
       rrdbackup_func ;
-  if master then
+  if master
+  then
     Xapi_periodic_scheduler.add_to_queue
       "Revalidating externally-authenticated sessions"
       (Xapi_periodic_scheduler.Periodic
-         !Xapi_globs.session_revalidation_interval
-      ) session_revalidation_delay session_revalidation_func ;
-  if master then
+         !Xapi_globs.session_revalidation_interval )
+      session_revalidation_delay
+      session_revalidation_func ;
+  if master
+  then
     Xapi_periodic_scheduler.add_to_queue
       "Trying to update subjects' info using external directory service (if \
        any)"
       (Xapi_periodic_scheduler.Periodic !Xapi_globs.update_all_subjects_interval)
-      update_all_subjects_delay update_all_subjects_func ;
-  Xapi_periodic_scheduler.add_to_queue "Periodic scheduler heartbeat"
-    (Xapi_periodic_scheduler.Periodic hb_timer) 240.0 hb_func ;
-  Xapi_periodic_scheduler.add_to_queue "Update monitor configuration"
-    (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0
+      update_all_subjects_delay
+      update_all_subjects_func ;
+  Xapi_periodic_scheduler.add_to_queue
+    "Periodic scheduler heartbeat"
+    (Xapi_periodic_scheduler.Periodic hb_timer)
+    240.0
+    hb_func ;
+  Xapi_periodic_scheduler.add_to_queue
+    "Update monitor configuration"
+    (Xapi_periodic_scheduler.Periodic 3600.0)
+    3600.0
     Monitor_master.update_configuration_from_master ;
-  ( if master then
-      let freq = !Xapi_globs.failed_login_alert_freq |> float_of_int in
-      Xapi_periodic_scheduler.add_to_queue
-        "Periodic alert failed login attempts"
-        (Xapi_periodic_scheduler.Periodic freq) freq
-        Xapi_pool.alert_failed_login_attempts
-  ) ;
+  ( if master
+  then
+    let freq = !Xapi_globs.failed_login_alert_freq |> float_of_int in
+    Xapi_periodic_scheduler.add_to_queue
+      "Periodic alert failed login attempts"
+      (Xapi_periodic_scheduler.Periodic freq)
+      freq
+      Xapi_pool.alert_failed_login_attempts ) ;
   Xapi_periodic_scheduler.add_to_queue
     "Period alert if TLS verification emergency disabled"
-    (Xapi_periodic_scheduler.Periodic 600.) 600. (fun () ->
+    (Xapi_periodic_scheduler.Periodic 600.)
+    600.
+    (fun () ->
       Server_helpers.exec_with_new_task
-        "Period alert if TLS verification emergency disabled" (fun __context ->
-          Xapi_host.alert_if_tls_verification_was_emergency_disabled ~__context
-      )
-  )
+        "Period alert if TLS verification emergency disabled"
+        (fun __context ->
+          Xapi_host.alert_if_tls_verification_was_emergency_disabled ~__context ) )

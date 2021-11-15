@@ -12,7 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t = {verbose: bool; debug: bool; socket: string} [@@deriving rpc]
+type t =
+  { verbose : bool
+  ; debug : bool
+  ; socket : string
+  }
+[@@deriving rpc]
 
 let make verbose debug socket queue =
   Xenops_interface.default_path := socket ;
@@ -21,9 +26,9 @@ let make verbose debug socket queue =
       ()
   | Some name ->
       Xenops_interface.queue_name := name ;
-      Xcp_client.use_switch := true
-  ) ;
-  {verbose; debug; socket}
+      Xcp_client.use_switch := true ) ;
+  { verbose; debug; socket }
+
 
 let to_string x = Jsonrpc.to_string (rpc_of_t x)
 

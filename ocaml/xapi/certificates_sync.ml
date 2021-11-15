@@ -1,4 +1,6 @@
-module D = Debug.Make (struct let name = "certificates_sync" end)
+module D = Debug.Make (struct
+  let name = "certificates_sync"
+end)
 
 open D
 module Unixext = Xapi_stdext_unix.Unixext
@@ -14,6 +16,7 @@ let uninstall ~__context cert =
   info "Removing certificate %s" (Ref.string_of cert) ;
   Db.Certificate.destroy ~__context ~self:cert
 
+
 (* the host cert is under a fixed name - so the new cert in the file
    system already replaced the old one. We must not remove it from the
    file system *)
@@ -25,9 +28,11 @@ let install ~__context ~host ~type' cert =
     let ref = Certificates.Db_util.add_cert ~__context ~type' cert in
     info "Adding host certificicate %s to database" (Ref.string_of ref) ;
     R.ok ()
-  with e ->
-    error "certificates_sync.install exception: %s" (Printexc.to_string e) ;
-    Error (`Msg ("installation of host certificate failed", []))
+  with
+  | e ->
+      error "certificates_sync.install exception: %s" (Printexc.to_string e) ;
+      Error (`Msg ("installation of host certificate failed", []))
+
 
 (** determine if the database is up to date by comparing the fingerprint
   of xapi-ssl.pem with the entry in the database *)
@@ -38,6 +43,7 @@ let is_unchanged ~__context cert_ref cert =
     |> Certificates.pp_hash
   in
   cert_hash = ref_hash
+
 
 (** [get_server_cert] loads [path] from the file system and
   returns it decoded *)
@@ -52,10 +58,10 @@ let get_server_cert path =
         |> X509.Certificate.decode_pem
         |> R.reword_error (fun (`Msg msg) ->
                D.info {|Failed to decode certificate because "%s"|} msg ;
-               `Msg (server_certificate_invalid, [])
-           )
+               `Msg (server_certificate_invalid, []) )
       in
       Ok host_cert
+
 
 let sync ~__context ~type' =
   let host = Helpers.get_localhost ~__context in
@@ -75,57 +81,68 @@ let sync ~__context ~type' =
   | [] ->
       info "Host %s has no active server certificate" host_uuid ;
       install ~__context ~host ~type' cert
-  | [cert_ref] ->
+  | [ cert_ref ] ->
       let unchanged = is_unchanged ~__context cert_ref cert in
-      if unchanged then (
+      if unchanged
+      then (
         info "Active server certificate for host %s is unchanged" host_uuid ;
-        Ok ()
-      ) else (
+        Ok () )
+      else (
         info "Server certificate for host %s changed - updating" host_uuid ;
         let* () = install ~__context ~host ~type' cert in
         uninstall ~__context cert_ref ;
-        Ok ()
-      )
+        Ok () )
   | cert_refs ->
-      warn "The host has more than one certificate: %s"
+      warn
+        "The host has more than one certificate: %s"
         (String.concat ", " (List.map Ref.string_of cert_refs)) ;
       info "Server certificate for host %s changed - updating" host_uuid ;
       let* () = install ~__context ~host ~type' cert in
       List.iter (uninstall ~__context) cert_refs ;
       Ok ()
 
+
 let update ~__context =
   let* () = sync ~__context ~type':`host in
   let* () = sync ~__context ~type':`host_internal in
   Ok ()
 
+
 let internal_error fmt =
   fmt
-  |> Printf.kprintf @@ fun msg ->
+  |> Printf.kprintf
+     @@ fun msg ->
      error "%s" msg ;
-     raise Api_errors.(Server_error (internal_error, [msg]))
+     raise Api_errors.(Server_error (internal_error, [ msg ]))
+
 
 let remove_from_db ~__context cert =
   try
     Db.Certificate.destroy ~__context ~self:cert ;
     info "removed host certificate %s from db" (Ref.string_of cert)
-  with e ->
-    internal_error "failed to remove cert %s: %s" (Ref.string_of cert)
-      (Printexc.to_string e)
+  with
+  | e ->
+      internal_error
+        "failed to remove cert %s: %s"
+        (Ref.string_of cert)
+        (Printexc.to_string e)
+
 
 let path host_uuid =
   let prefix = !Xapi_globs.trusted_pool_certs_dir in
   Filename.concat prefix (Printf.sprintf "%s.pem" host_uuid)
 
+
 let host_certs_of ~__context host =
   List.concat
-    [
-      Certificates.Db_util.get_host_certs ~__context ~host ~type':`host
+    [ Certificates.Db_util.get_host_certs ~__context ~host ~type':`host
     ; Certificates.Db_util.get_host_certs ~__context ~host ~type':`host_internal
     ]
 
+
 let eject_certs_from_db ~__context certs =
   certs |> List.iter (remove_from_db ~__context)
+
 
 let eject_certs_from_fs_for ~__context host =
   (* the cert is not identified by its UUID in the file system but
@@ -140,6 +157,9 @@ let eject_certs_from_fs_for ~__context host =
         info "removed host certificate %s" file
     | false ->
         info "host %s has no certificate %s to remove" host_uuid file
-  with e ->
-    internal_error "failed to remove cert %s on pool eject" file
-      (Printexc.to_string e)
+  with
+  | e ->
+      internal_error
+        "failed to remove cert %s on pool eject"
+        file
+        (Printexc.to_string e)

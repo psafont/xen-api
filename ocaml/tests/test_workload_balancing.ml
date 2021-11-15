@@ -16,12 +16,17 @@ let split = Workload_balancing.split_host_port
 
 let assert_succeed url host port =
   Alcotest.(check (pair string int))
-    "test_split_host_port" (host, port) (split url)
+    "test_split_host_port"
+    (host, port)
+    (split url)
+
 
 let assert_raise_url_invalid url =
-  Alcotest.check_raises "wlb URL should be invalid"
-    Api_errors.(Server_error (wlb_url_invalid, [url]))
+  Alcotest.check_raises
+    "wlb URL should be invalid"
+    Api_errors.(Server_error (wlb_url_invalid, [ url ]))
     (fun () -> split url |> ignore)
+
 
 let test_split_host_port () =
   (* succeed cases *)
@@ -42,4 +47,5 @@ let test_split_host_port () =
   (* others *)
   assert_raise_url_invalid "http://example.com:80/"
 
-let test = [("test_split_host_port", `Quick, test_split_host_port)]
+
+let test = [ ("test_split_host_port", `Quick, test_split_host_port) ]

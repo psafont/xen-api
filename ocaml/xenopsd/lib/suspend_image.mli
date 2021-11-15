@@ -42,7 +42,9 @@ type header_type =
   | Varstored
   | End_of_image
 
-type format = Structured | Legacy
+type format =
+  | Structured
+  | Legacy
 
 type header = header_type * int64
 

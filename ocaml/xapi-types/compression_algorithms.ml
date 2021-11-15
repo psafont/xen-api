@@ -15,7 +15,9 @@
 (** Types used to store compression algorithms: ***************************)
 
 (** Supported compression algorithms *)
-type t = Gzip | Zstd
+type t =
+  | Gzip
+  | Zstd
 
 let of_string = function
   | "true" | "gzip" ->
@@ -24,6 +26,7 @@ let of_string = function
       Some Zstd
   | _ ->
       None
+
 
 let to_string = function
   | None ->

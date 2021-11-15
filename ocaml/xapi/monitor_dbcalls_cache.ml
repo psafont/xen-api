@@ -58,60 +58,65 @@ let ignore_errors = ref StringSet.empty
 let clear_cache_for_pif ~pif_name =
   Mutex.execute pifs_cached_m (fun _ ->
       Hashtbl.remove pifs_cached pif_name ;
-      Hashtbl.remove pifs_tmp pif_name
-  )
+      Hashtbl.remove pifs_tmp pif_name )
+
 
 (** [clear_cache_for_vm] removes any current cache for VM with [vm_uuid],
  * which forces fresh properties for the VM into xapi's database. *)
 let clear_cache_for_vm ~vm_uuid =
   Mutex.execute vm_memory_cached_m (fun _ ->
       Hashtbl.remove vm_memory_cached vm_uuid ;
-      Hashtbl.remove vm_memory_tmp vm_uuid
-  )
+      Hashtbl.remove vm_memory_tmp vm_uuid )
+
 
 (** [clear_pvs_status_cache] removes the cache entry for [vm_uuid] *)
 let clear_pvs_status_cache ~vm_uuid =
   Mutex.execute pvs_proxy_cached_m (fun _ ->
       Hashtbl.remove pvs_proxy_cached vm_uuid ;
-      Hashtbl.remove pvs_proxy_tmp vm_uuid
-  )
+      Hashtbl.remove pvs_proxy_tmp vm_uuid )
+
 
 (** Clear the whole cache. This forces fresh properties to be written into
  * xapi's database. *)
 let clear_cache () =
   let safe_clear ~cache ~tmp ~lock =
-    Mutex.execute lock (fun _ -> Hashtbl.clear cache ; Hashtbl.clear tmp)
+    Mutex.execute lock (fun _ ->
+        Hashtbl.clear cache ;
+        Hashtbl.clear tmp )
   in
   safe_clear ~cache:pifs_cached ~tmp:pifs_tmp ~lock:pifs_cached_m ;
-  safe_clear ~cache:bonds_links_up_cached ~tmp:bonds_links_up_tmp
+  safe_clear
+    ~cache:bonds_links_up_cached
+    ~tmp:bonds_links_up_tmp
     ~lock:bonds_links_up_cached_m ;
   safe_clear ~cache:vm_memory_cached ~tmp:vm_memory_tmp ~lock:vm_memory_cached_m ;
   Mutex.execute host_memory_m (fun _ ->
       host_memory_free_cached := Int64.zero ;
-      host_memory_total_cached := Int64.zero
-  )
+      host_memory_total_cached := Int64.zero )
+
 
 (* Helper map functions. *)
 let transfer_map ?(except = []) ~source ~target =
   List.iter
     (fun ex ->
-      try Hashtbl.replace source ex (Hashtbl.find target ex)
-      with Not_found -> Hashtbl.remove source ex
-      )
+      try Hashtbl.replace source ex (Hashtbl.find target ex) with
+      | Not_found ->
+          Hashtbl.remove source ex )
     except ;
   Hashtbl.clear target ;
   Hashtbl.iter (fun k v -> Hashtbl.add target k v) source ;
   Hashtbl.clear source
 
+
 let get_updates ~before ~after ~f =
   Hashtbl.fold
     (fun k v acc ->
-      if try v <> Hashtbl.find before k with Not_found -> true then
-        f k v acc
-      else
-        acc
-      )
-    after []
+      if try v <> Hashtbl.find before k with Not_found -> true
+      then f k v acc
+      else acc )
+    after
+    []
+
 
 let get_updates_map = get_updates ~f:(fun k v acc -> (k, v) :: acc)
 
@@ -122,6 +127,7 @@ let is_ignored filename = StringSet.mem filename !ignore_errors
 
 let ignore_errors_from filename =
   ignore_errors := StringSet.add filename !ignore_errors
+
 
 let log_errors_from filename =
   ignore_errors := StringSet.remove filename !ignore_errors

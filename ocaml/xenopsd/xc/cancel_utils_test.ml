@@ -26,8 +26,7 @@ let xenstore_test xs _ =
     Thread.create
       (fun () ->
         Thread.delay 1. ;
-        Xenops_task.with_cancel task (fun () -> ()) (fun () -> ())
-        )
+        Xenops_task.with_cancel task (fun () -> ()) (fun () -> ()) )
       ()
   in
   try
@@ -35,20 +34,23 @@ let xenstore_test xs _ =
       cancellable_watch (TestPath "/test/cancel") [] [] task ~xs ~timeout:3. ()
     in
     raise Did_not_cancel
-  with Xenopsd_error (Cancelled _) -> (* success *)
-                                      ()
+  with
+  | Xenopsd_error (Cancelled _) ->
+      (* success *)
+      ()
+
 
 let _ =
   let verbose = ref false in
   Arg.parse
-    [("-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode")]
+    [ ("-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode") ]
     (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
     "Test cancellation functions" ;
   try
     Xenstore.with_xs (fun xs ->
-        let suite = "cancel test" >::: ["xenstore" >:: xenstore_test xs] in
-        run_test_tt ~verbose:!verbose suite |> ignore
-    )
-  with Xs_transport.Could_not_find_xenstore ->
-    (* ignore test, we're not running on domain 0 *)
-    ()
+        let suite = "cancel test" >::: [ "xenstore" >:: xenstore_test xs ] in
+        run_test_tt ~verbose:!verbose suite |> ignore )
+  with
+  | Xs_transport.Could_not_find_xenstore ->
+      (* ignore test, we're not running on domain 0 *)
+      ()

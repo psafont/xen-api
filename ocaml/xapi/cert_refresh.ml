@@ -12,7 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "cert_refresh" end)
+module D = Debug.Make (struct
+  let name = "cert_refresh"
+end)
 
 open D
 
@@ -28,12 +30,14 @@ let replace_extension filename ~ext =
   in
   Printf.sprintf "%s.%s" base ext
 
+
 (* Path to host server certificate (in PEM format) *)
 let cert_path = function
   | `host ->
       !Xapi_globs.server_cert_path
   | `host_internal ->
       !Xapi_globs.server_cert_internal_path
+
 
 (* Paths to certificates that we are about to use *)
 let new_cert_path type' = replace_extension (cert_path type') ~ext:"new"
@@ -51,16 +55,19 @@ let unreachable_hosts ~__context =
   let pool = Xapi_pool_helpers.get_master_slaves_list ~__context in
   HostSet.(diff (of_list pool) (of_list live))
 
+
 let maybe_restart_cluster_daemon ~__context =
   let open Xapi_clustering in
   let open Xapi_cluster_host in
-  with_clustering_lock __LOC__ @@ fun () ->
-  if is_local_cluster_host_using_xapis_pem ~__context then (
+  with_clustering_lock __LOC__
+  @@ fun () ->
+  if is_local_cluster_host_using_xapis_pem ~__context
+  then (
     (* we need to restart the cluster daemon because it is using xapi's cert
      * and xapi's cert has changed! *)
     info "cert_refresh: restarting cluster daemon" ;
-    Daemon.restart ~__context
-  )
+    Daemon.restart ~__context )
+
 
 (* On this host and for this host, create a new server certificate and
 distribute it in the pool *)
@@ -72,12 +79,12 @@ let host ~__context ~type' =
   let cert = Gencertlib.Selfcert.xapi_pool ~uuid path in
   let bak = backup_cert_path type' in
   let unreachable = unreachable_hosts ~__context in
-  if not @@ HostSet.is_empty unreachable then
+  if not @@ HostSet.is_empty unreachable
+  then
     raise
       Api_errors.(
         Server_error
-          (cannot_contact_host, [Ref.string_of (HostSet.choose unreachable)])
-      ) ;
+          (cannot_contact_host, [ Ref.string_of (HostSet.choose unreachable) ])) ;
   let content = X509.Certificate.encode_pem cert |> Cstruct.to_string in
   (* distribute public part of new cert in pool *)
   Cert_distrib.distribute_new_host_cert ~__context ~host ~content ;
@@ -94,7 +101,9 @@ let host ~__context ~type' =
     | `host ->
         Certificates.Db_util.add_cert ~__context ~type':(`host host) cert
     | `host_internal ->
-        Certificates.Db_util.add_cert ~__context ~type':(`host_internal host)
+        Certificates.Db_util.add_cert
+          ~__context
+          ~type':(`host_internal host)
           cert
   in
   (* We might have a slow client that connects using the old cert and
@@ -104,6 +113,7 @@ let host ~__context ~type' =
   Thread.delay 5.0 ;
   Xapi_stunnel_server.reload () ;
   ref
+
 
 (* The stunnel clients trust the old and the new [host] server cert.  On
 the local host, rename the old cert and re-create the cert bundle
@@ -120,10 +130,10 @@ let remove_stale_cert ~__context ~host ~type' =
   let next = Filename.concat directory (Printf.sprintf "%s.new.pem" uuid) in
   let pem = Filename.concat directory (Printf.sprintf "%s.pem" uuid) in
   let bak = Filename.concat directory (Printf.sprintf "%s.bak" uuid) in
-  if Sys.file_exists next && Sys.file_exists pem then (
+  if Sys.file_exists next && Sys.file_exists pem
+  then (
     info "cleanup - renaming %s to %s" next pem ;
     Sys.rename pem bak ;
     Sys.rename next pem ;
-    Certificates.update_ca_bundle ()
-  ) else
-    info "cleanup - no new cert %s found - skipping" next
+    Certificates.update_ca_bundle () )
+  else info "cleanup - no new cert %s found - skipping" next

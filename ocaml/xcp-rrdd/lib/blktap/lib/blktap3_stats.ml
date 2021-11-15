@@ -25,29 +25,34 @@ type t = Cstruct.t
 let flag_low_mem_mode = 0x1L
 
 [%%cstruct
-type stats = {
-    version: uint32_t
-  ; __pad: uint32_t
-  ; oo_reqs: uint64_t
-  ; read_reqs_submitted: uint64_t
-  ; read_reqs_completed: uint64_t
-  ; read_sectors: uint64_t
-  ; read_total_ticks: uint64_t
-  ; write_reqs_submitted: uint64_t
-  ; write_reqs_completed: uint64_t
-  ; write_sectors: uint64_t
-  ; write_total_ticks: uint64_t
-  ; io_errors: uint64_t
-  ; flags: uint64_t
-}
+type stats =
+  { version : uint32_t
+  ; __pad : uint32_t
+  ; oo_reqs : uint64_t
+  ; read_reqs_submitted : uint64_t
+  ; read_reqs_completed : uint64_t
+  ; read_sectors : uint64_t
+  ; read_total_ticks : uint64_t
+  ; write_reqs_submitted : uint64_t
+  ; write_reqs_completed : uint64_t
+  ; write_sectors : uint64_t
+  ; write_total_ticks : uint64_t
+  ; io_errors : uint64_t
+  ; flags : uint64_t
+  }
 [@@little_endian]]
 
 let of_file f =
-  let fd = Unix.(openfile f [O_RDONLY] 0o000) in
+  let fd = Unix.(openfile f [ O_RDONLY ] 0o000) in
   try
     let result = Unix_cstruct.of_fd fd in
-    Unix.close fd ; result
-  with e -> Unix.close fd ; raise e
+    Unix.close fd ;
+    result
+  with
+  | e ->
+      Unix.close fd ;
+      raise e
+
 
 let copy : t -> t =
  fun t ->

@@ -17,7 +17,9 @@ open Xenops_server_plugin
 open Xenops_utils
 open Xenops_task
 
-module D = Debug.Make (struct let name = "xenops_server" end)
+module D = Debug.Make (struct
+  let name = "xenops_server"
+end)
 
 open D
 
@@ -27,23 +29,23 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let domain_shutdown_ack_timeout = ref 60.
 
-type context = {
-    transferred_fd: Unix.file_descr option
+type context =
+  { transferred_fd : Unix.file_descr option
         (** some API calls take a file descriptor argument *)
-}
+  }
 
-let make_context () = {transferred_fd= None}
+let make_context () = { transferred_fd = None }
 
 let instance_id = Uuidm.to_string (Uuidm.create `V4)
 
 let query _ _ _ =
-  {
-    Query.name= "xenops"
-  ; vendor= "XCP"
-  ; version= "0.1"
-  ; features= []
+  { Query.name = "xenops"
+  ; vendor = "XCP"
+  ; version = "0.1"
+  ; features = []
   ; instance_id
   }
+
 
 let cookie_vgpu_migration = "vgpu_migration"
 
@@ -56,28 +58,33 @@ let get_backend () =
   | None ->
       failwith "No backend implementation set"
 
+
 let dom0_uuid = ref ""
 
 let set_dom0_uuid uuid = dom0_uuid := uuid
 
 let ignore_exception msg f x =
-  try f x
-  with Xenopsd_error e ->
-    debug "%s: ignoring exception: %s" msg
-      (e |> Rpcmarshal.marshal Errors.error.Rpc.Types.ty |> Jsonrpc.to_string)
+  try f x with
+  | Xenopsd_error e ->
+      debug
+        "%s: ignoring exception: %s"
+        msg
+        (e |> Rpcmarshal.marshal Errors.error.Rpc.Types.ty |> Jsonrpc.to_string)
+
 
 let filter_prefix prefix xs =
   List.filter_map
     (fun x ->
-      if Astring.String.is_prefix ~affix:prefix x then
+      if Astring.String.is_prefix ~affix:prefix x
+      then
         Some
-          (String.sub x (String.length prefix)
-             (String.length x - String.length prefix)
-          )
-      else
-        None
-      )
+          (String.sub
+             x
+             (String.length prefix)
+             (String.length x - String.length prefix) )
+      else None )
     xs
+
 
 type atomic =
   | VBD_eject of Vbd.id
@@ -140,15 +147,15 @@ type atomic =
 
 let string_of_atomic x = x |> rpc_of atomic |> Jsonrpc.to_string
 
-type vm_migrate_op = {
-    vmm_id: Vm.id
-  ; vmm_vdi_map: (string * string) list
-  ; vmm_vif_map: (string * Network.t) list
-  ; vmm_vgpu_pci_map: (string * Pci.address) list
-  ; vmm_url: string
-  ; vmm_tmp_src_id: Vm.id
-  ; vmm_tmp_dest_id: Vm.id
-}
+type vm_migrate_op =
+  { vmm_id : Vm.id
+  ; vmm_vdi_map : (string * string) list
+  ; vmm_vif_map : (string * Network.t) list
+  ; vmm_vgpu_pci_map : (string * Pci.address) list
+  ; vmm_url : string
+  ; vmm_tmp_src_id : Vm.id
+  ; vmm_tmp_dest_id : Vm.id
+  }
 [@@deriving rpcty]
 
 type operation =
@@ -187,17 +194,22 @@ module TASK = struct
     try
       let handle = handle_of_id tasks id in
       let state = get_state handle in
-      debug "TASK.signal %s = %s" id
+      debug
+        "TASK.signal %s = %s"
+        id
         (state |> rpc_of Task.state |> Jsonrpc.to_string) ;
       Updates.add (Dynamic.Task id) updates
-    with Xenopsd_error (Does_not_exist _) ->
-      debug "TASK.signal %s (object deleted)" id
+    with
+    | Xenopsd_error (Does_not_exist _) ->
+        debug "TASK.signal %s (object deleted)" id
+
 
   let stat _ _dbg id = stat' id
 
   let destroy' id =
     destroy (handle_of_id tasks id) ;
     Updates.remove (Dynamic.Task id) updates
+
 
   let destroy _ _dbg id = destroy' id
 
@@ -212,7 +224,7 @@ module VM_DB = struct
 
     type key = id
 
-    let key id = [id; "config"]
+    let key id = [ id; "config" ]
   end)
 
   let ids () : Vm.id list = list []
@@ -224,26 +236,27 @@ module VM_DB = struct
     let states = List.map B.VM.get_state vms in
     List.combine vms states
 
+
   let m = Mutex.create ()
 
   let signal id =
     debug "VM_DB.signal %s" id ;
     Mutex.execute m (fun () ->
-        if exists id then
-          Updates.add (Dynamic.Vm id) updates
-    )
+        if exists id then Updates.add (Dynamic.Vm id) updates )
+
 
   let remove id =
     Mutex.execute m (fun () ->
         Updates.remove (Dynamic.Vm id) updates ;
-        remove id
-    )
+        remove id )
+
 
   let add' x =
     debug "VM.add %s" (Jsonrpc.to_string (rpc_of Vm.t x)) ;
     write x.id x ;
     let module B = (val get_backend () : S) in
-    B.VM.add x ; x.id
+    B.VM.add x ;
+    x.id
 end
 
 module PCI_DB = struct
@@ -254,7 +267,7 @@ module PCI_DB = struct
 
     type key = id
 
-    let key k = [fst k; "pci." ^ snd k]
+    let key k = [ fst k; "pci." ^ snd k ]
   end)
 
   let vm_of = fst
@@ -262,7 +275,8 @@ module PCI_DB = struct
   let string_of_id (a, b) = a ^ "." ^ b
 
   let ids vm : Pci.id list =
-    list [vm] |> filter_prefix "pci." |> List.map (fun id -> (vm, id))
+    list [ vm ] |> filter_prefix "pci." |> List.map (fun id -> (vm, id))
+
 
   let pcis vm = ids vm |> List.map read |> dropnone
 
@@ -273,41 +287,43 @@ module PCI_DB = struct
     let states = List.map (B.PCI.get_state vm) xs in
     List.combine xs states
 
+
   let m = Mutex.create ()
 
   let signal id =
     debug "PCI_DB.signal %s" (string_of_id id) ;
     Mutex.execute m (fun () ->
-        if exists id then
-          Updates.add (Dynamic.Pci id) updates
-    )
+        if exists id then Updates.add (Dynamic.Pci id) updates )
+
 
   let remove id =
     Mutex.execute m (fun () ->
         Updates.remove (Dynamic.Pci id) updates ;
-        remove id
-    )
+        remove id )
+
 
   let add' x =
     let open Pci in
-    debug "PCI.add %s %s" (string_of_id x.id)
+    debug
+      "PCI.add %s %s"
+      (string_of_id x.id)
       (Jsonrpc.to_string (rpc_of Pci.t x)) ;
     (* Only if the corresponding VM actually exists *)
     let vm = vm_of x.id in
-    if not (VM_DB.exists vm) then (
+    if not (VM_DB.exists vm)
+    then (
       debug "VM %s not managed by me" vm ;
-      raise (Xenopsd_error (Does_not_exist ("VM", vm)))
-    ) ;
+      raise (Xenopsd_error (Does_not_exist ("VM", vm))) ) ;
     write x.id x ;
     x.id
+
 
   let remove' id =
     debug "PCI.remove %s" (string_of_id id) ;
     let module B = (val get_backend () : S) in
-    if (B.PCI.get_state (vm_of id) (read_exn id)).Pci.plugged then
-      raise (Xenopsd_error Device_is_connected)
-    else
-      remove id
+    if (B.PCI.get_state (vm_of id) (read_exn id)).Pci.plugged
+    then raise (Xenopsd_error Device_is_connected)
+    else remove id
 end
 
 module VBD_DB = struct
@@ -318,7 +334,7 @@ module VBD_DB = struct
 
     type key = id
 
-    let key k = [fst k; "vbd." ^ snd k]
+    let key k = [ fst k; "vbd." ^ snd k ]
   end)
 
   let vm_of = fst
@@ -326,7 +342,8 @@ module VBD_DB = struct
   let string_of_id (a, b) = a ^ "." ^ b
 
   let ids vm : Vbd.id list =
-    list [vm] |> filter_prefix "vbd." |> List.map (fun id -> (vm, id))
+    list [ vm ] |> filter_prefix "vbd." |> List.map (fun id -> (vm, id))
+
 
   let vbds vm = ids vm |> List.map read |> dropnone
 
@@ -337,40 +354,42 @@ module VBD_DB = struct
     let states = List.map (B.VBD.get_state vm) vbds' in
     List.combine vbds' states
 
+
   let m = Mutex.create ()
 
   let signal id =
     debug "VBD_DB.signal %s" (string_of_id id) ;
     Mutex.execute m (fun () ->
-        if exists id then
-          Updates.add (Dynamic.Vbd id) updates
-    )
+        if exists id then Updates.add (Dynamic.Vbd id) updates )
+
 
   let remove id =
     Mutex.execute m (fun () ->
         Updates.remove (Dynamic.Vbd id) updates ;
-        remove id
-    )
+        remove id )
+
 
   let add' x =
-    debug "VBD.add %s %s" (string_of_id x.Vbd.id)
+    debug
+      "VBD.add %s %s"
+      (string_of_id x.Vbd.id)
       (Jsonrpc.to_string (rpc_of Vbd.t x)) ;
     (* Only if the corresponding VM actually exists *)
     let vm = vm_of x.id in
-    if not (VM_DB.exists vm || vm = !dom0_uuid) then (
+    if not (VM_DB.exists vm || vm = !dom0_uuid)
+    then (
       debug "VM %s not managed by me" vm ;
-      raise (Xenopsd_error (Does_not_exist ("VM", vm)))
-    ) ;
+      raise (Xenopsd_error (Does_not_exist ("VM", vm))) ) ;
     write x.id x ;
     x.id
+
 
   let remove' id =
     debug "VBD.remove %s" (string_of_id id) ;
     let module B = (val get_backend () : S) in
-    if (B.VBD.get_state (vm_of id) (read_exn id)).Vbd.plugged then
-      raise (Xenopsd_error Device_is_connected)
-    else
-      remove id
+    if (B.VBD.get_state (vm_of id) (read_exn id)).Vbd.plugged
+    then raise (Xenopsd_error Device_is_connected)
+    else remove id
 end
 
 module VIF_DB = struct
@@ -381,7 +400,7 @@ module VIF_DB = struct
 
     type key = id
 
-    let key k = [fst k; "vif." ^ snd k]
+    let key k = [ fst k; "vif." ^ snd k ]
   end)
 
   let vm_of = fst
@@ -389,7 +408,8 @@ module VIF_DB = struct
   let string_of_id (a, b) = a ^ "." ^ b
 
   let ids vm : Vif.id list =
-    list [vm] |> filter_prefix "vif." |> List.map (fun id -> (vm, id))
+    list [ vm ] |> filter_prefix "vif." |> List.map (fun id -> (vm, id))
+
 
   let vifs vm = ids vm |> List.map read |> dropnone
 
@@ -399,26 +419,28 @@ module VIF_DB = struct
     let states = List.map (B.VIF.get_state vm) vifs' in
     List.combine vifs' states
 
+
   let m = Mutex.create ()
 
   let signal id =
     debug "VIF_DB.signal %s" (string_of_id id) ;
     Mutex.execute m (fun () -> Updates.add (Dynamic.Vif id) updates)
 
+
   let remove id =
     Mutex.execute m (fun () ->
         Updates.remove (Dynamic.Vif id) updates ;
-        remove id
-    )
+        remove id )
+
 
   let add' x =
     debug "VIF.add %s" (Jsonrpc.to_string (rpc_of Vif.t x)) ;
     (* Only if the corresponding VM actually exists *)
     let vm = vm_of x.id in
-    if not (VM_DB.exists vm) then (
+    if not (VM_DB.exists vm)
+    then (
       debug "VM %s not managed by me" vm ;
-      raise (Xenopsd_error (Does_not_exist ("VM", vm)))
-    ) ;
+      raise (Xenopsd_error (Does_not_exist ("VM", vm))) ) ;
     (* Generate MAC if necessary *)
     let mac =
       match x.mac with
@@ -429,16 +451,16 @@ module VIF_DB = struct
       | mac ->
           mac
     in
-    write x.id {x with mac} ;
+    write x.id { x with mac } ;
     x.id
+
 
   let remove' id =
     debug "VIF.remove %s" (string_of_id id) ;
     let module B = (val get_backend () : S) in
-    if (B.VIF.get_state (vm_of id) (read_exn id)).Vif.plugged then
-      raise (Xenopsd_error Device_is_connected)
-    else
-      remove id
+    if (B.VIF.get_state (vm_of id) (read_exn id)).Vif.plugged
+    then raise (Xenopsd_error Device_is_connected)
+    else remove id
 end
 
 module VGPU_DB = struct
@@ -449,7 +471,7 @@ module VGPU_DB = struct
 
     type key = id
 
-    let key k = [fst k; "vgpu." ^ snd k]
+    let key k = [ fst k; "vgpu." ^ snd k ]
   end)
 
   let vm_of = fst
@@ -458,7 +480,7 @@ module VGPU_DB = struct
 
   let id_of_string str =
     match Astring.String.cuts ~sep:"." str with
-    | [a; b] ->
+    | [ a; b ] ->
         (a, b)
     | _ ->
         raise
@@ -466,8 +488,10 @@ module VGPU_DB = struct
              (Internal_error ("String cannot be interpreted as vgpu id: " ^ str))
           )
 
+
   let ids vm : Vgpu.id list =
-    list [vm] |> filter_prefix "vgpu." |> List.map (fun id -> (vm, id))
+    list [ vm ] |> filter_prefix "vgpu." |> List.map (fun id -> (vm, id))
+
 
   let vgpus vm = ids vm |> List.map read |> dropnone
 
@@ -478,40 +502,42 @@ module VGPU_DB = struct
     let states = List.map (B.VGPU.get_state vm) xs in
     List.combine xs states
 
+
   let m = Mutex.create ()
 
   let signal id =
     debug "VGPU_DB.signal %s" (string_of_id id) ;
     Mutex.execute m (fun () ->
-        if exists id then
-          Updates.add (Dynamic.Vgpu id) updates
-    )
+        if exists id then Updates.add (Dynamic.Vgpu id) updates )
+
 
   let remove id =
     Mutex.execute m (fun () ->
         Updates.remove (Dynamic.Vgpu id) updates ;
-        remove id
-    )
+        remove id )
+
 
   let add' x =
-    debug "VGPU.add %s %s" (string_of_id x.Vgpu.id)
+    debug
+      "VGPU.add %s %s"
+      (string_of_id x.Vgpu.id)
       (Jsonrpc.to_string (rpc_of Vgpu.t x)) ;
     (* Only if the corresponding VM actually exists *)
     let vm = vm_of x.id in
-    if not (VM_DB.exists vm) then (
+    if not (VM_DB.exists vm)
+    then (
       debug "VM %s not managed by me" vm ;
-      raise (Xenopsd_error (Does_not_exist ("VM", vm)))
-    ) ;
+      raise (Xenopsd_error (Does_not_exist ("VM", vm))) ) ;
     write x.id x ;
     x.id
+
 
   let remove' id =
     debug "VGPU.remove %s" (string_of_id id) ;
     let module B = (val get_backend () : S) in
-    if (B.VGPU.get_state (vm_of id) (read_exn id)).Vgpu.plugged then
-      raise (Xenopsd_error Device_is_connected)
-    else
-      remove id
+    if (B.VGPU.get_state (vm_of id) (read_exn id)).Vgpu.plugged
+    then raise (Xenopsd_error Device_is_connected)
+    else remove id
 end
 
 module VUSB_DB = struct
@@ -522,7 +548,7 @@ module VUSB_DB = struct
 
     type key = id
 
-    let key k = [fst k; "vusb." ^ snd k]
+    let key k = [ fst k; "vusb." ^ snd k ]
   end)
 
   let vm_of = fst
@@ -530,7 +556,8 @@ module VUSB_DB = struct
   let string_of_id (a, b) = a ^ "." ^ b
 
   let ids vm : Vusb.id list =
-    list [vm] |> filter_prefix "vusb." |> List.map (fun id -> (vm, id))
+    list [ vm ] |> filter_prefix "vusb." |> List.map (fun id -> (vm, id))
+
 
   let vusbs vm = ids vm |> List.map read |> dropnone
 
@@ -541,37 +568,41 @@ module VUSB_DB = struct
     let states = List.map (B.VUSB.get_state vm) vusbs' in
     List.combine vusbs' states
 
+
   let m = Mutex.create ()
 
   let signal id =
     debug "VUSB_DB.signal %s" (string_of_id id) ;
     Mutex.execute m (fun () -> Updates.add (Dynamic.Vusb id) updates)
 
+
   let remove id =
     Mutex.execute m (fun () ->
         Updates.remove (Dynamic.Vusb id) updates ;
-        remove id
-    )
+        remove id )
+
 
   let add' x =
-    debug "VUSB.add %s %s" (string_of_id x.Vusb.id)
+    debug
+      "VUSB.add %s %s"
+      (string_of_id x.Vusb.id)
       (Jsonrpc.to_string (rpc_of Vusb.t x)) ;
     (* Only if the corresponding VM actually exists *)
     let vm = vm_of x.id in
-    if not (VM_DB.exists vm) then (
+    if not (VM_DB.exists vm)
+    then (
       debug "VM %s not managed by me" vm ;
-      raise (Xenopsd_error (Does_not_exist ("VM", vm)))
-    ) ;
+      raise (Xenopsd_error (Does_not_exist ("VM", vm))) ) ;
     write x.id x ;
     x.id
+
 
   let remove' id =
     debug "VUSB.remove %s" (string_of_id id) ;
     let module B = (val get_backend () : S) in
-    if (B.VUSB.get_state (vm_of id) (read_exn id)).Vusb.plugged then
-      raise (Xenopsd_error Device_is_connected)
-    else
-      remove id
+    if (B.VUSB.get_state (vm_of id) (read_exn id)).Vusb.plugged
+    then raise (Xenopsd_error Device_is_connected)
+    else remove id
 end
 
 module StringMap = Map.Make (struct
@@ -607,6 +638,7 @@ let push_with_coalesce should_keep item queue =
   Queue.clear queue ;
   Queue.transfer queue' queue
 
+
 module Queues = struct
   (** A set of queues where 'pop' operates on each queue in a round-robin
       fashion *)
@@ -614,48 +646,46 @@ module Queues = struct
   (** Each distinct 'tag' value creates a separate virtual queue *)
   type tag = string
 
-  type 'a t = {
-      mutable qs: 'a Queue.t StringMap.t
-    ; mutable last_tag: string
-    ; m: Mutex.t
-    ; c: Condition.t
-  }
+  type 'a t =
+    { mutable qs : 'a Queue.t StringMap.t
+    ; mutable last_tag : string
+    ; m : Mutex.t
+    ; c : Condition.t
+    }
 
   let create () =
-    {
-      qs= StringMap.empty
-    ; last_tag= ""
-    ; m= Mutex.create ()
-    ; c= Condition.create ()
+    { qs = StringMap.empty
+    ; last_tag = ""
+    ; m = Mutex.create ()
+    ; c = Condition.create ()
     }
+
 
   let get tag qs =
     Mutex.execute qs.m (fun () ->
-        if StringMap.mem tag qs.qs then
-          StringMap.find tag qs.qs
-        else
-          Queue.create ()
-    )
+        if StringMap.mem tag qs.qs
+        then StringMap.find tag qs.qs
+        else Queue.create () )
+
 
   let tags qs =
     Mutex.execute qs.m (fun () ->
-        StringMap.fold (fun x _ acc -> x :: acc) qs.qs []
-    )
+        StringMap.fold (fun x _ acc -> x :: acc) qs.qs [] )
+
 
   let get_last_tag qs = Mutex.execute qs.m (fun () -> qs.last_tag)
 
   let push_with_coalesce should_keep tag item qs =
     Mutex.execute qs.m (fun () ->
         let q =
-          if StringMap.mem tag qs.qs then
-            StringMap.find tag qs.qs
-          else
-            Queue.create ()
+          if StringMap.mem tag qs.qs
+          then StringMap.find tag qs.qs
+          else Queue.create ()
         in
         push_with_coalesce should_keep item q ;
         qs.qs <- StringMap.add tag q qs.qs ;
-        Condition.signal qs.c
-    )
+        Condition.signal qs.c )
+
 
   let pop qs =
     Mutex.execute qs.m (fun () ->
@@ -676,35 +706,33 @@ module Queues = struct
         (* remove empty queues from the whole mapping *)
         qs.qs <-
           (if Queue.is_empty q then StringMap.remove last_tag qs.qs else qs.qs) ;
-        (last_tag, item)
-    )
+        (last_tag, item) )
+
 
   let transfer_tag tag a b =
     Mutex.execute a.m (fun () ->
         Mutex.execute b.m (fun () ->
-            if StringMap.mem tag a.qs then (
+            if StringMap.mem tag a.qs
+            then (
               b.qs <- StringMap.add tag (StringMap.find tag a.qs) b.qs ;
               a.qs <- StringMap.remove tag a.qs ;
-              Condition.signal b.c
-            )
-        )
-    )
+              Condition.signal b.c ) ) )
 end
 
 module Redirector = struct
-  type t = {
-      queues: (operation * Xenops_task.task_handle) Queues.t
-    ; mutex: Mutex.t
-  }
+  type t =
+    { queues : (operation * Xenops_task.task_handle) Queues.t
+    ; mutex : Mutex.t
+    }
 
   (* When a thread is not actively processing a queue, items are placed here: *)
-  let default = {queues= Queues.create (); mutex= Mutex.create ()}
+  let default = { queues = Queues.create (); mutex = Mutex.create () }
 
   (* We create another queue only for Parallel atoms so as to avoid a situation
      where Parallel atoms can not progress because all the workers available for
      the default queue are used up by other operations depending on further
      Parallel atoms, creating a deadlock. *)
-  let parallel_queues = {queues= Queues.create (); mutex= Mutex.create ()}
+  let parallel_queues = { queues = Queues.create (); mutex = Mutex.create () }
 
   (* When a thread is actively processing a queue, items are redirected to a
      thread-private queue *)
@@ -726,8 +754,10 @@ module Redirector = struct
     | _ ->
         true
 
+
   let push t tag item =
-    Debug.with_thread_associated "queue"
+    Debug.with_thread_associated
+      "queue"
       (fun () ->
         Mutex.execute m (fun () ->
             let real_tag, aliased =
@@ -744,28 +774,25 @@ module Redirector = struct
               | None ->
                   (t.queues, false)
             in
-            debug "Queue.push %s onto %s%s:[ %s ]"
+            debug
+              "Queue.push %s onto %s%s:[ %s ]"
               (string_of_operation (fst item))
-              ( if aliased then
-                  "aliased "
-              else if redirected then
-                "redirected "
-              else
-                ""
-              )
+              ( if aliased
+              then "aliased "
+              else if redirected
+              then "redirected "
+              else "" )
               real_tag
-              (String.concat ", "
+              (String.concat
+                 ", "
                  (List.rev
                     (Queue.fold
                        (fun acc (b, _) -> string_of_operation b :: acc)
-                       [] (Queues.get tag q)
-                    )
-                 )
-              ) ;
-            Queues.push_with_coalesce should_keep real_tag item q
-        )
-        )
+                       []
+                       (Queues.get tag q) ) ) ) ;
+            Queues.push_with_coalesce should_keep real_tag item q ) )
       ()
+
 
   let pop t () =
     (* We must prevent worker threads all calling Queues.pop before we've
@@ -778,9 +805,8 @@ module Redirector = struct
             Queues.transfer_tag tag t.queues q ;
             overrides := StringMap.add tag q !overrides ;
             (* All items with [tag] will enter queue [q] *)
-            (tag, q, item)
-        )
-    )
+            (tag, q, item) ) )
+
 
   let finished t tag queue =
     Mutex.execute m (fun () ->
@@ -788,20 +814,24 @@ module Redirector = struct
         overrides := StringMap.remove tag !overrides ;
         (* All items with [tag] will enter the queues queue *)
         (* Sanity check: there should be no override for tag in overrides *)
-        aliases := StringMap.filter (fun _ v -> v <> tag) !aliases
-    )
+        aliases := StringMap.filter (fun _ v -> v <> tag) !aliases )
+
 
   let alias ~tag ~alias =
     Mutex.execute m (fun () ->
-        if StringMap.mem tag !overrides then (
+        if StringMap.mem tag !overrides
+        then (
           debug "Queue: Aliasing existing tag '%s' to new tag '%s'" tag alias ;
-          aliases := StringMap.add alias tag !aliases
-        ) else
-          debug "Queue: Warning: Not aliasing non-existing tag"
-    )
+          aliases := StringMap.add alias tag !aliases )
+        else debug "Queue: Warning: Not aliasing non-existing tag" )
+
 
   module Dump = struct
-    type q = {tag: string; items: operation list} [@@deriving rpcty]
+    type q =
+      { tag : string
+      ; items : operation list
+      }
+    [@@deriving rpcty]
 
     type t = q list [@@deriving rpcty]
 
@@ -810,27 +840,23 @@ module Redirector = struct
           let one queue =
             List.map
               (fun t ->
-                {
-                  tag= t
-                ; items=
+                { tag = t
+                ; items =
                     List.rev
                       (Queue.fold
                          (fun acc (b, _) -> b :: acc)
-                         [] (Queues.get t queue)
-                      )
-                }
-                )
+                         []
+                         (Queues.get t queue) )
+                } )
               (Queues.tags queue)
           in
           List.concat
-            (List.map one
+            (List.map
+               one
                (default.queues
                 ::
                 parallel_queues.queues
-                :: List.map snd (StringMap.bindings !overrides)
-               )
-            )
-      )
+                :: List.map snd (StringMap.bindings !overrides) ) ) )
   end
 end
 
@@ -841,28 +867,26 @@ module Worker = struct
     | Shutdown_requested
     | Shutdown
 
-  type t = {
-      mutable state: state
-    ; mutable shutdown_requested: bool
-    ; m: Mutex.t
-    ; c: Condition.t
-    ; mutable t: Thread.t option
-    ; redirector: Redirector.t
-  }
+  type t =
+    { mutable state : state
+    ; mutable shutdown_requested : bool
+    ; m : Mutex.t
+    ; c : Condition.t
+    ; mutable t : Thread.t option
+    ; redirector : Redirector.t
+    }
 
   let get_state_locked t =
-    if t.shutdown_requested then
-      Shutdown_requested
-    else
-      t.state
+    if t.shutdown_requested then Shutdown_requested else t.state
+
 
   let get_state t = Mutex.execute t.m (fun () -> get_state_locked t)
 
   let join t =
     Mutex.execute t.m (fun () ->
         assert (t.state = Shutdown) ;
-        Option.iter Thread.join t.t
-    )
+        Option.iter Thread.join t.t )
+
 
   let is_active t =
     Mutex.execute t.m (fun () ->
@@ -870,35 +894,34 @@ module Worker = struct
         | Idle | Processing (_, _) ->
             true
         | Shutdown_requested | Shutdown ->
-            false
-    )
+            false )
+
 
   let shutdown t =
     Mutex.execute t.m (fun () ->
-        if not t.shutdown_requested then (
+        if not t.shutdown_requested
+        then (
           t.shutdown_requested <- true ;
-          true (* success *)
-        ) else
-          false
-    )
+          true (* success *) )
+        else false )
+
 
   let restart t =
     Mutex.execute t.m (fun () ->
-        if t.shutdown_requested && t.state <> Shutdown then (
+        if t.shutdown_requested && t.state <> Shutdown
+        then (
           t.shutdown_requested <- false ;
-          true (* success *)
-        ) else
-          false
-    )
+          true (* success *) )
+        else false )
+
 
   let create redirector =
     let t =
-      {
-        state= Idle
-      ; shutdown_requested= false
-      ; m= Mutex.create ()
-      ; c= Condition.create ()
-      ; t= None
+      { state = Idle
+      ; shutdown_requested = false
+      ; m = Mutex.create ()
+      ; c = Condition.create ()
+      ; t = None
       ; redirector
       }
     in
@@ -909,9 +932,7 @@ module Worker = struct
             not
               (Mutex.execute t.m (fun () ->
                    if t.shutdown_requested then t.state <- Shutdown ;
-                   t.shutdown_requested
-               )
-              )
+                   t.shutdown_requested ) )
           do
             Mutex.execute t.m (fun () -> t.state <- Idle) ;
             let tag, queue, (op, item) = Redirector.pop redirector () in
@@ -921,15 +942,19 @@ module Worker = struct
             Mutex.execute t.m (fun () -> t.state <- Processing (op, item)) ;
             ( try
                 let t' = Xenops_task.to_interface_task item in
-                Debug.with_thread_associated t'.Task.dbg
+                Debug.with_thread_associated
+                  t'.Task.dbg
                   (fun () ->
-                    debug "Task %s reference %s: %s" id t'.Task.dbg
+                    debug
+                      "Task %s reference %s: %s"
+                      id
+                      t'.Task.dbg
                       (string_of_operation op) ;
-                    Xenops_task.run item
-                    )
+                    Xenops_task.run item )
                   ()
-              with e -> debug "Queue caught: %s" (Printexc.to_string e)
-            ) ;
+              with
+            | e ->
+                debug "Queue caught: %s" (Printexc.to_string e) ) ;
             Redirector.finished redirector tag queue ;
             (* The task must have succeeded or failed. *)
             ( match Xenops_task.get_state item with
@@ -939,11 +964,9 @@ module Worker = struct
                 let e = rpc_of Errors.error e in
                 Xenops_task.set_state item (Task.Failed e)
             | _ ->
-                ()
-            ) ;
+                () ) ;
             TASK.signal id
-          done
-          )
+          done )
         ()
     in
     t.t <- Some thread ;
@@ -959,30 +982,33 @@ module WorkerPool = struct
   let m = Mutex.create ()
 
   module Dump = struct
-    type task = {
-        id: string
-      ; ctime: string
-      ; dbg: string
-      ; subtasks: (string * string) list
-    }
+    type task =
+      { id : string
+      ; ctime : string
+      ; dbg : string
+      ; subtasks : (string * string) list
+      }
     [@@deriving rpcty]
 
     let of_task t =
       let t' = Xenops_task.to_interface_task t in
-      {
-        id= t'.Task.id
-      ; ctime= t'.Task.ctime |> Date.of_float |> Date.to_string
-      ; dbg= t'.Task.dbg
-      ; subtasks=
+      { id = t'.Task.id
+      ; ctime = t'.Task.ctime |> Date.of_float |> Date.to_string
+      ; dbg = t'.Task.dbg
+      ; subtasks =
           List.map
             (fun (name, state) ->
-              (name, state |> rpc_of Task.state |> Jsonrpc.to_string)
-              )
+              (name, state |> rpc_of Task.state |> Jsonrpc.to_string) )
             t'.Task.subtasks
           |> List.rev
       }
 
-    type w = {state: string; task: task option} [@@deriving rpcty]
+
+    type w =
+      { state : string
+      ; task : task option
+      }
+    [@@deriving rpcty]
 
     type t = w list [@@deriving rpcty]
 
@@ -992,20 +1018,17 @@ module WorkerPool = struct
             (fun t ->
               match Worker.get_state t with
               | Worker.Idle ->
-                  {state= "Idle"; task= None}
+                  { state = "Idle"; task = None }
               | Worker.Processing (op, task) ->
-                  {
-                    state=
+                  { state =
                       Printf.sprintf "Processing %s" (string_of_operation op)
-                  ; task= Some (of_task task)
+                  ; task = Some (of_task task)
                   }
               | Worker.Shutdown_requested ->
-                  {state= "Shutdown_requested"; task= None}
+                  { state = "Shutdown_requested"; task = None }
               | Worker.Shutdown ->
-                  {state= "Shutdown"; task= None}
-              )
-            !pool
-      )
+                  { state = "Shutdown"; task = None } )
+            !pool )
   end
 
   (* Compute the number of active threads ie those which will continue to
@@ -1019,13 +1042,14 @@ module WorkerPool = struct
           (fun w -> w.Worker.redirector == queues && Worker.is_active w)
           !pool
         |> List.filter (fun x -> x)
-        |> List.length
-    )
+        |> List.length )
+
 
   let find_one queues f =
     List.fold_left
       (fun acc x -> acc || (x.Worker.redirector == queues && f x))
       false
+
 
   (* Clean up any shutdown threads and remove them from the master list *)
   let gc queues pool =
@@ -1036,33 +1060,35 @@ module WorkerPool = struct
            equality of their static references *)
         if w.Worker.redirector == queues && Worker.get_state w = Worker.Shutdown
         then (
-          Worker.join w ; acc
-        ) else
-          w :: acc
-        )
-      [] pool
+          Worker.join w ;
+          acc )
+        else w :: acc )
+      []
+      pool
+
 
   let incr queues =
     debug "Adding a new worker to the thread pool" ;
     Mutex.execute m (fun () ->
         pool := gc queues !pool ;
-        if not (find_one queues Worker.restart !pool) then
-          pool := Worker.create queues :: !pool
-    )
+        if not (find_one queues Worker.restart !pool)
+        then pool := Worker.create queues :: !pool )
+
 
   let decr queues =
     debug "Removing a worker from the thread pool" ;
     Mutex.execute m (fun () ->
         pool := gc queues !pool ;
-        if not (find_one queues Worker.shutdown !pool) then
-          debug "There are no worker threads left to shutdown."
-    )
+        if not (find_one queues Worker.shutdown !pool)
+        then debug "There are no worker threads left to shutdown." )
+
 
   let start size =
     for _i = 1 to size do
       incr Redirector.default ;
       incr Redirector.parallel_queues
     done
+
 
   let set_size size =
     let inner queues =
@@ -1086,15 +1112,16 @@ let rebooting_vms = ref []
 let rebooting_vms_m = Mutex.create ()
 
 let rebooting id f =
-  Mutex.execute rebooting_vms_m (fun () -> rebooting_vms := id :: !rebooting_vms) ;
+  Mutex.execute rebooting_vms_m (fun () ->
+      rebooting_vms := id :: !rebooting_vms ) ;
   finally f (fun () ->
       Mutex.execute rebooting_vms_m (fun () ->
-          rebooting_vms := List.filter (fun x -> x <> id) !rebooting_vms
-      )
-  )
+          rebooting_vms := List.filter (fun x -> x <> id) !rebooting_vms ) )
+
 
 let is_rebooting id =
   Mutex.execute rebooting_vms_m (fun () -> List.mem id !rebooting_vms)
+
 
 let export_metadata vdi_map vif_map vgpu_pci_map id =
   let module B = (val get_backend () : S) in
@@ -1102,67 +1129,61 @@ let export_metadata vdi_map vif_map vgpu_pci_map id =
   debug "Remapping bootloader VDIs" ;
   (* Remap the bootloader vdis *)
   let vm_t =
-    {
-      vm_t with
-      Vm.ty=
+    { vm_t with
+      Vm.ty =
         ( match vm_t.Vm.ty with
         | Vm.HVM _ ->
             vm_t.Vm.ty
         | Vm.PV pv_info ->
             Vm.PV
-              {
-                pv_info with
-                Vm.boot=
+              { pv_info with
+                Vm.boot =
                   ( match pv_info.Vm.boot with
                   | Vm.Direct _ ->
                       pv_info.Vm.boot
                   | Vm.Indirect pv_indirect_boot ->
                       Vm.Indirect
-                        {
-                          pv_indirect_boot with
-                          Vm.devices=
-                            List.map (remap_vdi vdi_map)
+                        { pv_indirect_boot with
+                          Vm.devices =
+                            List.map
+                              (remap_vdi vdi_map)
                               pv_indirect_boot.Vm.devices
-                        }
-                  )
+                        } )
               }
         | Vm.PVinPVH pv_info ->
             Vm.PVinPVH
-              {
-                pv_info with
-                Vm.boot=
+              { pv_info with
+                Vm.boot =
                   ( match pv_info.Vm.boot with
                   | Vm.Direct _ ->
                       pv_info.Vm.boot
                   | Vm.Indirect pv_indirect_boot ->
                       Vm.Indirect
-                        {
-                          pv_indirect_boot with
-                          Vm.devices=
-                            List.map (remap_vdi vdi_map)
+                        { pv_indirect_boot with
+                          Vm.devices =
+                            List.map
+                              (remap_vdi vdi_map)
                               pv_indirect_boot.Vm.devices
-                        }
-                  )
-              }
-        )
+                        } )
+              } )
     }
   in
   let diff src dst =
     let pf =
       match (src.Vgpu.physical_pci_address, dst.Vgpu.physical_pci_address) with
       | src, dst when src <> dst ->
-          [(src, dst)]
+          [ (src, dst) ]
       | _ ->
           []
     in
     let vf =
       match (src.Vgpu.virtual_pci_address, dst.Vgpu.virtual_pci_address) with
       | Some src, Some dst when src <> dst ->
-          [(src, dst)]
+          [ (src, dst) ]
       | _ ->
           []
     in
-    List.concat [pf; vf]
+    List.concat [ pf; vf ]
   in
   let pci_map vgpus_src vgpus_dst =
     List.map2 diff vgpus_src vgpus_dst |> List.concat
@@ -1172,15 +1193,20 @@ let export_metadata vdi_map vif_map vgpu_pci_map id =
     match List.assoc_opt pci.Pci.address pci_map with
     | Some addr ->
         (* rewrite addr and id (which is constructed from addr *)
-        debug "Remapping PCI %s -> %s"
+        debug
+          "Remapping PCI %s -> %s"
           (to_string pci.Pci.address)
           (to_string addr) ;
         let vm = fst pci.Pci.id in
         let ad =
-          Printf.sprintf "%04x:%02x:%02x.%01x" addr.Pci.domain addr.Pci.bus
-            addr.Pci.dev addr.Pci.fn
+          Printf.sprintf
+            "%04x:%02x:%02x.%01x"
+            addr.Pci.domain
+            addr.Pci.bus
+            addr.Pci.dev
+            addr.Pci.fn
         in
-        {pci with Pci.id= (vm, ad); Pci.address= addr}
+        { pci with Pci.id = (vm, ad); Pci.address = addr }
     | None ->
         pci
   in
@@ -1197,25 +1223,29 @@ let export_metadata vdi_map vif_map vgpu_pci_map id =
   let vbds =
     List.map
       (fun vbd ->
-        {vbd with Vbd.backend= Option.map (remap_vdi vdi_map) vbd.Vbd.backend}
-        )
+        { vbd with
+          Vbd.backend = Option.map (remap_vdi vdi_map) vbd.Vbd.backend
+        } )
       vbds
   in
-  {Metadata.vm= vm_t; vbds; vifs; pcis; vgpus; vusbs; domains= Some domains}
+  { Metadata.vm = vm_t; vbds; vifs; pcis; vgpus; vusbs; domains = Some domains }
   |> rpc_of Metadata.t
   |> Jsonrpc.to_string
+
 
 let import_metadata id md =
   let module B = (val get_backend () : S) in
   let platformdata = md.Metadata.vm.Vm.platformdata in
-  debug "Platformdata:featureset=%s"
+  debug
+    "Platformdata:featureset=%s"
     (try List.assoc "featureset" platformdata with Not_found -> "(absent)") ;
   let platformdata =
     (* If platformdata does not contain a featureset, then we are
        importing a VM that comes from a levelling-v1 host. In this case,
        give it a featureset that contains all features that this host has
        to offer. *)
-    if not (List.mem_assoc "featureset" platformdata) then (
+    if not (List.mem_assoc "featureset" platformdata)
+    then (
       let string_of_features features =
         Array.map (Printf.sprintf "%08Lx") features
         |> Array.to_list
@@ -1227,16 +1257,14 @@ let import_metadata id md =
         | HVM _ | PVinPVH _ ->
             Host.(stat.cpu_info.features_hvm)
         | PV _ ->
-            Host.(stat.cpu_info.features_pv)
-        )
+            Host.(stat.cpu_info.features_pv) )
         |> string_of_features
       in
       debug "Setting Platformdata:featureset=%s" fs ;
-      ("featureset", fs) :: platformdata
-    ) else
-      platformdata
+      ("featureset", fs) :: platformdata )
+    else platformdata
   in
-  let vm = VM_DB.add' {md.Metadata.vm with platformdata} in
+  let vm = VM_DB.add' { md.Metadata.vm with platformdata } in
   let vbds =
     List.map
       (fun x ->
@@ -1245,21 +1273,24 @@ let import_metadata id md =
         let new_device_name =
           Device_number.upgrade_linux_device (snd x.Vbd.id)
         in
-        {x with Vbd.id= (vm, new_device_name)}
-        )
+        { x with Vbd.id = (vm, new_device_name) } )
       md.Metadata.vbds
   in
   let vifs =
-    List.map (fun x -> {x with Vif.id= (vm, snd x.Vif.id)}) md.Metadata.vifs
+    List.map (fun x -> { x with Vif.id = (vm, snd x.Vif.id) }) md.Metadata.vifs
   in
   let pcis =
-    List.map (fun x -> {x with Pci.id= (vm, snd x.Pci.id)}) md.Metadata.pcis
+    List.map (fun x -> { x with Pci.id = (vm, snd x.Pci.id) }) md.Metadata.pcis
   in
   let vgpus =
-    List.map (fun x -> {x with Vgpu.id= (vm, snd x.Vgpu.id)}) md.Metadata.vgpus
+    List.map
+      (fun x -> { x with Vgpu.id = (vm, snd x.Vgpu.id) })
+      md.Metadata.vgpus
   in
   let vusbs =
-    List.map (fun x -> {x with Vusb.id= (vm, snd x.Vusb.id)}) md.Metadata.vusbs
+    List.map
+      (fun x -> { x with Vusb.id = (vm, snd x.Vusb.id) })
+      md.Metadata.vusbs
   in
   (* Remove any VBDs, VIFs, PCIs and VGPUs not passed in - they must have
      been destroyed in the higher level *)
@@ -1282,6 +1313,7 @@ let import_metadata id md =
   |> Option.iter (B.VM.set_internal_state (VM_DB.read_exn vm)) ;
   vm
 
+
 (* This is a symptom of the ordering-sensitivity of the SM backend: it is not
    possible to upgrade RO -> RW or downgrade RW -> RO on the fly. One possible
    fix is to always attach RW and enforce read/only-ness at the VBD-level.
@@ -1289,22 +1321,30 @@ let import_metadata id md =
 let vbd_plug_sets vbds =
   List.partition (fun vbd -> vbd.Vbd.mode = Vbd.ReadWrite) vbds
 
+
 let vbd_plug_order vbds =
   (* return RW devices first since the storage layer can't upgrade a 'RO attach'
      into a 'RW attach' *)
   let rw, ro = vbd_plug_sets vbds in
   rw @ ro
 
+
 let vif_plug_order vifs =
   List.sort (fun a b -> compare a.Vif.position b.Vif.position) vifs
+
 
 let pci_plug_order pcis =
   List.sort (fun a b -> compare a.Pci.position b.Pci.position) pcis
 
+
 let vgpu_plug_order vgpus =
   List.sort (fun a b -> compare a.Vgpu.position b.Vgpu.position) vgpus
 
-type vgpu_fd_info = {vgpu_fd: Unix.file_descr; vgpu_channel: unit Event.channel}
+
+type vgpu_fd_info =
+  { vgpu_fd : Unix.file_descr
+  ; vgpu_channel : unit Event.channel
+  }
 
 let vgpu_receiver_sync : (Vm.id, vgpu_fd_info) Hashtbl.t = Hashtbl.create 10
 
@@ -1319,16 +1359,18 @@ let is_no_sharept vgpu =
   | _ ->
       false
 
+
 (* [is_nvidia_sriov vgpus pci] is true, if [pci] belongs to an SRIOV Nvidia vGPU
    in [vgpus] and false otherwise *)
 let is_nvidia_sriov vgpus pci =
   let is_sriov = function
-    | Vgpu.{implementation= Nvidia _; virtual_pci_address= Some addr; _} ->
+    | Vgpu.{ implementation = Nvidia _; virtual_pci_address = Some addr; _ } ->
         addr = pci.Pci.address
     | _ ->
         false
   in
   List.exists is_sriov vgpus
+
 
 let is_not_nvidia_sriov vgpus pci = not (is_nvidia_sriov vgpus pci)
 
@@ -1341,8 +1383,8 @@ let must_dequarantine vgpu =
     | Nvidia _ ->
         true
     | _ ->
-        false
-  )
+        false)
+
 
 (* compute a list of PCI_dequarantine operations for PCI devices *)
 let dequarantine_ops vgpus =
@@ -1350,8 +1392,8 @@ let dequarantine_ops vgpus =
   |> List.filter must_dequarantine
   |> List.map
        Xenops_interface.Vgpu.(
-         fun vgpu -> PCI_dequarantine vgpu.physical_pci_address
-       )
+         fun vgpu -> PCI_dequarantine vgpu.physical_pci_address)
+
 
 let rec atomics_of_operation = function
   | VM_start (id, force) ->
@@ -1364,10 +1406,8 @@ let rec atomics_of_operation = function
         List.partition (is_nvidia_sriov vgpus) pcis
       in
       let no_sharept = List.exists is_no_sharept vgpus in
-      [
-        dequarantine_ops vgpus
-      ; [
-          VM_hook_script
+      [ dequarantine_ops vgpus
+      ; [ VM_hook_script
             (id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none)
         ; VM_create (id, None, None, no_sharept)
         ; VM_build (id, force)
@@ -1386,38 +1426,31 @@ let rec atomics_of_operation = function
                   (fun vbd ->
                     Option.map
                       (fun x ->
-                        VBD_epoch_begin (vbd.Vbd.id, x, vbd.Vbd.persistent)
-                        )
-                      vbd.Vbd.backend
-                    )
-                  vbds
-              )
-            )
-          [("RW", vbds_rw); ("RO", vbds_ro)]
-      ; [
-          (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
+                        VBD_epoch_begin (vbd.Vbd.id, x, vbd.Vbd.persistent) )
+                      vbd.Vbd.backend )
+                  vbds ) )
+          [ ("RW", vbds_rw); ("RO", vbds_ro) ]
+      ; [ (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
           Parallel
             ( id
             , Printf.sprintf "VBD.plug RW vm=%s" id
-            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_rw
-            )
+            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_rw )
         ; Parallel
             ( id
             , Printf.sprintf "VBD.plug RO vm=%s" id
-            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_ro
-            )
+            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_ro )
         ]
       ; List.map (fun vif -> VIF_set_active (vif.Vif.id, true)) vifs
       ; List.map (fun vif -> VIF_plug vif.Vif.id) vifs
       ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true)) vgpus
       ; List.map (fun pci -> PCI_plug (pci.Pci.id, false)) pcis_sriov
-      ; [VM_create_device_model (id, false)]
+      ; [ VM_create_device_model (id, false) ]
         (* PCI and USB devices are hot-plugged into HVM guests via QEMU, so the
            following operations occur after creating the device models *)
       ; List.map (fun pci -> PCI_plug (pci.Pci.id, true)) pcis_other
       ; List.map (fun vusb -> VUSB_plug vusb.Vusb.id) vusbs
         (* At this point the domain is considered survivable. *)
-      ; [VM_set_domain_action_request (id, None)]
+      ; [ VM_set_domain_action_request (id, None) ]
       ]
       |> List.concat
   | VM_shutdown (id, timeout) ->
@@ -1425,13 +1458,14 @@ let rec atomics_of_operation = function
       let vifs = VIF_DB.vifs id in
       let pcis = PCI_DB.pcis id in
       let vusbs = VUSB_DB.vusbs id in
-      [
-        Option.value ~default:[]
-          (Option.map (fun x -> [VM_shutdown_domain (id, PowerOff, x)]) timeout)
+      [ Option.value
+          ~default:[]
+          (Option.map
+             (fun x -> [ VM_shutdown_domain (id, PowerOff, x) ])
+             timeout )
         (* Before shutting down a VM, we need to unplug its VUSBs. *)
       ; List.map (fun vusb -> VUSB_unplug vusb.Vusb.id) vusbs
-      ; [
-          (* CA-315450: in a hard shutdown or snapshot revert, timeout=None and
+      ; [ (* CA-315450: in a hard shutdown or snapshot revert, timeout=None and
              VM_shutdown_domain is not called. To avoid any interference, we
              pause the domain before destroying the device model. *)
           Best_effort (VM_pause id)
@@ -1439,18 +1473,16 @@ let rec atomics_of_operation = function
         ; Parallel
             ( id
             , Printf.sprintf "VBD.unplug vm=%s" id
-            , List.map (fun vbd -> VBD_unplug (vbd.Vbd.id, true)) vbds
-            )
+            , List.map (fun vbd -> VBD_unplug (vbd.Vbd.id, true)) vbds )
         ]
       ; List.map (fun vif -> VIF_unplug (vif.Vif.id, true)) vifs
       ; List.map (fun pci -> PCI_unplug pci.Pci.id) pcis
-      ; [VM_destroy id]
+      ; [ VM_destroy id ]
       ]
       |> List.concat
   | VM_restore_vifs id ->
       let vifs = VIF_DB.vifs id in
-      [
-        List.map (fun vif -> VIF_set_active (vif.Vif.id, true)) vifs
+      [ List.map (fun vif -> VIF_set_active (vif.Vif.id, true)) vifs
       ; List.map (fun vif -> VIF_plug vif.Vif.id) vifs
       ]
       |> List.concat
@@ -1459,28 +1491,23 @@ let rec atomics_of_operation = function
       let vgpus = VGPU_DB.vgpus id in
       let pcis = PCI_DB.pcis id |> pci_plug_order in
       let pcis_other = List.filter (is_not_nvidia_sriov vgpus) pcis in
-      [
-        List.map
+      [ List.map
           (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
           (vbds_rw @ vbds_ro)
-      ; [
-          (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
+      ; [ (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
           Parallel
             ( id
             , Printf.sprintf "VBD.plug RW vm=%s" id
-            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_rw
-            )
+            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_rw )
         ; Parallel
             ( id
             , Printf.sprintf "VBD.plug RO vm=%s" id
-            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_ro
-            )
+            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_ro )
         ]
       ; (if restore_vifs then atomics_of_operation (VM_restore_vifs id) else [])
       ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true)) vgpus
         (* Nvidia SRIOV PCI devices have been already been plugged *)
-      ; [
-          VM_create_device_model (id, true)
+      ; [ VM_create_device_model (id, true)
           (* PCI and USB devices are hot-plugged into HVM guests via QEMU, so
              the following operations occur after creating the device models *)
         ]
@@ -1492,82 +1519,69 @@ let rec atomics_of_operation = function
       let vifs = VIF_DB.vifs id in
       let vgpus = VGPU_DB.vgpus id in
       let reason =
-        if timeout = None then
-          Xenops_hooks.reason__hard_shutdown
-        else
-          Xenops_hooks.reason__clean_shutdown
+        if timeout = None
+        then Xenops_hooks.reason__hard_shutdown
+        else Xenops_hooks.reason__clean_shutdown
       in
-      [
-        [VM_hook_script (id, Xenops_hooks.VM_pre_destroy, reason)]
+      [ [ VM_hook_script (id, Xenops_hooks.VM_pre_destroy, reason) ]
       ; atomics_of_operation (VM_shutdown (id, timeout))
-      ; [
-          Parallel
+      ; [ Parallel
             ( id
             , Printf.sprintf "VBD.epoch_end vm=%s" id
             , List.filter_map
                 (fun vbd ->
                   Option.map
                     (fun x -> VBD_epoch_end (vbd.Vbd.id, x))
-                    vbd.Vbd.backend
-                  )
-                vbds
-            )
+                    vbd.Vbd.backend )
+                vbds )
         ]
       ; List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, false)) vbds
       ; List.map (fun vif -> VIF_set_active (vif.Vif.id, false)) vifs
       ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, false)) vgpus
-      ; [VM_hook_script (id, Xenops_hooks.VM_post_destroy, reason)]
+      ; [ VM_hook_script (id, Xenops_hooks.VM_post_destroy, reason) ]
       ]
       |> List.concat
   | VM_reboot (id, timeout) ->
       let vbds = VBD_DB.vbds id in
       let reason =
-        if timeout = None then
-          Xenops_hooks.reason__hard_reboot
-        else
-          Xenops_hooks.reason__clean_reboot
+        if timeout = None
+        then Xenops_hooks.reason__hard_reboot
+        else Xenops_hooks.reason__clean_reboot
       in
-      [
-        Option.value ~default:[]
-          (Option.map (fun x -> [VM_shutdown_domain (id, Reboot, x)]) timeout)
-      ; [VM_hook_script (id, Xenops_hooks.VM_pre_destroy, reason)]
+      [ Option.value
+          ~default:[]
+          (Option.map (fun x -> [ VM_shutdown_domain (id, Reboot, x) ]) timeout)
+      ; [ VM_hook_script (id, Xenops_hooks.VM_pre_destroy, reason) ]
       ; atomics_of_operation (VM_shutdown (id, None))
-      ; [
-          Parallel
+      ; [ Parallel
             ( id
             , Printf.sprintf "VBD.epoch_end vm=%s" id
             , List.filter_map
                 (fun vbd ->
                   Option.map
                     (fun x -> VBD_epoch_end (vbd.Vbd.id, x))
-                    vbd.Vbd.backend
-                  )
-                vbds
-            )
+                    vbd.Vbd.backend )
+                vbds )
         ]
-      ; [
-          VM_hook_script (id, Xenops_hooks.VM_post_destroy, reason)
+      ; [ VM_hook_script (id, Xenops_hooks.VM_post_destroy, reason)
         ; VM_hook_script
             (id, Xenops_hooks.VM_pre_reboot, Xenops_hooks.reason__none)
         ]
       ; atomics_of_operation (VM_start (id, false))
-      ; [VM_unpause id]
+      ; [ VM_unpause id ]
       ]
       |> List.concat
   | VM_suspend (id, data) ->
       (* If we've got a vGPU, then save its state to the same file *)
       let vgpu_data = if VGPU_DB.ids id = [] then None else Some data in
-      [
-        [
-          VM_hook_script
+      [ [ VM_hook_script
             (id, Xenops_hooks.VM_pre_suspend, Xenops_hooks.reason__suspend)
         ; VM_save (id, [], data, vgpu_data)
         ; VM_hook_script
             (id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend)
         ]
       ; atomics_of_operation (VM_shutdown (id, None))
-      ; [
-          VM_hook_script
+      ; [ VM_hook_script
             (id, Xenops_hooks.VM_post_destroy, Xenops_hooks.reason__suspend)
         ]
       ]
@@ -1584,25 +1598,21 @@ let rec atomics_of_operation = function
             let vgpus' = VGPU_DB.vgpus id in
             let pcis_sriov = List.filter (is_nvidia_sriov vgpus') pcis in
             List.concat
-              [
-                List.map (fun pci -> PCI_plug (pci.Pci.id, false)) pcis_sriov
-              ; [VGPU_start (vgpus, true)]
+              [ List.map (fun pci -> PCI_plug (pci.Pci.id, false)) pcis_sriov
+              ; [ VGPU_start (vgpus, true) ]
               ]
       in
       let vgpus = VGPU_DB.vgpus id in
       let no_sharept = List.exists is_no_sharept vgpus in
-      [
-        dequarantine_ops vgpus
-      ; [
-          VM_create (id, None, None, no_sharept)
+      [ dequarantine_ops vgpus
+      ; [ VM_create (id, None, None, no_sharept)
         ; VM_hook_script
             (id, Xenops_hooks.VM_pre_resume, Xenops_hooks.reason__none)
         ]
       ; vgpu_start_operations
-      ; [VM_restore (id, data, vgpu_data)]
+      ; [ VM_restore (id, data, vgpu_data) ]
       ; atomics_of_operation (VM_restore_devices (id, true))
-      ; [
-          (* At this point the domain is considered survivable. *)
+      ; [ (* At this point the domain is considered survivable. *)
           VM_set_domain_action_request (id, None)
         ; VM_hook_script
             (id, Xenops_hooks.VM_post_resume, Xenops_hooks.reason__none)
@@ -1610,38 +1620,49 @@ let rec atomics_of_operation = function
       ]
       |> List.concat
   | VBD_hotplug id ->
-      [VBD_set_active (id, true); VBD_plug id]
+      [ VBD_set_active (id, true); VBD_plug id ]
   | VBD_hotunplug (id, force) ->
-      [VBD_unplug (id, force); VBD_set_active (id, false)]
+      [ VBD_unplug (id, force); VBD_set_active (id, false) ]
   | VIF_hotplug id ->
-      [VIF_set_active (id, true); VIF_plug id]
+      [ VIF_set_active (id, true); VIF_plug id ]
   | VIF_hotunplug (id, force) ->
-      [VIF_unplug (id, force); VIF_set_active (id, false)]
+      [ VIF_unplug (id, force); VIF_set_active (id, false) ]
   | _ ->
       []
 
-let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
+
+let rec perform_atomic
+    ~progress_callback
+    ?subtask:_
+    ?result
+    (op : atomic)
     (t : Xenops_task.task_handle) : unit =
   let module B = (val get_backend () : S) in
   Xenops_task.check_cancelling t ;
   match op with
-  | Best_effort atom -> (
-    try perform_atomic ~progress_callback ?result atom t
-    with e ->
-      debug "Ignoring error during best-effort operation: %s"
-        (Printexc.to_string e)
-  )
+  | Best_effort atom ->
+    ( try perform_atomic ~progress_callback ?result atom t with
+    | e ->
+        debug
+          "Ignoring error during best-effort operation: %s"
+          (Printexc.to_string e) )
   | Parallel (_id, description, atoms) ->
       (* parallel_id is a unused unique name prefix for a parallel worker queue *)
       let parallel_id =
-        Printf.sprintf "Parallel:task=%s.atoms=%d.(%s)"
+        Printf.sprintf
+          "Parallel:task=%s.atoms=%d.(%s)"
           (Xenops_task.id_of_handle t)
-          (List.length atoms) description
+          (List.length atoms)
+          description
       in
       debug "begin_%s" parallel_id ;
       let task_list =
-        queue_atomics_and_wait ~progress_callback ~max_parallel_atoms:10
-          parallel_id parallel_id atoms
+        queue_atomics_and_wait
+          ~progress_callback
+          ~max_parallel_atoms:10
+          parallel_id
+          parallel_id
+          atoms
       in
       debug "end_%s" parallel_id ;
       (* make sure that we destroy all the parallel tasks that finished *)
@@ -1651,7 +1672,8 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
             let id = Xenops_task.id_of_handle task_handle in
             match Xenops_task.get_state task_handle with
             | Task.Completed _ ->
-                TASK.destroy' id ; None
+                TASK.destroy' id ;
+                None
             | Task.Failed e ->
                 TASK.destroy' id ;
                 let e =
@@ -1668,8 +1690,7 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
             | Task.Pending _ ->
                 error "Parallel: queue_atomics_and_wait returned a pending task" ;
                 Xenops_task.cancel task_handle ;
-                Some (Xenopsd_error (Cancelled id))
-            )
+                Some (Xenopsd_error (Cancelled id)) )
           task_list
       in
       (* if any error was present, raise first one, so that
@@ -1693,9 +1714,8 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
           let vif = VIF_DB.read_exn id in
           (* Nb, this VIF_DB write needs to come before the call to move as the
              scripts will read from the disk! *)
-          VIF_DB.write id {vif with Vif.backend= network} ;
-          B.VIF.move t (VIF_DB.vm_of id) vif network
-          )
+          VIF_DB.write id { vif with Vif.backend = network } ;
+          B.VIF.move t (VIF_DB.vm_of id) vif network )
         (fun () -> VIF_DB.signal id)
   | VIF_set_carrier (id, carrier) ->
       debug "VIF.set_carrier %s %b" (VIF_DB.string_of_id id) carrier ;
@@ -1703,20 +1723,20 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
         (fun () ->
           let vif = VIF_DB.read_exn id in
           B.VIF.set_carrier t (VIF_DB.vm_of id) vif carrier ;
-          VIF_DB.write id {vif with Vif.carrier}
-          )
+          VIF_DB.write id { vif with Vif.carrier } )
         (fun () -> VIF_DB.signal id)
   | VIF_set_locking_mode (id, mode) ->
-      debug "VIF.set_locking_mode %s %s" (VIF_DB.string_of_id id)
+      debug
+        "VIF.set_locking_mode %s %s"
+        (VIF_DB.string_of_id id)
         (mode |> rpc_of Vif.locking_mode |> Jsonrpc.to_string) ;
       finally
         (fun () ->
           let vif = VIF_DB.read_exn id in
           (* Nb, this VIF_DB write needs to come before the call to
              set_locking_mode as the scripts will read from the disk! *)
-          VIF_DB.write id {vif with Vif.locking_mode= mode} ;
-          B.VIF.set_locking_mode t (VIF_DB.vm_of id) vif mode
-          )
+          VIF_DB.write id { vif with Vif.locking_mode = mode } ;
+          B.VIF.set_locking_mode t (VIF_DB.vm_of id) vif mode )
         (fun () -> VIF_DB.signal id)
   | VIF_set_pvs_proxy (id, proxy) ->
       let s =
@@ -1730,57 +1750,60 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       finally
         (fun () ->
           let vif = VIF_DB.read_exn id in
-          VIF_DB.write id {vif with Vif.pvs_proxy= proxy} ;
-          B.VIF.set_pvs_proxy t (VIF_DB.vm_of id) vif proxy
-          )
+          VIF_DB.write id { vif with Vif.pvs_proxy = proxy } ;
+          B.VIF.set_pvs_proxy t (VIF_DB.vm_of id) vif proxy )
         (fun () -> VIF_DB.signal id)
   | VIF_set_ipv4_configuration (id, ipv4_configuration) ->
       let setting =
         match ipv4_configuration with
         | Vif.Unspecified4 ->
             ""
-        | Vif.Static4 (address, gateway) -> (
-          match gateway with
+        | Vif.Static4 (address, gateway) ->
+          ( match gateway with
           | None ->
               Printf.sprintf "address:%s" (String.concat "; " address)
           | Some value ->
-              Printf.sprintf "address:%s gateway:%s"
+              Printf.sprintf
+                "address:%s gateway:%s"
                 (String.concat "; " address)
-                value
-        )
+                value )
       in
       debug "VIF.set_ipv4_configuration %s %s" (VIF_DB.string_of_id id) setting ;
       finally
         (fun () ->
           let vif = VIF_DB.read_exn id in
-          VIF_DB.write id {vif with Vif.ipv4_configuration} ;
-          B.VIF.set_ipv4_configuration t (VIF_DB.vm_of id) vif
-            ipv4_configuration
-          )
+          VIF_DB.write id { vif with Vif.ipv4_configuration } ;
+          B.VIF.set_ipv4_configuration
+            t
+            (VIF_DB.vm_of id)
+            vif
+            ipv4_configuration )
         (fun () -> VIF_DB.signal id)
   | VIF_set_ipv6_configuration (id, ipv6_configuration) ->
       let setting =
         match ipv6_configuration with
         | Vif.Unspecified6 ->
             ""
-        | Vif.Static6 (address6, gateway6) -> (
-          match gateway6 with
+        | Vif.Static6 (address6, gateway6) ->
+          ( match gateway6 with
           | None ->
               Printf.sprintf "address6:%s" (String.concat "; " address6)
           | Some value ->
-              Printf.sprintf "address6:%s gateway6:%s"
+              Printf.sprintf
+                "address6:%s gateway6:%s"
                 (String.concat "; " address6)
-                value
-        )
+                value )
       in
       debug "VIF.set_ipv6_configuration %s %s" (VIF_DB.string_of_id id) setting ;
       finally
         (fun () ->
           let vif = VIF_DB.read_exn id in
-          VIF_DB.write id {vif with Vif.ipv6_configuration} ;
-          B.VIF.set_ipv6_configuration t (VIF_DB.vm_of id) vif
-            ipv6_configuration
-          )
+          VIF_DB.write id { vif with Vif.ipv6_configuration } ;
+          B.VIF.set_ipv6_configuration
+            t
+            (VIF_DB.vm_of id)
+            vif
+            ipv6_configuration )
         (fun () -> VIF_DB.signal id)
   | VIF_set_active (id, b) ->
       debug "VIF.set_active %s %b" (VIF_DB.string_of_id id) b ;
@@ -1815,37 +1838,35 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       finally
         (fun () -> B.VBD.unplug t (VBD_DB.vm_of id) (VBD_DB.read_exn id) force)
         (fun () -> VBD_DB.signal id)
-  | VBD_insert (id, disk) -> (
+  | VBD_insert (id, disk) ->
       (* NB this is also used to "refresh" ie signal a qemu that it should
          re-open a device, useful for when a physical CDROM is inserted into the
          host. *)
       debug "VBD.insert %s" (VBD_DB.string_of_id id) ;
       let vbd_t = VBD_DB.read_exn id in
       let power = (B.VM.get_state (VM_DB.read_exn (fst id))).Vm.power_state in
-      match power with
+      ( match power with
       | Running | Paused ->
           B.VBD.insert t (VBD_DB.vm_of id) vbd_t disk ;
           VBD_DB.signal id
       | _ ->
-          raise (Xenopsd_error (Bad_power_state (power, Running)))
-    )
-  | VBD_eject id -> (
+          raise (Xenopsd_error (Bad_power_state (power, Running))) )
+  | VBD_eject id ->
       debug "VBD.eject %s" (VBD_DB.string_of_id id) ;
       let vbd_t = VBD_DB.read_exn id in
       if vbd_t.Vbd.ty = Vbd.Disk then raise (Xenopsd_error Media_not_ejectable) ;
       let power = (B.VM.get_state (VM_DB.read_exn (fst id))).Vm.power_state in
-      match power with
+      ( match power with
       | Running | Paused ->
           B.VBD.eject t (VBD_DB.vm_of id) vbd_t ;
           VBD_DB.signal id
       | _ ->
-          raise (Xenopsd_error (Bad_power_state (power, Running)))
-    )
-  | VM_remove id -> (
+          raise (Xenopsd_error (Bad_power_state (power, Running))) )
+  | VM_remove id ->
       debug "VM.remove %s" id ;
       let vm_t = VM_DB.read_exn id in
       let power = (B.VM.get_state vm_t).Vm.power_state in
-      match power with
+      ( match power with
       | Running | Paused ->
           raise (Xenopsd_error (Bad_power_state (power, Halted)))
       | Halted | Suspended ->
@@ -1855,13 +1876,12 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
           List.iter (fun pci -> PCI_DB.remove pci.Pci.id) (PCI_DB.pcis id) ;
           List.iter (fun vgpu -> VGPU_DB.remove vgpu.Vgpu.id) (VGPU_DB.vgpus id) ;
           List.iter (fun vusb -> VUSB_DB.remove vusb.Vusb.id) (VUSB_DB.vusbs id) ;
-          VM_DB.remove id
-    )
+          VM_DB.remove id )
   | VM_rename (id1, id2, when') ->
-      if id1 = id2 then (
+      if id1 = id2
+      then (
         error "VM.rename called with the same src/dest = %s" id1 ;
-        failwith "rename called with the same src/dest"
-      ) ;
+        failwith "rename called with the same src/dest" ) ;
       debug "VM.rename %s -> %s" id1 id2 ;
       (* TODO: Check that there are no items in the queue for id2 *)
       let vbds = VBD_DB.vbds id1 in
@@ -1877,28 +1897,42 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
             let id = get_id i in
             rm id ;
             let id' = new_key id in
-            add id' (set_id id' i)
-            )
+            add id' (set_id id' i) )
           items
       in
       let vm = VM_DB.read_exn id1 in
       VM_DB.remove id1 ;
-      VM_DB.add id2 {vm with Vm.id= id2} ;
-      fixup vbds VBD_DB.remove VBD_DB.add
+      VM_DB.add id2 { vm with Vm.id = id2 } ;
+      fixup
+        vbds
+        VBD_DB.remove
+        VBD_DB.add
         (fun vbd -> vbd.Vbd.id)
-        (fun id' vbd -> {vbd with Vbd.id= id'}) ;
-      fixup vifs VIF_DB.remove VIF_DB.add
+        (fun id' vbd -> { vbd with Vbd.id = id' }) ;
+      fixup
+        vifs
+        VIF_DB.remove
+        VIF_DB.add
         (fun vif -> vif.Vif.id)
-        (fun id' vif -> {vif with Vif.id= id'}) ;
-      fixup pcis PCI_DB.remove PCI_DB.add
+        (fun id' vif -> { vif with Vif.id = id' }) ;
+      fixup
+        pcis
+        PCI_DB.remove
+        PCI_DB.add
         (fun pci -> pci.Pci.id)
-        (fun id' pci -> {pci with Pci.id= id'}) ;
-      fixup vgpus VGPU_DB.remove VGPU_DB.add
+        (fun id' pci -> { pci with Pci.id = id' }) ;
+      fixup
+        vgpus
+        VGPU_DB.remove
+        VGPU_DB.add
         (fun vgpu -> vgpu.Vgpu.id)
-        (fun id' vgpu -> {vgpu with Vgpu.id= id'}) ;
-      fixup vusbs VUSB_DB.remove VUSB_DB.add
+        (fun id' vgpu -> { vgpu with Vgpu.id = id' }) ;
+      fixup
+        vusbs
+        VUSB_DB.remove
+        VUSB_DB.add
         (fun vusb -> vusb.Vusb.id)
-        (fun id' vusb -> {vusb with Vusb.id= id'})
+        (fun id' vusb -> { vusb with Vusb.id = id' })
   | VM_import_metadata (id, md) ->
       debug "VM.import_metadata: overwriting VM metadata for VM: %s" id ;
       let _ = import_metadata id md in
@@ -1931,19 +1965,22 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       B.VGPU.set_active t (VGPU_DB.vm_of id) (VGPU_DB.read_exn id) b ;
       VGPU_DB.signal id
   | VGPU_start (ids, saved_state) ->
-      debug "VGPU.start %s"
+      debug
+        "VGPU.start %s"
         (ids |> List.map VGPU_DB.string_of_id |> String.concat " ") ;
       let vgpus = List.map (fun id -> VGPU_DB.read_exn id) ids in
       B.VGPU.start t (VGPU_DB.vm_of (List.hd ids)) vgpus saved_state
   | VM_set_xsdata (id, xsdata) ->
-      debug "VM.set_xsdata (%s, [ %s ])" id
+      debug
+        "VM.set_xsdata (%s, [ %s ])"
+        id
         (String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xsdata)) ;
       B.VM.set_xsdata t (VM_DB.read_exn id) xsdata
   | VM_set_vcpus (id, n) ->
       debug "VM.set_vcpus (%s, %d)" id n ;
       let vm_t = VM_DB.read_exn id in
-      if n <= 0 || n > vm_t.Vm.vcpu_max then
-        raise (Xenopsd_error (Invalid_vcpus vm_t.Vm.vcpu_max)) ;
+      if n <= 0 || n > vm_t.Vm.vcpu_max
+      then raise (Xenopsd_error (Invalid_vcpus vm_t.Vm.vcpu_max)) ;
       B.VM.set_vcpus t vm_t n
   | VM_set_shadow_multiplier (id, m) ->
       debug "VM.set_shadow_multiplier (%s, %.2f)" id m ;
@@ -1957,33 +1994,33 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       debug "VM.pause %s" id ;
       B.VM.pause t (VM_DB.read_exn id) ;
       VM_DB.signal id
-  | VM_unpause id -> (
+  | VM_unpause id ->
       debug "VM.unpause %s" id ;
       let vm_t = VM_DB.read_exn id in
       let power = (B.VM.get_state vm_t).Vm.power_state in
-      match power with
+      ( match power with
       | Paused ->
-          B.VM.unpause t vm_t ; VM_DB.signal id
+          B.VM.unpause t vm_t ;
+          VM_DB.signal id
       | _ ->
-          info "VM %s is not paused" id
-    )
+          info "VM %s is not paused" id )
   | VM_request_rdp (id, enabled) ->
       debug "VM.request_rdp %s %b" id enabled ;
       B.VM.request_rdp (VM_DB.read_exn id) enabled
-  | VM_run_script (id, script) -> (
+  | VM_run_script (id, script) ->
       debug "VM.run_script %s %s" id script ;
       let res = B.VM.run_script t (VM_DB.read_exn id) script in
       VM_DB.signal id ;
-      match result with None -> () | Some r -> r := Some res
-    )
+      (match result with None -> () | Some r -> r := Some res)
   | VM_set_domain_action_request (id, dar) ->
-      debug "VM.set_domain_action_request %s %s" id
-        (Option.value ~default:"None"
+      debug
+        "VM.set_domain_action_request %s %s"
+        id
+        (Option.value
+           ~default:"None"
            (Option.map
               (fun x -> x |> rpc_of domain_action_request |> Jsonrpc.to_string)
-              dar
-           )
-        ) ;
+              dar ) ) ;
       B.VM.set_domain_action_request (VM_DB.read_exn id) dar
   | VM_create_device_model (id, save_state) ->
       debug "VM.create_device_model %s" id ;
@@ -1991,7 +2028,13 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       let vifs : Vif.t list = VIF_DB.vifs id in
       let vgpus : Vgpu.t list = VGPU_DB.vgpus id in
       let vusbs : Vusb.t list = VUSB_DB.vusbs id in
-      B.VM.create_device_model t (VM_DB.read_exn id) vbds vifs vgpus vusbs
+      B.VM.create_device_model
+        t
+        (VM_DB.read_exn id)
+        vbds
+        vifs
+        vgpus
+        vusbs
         save_state ;
       List.iter VGPU_DB.signal (VGPU_DB.ids id) ;
       List.iter VUSB_DB.signal (VUSB_DB.ids id)
@@ -2002,10 +2045,12 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       debug "VM.destroy %s" id ;
       B.VM.destroy t (VM_DB.read_exn id)
   | VM_create (id, memory_upper_bound, final_id, no_sharept) ->
-      debug "VM.create %s memory_upper_bound = %s" id
-        (Option.value ~default:"None"
-           (Option.map Int64.to_string memory_upper_bound)
-        ) ;
+      debug
+        "VM.create %s memory_upper_bound = %s"
+        id
+        (Option.value
+           ~default:"None"
+           (Option.map Int64.to_string memory_upper_bound) ) ;
       B.VM.create t memory_upper_bound (VM_DB.read_exn id) final_id no_sharept
   | VM_build (id, force) ->
       debug "VM.build %s" id ;
@@ -2021,11 +2066,12 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
             let sbdfs =
               List.map (fun p -> Pci.string_of_address p.Pci.address) pcis
             in
-            ["-pci_passthrough"; String.concat "," sbdfs]
+            [ "-pci_passthrough"; String.concat "," sbdfs ]
       in
       B.VM.build t (VM_DB.read_exn id) vbds vifs vgpus vusbs extras force
   | VM_shutdown_domain (id, reason, timeout) ->
-      debug "VM.shutdown_domain %s, reason = %s, timeout = %f, ack timeout = %f"
+      debug
+        "VM.shutdown_domain %s, reason = %s, timeout = %f, ack timeout = %f"
         id
         (string_of_shutdown_request reason)
         timeout
@@ -2033,18 +2079,18 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       let start = Unix.gettimeofday () in
       let vm = VM_DB.read_exn id in
       (* wait for a clean shutdown ack; this allows us to abort early. *)
-      if
-        not
-          (B.VM.request_shutdown t vm reason
-             (min !domain_shutdown_ack_timeout timeout)
-          )
-      then
-        raise (Xenopsd_error Failed_to_acknowledge_shutdown_request) ;
+      if not
+           (B.VM.request_shutdown
+              t
+              vm
+              reason
+              (min !domain_shutdown_ack_timeout timeout) )
+      then raise (Xenopsd_error Failed_to_acknowledge_shutdown_request) ;
       let remaining_timeout =
         max 0. (timeout -. (Unix.gettimeofday () -. start))
       in
-      if not (B.VM.wait_shutdown t vm reason remaining_timeout) then
-        raise (Xenopsd_error (Failed_to_shutdown (id, timeout)))
+      if not (B.VM.wait_shutdown t vm reason remaining_timeout)
+      then raise (Xenopsd_error (Failed_to_shutdown (id, timeout)))
   | VM_s3suspend id ->
       debug "VM.s3suspend %s" id ;
       B.VM.s3suspend t (VM_DB.read_exn id) ;
@@ -2062,38 +2108,56 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
         Xenops_task.prohibit_cancellation task ;
         TASK.signal task_id
       in
-      B.VM.save t progress_callback (VM_DB.read_exn id) flags data vgpu_data
+      B.VM.save
+        t
+        progress_callback
+        (VM_DB.read_exn id)
+        flags
+        data
+        vgpu_data
         set_task_not_cancellable
   | VM_restore (id, data, vgpu_data) ->
       debug "VM.restore %s" id ;
-      if id |> VM_DB.exists |> not then
-        failwith (Printf.sprintf "%s doesn't exist" id) ;
+      if id |> VM_DB.exists |> not
+      then failwith (Printf.sprintf "%s doesn't exist" id) ;
       let vbds : Vbd.t list = VBD_DB.vbds id in
       let vifs : Vif.t list = VIF_DB.vifs id in
       let extras = [] in
-      B.VM.restore t progress_callback (VM_DB.read_exn id) vbds vifs data
-        vgpu_data extras
+      B.VM.restore
+        t
+        progress_callback
+        (VM_DB.read_exn id)
+        vbds
+        vifs
+        data
+        vgpu_data
+        extras
   | VM_delay (id, t) ->
       debug "VM %s: waiting for %.2f before next VM action" id t ;
       Thread.delay t
 
+
 and queue_atomic_int ~progress_callback dbg id op =
   let task =
-    Xenops_task.add tasks dbg
+    Xenops_task.add
+      tasks
+      dbg
       (let r = ref None in
        fun t ->
          perform_atomic ~progress_callback ~result:r op t ;
-         !r
-      )
+         !r )
   in
   Redirector.push Redirector.parallel_queues id (Atomic op, task) ;
   task
+
 
 and queue_atomics_and_wait ~progress_callback ~max_parallel_atoms dbg id ops =
   let from = Updates.last_id dbg updates in
   Xenops_utils.chunks max_parallel_atoms ops
   |> List.mapi (fun chunk_idx ops ->
-         debug "queue_atomics_and_wait: %s: chunk of %d atoms" dbg
+         debug
+           "queue_atomics_and_wait: %s: chunk of %d atoms"
+           dbg
            (List.length ops) ;
          let task_list =
            List.mapi
@@ -2102,21 +2166,24 @@ and queue_atomics_and_wait ~progress_callback ~max_parallel_atoms dbg id ops =
                let atom_id =
                  Printf.sprintf "%s.chunk=%d.atom=%d" id chunk_idx atom_idx
                in
-               queue_atomic_int ~progress_callback dbg atom_id op
-               )
+               queue_atomic_int ~progress_callback dbg atom_id op )
              ops
          in
          let timeout_start = Unix.gettimeofday () in
          List.iter
            (fun task ->
-             event_wait updates task ~from ~timeout_start 1200.0
+             event_wait
+               updates
+               task
+               ~from
+               ~timeout_start
+               1200.0
                (task_finished_p (Xenops_task.id_of_handle task))
-             |> ignore
-             )
+             |> ignore )
            task_list ;
-         task_list
-     )
+         task_list )
   |> List.concat
+
 
 (* Used to divide up the progress (bar) amongst atomic operations *)
 let weight_of_atomic = function
@@ -2127,11 +2194,13 @@ let weight_of_atomic = function
   | _ ->
       1.
 
+
 let progress_callback start len t y =
   let new_progress = start +. (y *. len) in
   let id = Xenops_task.id_of_handle t in
   Xenops_task.set_state t (Task.Pending new_progress) ;
   TASK.signal id
+
 
 let perform_atomics atomics t =
   let total_weight =
@@ -2147,38 +2216,46 @@ let perform_atomics atomics t =
         debug "Performing: %s" (string_of_atomic x) ;
         perform_atomic ~subtask:(string_of_atomic x) ~progress_callback x t ;
         progress_callback 1. ;
-        progress +. (weight /. total_weight)
-        )
-      0. atomics
+        progress +. (weight /. total_weight) )
+      0.
+      atomics
   in
   ()
 
+
 let rec immediate_operation dbg _id op =
-  let task = Xenops_task.add tasks dbg (fun t -> perform op t ; None) in
+  let task =
+    Xenops_task.add tasks dbg (fun t ->
+        perform op t ;
+        None )
+  in
   let task_id = Xenops_task.id_of_handle task in
   TASK.destroy' task_id ;
-  Debug.with_thread_associated dbg
+  Debug.with_thread_associated
+    dbg
     (fun () ->
-      debug "Task %s reference %s: %s" task_id
-        (Xenops_task.to_interface_task task).Task.dbg (string_of_operation op) ;
-      Xenops_task.run task
-      )
+      debug
+        "Task %s reference %s: %s"
+        task_id
+        (Xenops_task.to_interface_task task).Task.dbg
+        (string_of_operation op) ;
+      Xenops_task.run task )
     () ;
   match Xenops_task.get_state task with
   | Task.Pending _ ->
       assert false
   | Task.Completed _ ->
       ()
-  | Task.Failed e -> (
-    match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty e with
+  | Task.Failed e ->
+    ( match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty e with
     | Ok e ->
         raise (Xenopsd_error e)
     | Error (`Msg m) ->
         raise
           (Xenopsd_error
              (Internal_error (Printf.sprintf "Failed to unmarshal error: %s" m))
-          )
-  )
+          ) )
+
 
 (* At all times we ensure that an operation which partially fails leaves the
    system in a recoverable state. All that should be necessary is to call the
@@ -2204,7 +2281,7 @@ and trigger_cleanup_after_failure op t =
   | VM_receive_memory (id, final_id, _, _) ->
       immediate_operation dbg id (VM_check_state id) ;
       immediate_operation dbg final_id (VM_check_state final_id)
-  | VM_migrate {vmm_id; vmm_tmp_src_id; _} ->
+  | VM_migrate { vmm_id; vmm_tmp_src_id; _ } ->
       immediate_operation dbg vmm_id (VM_check_state vmm_id) ;
       immediate_operation dbg vmm_tmp_src_id (VM_check_state vmm_tmp_src_id)
   | VBD_hotplug id | VBD_hotunplug (id, _) ->
@@ -2213,6 +2290,7 @@ and trigger_cleanup_after_failure op t =
       immediate_operation dbg (fst id) (VIF_check_state id)
   | Atomic op ->
       trigger_cleanup_after_failure_atom op t
+
 
 and trigger_cleanup_after_failure_atom op t =
   let dbg = (Xenops_task.to_interface_task t).Task.dbg in
@@ -2281,20 +2359,20 @@ and trigger_cleanup_after_failure_atom op t =
   | VM_import_metadata _ ->
       ()
 
+
 and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
     : unit =
   let module B = (val get_backend () : S) in
   let one = function
-    | VM_start (id, force) -> (
+    | VM_start (id, force) ->
         debug "VM.start %s (force=%b)" id force ;
         let power = (B.VM.get_state (VM_DB.read_exn id)).Vm.power_state in
-        match power with
+        ( match power with
         | Running ->
             info "VM %s is already running" id
         | _ ->
             perform_atomics (atomics_of_operation op) t ;
-            VM_DB.signal id
-      )
+            VM_DB.signal id )
     | VM_poweroff (id, _timeout) ->
         debug "VM.poweroff %s" id ;
         perform_atomics (atomics_of_operation op) t ;
@@ -2346,15 +2424,20 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         let module B = (val get_backend () : S) in
         B.VM.assert_can_save vm ;
         let extra_args = B.VM.get_hook_args id in
-        Xenops_hooks.vm ~script:Xenops_hooks.VM_pre_migrate
-          ~reason:Xenops_hooks.reason__migrate_source ~id ~extra_args ;
+        Xenops_hooks.vm
+          ~script:Xenops_hooks.VM_pre_migrate
+          ~reason:Xenops_hooks.reason__migrate_source
+          ~id
+          ~extra_args ;
         let module Remote =
-        Xenops_interface.XenopsAPI (Idl.Exn.GenClient (struct
-          let rpc =
-            Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops"
-              (fun () -> vmm.vmm_url
-            )
-        end)) in
+          Xenops_interface.XenopsAPI (Idl.Exn.GenClient (struct
+            let rpc =
+              Xcp_client.xml_http_rpc
+                ~srcstr:"xenops"
+                ~dststr:"dst_xenops"
+                (fun () -> vmm.vmm_url)
+          end))
+        in
         let regexp = Re.Pcre.regexp id in
         debug "Destination domain will be built with uuid=%s" new_dest_id ;
         debug "Original domain will be moved to uuid=%s" new_src_id ;
@@ -2363,19 +2446,26 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         (* image to the destination. *)
         Redirector.alias ~tag:id ~alias:new_src_id ;
         let id' =
-          Remote.VM.import_metadata dbg
-            (Re.replace_string regexp ~by:new_dest_id
-               (export_metadata vmm.vmm_vdi_map vmm.vmm_vif_map
-                  vmm.vmm_vgpu_pci_map id
-               )
-            )
+          Remote.VM.import_metadata
+            dbg
+            (Re.replace_string
+               regexp
+               ~by:new_dest_id
+               (export_metadata
+                  vmm.vmm_vdi_map
+                  vmm.vmm_vif_map
+                  vmm.vmm_vgpu_pci_map
+                  id ) )
         in
         debug "Received vm-id = %s" id' ;
         let make_url snippet id_str =
-          Uri.make ?scheme:(Uri.scheme url) ?host:(Uri.host url)
+          Uri.make
+            ?scheme:(Uri.scheme url)
+            ?host:(Uri.host url)
             ?port:(Uri.port url)
             ~path:(Uri.path url ^ snippet ^ id_str)
-            ~query:(Uri.query url) ()
+            ~query:(Uri.query url)
+            ()
         in
         let memory_url = make_url "/memory/" new_dest_id in
         (* CA-78365: set the memory dynamic range to a single value to stop
@@ -2385,15 +2475,17 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
             (id, vm.Vm.memory_dynamic_min, vm.Vm.memory_dynamic_min)
         in
         let (_ : unit) =
-          perform_atomic ~subtask:(string_of_atomic atomic)
+          perform_atomic
+            ~subtask:(string_of_atomic atomic)
             ~progress_callback:(fun _ -> ())
-            atomic t
+            atomic
+            t
         in
         (* Waiting here is not essential but adds a degree of safety and
            reducess unnecessary memory copying. *)
-        ( try B.VM.wait_ballooning t vm
-          with Xenopsd_error Ballooning_timeout_before_migration -> ()
-        ) ;
+        ( try B.VM.wait_ballooning t vm with
+        | Xenopsd_error Ballooning_timeout_before_migration ->
+            () ) ;
         (* Find out the VM's current memory_limit: this will be used to allocate
            memory on the receiver *)
         let state = B.VM.get_state vm in
@@ -2403,15 +2495,15 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
             let do_request fd extra_cookies url =
               Sockopt.set_sock_keepalives fd ;
               let module Request =
-                Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
+                Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO)
+              in
               let cookies =
-                [("instance_id", instance_id); ("final_id", id); ("dbg", dbg)]
+                [ ("instance_id", instance_id); ("final_id", id); ("dbg", dbg) ]
                 @ extra_cookies
               in
               let headers =
                 Cohttp.Header.of_list
-                  [
-                    Cohttp.Cookie.Cookie_hdr.serialize cookies
+                  [ Cohttp.Cookie.Cookie_hdr.serialize cookies
                   ; ("Connection", "keep-alive")
                   ; ("User-agent", "xenopsd")
                   ]
@@ -2421,27 +2513,27 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               in
               Request.write (fun _ -> ()) request fd
             in
-            do_request mem_fd
-              [("memory_limit", Int64.to_string state.Vm.memory_limit)]
+            do_request
+              mem_fd
+              [ ("memory_limit", Int64.to_string state.Vm.memory_limit) ]
               memory_url ;
             let first_handshake () =
               ( match Handshake.recv mem_fd with
               | Handshake.Success ->
                   ()
-              | Handshake.Error msg -> (
+              | Handshake.Error msg ->
                   error "cannot transmit vm to host: %s" msg ;
-                  match
-                    Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty
-                      (Jsonrpc.of_string msg)
-                  with
+                  ( match
+                      Rpcmarshal.unmarshal
+                        Errors.error.Rpc.Types.ty
+                        (Jsonrpc.of_string msg)
+                    with
                   | Ok e ->
                       raise (Xenopsd_error e)
                   | Error _ ->
                       raise (Xenopsd_error (Internal_error msg))
                   | exception _ ->
-                      raise (Xenopsd_error (Internal_error msg))
-                )
-              ) ;
+                      raise (Xenopsd_error (Internal_error msg)) ) ) ;
               debug "VM.migrate: Synchronisation point 1"
             in
             let final_handshake () =
@@ -2462,8 +2554,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
             in
             let save ?vgpu_fd () =
               perform_atomics
-                [
-                  VM_save (id, [Live], FD mem_fd, vgpu_fd)
+                [ VM_save (id, [ Live ], FD mem_fd, vgpu_fd)
                 ; VM_rename (id, new_src_id, Pre_migration)
                 ]
                 t ;
@@ -2473,47 +2564,45 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                the main VM migration sequence. *)
             match VGPU_DB.ids id with
             | [] ->
-                first_handshake () ; save () ; final_handshake ()
+                first_handshake () ;
+                save () ;
+                final_handshake ()
             | (_vm_id, dev_id) :: _ ->
                 let vgpu_url =
-                  make_url "/migrate-vgpu/"
+                  make_url
+                    "/migrate-vgpu/"
                     (VGPU_DB.string_of_id (new_dest_id, dev_id))
                 in
                 Open_uri.with_open_uri vgpu_url (fun vgpu_fd ->
-                    do_request vgpu_fd [(cookie_vgpu_migration, "")] vgpu_url ;
+                    do_request vgpu_fd [ (cookie_vgpu_migration, "") ] vgpu_url ;
                     Handshake.recv_success vgpu_fd ;
                     debug "VM.migrate: Synchronisation point 1-vgpu" ;
                     Handshake.send ~verbose:true mem_fd Handshake.Success ;
                     debug "VM.migrate: Synchronisation point 1-vgpu ACK" ;
                     first_handshake () ;
-                    save ~vgpu_fd:(FD vgpu_fd) ()
-                ) ;
-                final_handshake ()
-        ) ;
+                    save ~vgpu_fd:(FD vgpu_fd) () ) ;
+                final_handshake () ) ;
         (* cleanup tmp src VM *)
         let atomics =
-          [
-            VM_hook_script_stable
+          [ VM_hook_script_stable
               ( id
               , Xenops_hooks.VM_pre_destroy
               , Xenops_hooks.reason__suspend
-              , new_src_id
-              )
+              , new_src_id )
           ]
           @ atomics_of_operation (VM_shutdown (new_src_id, None))
-          @ [
-              VM_hook_script_stable
+          @ [ VM_hook_script_stable
                 ( id
                 , Xenops_hooks.VM_post_destroy
                 , Xenops_hooks.reason__suspend
-                , new_src_id
-                )
+                , new_src_id )
             ; VM_remove new_src_id
             ]
         in
         perform_atomics atomics t
-    | VM_receive_memory (id, final_id, memory_limit, s) -> (
-        if final_id <> id then
+    | VM_receive_memory (id, final_id, memory_limit, s) ->
+        if final_id <> id
+        then
           (* Note: In the localhost case, there are necessarily two worker
              threads operating on the same VM. The first one is using tag
              xxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxx and has tag
@@ -2547,24 +2636,23 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                 debug "VM.receive_memory: Synchronisation point 1-vgpu ACK"
                 (* After this point, vgpu_receiver_sync is initialised by the
                    corresponding receive_vgpu thread and therefore can be used
-                   by this VM_receive_memory thread *)
-            ) ;
+                   by this VM_receive_memory thread *) ) ;
             ( try
                 let no_sharept =
                   VGPU_DB.vgpus id |> List.exists is_no_sharept
                 in
                 debug "VM %s no_sharept=%b (%s)" id no_sharept __LOC__ ;
                 perform_atomics
-                  ([
-                     VM_create (id, Some memory_limit, Some final_id, no_sharept)
-                   ]
+                  ( [ VM_create
+                        (id, Some memory_limit, Some final_id, no_sharept)
+                    ]
                   @ (* Perform as many operations as possible on the destination
                        domain before pausing the original domain *)
-                  atomics_of_operation (VM_restore_vifs id)
-                  )
+                  atomics_of_operation (VM_restore_vifs id) )
                   t ;
                 Handshake.send s Handshake.Success
-              with e ->
+              with
+            | e ->
                 Backtrace.is_important e ;
                 let msg =
                   match e with
@@ -2575,8 +2663,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                       Printexc.to_string e
                 in
                 Handshake.send s (Handshake.Error msg) ;
-                raise e
-            ) ;
+                raise e ) ;
             debug "VM.receive_memory: Synchronisation point 1" ;
             debug "VM.receive_memory restoring VM" ;
             (* Check if there is a separate vGPU data channel *)
@@ -2590,72 +2677,64 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                   let vgpus' = VGPU_DB.vgpus id in
                   let pcis_sriov = List.filter (is_nvidia_sriov vgpus') pcis in
                   List.concat
-                    [
-                      dequarantine_ops vgpus'
+                    [ dequarantine_ops vgpus'
                     ; List.map
                         (fun pci -> PCI_plug (pci.Pci.id, false))
                         pcis_sriov
-                    ; [VGPU_start (vgpus, true)]
+                    ; [ VGPU_start (vgpus, true) ]
                     ]
             in
             perform_atomics
               (List.concat
-                 [
-                   vgpu_start_operations
-                 ; [
-                     VM_restore
+                 [ vgpu_start_operations
+                 ; [ VM_restore
                        (id, FD s, Option.map (fun x -> FD x.vgpu_fd) vgpu_info)
                    ]
-                 ]
-              )
+                 ] )
               t ;
-            debug "VM.receive_memory restore complete"
-            )
+            debug "VM.receive_memory restore complete" )
           (fun () ->
             (* Tell the vGPU receive thread that we're done, so that it can
                clean up vgpu_receiver_sync id and terminate *)
             let vgpu_info = Hashtbl.find_opt vgpu_receiver_sync id in
             Option.iter
               (fun x -> Event.send x.vgpu_channel () |> Event.sync)
-              vgpu_info
-            ) ;
+              vgpu_info ) ;
         debug "VM.receive_memory: Synchronisation point 2" ;
-        try
-          (* Receive the all-clear to unpause *)
-          Handshake.recv_success ~verbose:true s ;
-          debug "VM.receive_memory: Synchronisation point 3" ;
-          if final_id <> id then (
-            debug "VM.receive_memory: Renaming domain" ;
-            perform_atomics [VM_rename (id, final_id, Post_migration)] t
-          ) ;
-          debug "VM.receive_memory restoring remaining devices and unpausing" ;
-          perform_atomics
-            (atomics_of_operation (VM_restore_devices (final_id, false))
-            @ [
-                VM_unpause final_id
-              ; VM_set_domain_action_request (final_id, None)
-              ; VM_hook_script
-                  ( final_id
-                  , Xenops_hooks.VM_post_migrate
-                  , Xenops_hooks.reason__migrate_dest
-                  )
-              ]
-            )
-            t ;
-          Handshake.send s Handshake.Success ;
-          debug "VM.receive_memory: Synchronisation point 4"
-        with e ->
-          finally
-            (fun () ->
-              Backtrace.is_important e ;
-              Debug.log_backtrace e (Backtrace.get e) ;
-              debug "Caught %s: cleaning up VM state" (Printexc.to_string e) ;
-              perform_atomics
-                (atomics_of_operation (VM_shutdown (id, None)) @ [VM_remove id])
-                t
-              )
-            (fun () -> Handshake.send s (Handshake.Error (Printexc.to_string e)))
-      )
+        ( try
+            (* Receive the all-clear to unpause *)
+            Handshake.recv_success ~verbose:true s ;
+            debug "VM.receive_memory: Synchronisation point 3" ;
+            if final_id <> id
+            then (
+              debug "VM.receive_memory: Renaming domain" ;
+              perform_atomics [ VM_rename (id, final_id, Post_migration) ] t ) ;
+            debug "VM.receive_memory restoring remaining devices and unpausing" ;
+            perform_atomics
+              ( atomics_of_operation (VM_restore_devices (final_id, false))
+              @ [ VM_unpause final_id
+                ; VM_set_domain_action_request (final_id, None)
+                ; VM_hook_script
+                    ( final_id
+                    , Xenops_hooks.VM_post_migrate
+                    , Xenops_hooks.reason__migrate_dest )
+                ] )
+              t ;
+            Handshake.send s Handshake.Success ;
+            debug "VM.receive_memory: Synchronisation point 4"
+          with
+        | e ->
+            finally
+              (fun () ->
+                Backtrace.is_important e ;
+                Debug.log_backtrace e (Backtrace.get e) ;
+                debug "Caught %s: cleaning up VM state" (Printexc.to_string e) ;
+                perform_atomics
+                  ( atomics_of_operation (VM_shutdown (id, None))
+                  @ [ VM_remove id ] )
+                  t )
+              (fun () ->
+                Handshake.send s (Handshake.Error (Printexc.to_string e)) ) )
     | VM_check_state id ->
         let vm = VM_DB.read_exn id in
         let state = B.VM.get_state vm in
@@ -2668,20 +2747,23 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               vm.Vm.on_shutdown
           | Some Needs_crashdump ->
               (* A VM which crashes too quickly should be shutdown *)
-              if run_time < 120. then (
+              if run_time < 120.
+              then (
                 warn
                   "VM %s crashed too quickly after start (%.2f seconds); \
                    shutting down"
-                  id run_time ;
+                  id
+                  run_time ;
                 vm.Vm.on_crash
                 |> List.map (function Vm.Start -> Vm.Shutdown | other -> other)
-              ) else
-                vm.Vm.on_crash
+                )
+              else vm.Vm.on_crash
           | Some Needs_suspend ->
               warn "VM %s has unexpectedly suspended" id ;
-              [Vm.Shutdown]
+              [ Vm.Shutdown ]
           | Some Needs_softreset ->
-              B.VM.soft_reset t vm ; []
+              B.VM.soft_reset t vm ;
+              []
           | None ->
               debug "VM %s is not requesting any attention" id ;
               []
@@ -2690,18 +2772,18 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
           | Vm.Coredump ->
               []
           | Vm.Shutdown ->
-              [VM_shutdown (id, None)]
+              [ VM_shutdown (id, None) ]
           | Vm.Start ->
               let delay =
-                if run_time < B.VM.minimum_reboot_delay then (
+                if run_time < B.VM.minimum_reboot_delay
+                then (
                   debug "VM %s rebooted too quickly; inserting delay" id ;
-                  [Atomic (VM_delay (id, 15.))]
-                ) else
-                  []
+                  [ Atomic (VM_delay (id, 15.)) ] )
+                else []
               in
-              delay @ [VM_reboot (id, None)]
+              delay @ [ VM_reboot (id, None) ]
           | Vm.Pause ->
-              [Atomic (VM_pause id)]
+              [ Atomic (VM_pause id) ]
         in
         let operations = List.concat (List.map operations_of_action actions) in
         List.iter (fun x -> perform_exn x t) operations ;
@@ -2711,13 +2793,10 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         let vif_t = PCI_DB.read_exn id in
         let vm_state = B.VM.get_state (VM_DB.read_exn (PCI_DB.vm_of id)) in
         let request =
-          if
-            vm_state.Vm.power_state = Running
-            || vm_state.Vm.power_state = Paused
-          then
-            B.PCI.get_device_action_request (VIF_DB.vm_of id) vif_t
-          else
-            Some Needs_unplug
+          if vm_state.Vm.power_state = Running
+             || vm_state.Vm.power_state = Paused
+          then B.PCI.get_device_action_request (VIF_DB.vm_of id) vif_t
+          else Some Needs_unplug
         in
         let operations_of_request = function
           | Needs_unplug ->
@@ -2734,15 +2813,12 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         let vbd_t = VBD_DB.read_exn id in
         let vm_state = B.VM.get_state (VM_DB.read_exn (VBD_DB.vm_of id)) in
         let request =
-          if
-            vm_state.Vm.power_state = Running
-            || vm_state.Vm.power_state = Paused
-          then
-            B.VBD.get_device_action_request (VBD_DB.vm_of id) vbd_t
+          if vm_state.Vm.power_state = Running
+             || vm_state.Vm.power_state = Paused
+          then B.VBD.get_device_action_request (VBD_DB.vm_of id) vbd_t
           else (
             debug "VM %s is not running: VBD_unplug needed" (VBD_DB.vm_of id) ;
-            Some Needs_unplug
-          )
+            Some Needs_unplug )
         in
         let operations_of_request = function
           | Needs_unplug ->
@@ -2761,13 +2837,10 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         let vif_t = VIF_DB.read_exn id in
         let vm_state = B.VM.get_state (VM_DB.read_exn (VIF_DB.vm_of id)) in
         let request =
-          if
-            vm_state.Vm.power_state = Running
-            || vm_state.Vm.power_state = Paused
-          then
-            B.VIF.get_device_action_request (VIF_DB.vm_of id) vif_t
-          else
-            Some Needs_unplug
+          if vm_state.Vm.power_state = Running
+             || vm_state.Vm.power_state = Paused
+          then B.VIF.get_device_action_request (VIF_DB.vm_of id) vif_t
+          else Some Needs_unplug
         in
         let operations_of_request = function
           | Needs_unplug ->
@@ -2784,15 +2857,12 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         let vusb_t = VUSB_DB.read_exn id in
         let vm_state = B.VM.get_state (VM_DB.read_exn (VUSB_DB.vm_of id)) in
         let request =
-          if
-            vm_state.Vm.power_state = Running
-            || vm_state.Vm.power_state = Paused
-          then
-            B.VUSB.get_device_action_request (VUSB_DB.vm_of id) vusb_t
+          if vm_state.Vm.power_state = Running
+             || vm_state.Vm.power_state = Paused
+          then B.VUSB.get_device_action_request (VUSB_DB.vm_of id) vusb_t
           else (
             debug "VM %s is not running: VUSB_unplug needed" (VUSB_DB.vm_of id) ;
-            Some Needs_unplug
-          )
+            Some Needs_unplug )
         in
         let operations_of_request = function
           | Needs_unplug ->
@@ -2811,11 +2881,13 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
   in
   one op
 
+
 and verify_power_state op =
   let module B = (val get_backend () : S) in
   let assert_power_state_is vm_id expected =
     let power = (B.VM.get_state (VM_DB.read_exn vm_id)).Vm.power_state in
-    if not (List.mem power expected) then
+    if not (List.mem power expected)
+    then
       let expected' =
         match expected with x :: _ -> x | [] -> failwith "Expectation missing"
       in
@@ -2823,32 +2895,35 @@ and verify_power_state op =
   in
   match op with
   | VM_start (id, _) ->
-      assert_power_state_is id [Halted]
+      assert_power_state_is id [ Halted ]
   | VM_reboot (id, _) ->
-      assert_power_state_is id [Running; Paused]
+      assert_power_state_is id [ Running; Paused ]
   | VM_resume (id, _) ->
       (* We also accept Halted here: when resuming a pre-Lima VM, the
          suspend_memory_bytes field in the internal state is always 0, causing
          B.VM.get_state to return Halted. *)
-      assert_power_state_is id [Suspended; Halted]
+      assert_power_state_is id [ Suspended; Halted ]
   | _ ->
       ()
+
 
 and perform ?subtask ?result (op : operation) (t : Xenops_task.task_handle) :
     unit =
   let one op =
     verify_power_state op ;
-    try perform_exn ?subtask ?result op t
-    with e ->
-      Backtrace.is_important e ;
-      info "Caught %s executing %s: triggering cleanup actions"
-        (Printexc.to_string e) (string_of_operation op) ;
-      ( try trigger_cleanup_after_failure op t
-        with e ->
-          Backtrace.is_important e ;
-          error "Triggering cleanup actions failed: %s" (Printexc.to_string e)
-      ) ;
-      raise e
+    try perform_exn ?subtask ?result op t with
+    | e ->
+        Backtrace.is_important e ;
+        info
+          "Caught %s executing %s: triggering cleanup actions"
+          (Printexc.to_string e)
+          (string_of_operation op) ;
+        ( try trigger_cleanup_after_failure op t with
+        | e ->
+            Backtrace.is_important e ;
+            error "Triggering cleanup actions failed: %s" (Printexc.to_string e)
+        ) ;
+        raise e
   in
   match subtask with
   | None ->
@@ -2856,28 +2931,34 @@ and perform ?subtask ?result (op : operation) (t : Xenops_task.task_handle) :
   | Some name ->
       Xenops_task.with_subtask t name (fun () -> one op)
 
+
 let uses_mxgpu id =
   List.exists
     (fun vgpu_id ->
       let vgpu = VGPU_DB.read_exn vgpu_id in
-      match vgpu.Vgpu.implementation with Vgpu.MxGPU _ -> true | _ -> false
-      )
+      match vgpu.Vgpu.implementation with Vgpu.MxGPU _ -> true | _ -> false )
     (VGPU_DB.ids id)
+
 
 let queue_operation_int dbg id op =
   let task =
-    Xenops_task.add tasks dbg
+    Xenops_task.add
+      tasks
+      dbg
       (let r = ref None in
-       fun t -> perform ~result:r op t ; !r
-      )
+       fun t ->
+         perform ~result:r op t ;
+         !r )
   in
   let tag = if uses_mxgpu id then "mxgpu" else id in
   Redirector.push Redirector.default tag (op, task) ;
   task
 
+
 let queue_operation dbg id op =
   let task = queue_operation_int dbg id op in
   Xenops_task.id_of_handle task
+
 
 let queue_operation_and_wait dbg id op =
   let from = Updates.last_id dbg updates in
@@ -2885,6 +2966,7 @@ let queue_operation_and_wait dbg id op =
   let task_id = Xenops_task.id_of_handle task in
   event_wait updates task ~from 1200.0 (task_finished_p task_id) |> ignore ;
   task
+
 
 module PCI = struct
   open Pci
@@ -2897,6 +2979,7 @@ module PCI = struct
   let remove _ dbg id =
     Debug.with_thread_associated dbg (fun () -> DB.remove' id) ()
 
+
   let stat' id =
     debug "PCI.stat %s" (string_of_id id) ;
     let module B = (val get_backend () : S) in
@@ -2904,12 +2987,17 @@ module PCI = struct
     let state = B.PCI.get_state (DB.vm_of id) pci_t in
     (pci_t, state)
 
+
   let stat _ dbg id = Debug.with_thread_associated dbg (fun () -> stat' id) ()
 
   let list _ dbg vm =
-    Debug.with_thread_associated dbg
-      (fun () -> debug "PCI.list %s" vm ; DB.list vm)
+    Debug.with_thread_associated
+      dbg
+      (fun () ->
+        debug "PCI.list %s" vm ;
+        DB.list vm )
       ()
+
 
   let dequarantine _ dbg (pci_addr : Pci.address) =
     let module B = (val get_backend () : S) in
@@ -2930,6 +3018,7 @@ module VGPU = struct
   let remove _ dbg x =
     Debug.with_thread_associated dbg (fun () -> DB.remove' x) ()
 
+
   let stat' id =
     debug "VGPU.stat %s" (string_of_id id) ;
     let module B = (val get_backend () : S) in
@@ -2937,11 +3026,15 @@ module VGPU = struct
     let state = B.VGPU.get_state (DB.vm_of id) vgpu_t in
     (vgpu_t, state)
 
+
   let stat _ dbg id = Debug.with_thread_associated dbg (fun () -> stat' id) ()
 
   let list _ dbg vm =
-    Debug.with_thread_associated dbg
-      (fun () -> debug "VGPU.list %s" vm ; DB.list vm)
+    Debug.with_thread_associated
+      dbg
+      (fun () ->
+        debug "VGPU.list %s" vm ;
+        DB.list vm )
       ()
 end
 
@@ -2957,8 +3050,10 @@ module VUSB = struct
   let unplug _ dbg id =
     queue_operation dbg (DB.vm_of id) (Atomic (VUSB_unplug id))
 
+
   let remove _ dbg id =
     Debug.with_thread_associated dbg (fun () -> DB.remove' id) ()
+
 
   let stat' id =
     debug "VUSB.stat %s" (string_of_id id) ;
@@ -2967,11 +3062,15 @@ module VUSB = struct
     let state = B.VUSB.get_state (DB.vm_of id) vusb_t in
     (vusb_t, state)
 
+
   let stat _ dbg id = Debug.with_thread_associated dbg (fun () -> stat' id) ()
 
   let list _ dbg vm =
-    Debug.with_thread_associated dbg
-      (fun () -> debug "VUSB.list %s" vm ; DB.list vm)
+    Debug.with_thread_associated
+      dbg
+      (fun () ->
+        debug "VUSB.list %s" vm ;
+        DB.list vm )
       ()
 end
 
@@ -2987,13 +3086,16 @@ module VBD = struct
   let unplug _ dbg id force =
     queue_operation dbg (DB.vm_of id) (VBD_hotunplug (id, force))
 
+
   let insert _ dbg id disk =
     queue_operation dbg (DB.vm_of id) (Atomic (VBD_insert (id, disk)))
+
 
   let eject _ dbg id = queue_operation dbg (DB.vm_of id) (Atomic (VBD_eject id))
 
   let remove _ dbg id =
     Debug.with_thread_associated dbg (fun () -> DB.remove' id) ()
+
 
   let stat' id =
     debug "VBD.stat %s" (string_of_id id) ;
@@ -3002,11 +3104,15 @@ module VBD = struct
     let state = B.VBD.get_state (DB.vm_of id) vbd_t in
     (vbd_t, state)
 
+
   let stat _ dbg id = Debug.with_thread_associated dbg (fun () -> stat' id) ()
 
   let list _ dbg vm =
-    Debug.with_thread_associated dbg
-      (fun () -> debug "VBD.list %s" vm ; DB.list vm)
+    Debug.with_thread_associated
+      dbg
+      (fun () ->
+        debug "VBD.list %s" vm ;
+        DB.list vm )
       ()
 end
 
@@ -3022,28 +3128,40 @@ module VIF = struct
   let unplug _ dbg id force =
     queue_operation dbg (DB.vm_of id) (VIF_hotunplug (id, force))
 
+
   let move _ dbg id network =
     queue_operation dbg (DB.vm_of id) (Atomic (VIF_move (id, network)))
+
 
   let set_carrier _ dbg id carrier =
     queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_carrier (id, carrier)))
 
+
   let set_locking_mode _ dbg id mode =
     queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_locking_mode (id, mode)))
+
 
   let set_pvs_proxy _ dbg id proxy =
     queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_pvs_proxy (id, proxy)))
 
+
   let set_ipv4_configuration _ dbg id ipv4_configuration =
-    queue_operation dbg (DB.vm_of id)
+    queue_operation
+      dbg
+      (DB.vm_of id)
       (Atomic (VIF_set_ipv4_configuration (id, ipv4_configuration)))
 
+
   let set_ipv6_configuration _ dbg id ipv6_configuration =
-    queue_operation dbg (DB.vm_of id)
+    queue_operation
+      dbg
+      (DB.vm_of id)
       (Atomic (VIF_set_ipv6_configuration (id, ipv6_configuration)))
+
 
   let remove _ dbg id =
     Debug.with_thread_associated dbg (fun () -> DB.remove' id) ()
+
 
   let stat' id =
     debug "VIF.stat %s" (string_of_id id) ;
@@ -3052,78 +3170,88 @@ module VIF = struct
     let state = B.VIF.get_state (DB.vm_of id) vif_t in
     (vif_t, state)
 
+
   let stat _ dbg id = Debug.with_thread_associated dbg (fun () -> stat' id) ()
 
   let list _ dbg vm =
-    Debug.with_thread_associated dbg
-      (fun () -> debug "VIF.list %s" vm ; DB.list vm)
+    Debug.with_thread_associated
+      dbg
+      (fun () ->
+        debug "VIF.list %s" vm ;
+        DB.list vm )
       ()
 end
 
 module HOST = struct
   let stat _ dbg =
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
         debug "HOST.stat" ;
         let module B = (val get_backend () : S) in
-        B.HOST.stat ()
-        )
+        B.HOST.stat () )
       ()
 
+
   let get_console_data _ dbg =
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
         debug "HOST.get_console_data" ;
         let module B = (val get_backend () : S) in
-        B.HOST.get_console_data ()
-        )
+        B.HOST.get_console_data () )
       ()
 
+
   let get_total_memory_mib _ dbg =
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
         debug "HOST.get_total_memory_mib" ;
         let module B = (val get_backend () : S) in
-        B.HOST.get_total_memory_mib ()
-        )
+        B.HOST.get_total_memory_mib () )
       ()
 
+
   let send_debug_keys _ dbg keys =
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
         debug "HOST.send_debug_keys %s" keys ;
         let module B = (val get_backend () : S) in
-        B.HOST.send_debug_keys keys
-        )
+        B.HOST.send_debug_keys keys )
       ()
+
 
   let set_worker_pool_size _ dbg size =
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
         debug "HOST.set_worker_pool_size %d" size ;
-        WorkerPool.set_size size
-        )
+        WorkerPool.set_size size )
       ()
+
 
   let update_guest_agent_features _ dbg features =
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
-        debug "HOST.update_guest_agent_features %s"
-          (Rpc.Enum (List.map (rpc_of Host.guest_agent_feature) features)
-          |> Jsonrpc.to_string
-          ) ;
+        debug
+          "HOST.update_guest_agent_features %s"
+          ( Rpc.Enum (List.map (rpc_of Host.guest_agent_feature) features)
+          |> Jsonrpc.to_string ) ;
         let module B = (val get_backend () : S) in
-        B.HOST.update_guest_agent_features features
-        )
+        B.HOST.update_guest_agent_features features )
       ()
 
+
   let upgrade_cpu_features _ dbg features is_hvm =
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
         debug "HOST.upgrade_cpu_features" ;
         let module B = (val get_backend () : S) in
-        B.HOST.upgrade_cpu_features features is_hvm
-        )
+        B.HOST.upgrade_cpu_features features is_hvm )
       ()
 end
 
@@ -3134,6 +3262,7 @@ module VM = struct
 
   let rename _ dbg id1 id2 when' =
     queue_operation dbg id1 (Atomic (VM_rename (id1, id2, when')))
+
 
   let remove _ dbg id =
     let task = queue_operation_and_wait dbg id (Atomic (VM_remove id)) in
@@ -3150,14 +3279,14 @@ module VM = struct
           | Error (`Msg m) ->
               Xenopsd_error
                 (Internal_error
-                   (Printf.sprintf "Error unmarshalling error: %s" m)
-                )
+                   (Printf.sprintf "Error unmarshalling error: %s" m) )
         in
         raise e
     | Task.Pending _ ->
         error "VM.remove: queue_operation_and_wait returned a pending task" ;
         Xenops_task.cancel task ;
         raise (Xenopsd_error (Cancelled task_id))
+
 
   let stat' x =
     debug "VM.stat %s" x ;
@@ -3166,9 +3295,10 @@ module VM = struct
     let state = B.VM.get_state vm_t in
     (* If we're rebooting the VM then keep the power state running *)
     let state =
-      if is_rebooting x then {state with Vm.power_state= Running} else state
+      if is_rebooting x then { state with Vm.power_state = Running } else state
     in
     (vm_t, state)
+
 
   let stat _ dbg id = Debug.with_thread_associated dbg (fun () -> stat' id) ()
 
@@ -3180,11 +3310,14 @@ module VM = struct
     let no_sharept = false in
     queue_operation dbg id (Atomic (VM_create (id, None, None, no_sharept)))
 
+
   let build _ dbg id force =
     queue_operation dbg id (Atomic (VM_build (id, force)))
 
+
   let create_device_model _ dbg id save_state =
     queue_operation dbg id (Atomic (VM_create_device_model (id, save_state)))
+
 
   let destroy _ dbg id = queue_operation dbg id (Atomic (VM_destroy id))
 
@@ -3195,20 +3328,26 @@ module VM = struct
   let request_rdp _ dbg id enabled =
     queue_operation dbg id (Atomic (VM_request_rdp (id, enabled)))
 
+
   let run_script _ dbg id script =
     queue_operation dbg id (Atomic (VM_run_script (id, script)))
+
 
   let set_xsdata _ dbg id xsdata =
     queue_operation dbg id (Atomic (VM_set_xsdata (id, xsdata)))
 
+
   let set_vcpus _ dbg id n =
     queue_operation dbg id (Atomic (VM_set_vcpus (id, n)))
+
 
   let set_shadow_multiplier _ dbg id n =
     queue_operation dbg id (Atomic (VM_set_shadow_multiplier (id, n)))
 
+
   let set_memory_dynamic_range _ dbg id min max =
     queue_operation dbg id (Atomic (VM_set_memory_dynamic_range (id, min, max)))
+
 
   let delay _ dbg id t = queue_operation dbg id (Atomic (VM_delay (id, t)))
 
@@ -3216,6 +3355,7 @@ module VM = struct
 
   let shutdown _ dbg id timeout =
     queue_operation dbg id (VM_poweroff (id, timeout))
+
 
   let reboot _ dbg id timeout = queue_operation dbg id (VM_reboot (id, timeout))
 
@@ -3229,30 +3369,35 @@ module VM = struct
 
   let migrate _context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url =
     let tmp_uuid_of uuid ~kind =
-      Printf.sprintf "%s00000000000%c" (String.sub uuid 0 24)
+      Printf.sprintf
+        "%s00000000000%c"
+        (String.sub uuid 0 24)
         (match kind with `dest -> '1' | `src -> '0')
     in
-    queue_operation dbg id
+    queue_operation
+      dbg
+      id
       (VM_migrate
-         {
-           vmm_id= id
+         { vmm_id = id
          ; vmm_vdi_map
          ; vmm_vif_map
          ; vmm_vgpu_pci_map
          ; vmm_url
-         ; vmm_tmp_src_id= tmp_uuid_of id ~kind:`src
-         ; vmm_tmp_dest_id= tmp_uuid_of id ~kind:`dest
-         }
-      )
+         ; vmm_tmp_src_id = tmp_uuid_of id ~kind:`src
+         ; vmm_tmp_dest_id = tmp_uuid_of id ~kind:`dest
+         } )
+
 
   let migrate_receive_memory _ _ _ _ _ _ = failwith "Unimplemented"
 
   let receive_memory uri cookies s context : unit =
     let module Request = Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
-    let module Response = Cohttp.Response.Make (Cohttp_posix_io.Unbuffered_IO) in
+    let module Response = Cohttp.Response.Make (Cohttp_posix_io.Unbuffered_IO)
+    in
     let dbg = List.assoc "dbg" cookies in
     let memory_limit = List.assoc "memory_limit" cookies |> Int64.of_string in
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
         let id, final_id =
           (* The URI is /service/xenops/memory/id *)
@@ -3278,22 +3423,27 @@ module VM = struct
               (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore)
               task
         | None ->
-            let headers = Cohttp.Header.of_list [("User-agent", "xenopsd")] in
+            let headers = Cohttp.Header.of_list [ ("User-agent", "xenopsd") ] in
             let response =
-              Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found
-                ~headers ()
+              Cohttp.Response.make
+                ~version:`HTTP_1_1
+                ~status:`Not_found
+                ~headers
+                ()
             in
-            Response.write (fun _ -> ()) response s
-        )
+            Response.write (fun _ -> ()) response s )
       ()
+
 
   (* This is modelled closely on receive_memory and there is significant scope
      for refactoring. *)
   let receive_vgpu uri cookies s context : unit =
     let module Request = Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
-    let module Response = Cohttp.Response.Make (Cohttp_posix_io.Unbuffered_IO) in
+    let module Response = Cohttp.Response.Make (Cohttp_posix_io.Unbuffered_IO)
+    in
     let dbg = List.assoc "dbg" cookies in
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
         let vgpu_id =
           (* The URI is /service/xenops/migrate-vgpu/id *)
@@ -3307,9 +3457,7 @@ module VM = struct
                 raise
                   (Xenopsd_error
                      (Internal_error
-                        ("Could not retrieve vgpu id from path " ^ path)
-                     )
-                  )
+                        ("Could not retrieve vgpu id from path " ^ path) ) )
           in
           let vgpu_id = VGPU_DB.id_of_string vgpu_id_str in
           debug "VM.receive_vgpu vgpu_id_str = %s" vgpu_id_str ;
@@ -3319,7 +3467,8 @@ module VM = struct
         match context.transferred_fd with
         | Some transferred_fd ->
             (* prevent vgpu-migration from pre-Jura to Jura and later *)
-            if not (List.mem_assoc cookie_vgpu_migration cookies) then (
+            if not (List.mem_assoc cookie_vgpu_migration cookies)
+            then (
               (* only Jura and later hosts send this cookie; fail the migration
                  from pre-Jura hosts *)
               let msg =
@@ -3329,45 +3478,44 @@ module VM = struct
                   cookie_vgpu_migration
               in
               Xenops_migrate.(
-                Handshake.send ~verbose:true transferred_fd (Handshake.Error msg)
-              ) ;
+                Handshake.send ~verbose:true transferred_fd (Handshake.Error msg)) ;
               debug "VM.receive_vgpu: Synchronisation point 1-vgpu ERR %s" msg ;
-              raise (Xenopsd_error (Internal_error msg))
-            ) ;
+              raise (Xenopsd_error (Internal_error msg)) ) ;
             debug "VM.receive_vgpu: passed fd %d" (Obj.magic transferred_fd) ;
             (* Store away the fd for VM_receive_memory/restore to use *)
             let info =
-              {vgpu_fd= transferred_fd; vgpu_channel= Event.new_channel ()}
+              { vgpu_fd = transferred_fd; vgpu_channel = Event.new_channel () }
             in
             Mutex.execute vgpu_receiver_sync_m (fun () ->
-                Hashtbl.add vgpu_receiver_sync vm_id info
-            ) ;
+                Hashtbl.add vgpu_receiver_sync vm_id info ) ;
             (* Inform the sender that everything is in place to start
                save/restore *)
             Xenops_migrate.(
-              Handshake.send ~verbose:true transferred_fd Handshake.Success
-            ) ;
+              Handshake.send ~verbose:true transferred_fd Handshake.Success) ;
             debug "VM.receive_vgpu: Synchronisation point 1-vgpu" ;
             (* Keep the thread/connection open until the restore is done on the
                other thread *)
             Event.receive info.vgpu_channel |> Event.sync ;
             debug "VM.receive_vgpu: Synchronisation point 2-vgpu" ;
             Mutex.execute vgpu_receiver_sync_m (fun () ->
-                Hashtbl.remove vgpu_receiver_sync vm_id
-            )
+                Hashtbl.remove vgpu_receiver_sync vm_id )
         | None ->
-            let headers = Cohttp.Header.of_list [("User-agent", "xenopsd")] in
+            let headers = Cohttp.Header.of_list [ ("User-agent", "xenopsd") ] in
             let response =
-              Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found
-                ~headers ()
+              Cohttp.Response.make
+                ~version:`HTTP_1_1
+                ~status:`Not_found
+                ~headers
+                ()
             in
-            Response.write (fun _ -> ()) response s
-        )
+            Response.write (fun _ -> ()) response s )
       ()
+
 
   let generate_state_string _ _dbg vm =
     let module B = (val get_backend () : S) in
     B.VM.generate_state_string vm
+
 
   let export_metadata _ _dbg id = export_metadata [] [] [] id
 
@@ -3383,30 +3531,32 @@ module VM = struct
           raise
             (Xenopsd_error
                (Internal_error
-                  (Printf.sprintf "Unable to unmarshal metadata: %s" m)
-               )
-            )
+                  (Printf.sprintf "Unable to unmarshal metadata: %s" m) ) )
     in
     (md.Metadata.vm.Vm.id, md)
 
+
   let import_metadata _ dbg s =
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
         let id, md = parse_metadata s in
         (* We allow a higher-level toolstack to replace the metadata of a
            running VM. Any changes will take place on next reboot.
            The metadata update will be queued so that ongoing operations
            do not see unexpected state changes. *)
-        if DB.exists id then
+        if DB.exists id
+        then
           let _ =
-            queue_operation_and_wait dbg id
+            queue_operation_and_wait
+              dbg
+              id
               (Atomic (VM_import_metadata (id, md)))
           in
           id
-        else
-          import_metadata id md
-        )
+        else import_metadata id md )
       ()
+
 
   let import_metadata_async _ dbg s =
     let id, md = parse_metadata s in
@@ -3415,36 +3565,46 @@ end
 
 module DEBUG = struct
   let trigger _ dbg cmd args =
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
         let module B = (val get_backend () : S) in
         match (cmd, args) with
-        | "set-cancel-trigger", [dbg; n] ->
-            debug "Will automatically cancel any task with dbg = %s at step %s"
-              dbg n ;
+        | "set-cancel-trigger", [ dbg; n ] ->
+            debug
+              "Will automatically cancel any task with dbg = %s at step %s"
+              dbg
+              n ;
             Xenops_task.set_cancel_trigger tasks dbg (int_of_string n)
         | _, _ ->
-            B.DEBUG.trigger cmd args
-        )
+            B.DEBUG.trigger cmd args )
       ()
 
+
   let shutdown _ dbg () =
-    Debug.with_thread_associated dbg
-      (fun () -> debug "DEBUG.shutdown" ; exit 0)
+    Debug.with_thread_associated
+      dbg
+      (fun () ->
+        debug "DEBUG.shutdown" ;
+        exit 0 )
       ()
 end
 
 module UPDATES = struct
   let get _ dbg last timeout =
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () -> Updates.get dbg last timeout updates)
       ()
+
 
   let last_id _ dbg =
     Debug.with_thread_associated dbg (fun () -> Updates.last_id dbg updates) ()
 
+
   let inject_barrier _ dbg vm_id id =
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
         debug "UPDATES.inject_barrier %s %d" vm_id id ;
         let filter k _ =
@@ -3459,20 +3619,22 @@ module UPDATES = struct
           | Dynamic.Vgpu (id, _) ->
               id = vm_id
         in
-        Updates.inject_barrier id filter updates
-        )
+        Updates.inject_barrier id filter updates )
       ()
+
 
   let remove_barrier _ dbg id =
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
         debug "UPDATES.remove_barrier %d" id ;
-        Updates.remove_barrier id updates
-        )
+        Updates.remove_barrier id updates )
       ()
 
+
   let refresh_vm _ dbg id =
-    Debug.with_thread_associated dbg
+    Debug.with_thread_associated
+      dbg
       (fun () ->
         debug "UPDATES.refresh_vm %s" id ;
         VM_DB.signal id ;
@@ -3481,8 +3643,7 @@ module UPDATES = struct
         List.iter PCI_DB.signal (PCI_DB.ids id) ;
         List.iter VGPU_DB.signal (VGPU_DB.ids id) ;
         List.iter VUSB_DB.signal (VUSB_DB.ids id) ;
-        ()
-        )
+        () )
       ()
 end
 
@@ -3500,7 +3661,8 @@ let internal_event_thread_body =
             let _, updates, next_id = B.UPDATES.get !id None in
             (* Note, backend updates don't use barriers so we should always get
                updates. *)
-            if updates = [] then
+            if updates = []
+            then
               error
                 "Event thread received an empty list of events: this should \
                  never happen" ;
@@ -3510,38 +3672,48 @@ let internal_event_thread_body =
                     debug "Received an event on managed VM %s" id ;
                     queue_operation dbg id (VM_check_state id) |> TASK.destroy'
                 | Dynamic.Vbd id ->
-                    debug "Received an event on managed VBD %s.%s" (fst id)
+                    debug
+                      "Received an event on managed VBD %s.%s"
+                      (fst id)
                       (snd id) ;
                     queue_operation dbg (VBD_DB.vm_of id) (VBD_check_state id)
                     |> TASK.destroy'
                 | Dynamic.Vif id ->
-                    debug "Received an event on managed VIF %s.%s" (fst id)
+                    debug
+                      "Received an event on managed VIF %s.%s"
+                      (fst id)
                       (snd id) ;
                     queue_operation dbg (VIF_DB.vm_of id) (VIF_check_state id)
                     |> TASK.destroy'
                 | Dynamic.Pci id ->
-                    debug "Received an event on managed PCI %s.%s" (fst id)
+                    debug
+                      "Received an event on managed PCI %s.%s"
+                      (fst id)
                       (snd id) ;
                     queue_operation dbg (PCI_DB.vm_of id) (PCI_check_state id)
                     |> TASK.destroy'
                 | Dynamic.Vusb id ->
-                    debug "Received an event on managed VUSB %s.%s" (fst id)
+                    debug
+                      "Received an event on managed VUSB %s.%s"
+                      (fst id)
                       (snd id) ;
                     queue_operation dbg (VUSB_DB.vm_of id) (VUSB_check_state id)
                     |> TASK.destroy'
                 | x ->
-                    debug "Ignoring event on %s"
-                      (Jsonrpc.to_string (rpc_of Dynamic.id x))
-                )
+                    debug
+                      "Ignoring event on %s"
+                      (Jsonrpc.to_string (rpc_of Dynamic.id x)) )
               updates ;
             id := Some next_id
           done
-        with e ->
-          error "Event thread caught: %s; restarting after 5s"
-            (Printexc.to_string e) ;
-          Thread.delay 5.
-      done
-  )
+        with
+        | e ->
+            error
+              "Event thread caught: %s; restarting after 5s"
+              (Printexc.to_string e) ;
+            Thread.delay 5.
+      done )
+
 
 let set_backend m =
   backend := m ;
@@ -3549,6 +3721,7 @@ let set_backend m =
   internal_event_thread := Some (Thread.create internal_event_thread_body ()) ;
   let module B = (val get_backend () : S) in
   B.init ()
+
 
 let register_objects () =
   (* Make sure all objects are 'registered' with the updates system *)
@@ -3559,57 +3732,55 @@ let register_objects () =
       List.iter VBD_DB.signal (VIF_DB.ids vm) ;
       List.iter PCI_DB.signal (PCI_DB.ids vm) ;
       List.iter VGPU_DB.signal (VGPU_DB.ids vm) ;
-      List.iter VUSB_DB.signal (VUSB_DB.ids vm)
-      )
+      List.iter VUSB_DB.signal (VUSB_DB.ids vm) )
     (VM_DB.ids ())
+
 
 type rpc_t = Rpc.t
 
 let typ_of_rpc_t =
   Rpc.Types.(
     Abstract
-      {
-        aname= "Rpc.t"
-      ; test_data= [Rpc.Null]
-      ; rpc_of= (fun x -> x)
-      ; of_rpc= (fun x -> Ok x)
-      }
-  )
+      { aname = "Rpc.t"
+      ; test_data = [ Rpc.Null ]
+      ; rpc_of = (fun x -> x)
+      ; of_rpc = (fun x -> Ok x)
+      })
+
 
 module Diagnostics = struct
-  type t = {
-      queues: Redirector.Dump.t
-    ; workers: WorkerPool.Dump.t
-    ; scheduler: rpc_t
-    ; updates: rpc_t
-    ; tasks: WorkerPool.Dump.task list
-    ; vm_actions: (string * domain_action_request option) list
-  }
+  type t =
+    { queues : Redirector.Dump.t
+    ; workers : WorkerPool.Dump.t
+    ; scheduler : rpc_t
+    ; updates : rpc_t
+    ; tasks : WorkerPool.Dump.task list
+    ; vm_actions : (string * domain_action_request option) list
+    }
   [@@deriving rpcty]
 
   let make () =
     let module B = (val get_backend () : S) in
-    {
-      queues= Redirector.Dump.make ()
-    ; workers= WorkerPool.Dump.make ()
-    ; scheduler= Scheduler.Dump.make scheduler |> Scheduler.Dump.rpc_of_dump
-    ; updates= Updates.Dump.make updates |> Updates.Dump.rpc_of_dump
-    ; tasks= List.map WorkerPool.Dump.of_task (Xenops_task.list tasks)
-    ; vm_actions=
+    { queues = Redirector.Dump.make ()
+    ; workers = WorkerPool.Dump.make ()
+    ; scheduler = Scheduler.Dump.make scheduler |> Scheduler.Dump.rpc_of_dump
+    ; updates = Updates.Dump.make updates |> Updates.Dump.rpc_of_dump
+    ; tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list tasks)
+    ; vm_actions =
         List.filter_map
           (fun id ->
             match VM_DB.read id with
             | Some vm ->
                 Some (id, B.VM.get_domain_action_request vm)
             | None ->
-                None
-            )
+                None )
           (VM_DB.ids ())
     }
 end
 
 let get_diagnostics _ _ () =
   Diagnostics.make () |> rpc_of Diagnostics.t |> Jsonrpc.to_string
+
 
 module Server = Xenops_interface.XenopsAPI (Idl.Exn.GenServer ())
 

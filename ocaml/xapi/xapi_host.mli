@@ -27,7 +27,7 @@ val local_assert_healthy : __context:'a -> unit
 
 val set_power_on_mode :
      __context:Context.t
-  -> self:[`host] Ref.t
+  -> self:[ `host ] Ref.t
   -> power_on_mode:string
   -> power_on_config:(string * string) list
   -> unit
@@ -66,17 +66,17 @@ val restart_agent : __context:'a -> host:'b -> unit
 
 val shutdown_agent : __context:'a -> unit
 
-val disable : __context:Context.t -> host:[`host] Ref.t -> unit
+val disable : __context:Context.t -> host:[ `host ] Ref.t -> unit
 
-val enable : __context:Context.t -> host:[`host] Ref.t -> unit
+val enable : __context:Context.t -> host:[ `host ] Ref.t -> unit
 
-val prepare_for_poweroff : __context:Context.t -> host:[`host] Ref.t -> unit
+val prepare_for_poweroff : __context:Context.t -> host:[ `host ] Ref.t -> unit
 
-val shutdown : __context:Context.t -> host:[`host] Ref.t -> unit
+val shutdown : __context:Context.t -> host:[ `host ] Ref.t -> unit
 
-val reboot : __context:Context.t -> host:[`host] Ref.t -> unit
+val reboot : __context:Context.t -> host:[ `host ] Ref.t -> unit
 
-val power_on : __context:Context.t -> host:[`host] Ref.t -> unit
+val power_on : __context:Context.t -> host:[ `host ] Ref.t -> unit
 
 val dmesg : __context:Context.t -> host:'b -> string
 
@@ -112,10 +112,10 @@ val create :
   -> license_params:(string * string) list
   -> edition:string
   -> license_server:(string * string) list
-  -> local_cache_sr:[`SR] Ref.t
+  -> local_cache_sr:[ `SR ] Ref.t
   -> chipset_info:(string * string) list
   -> ssl_legacy:bool
-  -> [`host] Ref.t
+  -> [ `host ] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit
 
@@ -135,9 +135,9 @@ val ha_xapi_healthcheck : __context:'a -> bool
 
 val preconfigure_ha :
      __context:Context.t
-  -> host:[`host] Ref.t
+  -> host:[ `host ] Ref.t
   -> statefiles:API.ref_VDI list
-  -> metadata_vdi:[`VDI] Ref.t
+  -> metadata_vdi:[ `VDI ] Ref.t
   -> generation:string
   -> unit
 
@@ -170,12 +170,12 @@ val get_management_interface :
   __context:Context.t -> host:API.ref_host -> API.ref_PIF
 
 val change_management_interface :
-  __context:Context.t -> string -> [`IPv4 | `IPv6] -> unit
+  __context:Context.t -> string -> [ `IPv4 | `IPv6 ] -> unit
 
 val local_management_reconfigure :
   __context:Context.t -> interface:string -> unit
 
-val management_reconfigure : __context:Context.t -> pif:[`PIF] Ref.t -> unit
+val management_reconfigure : __context:Context.t -> pif:[ `PIF ] Ref.t -> unit
 
 val management_disable : __context:Context.t -> unit
 
@@ -188,14 +188,14 @@ val get_diagnostic_timing_stats :
   __context:Context.t -> host:'b -> (string * string) list
 
 val set_hostname_live :
-  __context:Context.t -> host:[`host] Ref.t -> hostname:string -> unit
+  __context:Context.t -> host:[ `host ] Ref.t -> hostname:string -> unit
 
 val is_in_emergency_mode : __context:'a -> bool
 
 val set_ssl_legacy :
-  __context:Context.t -> self:[`host] API.Ref.t -> value:bool -> unit
+  __context:Context.t -> self:[ `host ] API.Ref.t -> value:bool -> unit
 
-val compute_free_memory : __context:Context.t -> host:[`host] Ref.t -> int64
+val compute_free_memory : __context:Context.t -> host:[ `host ] Ref.t -> int64
 
 val compute_memory_overhead : __context:Context.t -> host:API.ref_host -> int64
 
@@ -216,11 +216,11 @@ val tickle_heartbeat :
 
 val create_new_blob :
      __context:Context.t
-  -> host:[`host] Ref.t
+  -> host:[ `host ] Ref.t
   -> name:string
   -> mime_type:string
   -> public:bool
-  -> [`blob] Ref.t
+  -> [ `blob ] Ref.t
 
 val serialize_host_enable_disable_extauth : Mutex.t
 
@@ -228,31 +228,31 @@ val extauth_hook_script_name : string
 
 val call_extauth_plugin_nomutex :
      __context:Context.t
-  -> host:[`host] Ref.t
+  -> host:[ `host ] Ref.t
   -> fn:string
   -> args:(string * string) list
   -> string
 
 val call_extauth_plugin :
      __context:Context.t
-  -> host:[`host] Ref.t
+  -> host:[ `host ] Ref.t
   -> fn:string
   -> args:(string * string) list
   -> string
 
 val call_plugin :
      __context:Context.t
-  -> host:[`host] Ref.t
+  -> host:[ `host ] Ref.t
   -> plugin:string
   -> fn:string
   -> args:(string * string) list
   -> string
 
 val call_extension :
-  __context:Context.t -> host:[`host] Ref.t -> call:string -> Rpc.t
+  __context:Context.t -> host:[ `host ] Ref.t -> call:string -> Rpc.t
 
 val has_extension :
-  __context:Context.t -> host:[`host] Ref.t -> name:string -> bool
+  __context:Context.t -> host:[ `host ] Ref.t -> name:string -> bool
 
 val sync_data : __context:Context.t -> host:API.ref_host -> unit
 
@@ -263,15 +263,15 @@ val get_servertime : __context:'a -> host:'b -> Xapi_stdext_date.Date.iso8601
 val get_server_localtime :
   __context:'a -> host:'b -> Xapi_stdext_date.Date.iso8601
 
-val enable_binary_storage : __context:Context.t -> host:[`host] Ref.t -> unit
+val enable_binary_storage : __context:Context.t -> host:[ `host ] Ref.t -> unit
 
-val disable_binary_storage : __context:Context.t -> host:[`host] Ref.t -> unit
+val disable_binary_storage : __context:Context.t -> host:[ `host ] Ref.t -> unit
 
 val get_uncooperative_resident_VMs :
-  __context:Context.t -> self:[`host] Ref.t -> API.ref_VM_set
+  __context:Context.t -> self:[ `host ] Ref.t -> API.ref_VM_set
 
 val get_uncooperative_domains :
-  __context:Context.t -> self:[`host] Ref.t -> string list
+  __context:Context.t -> self:[ `host ] Ref.t -> string list
 
 val install_ca_certificate :
   __context:Context.t -> host:API.ref_host -> name:string -> cert:string -> unit
@@ -292,11 +292,11 @@ val certificate_sync : __context:'a -> host:'b -> unit
 val get_server_certificate : __context:'a -> host:'b -> string
 
 val refresh_server_certificate :
-  __context:Context.t -> host:[`host] Ref.t -> unit
+  __context:Context.t -> host:[ `host ] Ref.t -> unit
 
 val install_server_certificate :
      __context:Context.t
-  -> host:[`host] Ref.t
+  -> host:[ `host ] Ref.t
   -> certificate:string
   -> private_key:string
   -> certificate_chain:string
@@ -343,7 +343,7 @@ val disable_external_auth :
 val attach_static_vdis :
      __context:Context.t
   -> host:API.ref_host
-  -> vdi_reason_map:([`VDI] Ref.t * string) list
+  -> vdi_reason_map:([ `VDI ] Ref.t * string) list
   -> unit
 (** Make the given VDIs static on the host, such that they will automatically be attached
  * when xapi is restarted on this host. Supply a [reason] string for each VDI to be
@@ -373,14 +373,14 @@ val refresh_pack_info : __context:Context.t -> host:API.ref_host -> unit
 
 val set_license_params :
      __context:Context.t
-  -> self:[`host] Ref.t
+  -> self:[ `host ] Ref.t
   -> value:(string * string) list
   -> unit
 (** Called by post-floodgate slaves to update the database AND recompute the pool_sku on the master *)
 
 val copy_license_to_db :
      __context:Context.t
-  -> host:[`host] Ref.t
+  -> host:[ `host ] Ref.t
   -> features:Features.feature list
   -> additional:(string * string) list
   -> unit

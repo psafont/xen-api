@@ -25,9 +25,13 @@ let password = ref ""
 let rpc xml =
   let open Xmlrpc_client in
   let http = xmlrpc ~version:"1.0" "/" in
-  XMLRPC_protocol.rpc ~srcstr:"event_listen" ~dststr:"xapi"
+  XMLRPC_protocol.rpc
+    ~srcstr:"event_listen"
+    ~dststr:"xapi"
     ~transport:(TCP (!host, !port))
-    ~http xml
+    ~http
+    xml
+
 
 open Client
 open Printf
@@ -35,22 +39,28 @@ open Event_types
 
 let _ =
   Arg.parse
-    [
-      ("-h", Arg.Set_string host, "hostname to connect to")
+    [ ("-h", Arg.Set_string host, "hostname to connect to")
     ; ("-p", Arg.Set_int port, "port number to connect to")
     ; ("-u", Arg.Set_string username, "username to connect with")
     ; ("-pw", Arg.Set_string password, "password to connect with")
     ]
     (fun x -> Printf.printf "Skipping unknown argument: %s" x)
     "Subscribe to an event stream and print the results" ;
-  Printf.printf "Connecting to Host: %s; Port: %d; Username: %s" !host !port
+  Printf.printf
+    "Connecting to Host: %s; Port: %d; Username: %s"
+    !host
+    !port
     !username ;
   (* Interesting event stuff starts here: *)
   let session_id =
-    Client.Session.login_with_password ~rpc ~uname:!username ~pwd:!password
-      ~version:"1.2" ~originator:"event_listen"
+    Client.Session.login_with_password
+      ~rpc
+      ~uname:!username
+      ~pwd:!password
+      ~version:"1.2"
+      ~originator:"event_listen"
   in
-  Client.Event.register ~rpc ~session_id ~classes:["*"] ;
+  Client.Event.register ~rpc ~session_id ~classes:[ "*" ] ;
   while true do
     let events = events_of_rpc (Client.Event.next ~rpc ~session_id) in
     List.iter (fun event -> print_endline (string_of_event event)) events ;

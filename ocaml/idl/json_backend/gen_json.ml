@@ -23,18 +23,18 @@ let destdir' = ref "."
 
 let parse_args () =
   Arg.parse
-    [
-      ( "-destdir"
+    [ ( "-destdir"
       , Arg.Set_string destdir'
-      , "the destination directory for the generated files"
-      )
+      , "the destination directory for the generated files" )
     ]
     (fun x -> Printf.printf "Ignoring anonymous argument %s" x)
     "Generates documentation for the datamodel classes. See -help."
 
+
 let escape_json s =
   let len = String.length s in
-  if len > 0 then (
+  if len > 0
+  then (
     let buf = Buffer.create len in
     for i = 0 to len - 1 do
       match s.[i] with
@@ -53,9 +53,9 @@ let escape_json s =
       | c ->
           Buffer.add_char buf c
     done ;
-    Buffer.contents buf
-  ) else
-    ""
+    Buffer.contents buf )
+  else ""
+
 
 type json =
   | JObject of (string * json) list
@@ -65,11 +65,7 @@ type json =
   | JBoolean of bool
   | JEmpty
 
-let endl n =
-  if n = 0 then
-    ""
-  else
-    "\n" ^ String.make ((2 * n) - 2) ' '
+let endl n = if n = 0 then "" else "\n" ^ String.make ((2 * n) - 2) ' '
 
 let rec string_of_json n = function
   | JObject l ->
@@ -79,8 +75,7 @@ let rec string_of_json n = function
           ("," ^ endl (n + 1))
           (List.map
              (fun (s, j) -> "\"" ^ s ^ "\": " ^ string_of_json (n + 2) j)
-             l
-          )
+             l )
       ^ " }"
   | JArray l ->
       "[ "
@@ -94,6 +89,7 @@ let rec string_of_json n = function
       if b = true then "true" else "false"
   | JEmpty ->
       "\"\""
+
 
 (* Datamodel *)
 
@@ -110,7 +106,7 @@ let rec string_of_ty_with_enums ty =
   | DateTime ->
       ("datetime", [])
   | Enum (name, kv) ->
-      ("enum " ^ name, [(name, kv)])
+      ("enum " ^ name, [ (name, kv) ])
   | Set ty ->
       let s, e = string_of_ty_with_enums ty in
       (s ^ " set", e)
@@ -126,6 +122,7 @@ let rec string_of_ty_with_enums ty =
       let s, e = string_of_ty_with_enums ty in
       (s ^ " option", e)
 
+
 let string_of_qualifier = function
   | RW ->
       "RW"
@@ -133,6 +130,7 @@ let string_of_qualifier = function
       "RO/constructor"
   | DynamicRO ->
       "RO/runtime"
+
 
 let rec string_of_default = function
   | VString x ->
@@ -148,16 +146,17 @@ let rec string_of_default = function
   | VEnum x ->
       x
   | VMap x ->
-      Printf.sprintf "{%s}"
-        (String.concat ", "
+      Printf.sprintf
+        "{%s}"
+        (String.concat
+           ", "
            (List.map
               (fun (a, b) ->
-                Printf.sprintf "%s -> %s" (string_of_default a)
-                  (string_of_default b)
-                )
-              x
-           )
-        )
+                Printf.sprintf
+                  "%s -> %s"
+                  (string_of_default a)
+                  (string_of_default b) )
+              x ) )
   | VSet x ->
       Printf.sprintf "{%s}" (String.concat ", " (List.map string_of_default x))
   | VRef x ->
@@ -165,19 +164,18 @@ let rec string_of_default = function
   | VCustom (_, y) ->
       string_of_default y
 
+
 let jarray_of_lifecycle lc =
   JArray
     (List.map
        (fun (t, r, d) ->
          JObject
-           [
-             ("transition", JString (string_of_lifecycle_transition t))
+           [ ("transition", JString (string_of_lifecycle_transition t))
            ; ("release", JString r)
            ; ("description", JString d)
-           ]
-         )
-       lc
-    )
+           ] )
+       lc )
+
 
 let fields_of_obj_with_enums obj =
   let rec flatten_contents contents =
@@ -186,9 +184,9 @@ let fields_of_obj_with_enums obj =
         | Field f ->
             f :: l
         | Namespace (name, contents) ->
-            flatten_contents contents @ l
-        )
-      [] contents
+            flatten_contents contents @ l )
+      []
+      contents
   in
   let fields = flatten_contents obj.contents in
   List.fold_left
@@ -209,35 +207,32 @@ let fields_of_obj_with_enums obj =
                | [] ->
                    ""
                | t :: _ ->
-                   string_of_doc_tag t
-               )
-           )
+                   string_of_doc_tag t ) )
            ::
            ("lifecycle", jarray_of_lifecycle field.lifecycle)
            ::
            ( match field.default_value with
            | Some d ->
-               [("default", JString (string_of_default d))]
+               [ ("default", JString (string_of_default d)) ]
            | None ->
-               []
-           )
-          )
+               [] ) )
         :: fields
-      , enums @ e
-      )
-      )
-    ([], []) fields
+      , enums @ e ) )
+    ([], [])
+    fields
+
 
 let jarray_of_result_with_enums obj msg =
   match msg.msg_result with
   | None ->
-      (JArray [JString "void"], [])
+      (JArray [ JString "void" ], [])
   | Some (t, d) ->
-      if obj.name = "event" && String.lowercase_ascii msg.msg_name = "from" then
-        (JArray [JString "an event batch"; JString d], [])
+      if obj.name = "event" && String.lowercase_ascii msg.msg_name = "from"
+      then (JArray [ JString "an event batch"; JString d ], [])
       else
         let t', enums = string_of_ty_with_enums t in
-        (JArray [JString t'; JString d], enums)
+        (JArray [ JString t'; JString d ], enums)
+
 
 let jarray_of_params_with_enums ps =
   let params, enums =
@@ -245,27 +240,25 @@ let jarray_of_params_with_enums ps =
       (fun (params, enums) p ->
         let t, e = string_of_ty_with_enums p.param_type in
         ( JObject
-            [
-              ("type", JString t)
+            [ ("type", JString t)
             ; ("name", JString p.param_name)
             ; ("doc", JString p.param_doc)
             ]
           :: params
-        , enums @ e
-        )
-        )
-      ([], []) ps
+        , enums @ e ) )
+      ([], [])
+      ps
   in
   (JArray (List.rev params), enums)
+
 
 let jarray_of_errors es =
   JArray
     (List.map
        (fun e ->
-         JObject [("name", JString e.err_name); ("doc", JString e.err_doc)]
-         )
-       es
-    )
+         JObject [ ("name", JString e.err_name); ("doc", JString e.err_doc) ] )
+       es )
+
 
 let jarray_of_roles = function
   | None ->
@@ -273,45 +266,42 @@ let jarray_of_roles = function
   | Some rs ->
       JArray (List.map (fun s -> JString s) rs)
 
+
 let session_id =
-  {
-    param_type= Ref Datamodel_common._session
-  ; param_name= "session_id"
-  ; param_doc= "Reference to a valid session"
-  ; param_release= Datamodel_common.rio_release
-  ; param_default= None
+  { param_type = Ref Datamodel_common._session
+  ; param_name = "session_id"
+  ; param_doc = "Reference to a valid session"
+  ; param_release = Datamodel_common.rio_release
+  ; param_default = None
   }
+
 
 let messages_of_obj_with_enums obj =
   List.fold_left
     (fun (msgs, enums) msg ->
       let params =
-        if msg.msg_session then
-          session_id :: msg.msg_params
-        else
-          msg.msg_params
+        if msg.msg_session then session_id :: msg.msg_params else msg.msg_params
       in
       let ctor =
-        if msg.msg_tag = FromObject Make then
+        if msg.msg_tag = FromObject Make
+        then
           let ctor_fields =
             List.filter
-              (function {qualifier= StaticRO | RW} -> true | _ -> false)
+              (function { qualifier = StaticRO | RW } -> true | _ -> false)
               (fields_of_obj obj)
             |> List.map (fun f ->
                    String.concat "_" f.full_name
-                   ^ if f.default_value = None then "*" else ""
-               )
+                   ^ if f.default_value = None then "*" else "" )
           in
-          Printf.sprintf "\nThe constructor args are: %s (* = non-optional)."
+          Printf.sprintf
+            "\nThe constructor args are: %s (* = non-optional)."
             (String.concat ", " ctor_fields)
-        else
-          ""
+        else ""
       in
       let result, enums1 = jarray_of_result_with_enums obj msg in
       let params, enums2 = jarray_of_params_with_enums params in
       ( JObject
-          [
-            ("name", JString msg.msg_name)
+          [ ("name", JString msg.msg_name)
           ; ("description", JString (msg.msg_doc ^ ctor))
           ; ("result", result)
           ; ("params", params)
@@ -323,38 +313,31 @@ let messages_of_obj_with_enums obj =
                 | [] ->
                     ""
                 | t :: _ ->
-                    string_of_doc_tag t
-                )
-            )
+                    string_of_doc_tag t ) )
           ; ("lifecycle", jarray_of_lifecycle msg.msg_lifecycle)
           ; ("implicit", JBoolean (msg.msg_tag <> Custom))
           ]
         :: msgs
-      , enums @ enums1 @ enums2
-      )
-      )
-    ([], []) obj.messages
+      , enums @ enums1 @ enums2 ) )
+    ([], [])
+    obj.messages
+
 
 let jarray_of_enums enums =
   JArray
     (List.map
        (fun (name, vs) ->
          JObject
-           [
-             ("name", JString name)
+           [ ("name", JString name)
            ; ( "values"
              , JArray
                  (List.map
                     (fun (v, d) ->
-                      JObject [("name", JString v); ("doc", JString d)]
-                      )
-                    vs
-                 )
-             )
-           ]
-         )
-       enums
-    )
+                      JObject [ ("name", JString v); ("doc", JString d) ] )
+                    vs ) )
+           ] )
+       enums )
+
 
 let json_of_objs objs =
   JArray
@@ -364,30 +347,25 @@ let json_of_objs objs =
          let messages, enums2 = messages_of_obj_with_enums obj in
          let enums = Xapi_stdext_std.Listext.List.setify (enums1 @ enums2) in
          let event_snapshot =
-           if String.lowercase_ascii obj.name = "event" then
-             [
-               JObject
-                 [
-                   ("name", JString "snapshot")
+           if String.lowercase_ascii obj.name = "event"
+           then
+             [ JObject
+                 [ ("name", JString "snapshot")
                  ; ( "description"
                    , JString
                        "The record of the database object that was added, \
-                        changed or deleted"
-                   )
+                        changed or deleted" )
                  ; ("type", JString "&lt;object record&gt;")
                  ; ("qualifier", JString (string_of_qualifier DynamicRO))
                  ; ("tag", JString "")
                  ; ( "lifecycle"
-                   , jarray_of_lifecycle [(Published, rel_boston, "")]
-                   )
+                   , jarray_of_lifecycle [ (Published, rel_boston, "") ] )
                  ]
              ]
-           else
-             []
+           else []
          in
          JObject
-           [
-             ("name", JString obj.name)
+           [ ("name", JString obj.name)
            ; ("description", JString obj.description)
            ; ("fields", JArray (event_snapshot @ fields))
            ; ("messages", JArray messages)
@@ -399,21 +377,18 @@ let json_of_objs objs =
                  | [] ->
                      ""
                  | t :: _ ->
-                     string_of_doc_tag t
-                 )
-             )
-           ]
-         )
-       objs
-    )
+                     string_of_doc_tag t ) )
+           ] )
+       objs )
+
 
 let jobject_of_change (t, n, l, s) =
   JObject
-    [
-      ("transition", JString (string_of_lifecycle_transition t ^ " " ^ s))
+    [ ("transition", JString (string_of_lifecycle_transition t ^ " " ^ s))
     ; ("name", JString n)
     ; ("log", JString l)
     ]
+
 
 let compare_changes (a_t, a_n, _, a_k) (b_t, b_n, _, b_k) =
   let int_of_transition = function
@@ -445,10 +420,8 @@ let compare_changes (a_t, a_n, _, a_k) (b_t, b_n, _, b_k) =
       (int_of_transition a_t + int_of_kind a_k)
       (int_of_transition b_t + int_of_kind b_k)
   in
-  if cmp = 0 then
-    compare a_n b_n
-  else
-    cmp
+  if cmp = 0 then compare a_n b_n else cmp
+
 
 let releases objs =
   let changes_in_release rel =
@@ -463,22 +436,17 @@ let releases objs =
           (fun (transition, release, doc) ->
             ( transition
             , obj.name
-            , ( if doc = "" && transition = Published then
-                  obj.description
-              else
-                doc
-              )
-            , "class"
-            )
-            )
+            , ( if doc = "" && transition = Published
+              then obj.description
+              else doc )
+            , "class" ) )
           changes
       in
       let changes_for_msg m =
         let changes =
           List.filter
             (fun (transition, release, doc) ->
-              release = code_name_of_release rel
-              )
+              release = code_name_of_release rel )
             m.msg_lifecycle
         in
         List.map
@@ -486,9 +454,7 @@ let releases objs =
             ( transition
             , obj.name ^ "." ^ m.msg_name
             , (if doc = "" && transition = Published then m.msg_doc else doc)
-            , "message"
-            )
-            )
+            , "message" ) )
           changes
       in
       (* Don't include implicit messages *)
@@ -500,8 +466,7 @@ let releases objs =
         let changes =
           List.filter
             (fun (transition, release, doc) ->
-              release = code_name_of_release rel
-              )
+              release = code_name_of_release rel )
             f.lifecycle
         in
         let field_name = String.concat "_" f.full_name in
@@ -509,14 +474,10 @@ let releases objs =
           (fun (transition, release, doc) ->
             ( transition
             , obj.name ^ "." ^ field_name
-            , ( if doc = "" && transition = Published then
-                  f.field_description
-              else
-                doc
-              )
-            , "field"
-            )
-            )
+            , ( if doc = "" && transition = Published
+              then f.field_description
+              else doc )
+            , "field" ) )
           changes
       in
       let rec flatten_contents contents =
@@ -525,41 +486,38 @@ let releases objs =
             | Field f ->
                 f :: l
             | Namespace (name, contents) ->
-                flatten_contents contents @ l
-            )
-          [] contents
+                flatten_contents contents @ l )
+          []
+          contents
       in
       let fields = flatten_contents obj.contents in
       let field_changes =
         List.fold_left (fun l f -> l @ changes_for_field f) [] fields
       in
       let event_snapshot_change =
-        if obj.name = "event" && rel.code_name = Some rel_boston then
-          [
-            ( Published
+        if obj.name = "event" && rel.code_name = Some rel_boston
+        then
+          [ ( Published
             , "event.snapshot"
             , "The record of the database object that was added, changed or \
                deleted"
-            , "field"
-            )
+            , "field" )
           ]
-        else
-          []
+        else []
       in
       obj_changes @ event_snapshot_change @ field_changes @ msg_changes
     in
     JArray
-      (List.map search_obj objs
+      ( List.map search_obj objs
       |> List.flatten
       |> List.sort compare_changes
-      |> List.map jobject_of_change
-      )
+      |> List.map jobject_of_change )
   in
   JObject
     (List.map
        (fun rel -> (code_name_of_release rel, changes_in_release rel))
-       release_order
-    )
+       release_order )
+
 
 let _ =
   parse_args () ;
@@ -589,9 +547,9 @@ let _ =
     (Filename.concat data_dir "release_info.json")
     (string_of_json 0 release_info) ;
   let release_yaml = function
-    | {release_date= None} ->
+    | { release_date = None } ->
         ""
-    | {code_name= Some x; version_major; version_minor; branding= y} ->
+    | { code_name = Some x; version_major; version_minor; branding = y } ->
         Printf.sprintf "%s: %s\n" x y
     | _ ->
         ""
@@ -604,17 +562,15 @@ let _ =
   let class_md_dir = Filename.concat destdir "xen-api/classes" in
   Xapi_stdext_unix.Unixext.mkdir_rec class_md_dir 0o755 ;
   let release_md = function
-    | {release_date= None} ->
+    | { release_date = None } ->
         ()
-    | {
-        code_name= Some x
+    | { code_name = Some x
       ; version_major
       ; version_minor
       ; branding
-      ; release_date= y
+      ; release_date = y
       } ->
-        [
-          "---"
+        [ "---"
         ; "layout: xenapi-release"
         ; Printf.sprintf "release: %s" x
         ; "release_index: true"
@@ -625,8 +581,7 @@ let _ =
           | Some z ->
               Printf.sprintf "Released in %s.\n" z
           | _ ->
-              ""
-          )
+              "" )
         ]
         |> String.concat "\n"
         |> Xapi_stdext_unix.Unixext.write_string_to_file
@@ -636,9 +591,8 @@ let _ =
   in
   release_order_full |> List.iter release_md ;
   let class_md = function
-    | {name; _} ->
-        [
-          "---"
+    | { name; _ } ->
+        [ "---"
         ; "layout: xenapi-class"
         ; Printf.sprintf "class: %s" name
         ; "class_index: true"
@@ -646,8 +600,8 @@ let _ =
         ]
         |> String.concat "\n"
         |> Xapi_stdext_unix.Unixext.write_string_to_file
-             (Filename.concat class_md_dir
-                (Printf.sprintf "%s.md" (String.lowercase_ascii name))
-             )
+             (Filename.concat
+                class_md_dir
+                (Printf.sprintf "%s.md" (String.lowercase_ascii name)) )
   in
   objs |> List.iter class_md

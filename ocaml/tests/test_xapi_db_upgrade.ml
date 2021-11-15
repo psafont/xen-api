@@ -29,11 +29,13 @@ let upgrade_vm_memory_for_dmc () =
   Alcotest.(check int64)
     "upgrade_vm_memory_for_dmc: control domain memory_dynamic_min <> \
      memory_target"
-    r.API.vM_memory_dynamic_min r.API.vM_memory_target ;
+    r.API.vM_memory_dynamic_min
+    r.API.vM_memory_target ;
   Alcotest.(check int64)
     "upgrade_vm_memory_for_dmc: control domain memory_dynamic_max <> \
      memory_target"
-    r.API.vM_memory_dynamic_max r.API.vM_memory_target ;
+    r.API.vM_memory_dynamic_max
+    r.API.vM_memory_target ;
   (* Make this a non-control domain and change all memory fields *)
   Db.VM.set_is_control_domain ~__context ~self ~value:false ;
   Db.VM.set_memory_static_min ~__context ~self ~value:5L ;
@@ -46,16 +48,21 @@ let upgrade_vm_memory_for_dmc () =
   let r = Db.VM.get_record ~__context ~self in
   Alcotest.(check int64)
     "upgrade_vm_memory_for_dmc: memory_dynamic_max <> memory_static_max"
-    r.API.vM_memory_dynamic_max r.API.vM_memory_static_max ;
+    r.API.vM_memory_dynamic_max
+    r.API.vM_memory_static_max ;
   Alcotest.(check int64)
     "upgrade_vm_memory_for_dmc: memory_target <> memory_static_max"
-    r.API.vM_memory_target r.API.vM_memory_static_max ;
+    r.API.vM_memory_target
+    r.API.vM_memory_static_max ;
   Alcotest.(check int64)
     "upgrade_vm_memory_for_dmc: memory_dynamic_min <> memory_static_max"
-    r.API.vM_memory_dynamic_min r.API.vM_memory_static_max ;
+    r.API.vM_memory_dynamic_min
+    r.API.vM_memory_static_max ;
   Alcotest.(check bool)
-    "upgrade_vm_memory_for_dmc: memory_static_min > memory_static_max" true
+    "upgrade_vm_memory_for_dmc: memory_static_min > memory_static_max"
+    true
     (r.API.vM_memory_static_min <= r.API.vM_memory_static_max)
+
 
 let upgrade_bios () =
   let tmp_filename = "/tmp/previousInventory" in
@@ -65,12 +72,15 @@ let upgrade_bios () =
     X.upgrade_bios_strings.fn ~__context ;
     let _, vm_r = List.hd (Db.VM.get_all_records ~__context) in
     Alcotest.(check (list (pair string string)))
-      "bios strings upgrade" vm_r.API.vM_bios_strings bios_strings
+      "bios strings upgrade"
+      vm_r.API.vM_bios_strings
+      bios_strings
   in
   check "OEM_MANUFACTURER=Dell" Constants.old_dell_bios_strings ;
   check "OEM_MANUFACTURER=HP" Constants.old_hp_bios_strings ;
   check "" Constants.generic_bios_strings ;
   Xapi_stdext_unix.Unixext.unlink_safe tmp_filename
+
 
 let update_snapshots () =
   let __context = T.make_test_database () in
@@ -92,12 +102,15 @@ let update_snapshots () =
   (* b.parent = b_snap2 *)
   check_vm "b.parent <> b_snap2" b_snap2 (Db.VM.get_parent ~__context ~self:b) ;
   (* b_snap2.parent = b_snap *)
-  check_vm "b_snap2.parent <> b_snap" b_snap
+  check_vm
+    "b_snap2.parent <> b_snap"
+    b_snap
     (Db.VM.get_parent ~__context ~self:b_snap2)
 
+
 let remove_restricted_pbd_keys () =
-  let restricted_keys = ["SRmaster"] in
-  let other_keys = ["foo"; "bar"] in
+  let restricted_keys = [ "SRmaster" ] in
+  let other_keys = [ "foo"; "bar" ] in
   (* to check we don't remove too much *)
   let device_config =
     List.map (fun k -> (k, "some_value")) (restricted_keys @ other_keys)
@@ -109,27 +122,25 @@ let remove_restricted_pbd_keys () =
   List.iter
     (fun k ->
       Alcotest.(check bool)
-        (Printf.sprintf "Restricted key, %s, not removed from PBD.device_config"
-           k
-        )
+        (Printf.sprintf
+           "Restricted key, %s, not removed from PBD.device_config"
+           k )
         false
-        (List.mem_assoc k device_config')
-      )
+        (List.mem_assoc k device_config') )
     restricted_keys ;
   List.iter
     (fun k ->
       Alcotest.(check bool)
-        (Printf.sprintf "Non-restricted key, %s, removed from PBD.device_config"
-           k
-        )
+        (Printf.sprintf
+           "Non-restricted key, %s, removed from PBD.device_config"
+           k )
         true
-        (List.mem_assoc k device_config')
-      )
+        (List.mem_assoc k device_config') )
     other_keys
 
+
 let test =
-  [
-    ("upgrade_vm_memory_for_dmc", `Quick, upgrade_vm_memory_for_dmc)
+  [ ("upgrade_vm_memory_for_dmc", `Quick, upgrade_vm_memory_for_dmc)
   ; ("upgrade_bios", `Quick, upgrade_bios)
   ; ("update_snapshots", `Quick, update_snapshots)
   ; ("remove_restricted_pbd_keys", `Quick, remove_restricted_pbd_keys)

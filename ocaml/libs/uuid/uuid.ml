@@ -61,31 +61,49 @@ let rnd_array n =
   in
   Array.of_list (rnd_list n [])
 
+
 let read_array dev n =
-  let fd = Unix.openfile dev [Unix.O_RDONLY] 0o640 in
+  let fd = Unix.openfile dev [ Unix.O_RDONLY ] 0o640 in
   let finally body_f clean_f =
     try
       let ret = body_f () in
-      clean_f () ; ret
-    with e -> clean_f () ; raise e
+      clean_f () ;
+      ret
+    with
+    | e ->
+        clean_f () ;
+        raise e
   in
   finally
     (fun () ->
       let buf = Bytes.create n in
       let read = Unix.read fd buf 0 n in
-      if read <> n then
-        raise End_of_file
-      else
-        Array.init n (fun i -> Char.code (Bytes.get buf i))
-      )
+      if read <> n
+      then raise End_of_file
+      else Array.init n (fun i -> Char.code (Bytes.get buf i)) )
     (fun () -> Unix.close fd)
+
 
 let uuid_of_int_array uuid =
   Printf.sprintf
     "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
-    uuid.(0) uuid.(1) uuid.(2) uuid.(3) uuid.(4) uuid.(5) uuid.(6) uuid.(7)
-    uuid.(8) uuid.(9) uuid.(10) uuid.(11) uuid.(12) uuid.(13) uuid.(14)
+    uuid.(0)
+    uuid.(1)
+    uuid.(2)
+    uuid.(3)
+    uuid.(4)
+    uuid.(5)
+    uuid.(6)
+    uuid.(7)
+    uuid.(8)
+    uuid.(9)
+    uuid.(10)
+    uuid.(11)
+    uuid.(12)
+    uuid.(13)
+    uuid.(14)
     uuid.(15)
+
 
 let make_uuid_prng () = uuid_of_int_array (rnd_array 16)
 
@@ -99,22 +117,44 @@ let make_cookie () =
   let bytes = Array.to_list (read_array dev_urandom 64) in
   String.concat "" (List.map (Printf.sprintf "%1x") bytes)
 
+
 let int_array_of_uuid s =
   try
     let l = ref [] in
-    Scanf.sscanf s
+    Scanf.sscanf
+      s
       "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
       (fun a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 ->
         l :=
-          [a0; a1; a2; a3; a4; a5; a6; a7; a8; a9; a10; a11; a12; a13; a14; a15]
-    ) ;
+          [ a0
+          ; a1
+          ; a2
+          ; a3
+          ; a4
+          ; a5
+          ; a6
+          ; a7
+          ; a8
+          ; a9
+          ; a10
+          ; a11
+          ; a12
+          ; a13
+          ; a14
+          ; a15
+          ] ) ;
     Array.of_list !l
-  with _ -> invalid_arg "Uuid.int_array_of_uuid"
+  with
+  | _ ->
+      invalid_arg "Uuid.int_array_of_uuid"
+
 
 let is_uuid str =
   try
-    Scanf.sscanf str
+    Scanf.sscanf
+      str
       "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
-      (fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ -> true
-    )
-  with _ -> false
+      (fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ -> true)
+  with
+  | _ ->
+      false

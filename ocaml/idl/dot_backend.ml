@@ -26,19 +26,22 @@ let rec all_refs = function
   | Map (a, b) ->
       all_refs a @ all_refs b
   | Ref obj ->
-      [obj]
+      [ obj ]
   | _ ->
       []
+
 
 (** Return a list of pairs of (field name, TYPE) for each object field *)
 let rec all_field_types = function
   | Field fr ->
-      [(fr.field_name, fr.ty)]
+      [ (fr.field_name, fr.ty) ]
   | Namespace (_, xs) ->
       List.concat (List.map all_field_types xs)
 
+
 let of_objs api =
-  let xs = objects_of_api api and relations = relations_of_api api in
+  let xs = objects_of_api api
+  and relations = relations_of_api api in
   let names : string list = List.map (fun x -> x.name) xs in
   let edges : string list =
     List.concat
@@ -63,21 +66,23 @@ let of_objs api =
                          (sprintf
                             "bad relational edge between %s.%s and %s.%s; \
                              object name [%s] never occurs in [%s]"
-                            a a_field_name b b_field_name obj
-                            (Types.to_string ty)
-                         )
+                            a
+                            a_field_name
+                            b
+                            b_field_name
+                            obj
+                            (Types.to_string ty) )
                    | `One ->
-                       [which ^ "=\"none\""]
+                       [ which ^ "=\"none\"" ]
                    | `Many ->
-                       [which ^ "=\"crow\""]
+                       [ which ^ "=\"crow\"" ]
                  in
                  let labels =
-                   [(* "label=\"" ^ label ^ "\"";*) "color=\"blue\""]
+                   [ (* "label=\"" ^ label ^ "\"";*) "color=\"blue\"" ]
                    @ get_arrow "arrowhead" b a_field.ty
                    @ get_arrow "arrowtail" a b_field.ty
                  in
-                 sprintf "%s -> %s [ %s ]" a b (String.concat ", " labels)
-                 )
+                 sprintf "%s -> %s [ %s ]" a b (String.concat ", " labels) )
                relational
            in
            (* list of pairs of (field name, type) *)
@@ -91,11 +96,9 @@ let of_objs api =
                  List.filter
                    (fun ((a, a_name), (b, b_name)) ->
                      (a = obj.name && a_name = name)
-                     || (b = obj.name && b_name = name)
-                     )
+                     || (b = obj.name && b_name = name) )
                    relations
-                 = []
-                 )
+                 = [] )
                name_types
            in
            (* decompose each ty into a list of references *)
@@ -103,10 +106,8 @@ let of_objs api =
              List.concat
                (List.map
                   (fun (name, ty) ->
-                    List.map (fun x -> (name, x, ty)) (all_refs ty)
-                    )
-                  name_types
-               )
+                    List.map (fun x -> (name, x, ty)) (all_refs ty) )
+                  name_types )
            in
            let name_names : (string * string) list =
              List.map
@@ -120,31 +121,25 @@ let of_objs api =
                    | `Many ->
                        "(*)"
                  in
-                 (name ^ count, obj)
-                 )
+                 (name ^ count, obj) )
                name_refs
            in
            let edges =
              List.map
                (fun (field, target) ->
-                 sprintf "%s -> %s [ label=\"%s\" ]" obj.name target field
-                 )
+                 sprintf "%s -> %s [ label=\"%s\" ]" obj.name target field )
                name_names
              @ edges
            in
-           edges
-           )
-         xs
-      )
+           edges )
+         xs )
   in
-  [
-    "digraph g{"
+  [ "digraph g{"
   ; (let node name = Printf.sprintf "%s [ URL=\"%s.html\" ]" name name in
-     "node [ shape=box ]; " ^ String.concat " " (List.map node names) ^ ";"
-    )
+     "node [ shape=box ]; " ^ String.concat " " (List.map node names) ^ ";" )
   ]
   @ edges
-  @ ["}"]
+  @ [ "}" ]
 
 (*
 

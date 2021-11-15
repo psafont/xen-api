@@ -21,28 +21,27 @@ let init () = ()
 
 module HOST = struct
   let stat () =
-    {
-      Host.cpu_info=
-        {
-          Host.cpu_count= 0
-        ; socket_count= 0
-        ; vendor= "unknown"
-        ; speed= ""
-        ; modelname= ""
-        ; family= ""
-        ; model= ""
-        ; stepping= ""
-        ; flags= ""
-        ; features= [||]
-        ; features_pv= [||]
-        ; features_hvm= [||]
-        ; features_oldstyle= [||]
-        ; features_pv_host= [||]
-        ; features_hvm_host= [||]
+    { Host.cpu_info =
+        { Host.cpu_count = 0
+        ; socket_count = 0
+        ; vendor = "unknown"
+        ; speed = ""
+        ; modelname = ""
+        ; family = ""
+        ; model = ""
+        ; stepping = ""
+        ; flags = ""
+        ; features = [||]
+        ; features_pv = [||]
+        ; features_hvm = [||]
+        ; features_oldstyle = [||]
+        ; features_pv_host = [||]
+        ; features_hvm_host = [||]
         }
-    ; hypervisor= {Host.version= ""; capabilities= ""}
-    ; chipset_info= {iommu= false; hvm= false}
+    ; hypervisor = { Host.version = ""; capabilities = "" }
+    ; chipset_info = { iommu = false; hvm = false }
     }
+
 
   let get_console_data () = ""
 
@@ -84,6 +83,7 @@ module VM = struct
 
   let set_memory_dynamic_range _ _ _ _ =
     unimplemented "VM.set_memory_dynamic_range"
+
 
   let request_shutdown _ _ _ _ = unimplemented "VM.request_shutdown"
 
@@ -174,8 +174,10 @@ module VIF = struct
   let set_ipv4_configuration _ _ _ _ =
     unimplemented "VIF.set_ipv4_configuration"
 
+
   let set_ipv6_configuration _ _ _ _ =
     unimplemented "VIF.set_ipv6_configuration"
+
 
   let set_pvs_proxy _ _ _ _ = unimplemented "VIF.set_pvs_proxy"
 
@@ -210,4 +212,6 @@ module UPDATES = struct
     assert false
 end
 
-module DEBUG = struct let trigger _ _ = unimplemented "DEBUG.trigger" end
+module DEBUG = struct
+  let trigger _ _ = unimplemented "DEBUG.trigger"
+end

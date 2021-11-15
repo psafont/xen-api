@@ -12,19 +12,24 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type endpoint = {
-    fdin: Unix.file_descr
-  ; fdout: Unix.file_descr
-  ; mutable buffer: bytes
-  ; mutable buffer_len: int
-}
+type endpoint =
+  { fdin : Unix.file_descr
+  ; fdout : Unix.file_descr
+  ; mutable buffer : bytes
+  ; mutable buffer_len : int
+  }
 
 let make_endpoint fdin fdout =
-  {fdin; fdout; buffer= Bytes.make 4096 '\000'; buffer_len= 0}
+  { fdin; fdout; buffer = Bytes.make 4096 '\000'; buffer_len = 0 }
 
-let proxy (ain : Unix.file_descr) (aout : Unix.file_descr)
-    (bin : Unix.file_descr) (bout : Unix.file_descr) =
-  let a' = make_endpoint ain aout and b' = make_endpoint bin bout in
+
+let proxy
+    (ain : Unix.file_descr)
+    (aout : Unix.file_descr)
+    (bin : Unix.file_descr)
+    (bout : Unix.file_descr) =
+  let a' = make_endpoint ain aout
+  and b' = make_endpoint bin bout in
   Unix.set_nonblock ain ;
   Unix.set_nonblock aout ;
   Unix.set_nonblock bin ;
@@ -38,7 +43,10 @@ let proxy (ain : Unix.file_descr) (aout : Unix.file_descr)
   in
   let read_into x =
     let read =
-      Unix.read x.fdin x.buffer x.buffer_len
+      Unix.read
+        x.fdin
+        x.buffer
+        x.buffer_len
         (Bytes.length x.buffer - x.buffer_len)
     in
     if read = 0 then raise End_of_file ;
@@ -47,11 +55,12 @@ let proxy (ain : Unix.file_descr) (aout : Unix.file_descr)
   try
     while true do
       let r =
-        (if can_read a' then [ain] else []) @ if can_read b' then [bin] else []
+        (if can_read a' then [ ain ] else [])
+        @ if can_read b' then [ bin ] else []
       in
       let w =
-        (if can_write a' then [bout] else [])
-        @ if can_write b' then [aout] else []
+        (if can_write a' then [ bout ] else [])
+        @ if can_write b' then [ aout ] else []
       in
       let r, w, _ = Unix.select r w [] (-1.0) in
       (* Do the writing before the reading *)
@@ -60,25 +69,30 @@ let proxy (ain : Unix.file_descr) (aout : Unix.file_descr)
         w ;
       List.iter (fun fd -> if ain = fd then read_into a' else read_into b') r
     done
-  with _ -> (
-    (try Unix.clear_nonblock ain with _ -> ()) ;
-    (try Unix.clear_nonblock bin with _ -> ()) ;
-    (try Unix.clear_nonblock aout with _ -> ()) ;
-    (try Unix.clear_nonblock bout with _ -> ()) ;
-    (try Unix.close ain with _ -> ()) ;
-    (try Unix.close bin with _ -> ()) ;
-    (try Unix.close aout with _ -> ()) ;
-    try Unix.close bout with _ -> ()
-  )
+  with
+  | _ ->
+      (try Unix.clear_nonblock ain with _ -> ()) ;
+      (try Unix.clear_nonblock bin with _ -> ()) ;
+      (try Unix.clear_nonblock aout with _ -> ()) ;
+      (try Unix.clear_nonblock bout with _ -> ()) ;
+      (try Unix.close ain with _ -> ()) ;
+      (try Unix.close bin with _ -> ()) ;
+      (try Unix.close aout with _ -> ()) ;
+      (try Unix.close bout with _ -> ())
+
 
 let with_open_tcp_ssl server f =
   let port = 443 in
   (* We don't bother closing fds since this requires our close_and_exec wrapper *)
   let open Safe_resources in
-  Stunnel.with_connect ~use_fork_exec_helper:false
+  Stunnel.with_connect
+    ~use_fork_exec_helper:false
     ~write_to_log:(fun _ -> ())
-    ~verify_cert:None server port
+    ~verify_cert:None
+    server
+    port
   @@ fun x -> f Unixfd.(!(x.Stunnel.fd))
+
 
 let _ =
   let host = Sys.argv.(1) in
@@ -92,9 +106,13 @@ let _ =
       (List.tl (List.tl (List.tl (Array.to_list Sys.argv))))
   in
   let req =
-    Printf.sprintf "CONNECT /remotecmd?session_id=%s&cmd=%s%s http/1.0\r\n\r\n"
-      session cmd (String.concat "" args)
+    Printf.sprintf
+      "CONNECT /remotecmd?session_id=%s&cmd=%s%s http/1.0\r\n\r\n"
+      session
+      cmd
+      (String.concat "" args)
   in
-  with_open_tcp_ssl host @@ fun fd ->
+  with_open_tcp_ssl host
+  @@ fun fd ->
   Unix.write_substring fd req 0 (String.length req) |> ignore ;
   proxy Unix.stdin Unix.stdout fd (Unix.dup fd)
