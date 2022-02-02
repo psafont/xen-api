@@ -981,6 +981,7 @@ let stop err writers signal =
 
 (* Entry point. *)
 let _ =
+  Memtrace.trace_if_requested ~context:"xcp_rrdd" () ;
   Rrdd_bindings.Rrd_daemon.bind () ;
   (* bind PPX-generated server calls to implementation of API *)
   let writers = configure_writers () in

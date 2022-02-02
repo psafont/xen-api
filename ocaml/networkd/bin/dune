@@ -16,6 +16,7 @@
  (modes byte exe)
  (libraries
   forkexec
+  memtrace
   netlink
   networklibs
   rpclib

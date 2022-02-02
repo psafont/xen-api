@@ -34,6 +34,7 @@
   (modules xcp_rrdd)
   (libraries
     http-svr
+    memtrace
     rrdd_libs_internal
     xapi-backtrace
     xapi-idl

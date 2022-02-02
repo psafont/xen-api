@@ -213,6 +213,7 @@ let bind () =
   S.Sriov.make_vf_config Sriov.make_vf_config
 
 let _ =
+  Memtrace.trace_if_requested ~context:"networkd" () ;
   ( match
       Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Build_info.version ~doc
         ~options ~resources ()

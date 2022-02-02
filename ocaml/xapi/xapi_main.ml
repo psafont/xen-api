@@ -19,6 +19,7 @@ open Xapi
 module Unixext = Xapi_stdext_unix.Unixext
 
 let _ =
+  Memtrace.trace_if_requested ~context:"xapi" () ;
   Debug.set_facility Syslog.Local5 ;
   Sys.enable_runtime_warnings true ;
   init_args () ;

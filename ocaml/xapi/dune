@@ -162,6 +162,7 @@
   (modules xapi_main)
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
   (libraries
+    memtrace
     xapi_internal
     xapi-idl
     xapi-stdext-unix
