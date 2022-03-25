@@ -12,17 +12,19 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_std
-open Xapi_stdext_unix
+module Listext = Xapi_stdext_std.Listext
+module Unixext = Xapi_stdext_unix.Unixext
+module Pervasiveext = Xapi_stdext_pervasives.Pervasiveext
 open Rrdd_plugin
 open Blktap3_stats
 
 module Process = Process (struct let name = "xcp-rrdd-iostat" end)
 
 open Process
-open Xenstore
+module Xs = Xenstore.Xs
 
-let with_xc_and_xs f = Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
+let with_xc_and_xs f =
+  Xenctrl.with_intf (fun xc -> Xs.with_xs (fun xs -> f xc xs))
 
 (* Return a list of (domid, uuid) pairs for domUs running on this host *)
 let get_running_domUs xc xs =
@@ -37,7 +39,7 @@ let get_running_domUs xc xs =
        writes the original and the final uuid to xenstore *)
     let uuid_from_key key =
       let path = Printf.sprintf "/vm/%s/%s" uuid key in
-      try xs.read path
+      try xs.Xs.read path
       with Xs_protocol.Enoent _hint ->
         D.info "Couldn't read path %s; falling back to actual uuid" path ;
         uuid
@@ -81,7 +83,7 @@ let update_vdi_to_vm_map () =
               domUs
            )
         ) ;
-      with_xs (fun xs ->
+      Xs.with_xs (fun xs ->
           List.map
             (fun (domid, vm) ->
               (* Get VBDs for this domain *)
@@ -492,7 +494,7 @@ module Blktap3_stats_wrapper = struct
     let pid_from_xs (domid, devid) =
       try
         let result =
-          with_xs (fun xs ->
+          Xs.with_xs (fun xs ->
               let path =
                 Printf.sprintf "/local/domain/0/backend/vbd3/%d/%d/kthread-pid"
                   domid devid
