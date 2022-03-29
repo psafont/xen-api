@@ -153,7 +153,7 @@ let allowed_xsdata_prefixes = ["vm-data"; "FIST"]
 
 let filtered_xsdata =
   (* disallowed by default; allowed only if it has one of a set of prefixes *)
-  let is_allowed path dir = Astring.String.is_prefix ~affix:(dir ^ "/") path in
+  let is_allowed path dir = String.starts_with ~prefix:(dir ^ "/") path in
   let allowed (x, _) = List.exists (is_allowed x) allowed_xsdata_prefixes in
   List.filter allowed
 
@@ -1631,7 +1631,7 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
          the progress indicator *)
       let callback txt =
         let prefix = "\\b\\b\\b\\b" in
-        if Astring.String.is_prefix ~affix:prefix txt then
+        if String.starts_with ~prefix txt then
           let rest =
             String.sub txt (String.length prefix)
               (String.length txt - String.length prefix)

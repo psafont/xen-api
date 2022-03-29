@@ -786,9 +786,9 @@ let domain_snapshot xc =
       None
     else
       let key =
-        if Astring.String.is_suffix ~affix:"000000000000" uuid then
+        if String.ends_with ~suffix:"000000000000" uuid then
           Some "origin-uuid"
-        else if Astring.String.is_suffix ~affix:"000000000001" uuid then
+        else if String.ends_with ~suffix:"000000000001" uuid then
           Some "final-uuid"
         else
           None
@@ -930,7 +930,7 @@ module Discover : DISCOVER = struct
     (not @@ List.mem file files_to_ignore)
     && (not @@ Filename.check_suffix file ".tmp")
     (* the tap- files are not valid RRDs and spam the logs *)
-    && (not @@ Astring.String.is_prefix ~affix:"tap-" file)
+    && (not @@ String.starts_with ~prefix:"tap-" file)
 
   let events_as_string : Inotify.event_kind list -> string =
    fun es -> es |> List.map Inotify.string_of_event_kind |> String.concat ","

@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_std.Xstringext
 module Unixext = Xapi_stdext_unix.Unixext
 open Http
 open Helpers
@@ -372,7 +371,7 @@ let parse_update_info xml =
           | "" ->
               []
           | s ->
-              List.map guidance_from_string (String.split ',' s)
+              List.map guidance_from_string (String.split_on_char ',' s)
         with _ -> []
       in
       let enforce_homogeneity =
@@ -764,6 +763,7 @@ let resync_host ~__context ~host =
   )
 
 let path_and_host_from_uri uri =
+  let module String = Xapi_stdext_std.Xstringext.String in
   (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
   let host_and_path =
     String.sub_to_end uri (String.length Constants.get_pool_update_download_uri)
@@ -813,7 +813,7 @@ let pool_update_download_handler (req : Request.t) s _ =
   if host_uuid <> localhost_uuid then
     proxy_request req s host_uuid
   else if
-    (not (String.startswith !Xapi_globs.host_update_dir filepath))
+    (not (String.starts_with ~prefix:!Xapi_globs.host_update_dir filepath))
     || not (Sys.file_exists filepath)
   then (
     debug

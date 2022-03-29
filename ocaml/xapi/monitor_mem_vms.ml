@@ -64,7 +64,7 @@ let set_changes ?except () =
 
 let update rrd_files =
   let is_vm_rrd =
-    Astring.String.is_prefix ~affix:Xapi_globs.metrics_prefix_mem_vms
+    String.starts_with ~prefix:Xapi_globs.metrics_prefix_mem_vms
   in
   let rrd_files = List.filter is_vm_rrd rrd_files in
   Server_helpers.exec_with_new_task "Updating VM memory usage" (fun __context ->

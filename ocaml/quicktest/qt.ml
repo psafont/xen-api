@@ -113,12 +113,12 @@ module VM = struct
   module Template = struct
     let other = "Other install media"
 
-    let find rpc session_id startswith =
+    let find rpc session_id prefix =
       let vms = Client.Client.VM.get_all ~rpc ~session_id in
       match
         List.filter
           (fun self ->
-            Xapi_stdext_std.Xstringext.String.startswith startswith
+            String.starts_with ~prefix
               (Client.Client.VM.get_name_label ~rpc ~session_id ~self)
             && Client.Client.VM.get_is_a_template ~rpc ~session_id ~self
           )

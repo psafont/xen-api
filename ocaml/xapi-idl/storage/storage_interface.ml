@@ -165,7 +165,7 @@ let parse_nbd_uri nbd =
   match String.split_on_char ':' uri with
   | ["nbd"; "unix"; socket; exportname] -> (
       let prefix = "exportname=" in
-      if not (Astring.String.is_prefix ~affix:prefix exportname) then fail () ;
+      if not (String.starts_with ~prefix exportname) then fail () ;
       match Astring.String.cuts ~empty:false ~sep:prefix exportname with
       | [exportname] ->
           (socket, exportname)

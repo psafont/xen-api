@@ -700,7 +700,7 @@ let refresh_local_vdi_activations ~__context =
   let hosts_of vdi_t =
     let prefix = "host_" in
     let ks = List.map fst vdi_t.API.vDI_sm_config in
-    let ks = List.filter (Astring.String.is_prefix ~affix:prefix) ks in
+    let ks = List.filter (String.starts_with ~prefix) ks in
     let ks =
       List.map
         (fun k ->

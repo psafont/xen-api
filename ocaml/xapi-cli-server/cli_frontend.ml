@@ -3858,10 +3858,10 @@ let rio_help printer minimal cmd =
     then
       let cmds = List.map fst cmds in
       let host_cmds, other =
-        List.partition (fun n -> Astring.String.is_prefix ~affix:"host-" n) cmds
+        List.partition (fun n -> String.starts_with ~prefix:"host-" n) cmds
       in
       let vm_cmds, other =
-        List.partition (fun n -> Astring.String.is_prefix ~affix:"vm-" n) other
+        List.partition (fun n -> String.starts_with ~prefix:"vm-" n) other
       in
       let h =
         "Usage: "

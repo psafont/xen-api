@@ -532,7 +532,7 @@ let maybe_copy_sr_rrds ~__context ~sr =
    each PBD got unplugged. *)
 let unload_metrics_from_memory ~__context ~sr =
   let short_uuid = String.sub (Db.SR.get_uuid ~__context ~self:sr) 0 8 in
-  let is_sr_metric = Astring.String.is_suffix ~affix:short_uuid in
+  let is_sr_metric = String.ends_with ~suffix:short_uuid in
   (* SR data sources are currently stored in memory as host ones.
      Pick the ones that match the short uuid and remove them,
      this prevents these metrics from being archived *)

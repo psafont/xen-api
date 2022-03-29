@@ -72,7 +72,7 @@ let retrieve_wlb_recommendations ~__context ~vm =
   let compat_string_of_float f =
     let repr = string_of_float f in
     (* Original format has always at least one fractional decimal digit *)
-    if Astring.String.is_suffix ~affix:"." repr then
+    if String.ends_with ~suffix:"." repr then
       repr ^ "0"
     else
       repr

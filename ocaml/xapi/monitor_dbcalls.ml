@@ -28,7 +28,7 @@ let get_pif_and_bond_changes () =
   let stats = read_stats () in
   List.iter
     (fun (dev, stat) ->
-      if not (Astring.String.is_prefix ~affix:"vif" dev) then (
+      if not (String.starts_with ~prefix:"vif" dev) then (
         if stat.nb_links > 1 then (* bond *)
           Hashtbl.add bonds_links_up_tmp dev stat.links_up ;
         let pif =

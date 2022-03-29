@@ -128,7 +128,7 @@ let networks path vif_type (list : string -> string list) =
         | [] ->
             None
         | prefix :: rest ->
-            if Astring.String.is_prefix ~affix:prefix eth then
+            if String.starts_with ~prefix eth then
               let n = string_after_prefix ~prefix eth in
               Some (path // eth, n)
             else

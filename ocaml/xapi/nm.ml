@@ -14,7 +14,6 @@
 module D = Debug.Make (struct let name = "nm" end)
 
 open D
-open Xapi_stdext_std.Xstringext
 module Listext = Xapi_stdext_std.Listext.List
 open Db_filter_types
 open Network
@@ -216,8 +215,8 @@ let create_bond ~__context bond mtu persistent =
       let overrides =
         List.filter_map
           (fun (k, v) ->
-            if String.startswith "bond-" k then
-              Some (String.sub_to_end k 5, v)
+            if String.starts_with ~prefix:"bond-" k then
+              Some (Xapi_stdext_std.Xstringext.String.sub_to_end k 5, v)
             else
               None
           )
@@ -479,7 +478,7 @@ let determine_static_routes net_rc =
   if List.mem_assoc "static-routes" net_rc.API.network_other_config then
     try
       let routes =
-        String.split ','
+        String.split_on_char ','
           (List.assoc "static-routes" net_rc.API.network_other_config)
       in
       List.map
@@ -621,7 +620,9 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                             in
                             let prefixlen =
                               int_of_string
-                                (String.sub_to_end addr_and_prefixlen (n + 1))
+                                (Xapi_stdext_std.Xstringext.String.sub_to_end
+                                   addr_and_prefixlen (n + 1)
+                                )
                             in
                             Some (addr, prefixlen)
                           with _ -> None
@@ -651,14 +652,14 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                 | true, pif_dns ->
                     let nameservers =
                       List.map Unix.inet_addr_of_string
-                        (String.split ',' pif_dns)
+                        (String.split_on_char ',' pif_dns)
                     in
                     let domains =
                       match List.assoc_opt "domain" rc.API.pIF_other_config with
                       | None ->
                           []
                       | Some domains -> (
-                        try String.split ',' domains
+                        try String.split_on_char ',' domains
                         with _ ->
                           warn "Invalid DNS search domains: %s" domains ;
                           []

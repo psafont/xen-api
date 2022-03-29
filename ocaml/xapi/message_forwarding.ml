@@ -5707,7 +5707,7 @@ functor
       (* -------------------------------------------------------------------------- *)
 
       let sanitize (k, v) =
-        if Astring.String.is_suffix ~affix:"transformed" k then
+        if String.ends_with ~suffix:"transformed" k then
           k ^ "=undisclosed"
         else
           k ^ "=" ^ v

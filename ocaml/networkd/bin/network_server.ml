@@ -354,7 +354,7 @@ module Interface = struct
         try
           let line =
             List.find
-              (fun s -> Astring.String.is_prefix ~affix:"default via" s)
+              (fun s -> String.starts_with ~prefix:"default via" s)
               (Astring.String.cuts ~empty:false ~sep:"\n" output)
           in
           let addr =
@@ -520,12 +520,12 @@ module Interface = struct
         let nameservers, domains =
           Xapi_stdext_unix.Unixext.file_lines_fold
             (fun (nameservers, domains) line ->
-              if Astring.String.is_prefix ~affix:"nameserver" line then
+              if String.starts_with ~prefix:"nameserver" line then
                 let server =
                   List.nth (Astring.String.fields ~empty:false line) 1
                 in
                 (Unix.inet_addr_of_string server :: nameservers, domains)
-              else if Astring.String.is_prefix ~affix:"search" line then
+              else if String.starts_with ~prefix:"search" line then
                 let domains =
                   List.tl (Astring.String.fields ~empty:false line)
                 in
@@ -973,8 +973,8 @@ module Bridge = struct
                 let parent_bridge_interfaces =
                   List.filter
                     (fun n ->
-                      Astring.String.is_prefix ~affix:"eth" n
-                      || Astring.String.is_prefix ~affix:"bond" n
+                      String.starts_with ~prefix:"eth" n
+                      || String.starts_with ~prefix:"bond" n
                     )
                     (Sysfs.bridge_to_interfaces parent)
                 in
@@ -1027,8 +1027,8 @@ module Bridge = struct
                 let current_interfaces =
                   List.filter
                     (fun n ->
-                      Astring.String.is_prefix ~affix:"eth" n
-                      || Astring.String.is_prefix ~affix:"bond" n
+                      String.starts_with ~prefix:"eth" n
+                      || String.starts_with ~prefix:"bond" n
                     )
                     bridge_interfaces
                 in
@@ -1080,8 +1080,8 @@ module Bridge = struct
               let interfaces =
                 List.filter
                   (fun n ->
-                    Astring.String.is_prefix ~affix:"eth" n
-                    || Astring.String.is_prefix ~affix:"bond" n
+                    String.starts_with ~prefix:"eth" n
+                    || String.starts_with ~prefix:"bond" n
                   )
                   ifs
               in
@@ -1090,7 +1090,7 @@ module Bridge = struct
                   []
               | interface :: _ ->
                   List.filter
-                    (Astring.String.is_prefix ~affix:(interface ^ "."))
+                    (String.starts_with ~prefix:(interface ^ "."))
                     (Sysfs.list ())
             in
             if vlans_on_this_parent = [] || force then (
@@ -1104,8 +1104,8 @@ module Bridge = struct
                   if Linux_bonding.is_bond_device dev then
                     Linux_bonding.remove_bond_master dev ;
                   if
-                    (Astring.String.is_prefix ~affix:"eth" dev
-                    || Astring.String.is_prefix ~affix:"bond" dev
+                    (String.starts_with ~prefix:"eth" dev
+                    || String.starts_with ~prefix:"bond" dev
                     )
                     && String.contains dev '.'
                   then (
@@ -1198,7 +1198,7 @@ module Bridge = struct
                 let active =
                   let ab =
                     List.mem_assoc "mode" bond_props
-                    && Astring.String.is_prefix ~affix:"active-backup"
+                    && String.starts_with ~prefix:"active-backup"
                          (List.assoc "mode" bond_props)
                   in
                   (ab && active_slave = Some slave) || ((not ab) && up)

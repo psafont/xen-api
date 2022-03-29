@@ -26,24 +26,19 @@ let parse_size x =
   let mib = Int64.mul kib kib in
   let gib = Int64.mul mib kib in
   let tib = Int64.mul gib kib in
-  let endswith suffix x =
-    let suffix' = String.length suffix in
-    let x' = String.length x in
-    x' >= suffix' && String.sub x (x' - suffix') suffix' = suffix
-  in
   let remove suffix x =
     let suffix' = String.length suffix in
     let x' = String.length x in
     String.sub x 0 (x' - suffix')
   in
   try
-    if endswith "KiB" x then
+    if String.ends_with ~suffix:"KiB" x then
       Int64.(mul kib (of_string (remove "KiB" x)))
-    else if endswith "MiB" x then
+    else if String.ends_with ~suffix:"MiB" x then
       Int64.(mul mib (of_string (remove "MiB" x)))
-    else if endswith "GiB" x then
+    else if String.ends_with ~suffix:"GiB" x then
       Int64.(mul gib (of_string (remove "GiB" x)))
-    else if endswith "TiB" x then
+    else if String.ends_with ~suffix:"TiB" x then
       Int64.(mul tib (of_string (remove "TiB" x)))
     else
       Int64.of_string x

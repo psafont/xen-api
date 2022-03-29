@@ -975,7 +975,7 @@ module Nvidia_compat = struct
       let conf = Xapi_stdext_unix.Unixext.read_lines ~path:file_path in
       let args =
         List.filter
-          (fun s -> not (Astring.String.is_prefix ~affix:"#" s || s = ""))
+          (fun s -> not (String.starts_with ~prefix:"#" s || s = ""))
           conf
       in
       let args = List.map Astring.String.trim args in

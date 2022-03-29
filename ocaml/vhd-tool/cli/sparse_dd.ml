@@ -174,10 +174,6 @@ let kib = 1024L
 
 let mib = kib ** kib
 
-let startswith prefix x =
-  let prefix' = String.length prefix and x' = String.length x in
-  prefix' <= x' && String.sub x 0 prefix' = prefix
-
 module Opt = struct let default d = function None -> d | Some x -> x end
 
 module Mutex = struct
@@ -232,7 +228,7 @@ let find_backend_device path =
       Unix.readlink (Printf.sprintf "/sys/dev/block/%d:%d/device" major minor)
     in
     match List.rev (Astring.String.cuts ~sep:"/" ~empty:false link) with
-    | id :: "xen" :: "devices" :: _ when startswith "vbd-" id ->
+    | id :: "xen" :: "devices" :: _ when String.starts_with ~prefix:"vbd-" id ->
         let id = int_of_string (String.sub id 4 (String.length id - 4)) in
         with_xs (fun xs ->
             let self = xs.Xs.read "domid" in

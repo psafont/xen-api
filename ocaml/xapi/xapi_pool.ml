@@ -16,7 +16,6 @@ open Client
 module Date = Xapi_stdext_date.Date
 module Listext = Xapi_stdext_std.Listext
 module Unixext = Xapi_stdext_unix.Unixext
-module Xstringext = Xapi_stdext_std.Xstringext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -2715,8 +2714,8 @@ let enable_external_auth ~__context ~pool:_ ~config ~service_name ~auth_type =
                          (Api_errors.auth_unknown_type, [msg_of_e])
                       )
                 | err_of_e
-                  when Xstringext.String.startswith
-                         Api_errors.auth_enable_failed err_of_e ->
+                  when String.starts_with ~prefix:Api_errors.auth_enable_failed
+                         err_of_e ->
                     raise
                       (Api_errors.Server_error
                          ( Api_errors.pool_auth_prefix ^ err_of_e
@@ -2799,7 +2798,7 @@ let disable_external_auth ~__context ~pool:_ ~config =
             debug
               "Failed to disable the external authentication of at least one \
                host in the pool" ;
-            if Xstringext.String.startswith Api_errors.auth_disable_failed err
+            if String.starts_with ~prefix:Api_errors.auth_disable_failed err
             then (* tagged exception *)
               raise
                 (Api_errors.Server_error

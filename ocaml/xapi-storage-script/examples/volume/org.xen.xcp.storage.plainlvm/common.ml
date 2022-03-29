@@ -65,20 +65,10 @@ let file_of_string filename string =
     )
     (fun () -> close_out oc)
 
-let startswith prefix x =
-  let prefix' = String.length prefix in
-  let x' = String.length x in
-  x' >= prefix' && String.sub x 0 prefix' = prefix
-
 let remove_prefix prefix x =
   let prefix' = String.length prefix in
   let x' = String.length x in
   String.sub x prefix' (x' - prefix')
-
-let endswith suffix x =
-  let suffix' = String.length suffix in
-  let x' = String.length x in
-  x' >= suffix' && String.sub x (x' - suffix') suffix' = suffix
 
 let iso8601_of_float x =
   let time = Unix.gmtime x in

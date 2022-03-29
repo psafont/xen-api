@@ -1444,7 +1444,7 @@ let resolve_uri_path ~root ~uri_path =
   |> Uri.pct_decode
   |> Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot
   |> fun x ->
-  match (Astring.String.is_prefix ~affix:(root ^ "/") x, Sys.file_exists x) with
+  match (String.starts_with ~prefix:(root ^ "/") x, Sys.file_exists x) with
   | true, true ->
       x
   | _ ->

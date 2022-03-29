@@ -231,7 +231,7 @@ let authorization_equal a b =
 
 let authorization_of_string x =
   let basic = "Basic " in
-  if Astring.String.is_prefix ~affix:basic x then
+  if String.starts_with ~prefix:basic x then
     match Base64.decode ~off:(String.length basic) x with
     | Result.Ok userpass -> (
       match Astring.String.cut ~sep:":" userpass with

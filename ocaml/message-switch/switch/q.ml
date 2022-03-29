@@ -108,10 +108,6 @@ let owned_queues queues owner =
   else
     StringSet.empty
 
-let startswith prefix x =
-  String.length x >= String.length prefix
-  && String.sub x 0 (String.length prefix) = prefix
-
 module Lengths = struct
   open Message_switch_core.Measurable
 
@@ -180,7 +176,7 @@ module Internal = struct
     let list queues prefix =
       StringMap.fold
         (fun name _ acc ->
-          if startswith prefix name then
+          if String.starts_with ~prefix name then
             name :: acc
           else
             acc

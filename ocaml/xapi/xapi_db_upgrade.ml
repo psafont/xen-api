@@ -226,7 +226,7 @@ let upgrade_wlb_configuration =
           in
           if old_wlb_pwd = "" then
             Ref.null
-          else if Astring.String.is_prefix ~affix:"OpaqueRef:" old_wlb_pwd then
+          else if String.starts_with ~prefix:"OpaqueRef:" old_wlb_pwd then
             Db.Pool.get_wlb_password ~__context ~self:pool
           else
             Xapi_secret.create ~__context ~value:old_wlb_pwd ~other_config:[]

@@ -71,8 +71,7 @@ let get_session_id (req : Request.t) =
 let append_to_master_audit_log __context action line =
   (* http actions are not automatically written to the master's audit log *)
   (* it is necessary to do that manually from the slaves *)
-  if
-    Astring.String.is_prefix ~affix:Datamodel.rbac_http_permission_prefix action
+  if String.starts_with ~prefix:Datamodel.rbac_http_permission_prefix action
   then
     if Pool_role.is_slave () then
       Helpers.call_api_functions ~__context (fun rpc session_id ->

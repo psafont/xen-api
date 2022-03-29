@@ -45,9 +45,9 @@ let get_running_domUs xc xs =
     let stable_uuid = Option.fold ~none:uuid ~some:uuid_from_key in
 
     let key =
-      if Astring.String.is_suffix ~affix:"000000000000" uuid then
+      if String.ends_with ~suffix:"000000000000" uuid then
         Some "origin-uuid"
-      else if Astring.String.is_suffix ~affix:"000000000001" uuid then
+      else if String.ends_with ~suffix:"000000000001" uuid then
         Some "final-uuid"
       else
         None

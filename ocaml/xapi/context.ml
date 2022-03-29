@@ -353,7 +353,7 @@ let get_http_other_config http_req =
   let http_other_config_hdr = "x-http-other-config-" in
   http_req.Http.Request.additional_headers
   |> List.filter (fun (k, _) ->
-         Astring.String.is_prefix ~affix:http_other_config_hdr k
+         String.starts_with ~prefix:http_other_config_hdr k
      )
   |> List.map (fun (k, v) ->
          ( String.sub k

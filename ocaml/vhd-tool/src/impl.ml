@@ -577,16 +577,6 @@ module TarInput = struct
     }
 end
 
-let startswith prefix x =
-  let prefix_len = String.length prefix in
-  let x_len = String.length x in
-  x_len >= prefix_len && String.sub x 0 prefix_len = prefix
-
-let endswith suffix x =
-  let suffix_len = String.length suffix in
-  let x_len = String.length x in
-  x_len >= suffix_len && String.sub x (x_len - suffix_len) suffix_len = suffix
-
 let serve_vhd_to_raw total_size c dest prezeroed progress _ _ =
   if not prezeroed then failwith "unimplemented: prezeroed" ;
 
@@ -648,7 +638,8 @@ let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix
           | None ->
               return (Filename.basename hdr.Tar.Header.file_name)
           | Some p ->
-              if not (startswith p hdr.Tar.Header.file_name) then
+              if not (String.starts_with ~prefix:p hdr.Tar.Header.file_name)
+              then
                 fail
                   (Failure
                      (Printf.sprintf "expected filename prefix %s, got %s" p
@@ -669,7 +660,7 @@ let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix
             Cstruct.sub header 0 (Tar.Header.compute_zero_padding_length hdr)
           in
           (* either 'counter' or 'counter.checksum' *)
-          if endswith ".checksum" filename then
+          if String.ends_with ~suffix:".checksum" filename then
             let checksum =
               Cstruct.sub buffer 0 (Int64.to_int hdr.Tar.Header.file_size)
             in

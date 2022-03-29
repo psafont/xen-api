@@ -176,7 +176,7 @@ let run state comms_sock fd_sock fd_sock_path =
             let id_received, fd =
               List.find
                 (fun (id_received, _fd) ->
-                  Astring.String.is_suffix ~affix:id_received arg
+                  String.ends_with ~suffix:id_received arg
                 )
                 state.ids_received
             in

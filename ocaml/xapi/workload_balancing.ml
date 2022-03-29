@@ -16,7 +16,6 @@
 *)
 
 open Printf
-open Xapi_stdext_std.Xstringext
 
 module D = Debug.Make (struct let name = "workload_balancing" end)
 
@@ -87,7 +86,9 @@ let split_host_port url =
       in
       (host, int_of_string port)
     ) else
-      match String.split_f (fun a -> a = ':') url with
+      match
+        Xapi_stdext_std.Xstringext.String.split_f (fun a -> a = ':') url
+      with
       | [host; port] ->
           (host, int_of_string port)
       | _ ->
@@ -233,7 +234,7 @@ let wlb_request host meth body encoded_auth =
 let filtered_headers headers =
   List.map
     (fun s ->
-      if String.startswith "Authorization:" s then
+      if String.starts_with ~prefix:"Authorization:" s then
         "Authorization: Basic <password>"
       else
         s

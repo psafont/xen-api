@@ -16,7 +16,6 @@ open Datamodel_common
 open Datamodel_types
 open Dm_api
 open Printf
-open Xapi_stdext_std
 
 (** Utility functions relating to the types in the datamodel *)
 module Types = struct
@@ -81,10 +80,10 @@ module Types = struct
     let set_self = List.map (fun t -> Set t) selves in
 
     let all =
-      Listext.List.setify
+      Xapi_stdext_std.Listext.List.setify
         (selves @ set_self @ field_types @ return_types @ param_types)
     in
-    Listext.List.setify (List.concat (List.map decompose all))
+    Xapi_stdext_std.Listext.List.setify (List.concat (List.map decompose all))
 end
 
 (** Functions for processing relationships from the model *)
@@ -186,7 +185,7 @@ let find_self_parameter (msg : message) =
         )
 
 let plural name =
-  if Xstringext.String.endswith "metrics" name then
+  if String.ends_with ~suffix:"metrics" name then
     name ^ " instances"
   else
     name ^ "s"

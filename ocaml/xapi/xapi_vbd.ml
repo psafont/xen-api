@@ -106,7 +106,7 @@ let unplug ~__context ~self =
     let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
     let device = Db.VBD.get_device ~__context ~self in
     let nbd_device_prefix = "nbd" in
-    let is_nbd = Astring.String.is_prefix ~affix:nbd_device_prefix device in
+    let is_nbd = String.starts_with ~prefix:nbd_device_prefix device in
     if is_nbd then
       Attach_helpers.NbdClient.stop_nbd_client ~nbd_device:("/dev/" ^ device) ;
     Storage_access.deactivate_and_detach ~__context ~vbd:self ~domid ;

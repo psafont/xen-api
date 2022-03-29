@@ -4727,8 +4727,7 @@ module VIF = struct
                   let keys = t.Xs.directory private_path in
                   List.iter
                     (fun key ->
-                      if
-                        Astring.String.is_prefix ~affix:pvs_proxy_key_prefix key
+                      if String.starts_with ~prefix:pvs_proxy_key_prefix key
                       then
                         t.Xs.rm (Printf.sprintf "%s/%s" private_path key)
                     )

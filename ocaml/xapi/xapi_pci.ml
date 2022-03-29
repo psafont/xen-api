@@ -312,7 +312,7 @@ let get_system_display_device () =
     let items = String.split_on_char ',' line in
     List.fold_left
       (fun acc item ->
-        if Astring.String.is_prefix ~affix:"PCI" item then
+        if String.starts_with ~prefix:"PCI" item then
           Some (Scanf.sscanf item "PCI:%s" (fun id -> id))
         else
           acc

@@ -22,8 +22,7 @@ type nbd_connect_info = {path: string; exportname: string} [@@deriving rpc]
 
 let get_nbd_device path =
   let nbd_device_prefix = "/dev/nbd" in
-  if
-    Astring.String.is_prefix ~affix:nbd_device_prefix path && is_nbd_device path
+  if String.starts_with ~prefix:nbd_device_prefix path && is_nbd_device path
   then
     let nbd_number =
       String.sub path

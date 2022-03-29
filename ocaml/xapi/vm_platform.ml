@@ -235,7 +235,7 @@ let sanity_check ~platformdata ~firmware ~vcpu_max ~vcpu_at_startup:_
       | "none" ->
           true
       | dev ->
-          Astring.String.is_prefix ~affix:"/dev/parport" dev
+          String.starts_with ~prefix:"/dev/parport" dev
     in
     List.filter
       (fun (k, v) -> k <> parallel || is_valid_parallel_flag v)

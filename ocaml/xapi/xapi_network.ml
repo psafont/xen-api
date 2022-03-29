@@ -14,7 +14,6 @@
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 open Client
-open Xapi_stdext_std.Xstringext
 
 module D = Debug.Make (struct let name = "xapi_network" end)
 
@@ -252,7 +251,7 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
             (not is_internal_session)
             && (String.length bridge > 15
                || List.exists
-                    (fun s -> String.startswith s bridge)
+                    (fun s -> String.starts_with ~prefix:s bridge)
                     bridge_blacklist
                )
           then

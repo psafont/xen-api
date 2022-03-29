@@ -1427,9 +1427,7 @@ module Ovs = struct
         let vvifs = get_bridge_vlan_vifs ~name in
         let bvifs = bridge_to_interfaces name in
         let bvifs' =
-          List.filter
-            (fun vif -> Astring.String.is_prefix ~affix:"vif" vif)
-            bvifs
+          List.filter (fun vif -> String.starts_with ~prefix:"vif" vif) bvifs
         in
         (* The vifs may be large. However considering current XS limit of
            1000VM*7NIC/VM + 800VLANs, the buffer of CLI should be sufficient for
@@ -1994,7 +1992,7 @@ module Modprobe = struct
       Unixext.read_lines ~path:(getpath driver)
       |> List.filter_map (fun x ->
              let line = String.trim x in
-             if not (Astring.String.is_prefix ~affix:"# " line) then
+             if not (String.starts_with ~prefix:"# " line) then
                None
              else
                match

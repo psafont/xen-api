@@ -43,7 +43,7 @@ let trackid session_id = Context.trackid_of_session (Some session_id)
 open Db_actions
 
 let is_http action =
-  Astring.String.is_prefix ~affix:Datamodel.rbac_http_permission_prefix action
+  String.starts_with ~prefix:Datamodel.rbac_http_permission_prefix action
 
 let call_type_of ~action = if is_http action then "HTTP" else "API"
 

@@ -373,7 +373,7 @@ let allocate ctx =
     let result = invoke_tap_ctl ctx "allocate" [] in
     let stem = get_tapdevstem ctx in
     let stemlen = String.length stem in
-    assert (Astring.String.is_prefix ~affix:stem result) ;
+    assert (String.starts_with ~prefix:stem result) ;
     let minor_str =
       String.sub result stemlen (String.length result - stemlen)
     in

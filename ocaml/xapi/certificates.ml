@@ -101,7 +101,7 @@ let not_safe_chars name =
 
 let is_unsafe name =
   name.[0] = '.'
-  || (not (Astring.String.is_suffix ~affix:".pem" name))
+  || (not (String.ends_with ~suffix:".pem" name))
   || not_safe_chars name
 
 let raise_server_error parameters err = raise (Server_error (err, parameters))

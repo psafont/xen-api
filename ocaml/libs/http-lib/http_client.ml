@@ -76,8 +76,7 @@ let response_of_fd_exn_slow fd =
   | http_version :: code :: rest ->
       let version =
         match Astring.String.cut ~sep:"/" http_version with
-        | Some (http, version) when Astring.String.is_suffix ~affix:"HTTP" http
-          ->
+        | Some (http, version) when String.ends_with ~suffix:"HTTP" http ->
             version
         | _ ->
             error "Failed to parse HTTP response status line [%s]" line ;

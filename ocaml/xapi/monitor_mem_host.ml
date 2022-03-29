@@ -80,7 +80,7 @@ let set_changes (free_bytes, total_bytes) =
 
 let update rrd_files =
   let is_host_rrd =
-    Astring.String.is_prefix ~affix:Xapi_globs.metrics_prefix_mem_host
+    String.starts_with ~prefix:Xapi_globs.metrics_prefix_mem_host
   in
   let rrd_files = List.filter is_host_rrd rrd_files in
   Server_helpers.exec_with_new_task "Updating host memory metrics"

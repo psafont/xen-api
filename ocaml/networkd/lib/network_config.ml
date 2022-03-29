@@ -29,7 +29,7 @@ let config_file_path = "/var/lib/xcp/networkd.db"
 let temp_vlan = "xentemp"
 
 let bridge_naming_convention (device : string) =
-  if Astring.String.is_prefix ~affix:"eth" device then
+  if String.starts_with ~prefix:"eth" device then
     "xenbr" ^ String.sub device 3 (String.length device - 3)
   else
     "br" ^ device

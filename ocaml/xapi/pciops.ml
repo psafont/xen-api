@@ -72,7 +72,7 @@ let get_pci_hidden_raw_value () =
   let cmd = !Xapi_globs.xen_cmdline_path ^ " --get-dom0 " ^ pci_hiding_key in
   let raw_kv_string = Helpers.get_process_output cmd in
   (* E.g. "xen-pciback.hide=(0000:00:02.0)(0000:00:02.1)\n" or just "\n" *)
-  if Astring.String.is_prefix ~affix:pci_hiding_key_eq raw_kv_string then
+  if String.starts_with ~prefix:pci_hiding_key_eq raw_kv_string then
     let keylen = String.length pci_hiding_key_eq in
     (* rtrim to remove trailing newline *)
     Xapi_stdext_std.Xstringext.String.(rtrim (sub_to_end raw_kv_string keylen))

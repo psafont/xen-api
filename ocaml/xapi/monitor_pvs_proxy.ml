@@ -91,7 +91,7 @@ let pvs_proxy_status_of_int = function
 
 let update rrd_files =
   let is_proxy_rrd =
-    Astring.String.is_prefix ~affix:Xapi_globs.metrics_prefix_pvs_proxy
+    String.starts_with ~prefix:Xapi_globs.metrics_prefix_pvs_proxy
   in
   let rrd_files = List.filter is_proxy_rrd rrd_files in
   Server_helpers.exec_with_new_task "Updating PVS-proxy status fields"

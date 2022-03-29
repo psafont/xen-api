@@ -34,9 +34,9 @@ let internal_async_length = String.length internal_async_wire_name
   * NB. X_y api call format does not work with Async (and didn't previously) *)
 let sync_ty_and_maybe_remove_prefix x =
   (* expect more async calls than internal_async, so check for async first *)
-  if Astring.String.is_prefix ~affix:async_wire_name x then
+  if String.starts_with ~prefix:async_wire_name x then
     (`Async, String.sub x async_length (String.length x - async_length))
-  else if Astring.String.is_prefix ~affix:internal_async_wire_name x then
+  else if String.starts_with ~prefix:internal_async_wire_name x then
     ( `InternalAsync
     , String.sub x internal_async_length
         (String.length x - internal_async_length)

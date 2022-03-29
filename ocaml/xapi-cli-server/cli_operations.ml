@@ -135,9 +135,7 @@ let read_map_params name params =
   (* include ':' *)
   let filter_params =
     List.filter
-      (fun (p, _) ->
-        Astring.String.is_prefix ~affix:name p && String.length p > len
-      )
+      (fun (p, _) -> String.starts_with ~prefix:name p && String.length p > len)
       params
   in
   List.map
@@ -320,9 +318,7 @@ let get_field_type fieldname record =
       (* Find the first (longest) matching field *)
       let field =
         List.find
-          (fun field ->
-            Astring.String.is_prefix ~affix:(field.name ^ "-") fieldname
-          )
+          (fun field -> String.starts_with ~prefix:(field.name ^ "-") fieldname)
           mapfields
       in
       Map field.name
@@ -337,7 +333,7 @@ let get_field_type fieldname record =
         let field =
           List.find
             (fun field ->
-              Astring.String.is_prefix ~affix:(field.name ^ "-") fieldname
+              String.starts_with ~prefix:(field.name ^ "-") fieldname
             )
             setfields
         in
@@ -552,7 +548,7 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
         (* Filter out all params beginning with "database:" *)
         let filter_params =
           List.filter
-            (fun (p, _) -> not (Astring.String.is_prefix ~affix:"database:" p))
+            (fun (p, _) -> not (String.starts_with ~prefix:"database:" p))
             filter_params
         in
         (* Add in the default filters *)
@@ -1705,7 +1701,7 @@ let pool_send_wlb_configuration (_ : printer) rpc session_id params =
   let filter_params =
     List.filter
       (fun (p, _) ->
-        Astring.String.is_prefix ~affix:"config" p && String.length p > len
+        String.starts_with ~prefix:"config" p && String.length p > len
       )
       params
   in
@@ -2474,7 +2470,7 @@ let sr_create fd _printer rpc session_id params =
   let device_config =
     List.map
       (fun (k, v) ->
-        if Astring.String.is_suffix ~affix:suffix k then (
+        if String.ends_with ~suffix k then (
           let k = String.sub k 0 (String.length k - String.length suffix) in
           match get_client_file fd v with
           | Some v ->
@@ -2647,8 +2643,7 @@ let pbd_create printer rpc session_id params =
   let filter_params =
     List.filter
       (fun (p, _) ->
-        Astring.String.is_prefix ~affix:"device-config" p
-        && String.length p > len
+        String.starts_with ~prefix:"device-config" p && String.length p > len
       )
       params
   in
@@ -3031,7 +3026,7 @@ let event_wait _printer rpc session_id params =
   let filter_params =
     List.map
       (fun (key, value) ->
-        if Astring.String.is_prefix ~affix:"/=" value then
+        if String.starts_with ~prefix:"/=" value then
           let key' = key in
           let value' = String.sub value 2 (String.length value - 2) in
           (`NotEquals, key', value')
@@ -4529,7 +4524,7 @@ let vm_migrate printer rpc session_id params =
        the VM selector keys. *)
     let is_sxm_param k =
       List.exists
-        (fun p -> Astring.String.is_prefix ~affix:p k)
+        (fun p -> String.starts_with ~prefix:p k)
         vm_migrate_sxm_params
     in
     List.exists (fun (k, _) -> is_sxm_param k) params
@@ -5620,9 +5615,7 @@ let vm_import fd _printer rpc session_id params =
     ) ;
     (* Special-case where the user accidentally sets filename=<path to ova.xml file> *)
     let filename =
-      if
-        Astring.String.is_suffix ~affix:"ova.xml"
-          (String.lowercase_ascii filename)
+      if String.ends_with ~suffix:"ova.xml" (String.lowercase_ascii filename)
       then
         String.sub filename 0 (String.length filename - String.length "ova.xml")
       else

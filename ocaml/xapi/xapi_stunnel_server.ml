@@ -157,7 +157,7 @@ let is_enabled () =
       match status with
       | Unix.WEXITED n
         when n = 1
-             && Astring.String.is_prefix ~affix:"disabled" stdout
+             && String.starts_with ~prefix:"disabled" stdout
              && Astring.String.is_empty stderr ->
           "disabled"
       | _ ->

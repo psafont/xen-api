@@ -115,8 +115,7 @@ let pool_size_is_restricted ~__context =
       ~expr:(Eq (Field "is_control_domain", Literal "true"))
     |> List.exists (fun (vmref, vmrec) ->
            vmref <> dom0
-           && Xapi_stdext_std.Xstringext.String.endswith "-CVM"
-                vmrec.API.vM_name_label
+           && String.ends_with ~suffix:"-CVM" vmrec.API.vM_name_label
        )
   in
   (not cvm_exception)

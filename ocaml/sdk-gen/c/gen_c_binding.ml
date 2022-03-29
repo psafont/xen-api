@@ -200,7 +200,7 @@ and write_decl {name= classname; contents; description; messages; _} out_chan =
       )
   in
   let full_stop =
-    if Astring.String.is_suffix ~affix:"." description then "" else "."
+    if String.ends_with ~suffix:"." description then "" else "."
   in
 
   let rec get_needed x =
@@ -347,7 +347,7 @@ and decl_message_async needed classname message =
 
 and get_message_comment message =
   let full_stop =
-    if Astring.String.is_suffix ~affix:"." message.msg_doc then "" else "."
+    if String.ends_with ~suffix:"." message.msg_doc then "" else "."
   in
   let minimum_allowed_role = get_minimum_allowed_role message in
   let content =
@@ -660,7 +660,7 @@ and hash_includes needed =
     )
 
 and hash_include n =
-  if Astring.String.is_suffix ~affix:"internal" n then
+  if String.ends_with ~suffix:"internal" n then
     sprintf "#include \"%s\"" (decl_filename n)
   else if n = "session" then
     ""
@@ -1400,7 +1400,7 @@ and name_of_ty = function
 
 and decl_filename name =
   let dir =
-    if Astring.String.is_suffix ~affix:"internal" name then "" else "xen/api/"
+    if String.ends_with ~suffix:"internal" name then "" else "xen/api/"
   in
   sprintf "%sxen_%s.h" dir (String.lowercase_ascii name)
 

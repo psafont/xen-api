@@ -45,7 +45,7 @@ let write_line line fd ?filter since =
 let transfer_audit_file _path compression fd_out ?filter since : unit =
   let path = Unixext.resolve_dot_and_dotdot _path in
   let in_whitelist =
-    Astring.String.is_prefix ~affix:audit_log_whitelist_prefix path
+    String.starts_with ~prefix:audit_log_whitelist_prefix path
   in
   if in_whitelist then
     let file_exists = Unixext.file_exists path in

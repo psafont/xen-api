@@ -13,7 +13,6 @@
  *)
 (** Wrapper around gpg *)
 
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_pervasives.Pervasiveext
 module Unixext = Xapi_stdext_unix.Unixext
 
@@ -26,9 +25,9 @@ let gpg_binary_path = "/usr/bin/gpg"
 exception InvalidSignature
 
 let parse_gpg_status status_data =
-  let lines = String.split '\n' status_data in
+  let lines = String.split_on_char '\n' status_data in
   let status_contains substr =
-    List.exists (fun s -> String.startswith substr s) lines
+    List.exists (fun s -> String.starts_with ~prefix:substr s) lines
   in
   if
     not
@@ -40,9 +39,9 @@ let parse_gpg_status status_data =
   let validsig = "[GNUPG:] VALIDSIG" in
   if status_contains validsig then
     let validsigline =
-      List.find (fun s -> String.startswith validsig s) lines
+      List.find (fun s -> String.starts_with ~prefix:validsig s) lines
     in
-    match String.split ' ' validsigline with
+    match String.split_on_char ' ' validsigline with
     | _ :: _ :: fingerprint :: _ ->
         Some fingerprint
     | _ ->

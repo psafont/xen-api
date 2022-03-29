@@ -410,10 +410,6 @@ let read_config_file x =
          Config_file.parse path x
      )
 
-let startswith prefix x =
-  let prefix' = String.length prefix and x' = String.length x in
-  prefix' <= x' && String.sub x 0 prefix' = prefix
-
 let configure_common ~options ~resources arg_parse_fn =
   (* Register the Logs reporter to ensure we get log messages from libraries
      using Logs *)
@@ -445,7 +441,7 @@ let configure_common ~options ~resources arg_parse_fn =
       with _ ->
         let args =
           List.filter
-            (fun x -> not (startswith ("--" ^ f.name) x))
+            (fun x -> not (String.starts_with ~prefix:("--" ^ f.name) x))
             (Array.to_list Sys.argv)
         in
         let lines =

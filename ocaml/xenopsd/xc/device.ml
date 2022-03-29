@@ -1136,7 +1136,7 @@ module PCI = struct
   let read_pcidir ~xs domid =
     let path = device_model_pci_device_path xs 0 domid in
     let prefix = "dev-" in
-    let is_device = Astring.String.is_prefix ~affix:prefix in
+    let is_device = String.starts_with ~prefix in
     let all =
       List.filter is_device
         (try xs.Xs.directory path with Xs_protocol.Enoent _ -> [])
@@ -1915,7 +1915,7 @@ end = struct
 
   let is_serial0 device =
     device.Qmp.label = "serial0"
-    && Astring.String.is_prefix ~affix:tty_prefix device.Qmp.filename
+    && String.starts_with ~prefix:tty_prefix device.Qmp.filename
 
   let find_serial0 domid =
     match qmp_send_cmd domid Qmp.Query_chardev with

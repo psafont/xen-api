@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Xstringext = Xapi_stdext_std.Xstringext
 open Rrd
 
 let version = "0.1.3"
@@ -160,7 +159,7 @@ module Ds_selector = struct
 
   let of_string str =
     let open Rrd in
-    let splitted = Xstringext.String.split ':' str in
+    let splitted = String.split_on_char ':' str in
     match splitted with
     | [cf; owner; uuid; metric] ->
         {
@@ -192,7 +191,7 @@ module Ds_selector = struct
     let quote s = Printf.sprintf "\"%s\"" s in
     if String.contains s '"' then
       quote
-        (Xstringext.String.map_unlikely s (function
+        (Xapi_stdext_std.Xstringext.String.map_unlikely s (function
           | '\"' ->
               Some "\"\""
           | _ ->
@@ -291,7 +290,7 @@ module Ds_selector = struct
      match the non-null fields of f *)
   let filter11 f d =
     true
-    && (Xstringext.String.startswith f.metric d.metric || f.metric = "")
+    && (String.starts_with ~prefix:f.metric d.metric || f.metric = "")
     && (f.cf = d.cf || f.cf = None)
     && ( match (f.owner, d.owner) with
        | None, _ ->
@@ -500,7 +499,7 @@ module Xport = struct
 
   let to_csv (update : t) =
     let last_update = List.hd update.data in
-    Xstringext.String.sub_to_end
+    Xapi_stdext_std.Xstringext.String.sub_to_end
       (Array.fold_left
          (fun acc v ->
            let strv = Stdout.string_of_float v in
@@ -631,7 +630,7 @@ let print_last session_id data_sources =
 let filter_ds_that_starts_with_name dss name =
   List.fold_left
     (fun acc ds ->
-      if Xstringext.String.startswith name ds.Ds_selector.metric then
+      if String.starts_with ~prefix:name ds.Ds_selector.metric then
         ds :: acc
       else
         acc

@@ -145,8 +145,7 @@ type nbd_connect_info = {path: string; exportname: string} [@@deriving rpc]
 
 let get_nbd_device path =
   let nbd_device_prefix = "/dev/nbd" in
-  if
-    Astring.String.is_prefix ~affix:nbd_device_prefix path && is_nbd_device path
+  if String.starts_with ~prefix:nbd_device_prefix path && is_nbd_device path
   then
     let nbd_number =
       Astring.String.with_range ~first:(String.length nbd_device_prefix) path
@@ -442,7 +441,7 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
               firstchunklength := Int64.to_int length ;
               zerochunkstring := Bytes.make !firstchunklength '\000'
             ) ;
-            if not (Astring.String.is_prefix ~affix:prefix file_name) then (
+            if not (String.starts_with ~prefix file_name) then (
               error "Expected VDI chunk prefixed %s; got %s" prefix file_name ;
               raise (Failure "Invalid XVA file")
             ) ;
@@ -559,7 +558,7 @@ let recv_all_zurich refresh_session ifd (__context : Context.t) rpc session_id
               refresh_session () ;
               let file_name = hdr.Tar.Header.file_name in
               let length = hdr.Tar.Header.file_size in
-              if Astring.String.is_prefix ~affix:prefix file_name then (
+              if String.starts_with ~prefix file_name then (
                 let suffix =
                   String.sub file_name (String.length prefix)
                     (String.length file_name - String.length prefix)

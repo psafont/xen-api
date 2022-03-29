@@ -19,7 +19,6 @@ module L = Debug.Make (struct let name = "license" end)
 
 open Db_filter_types
 module Listext = Xapi_stdext_std.Listext.List
-open Xapi_stdext_std.Xstringext
 module Date = Xapi_stdext_date.Date
 open Network
 
@@ -134,13 +133,15 @@ let refresh_all ~__context ~host =
   List.iter (fun self -> refresh_internal ~__context ~self) pifs
 
 let bridge_naming_convention (device : string) =
-  if String.startswith "eth" device then
+  if String.starts_with ~prefix:"eth" device then
     "xenbr" ^ String.sub device 3 (String.length device - 3)
   else
     "br" ^ device
 
 let read_bridges_from_inventory () =
-  try String.split ' ' (Xapi_inventory.lookup Xapi_inventory._current_interfaces)
+  try
+    String.split_on_char ' '
+      (Xapi_inventory.lookup Xapi_inventory._current_interfaces)
   with _ -> []
 
 (* Ensure the PIF is not a bond slave. *)
@@ -652,15 +653,17 @@ let scan ~__context ~host =
         let output, _ =
           Forkhelpers.execute_command_get_output !Xapi_globs.non_managed_pifs []
         in
-        let dsplit = String.split '\n' output in
+        let dsplit = String.split_on_char '\n' output in
+        let split_f = Xapi_stdext_std.Xstringext.String.split_f in
+        let isspace = Xapi_stdext_std.Xstringext.String.isspace in
         match dsplit with
         | [] | [""] | "" :: "" :: _ ->
             debug "No boot from SAN interface found" ;
             ([], [])
         | m :: u :: _ ->
-            (String.split_f String.isspace m, String.split_f String.isspace u)
+            (split_f isspace m, split_f isspace u)
         | m :: _ ->
-            (String.split_f String.isspace m, [])
+            (split_f isspace m, [])
       with e ->
         warn "Error when executing script %s: %s; ignoring"
           !Xapi_globs.non_managed_pifs

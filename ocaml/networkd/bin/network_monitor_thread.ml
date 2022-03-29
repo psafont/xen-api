@@ -62,7 +62,7 @@ let send_bond_change_alert _dev interfaces message =
 
 let check_for_changes ~(dev : string) ~(stat : Network_monitor.iface_stats) =
   let open Network_monitor in
-  match Astring.String.is_prefix ~affix:"vif" dev with
+  match String.starts_with ~prefix:"vif" dev with
   | true ->
       ()
   | false ->
@@ -120,11 +120,11 @@ let get_link_stats () =
   let links =
     let is_whitelisted name =
       List.exists
-        (fun s -> Astring.String.is_prefix ~affix:s name)
+        (fun s -> String.starts_with ~prefix:s name)
         !monitor_whitelist
     in
     let is_vlan name =
-      Astring.String.is_prefix ~affix:"eth" name && String.contains name '.'
+      String.starts_with ~prefix:"eth" name && String.contains name '.'
     in
     List.map (fun link -> (standardise_name (Link.get_name link), link)) links
     |> (* Only keep interfaces with prefixes on the whitelist, and exclude VLAN
@@ -221,7 +221,7 @@ let rec monitor dbg () =
       let add_other_stats bonds devs =
         List.map
           (fun (dev, stat) ->
-            if not (Astring.String.is_prefix ~affix:"vif" dev) then (
+            if not (String.starts_with ~prefix:"vif" dev) then (
               let open Network_server.Bridge in
               let bond_slaves =
                 if List.mem_assoc dev bonds then

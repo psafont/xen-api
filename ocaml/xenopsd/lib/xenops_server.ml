@@ -79,7 +79,7 @@ let ignore_exception msg f x =
 let filter_prefix prefix xs =
   List.filter_map
     (fun x ->
-      if Astring.String.is_prefix ~affix:prefix x then
+      if String.starts_with ~prefix x then
         Some
           (String.sub x (String.length prefix)
              (String.length x - String.length prefix)

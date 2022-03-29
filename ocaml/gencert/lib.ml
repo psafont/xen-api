@@ -42,9 +42,9 @@ let validate_private_key pkcs8_private_key =
   X509.Private_key.decode_pem raw_pem
   |> R.reword_error (fun (`Msg err_msg) ->
          let unknown_algorithm = "Unknown algorithm " in
-         if Astring.String.is_prefix ~affix:"multi-prime RSA" err_msg then
+         if String.starts_with ~prefix:"multi-prime RSA" err_msg then
            `Msg (server_certificate_key_rsa_multi_not_supported, [])
-         else if Astring.String.is_prefix ~affix:unknown_algorithm err_msg then
+         else if String.starts_with ~prefix:unknown_algorithm err_msg then
            `Msg
              ( server_certificate_key_algorithm_not_supported
              , [

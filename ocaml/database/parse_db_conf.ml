@@ -13,7 +13,6 @@
  *)
 (* !!! This needs to be moved out of xapi and into the database directory; probably being merged with db_connections !!! *)
 
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_unix
 
 module D = Debug.Make (struct let name = "parse_db_conf" end)
@@ -113,7 +112,7 @@ let parse_db_conf s =
     let conf = Unixext.string_of_file s in
     let lines : string list ref = ref [] in
     let consume_line () = lines := List.tl !lines in
-    lines := String.split '\n' conf ;
+    lines := String.split_on_char '\n' conf ;
     List.iter (fun line -> debug "%s" line) !lines ;
     let read_block () =
       let path_line = List.hd !lines in
@@ -123,7 +122,7 @@ let parse_db_conf s =
       while !lines <> [] && List.hd !lines <> "" do
         let line = List.hd !lines in
         key_values :=
-          ( match String.split ':' line with
+          ( match String.split_on_char ':' line with
           | k :: vs ->
               ( String.lowercase_ascii k
               , String.lowercase_ascii (String.concat ":" vs)
@@ -168,7 +167,7 @@ let parse_db_conf s =
     let connections : db_connection list ref = ref [] in
     while !lines <> [] do
       let line = List.hd !lines in
-      if String.startswith "[" line then
+      if String.starts_with ~prefix:"[" line then
         connections := read_block () :: !connections
       else
         consume_line ()

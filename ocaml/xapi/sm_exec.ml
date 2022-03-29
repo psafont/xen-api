@@ -556,7 +556,7 @@ let sr_get_driver_info driver =
  * backend and daemon found. *)
 let get_supported add_fn =
   let check_driver entry =
-    if Astring.String.is_suffix ~affix:"SR" entry then
+    if String.ends_with ~suffix:"SR" entry then
       let driver = String.sub entry 0 (String.length entry - 2) in
       if not (Xapi_globs.accept_sm_plugin driver) then
         info

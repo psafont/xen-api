@@ -198,8 +198,8 @@ let exec_command req cmd s session args =
   let p = try List.assoc "password" params with _ -> "" in
   (* Create a list of commands and their associated arguments which might be sensitive. *)
   let commands_and_params_to_hide =
-    let starts affix = Astring.String.is_prefix ~affix in
-    let ends affix = Astring.String.is_suffix ~affix in
+    let starts prefix = String.starts_with ~prefix in
+    let ends suffix = String.ends_with ~suffix in
     let is = ( = ) in
     let always (_ : string) = true in
     (* case-insensitive contains *)
@@ -224,7 +224,7 @@ let exec_command req cmd s session args =
   else
     let uninteresting =
       List.exists
-        (fun k -> Astring.String.is_suffix ~affix:k cmd_name)
+        (fun k -> String.ends_with ~suffix:k cmd_name)
         uninteresting_cmd_postfixes
     in
     let do_log = if uninteresting then debug else info in
@@ -285,7 +285,7 @@ let parse_session_and_args str =
   let args = List.rev (get_args 0 []) in
   try
     let line = List.hd args in
-    if Astring.String.is_prefix ~affix:"session_id=" line then
+    if String.starts_with ~prefix:"session_id=" line then
       ( Some (Ref.of_string (String.sub line 11 (String.length line - 11)))
       , List.tl args
       )
