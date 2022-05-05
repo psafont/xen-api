@@ -15,7 +15,6 @@
     angstrom
     astring
     cstruct
-    
     fmt
     http_lib
     httpsvr
@@ -111,6 +110,7 @@
     xapi-idl.cluster
     xapi-idl.storage
     xapi-idl.storage.interface
+    xapi-idl.updates
     xapi-idl.xen
     xapi_internal
     xapi-test-utils
