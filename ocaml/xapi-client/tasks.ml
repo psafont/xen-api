@@ -30,7 +30,7 @@ let wait_for_all_inner ~rpc ~session_id ~all_timeout ~tasks =
   let timeout_span =
     match all_timeout with
     | Some t ->
-        Some (t *. 1e9 |> Int64.of_float |> Mtime.Span.of_uint64_ns)
+        Some Mtime.Span.(Float.to_int (t *. 1e9) * ns)
     | None ->
         None
   in
