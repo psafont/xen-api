@@ -6,13 +6,17 @@ module Scheduler = Xapi_stdext_threads_scheduler.Scheduler
 
 let start_periodic_scheduler () =
   Mutex.lock scheduler_mutex ;
-  if !ps_start then
-    ()
-  else (
-    Scheduler.add_to_queue "dummy" (Scheduler.Periodic 60.0) 0.0 (fun () -> ()) ;
-    Xapi_event.register_hooks () ;
-    ignore (Thread.create Scheduler.loop ()) ;
-    ps_start := true
+  ( if !ps_start then
+      ()
+    else
+      let period = Mtime.Span.(1 * min) in
+      let start = Mtime.Span.zero in
+      Scheduler.add_to_queue "dummy" (Scheduler.Periodic period) start
+        (fun () -> ()
+      ) ;
+      Xapi_event.register_hooks () ;
+      ignore (Thread.create Scheduler.loop ()) ;
+      ps_start := true
   ) ;
   Mutex.unlock scheduler_mutex
 

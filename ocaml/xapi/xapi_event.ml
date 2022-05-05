@@ -21,6 +21,9 @@ module D = Debug.Make (struct let name = "xapi_event" end)
 
 open D
 
+let timeout_not_reached ~elapsed timeout =
+  Mtime.Span.is_shorter (Mtime_clock.count elapsed) ~than:timeout
+
 module Message = struct
   type t =
     | Create of (API.ref_message * API.message_t)
@@ -417,20 +420,20 @@ module From = struct
 
   let session_is_invalid call = with_lock call.m (fun () -> call.session_invalid)
 
-  let wait2 call from_id deadline =
+  let wait2 call from_id elapsed timeout =
     let timeoutname = Printf.sprintf "event_from_timeout_%Ld" call.index in
+    let module Scheduler = Xapi_stdext_threads_scheduler.Scheduler in
     with_lock m (fun () ->
         while
           from_id = call.cur_id
           && (not (session_is_invalid call))
-          && Unix.gettimeofday () < deadline
+          && timeout_not_reached ~elapsed timeout
         do
-          Xapi_stdext_threads_scheduler.Scheduler.add_to_queue timeoutname
-            Xapi_stdext_threads_scheduler.Scheduler.OneShot
-            (deadline -. Unix.gettimeofday () +. 0.5)
+          Scheduler.add_to_queue timeoutname Scheduler.OneShot
+            Mtime.Span.(add timeout (500 * ms))
             (fun () -> Condition.broadcast c) ;
           Condition.wait c m ;
-          Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue timeoutname
+          Scheduler.remove_from_queue timeoutname
         done
     ) ;
     if session_is_invalid call then (
@@ -504,7 +507,7 @@ let rec next ~__context =
   else
     rpc_of_events relevant
 
-let from_inner __context session subs from from_t deadline =
+let from_inner __context session subs from from_t elapsed timeout =
   let open Xapi_database in
   let open From in
   (* The database tables involved in our subscription *)
@@ -611,14 +614,14 @@ let from_inner __context session subs from from_t deadline =
             && mods = []
             && deletes = []
             && messages = []
-            && Unix.gettimeofday () < deadline
+            && timeout_not_reached ~elapsed timeout
           then (
             last_generation := last ;
             (* Cur_id was bumped, but nothing relevent fell out of the db. Therefore the *)
             sub.cur_id <- last ;
             (* last id the client got is equivalent to the current one *)
             last_msg_gen := msg_gen ;
-            wait2 sub last deadline ;
+            wait2 sub last elapsed timeout ;
             Thread.delay 0.05 ;
             grab_nonempty_range ()
           ) else
@@ -711,14 +714,23 @@ let from ~__context ~classes ~token ~timeout =
         )
   in
   let subs = List.map Subscription.of_string classes in
-  let deadline = Unix.gettimeofday () +. timeout in
+  let elapsed = Mtime_clock.counter () in
+  let timeout =
+    match Clock.Timer.s_to_span timeout with
+    | Some timeout ->
+        timeout
+    | None ->
+        Mtime.Span.(104 * day)
+  in
   (* We need to iterate because it's possible for an empty event set
-     	   to be generated if we peek in-between a Modify and a Delete; we'll
-     	   miss the Delete event and fail to generate the Modify because the
-     	   snapshot can't be taken. *)
+     to be generated if we peek in-between a Modify and a Delete; we'll
+     miss the Delete event and fail to generate the Modify because the
+     snapshot can't be taken. *)
   let rec loop () =
-    let event_from = from_inner __context session subs from from_t deadline in
-    if event_from.events = [] && Unix.gettimeofday () < deadline then (
+    let event_from =
+      from_inner __context session subs from from_t elapsed timeout
+    in
+    if event_from.events = [] && timeout_not_reached ~elapsed timeout then (
       debug "suppressing empty event.from" ;
       loop ()
     ) else

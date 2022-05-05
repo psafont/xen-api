@@ -19,7 +19,7 @@ module Delay = Xapi_stdext_threads.Threadext.Delay
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-type func_ty = OneShot | Periodic of float
+type func_ty = OneShot | Periodic of Mtime.Span.t
 
 type t = {func: unit -> unit; ty: func_ty; name: string}
 
@@ -33,28 +33,13 @@ let (queue : t Ipq.t) = Ipq.create 50 queue_default
 
 let lock = Mutex.create ()
 
-module Clock = struct
-  let span s = Mtime.Span.of_uint64_ns (Int64.of_float (s *. 1e9))
-
-  let span_to_s span = Mtime.Span.to_float_ns span |> fun ns -> ns /. 1e9
-
-  let add_span clock secs =
-    (* return mix or max available value if the add overflows *)
-    match Mtime.add_span clock (span secs) with
-    | Some t ->
-        t
-    | None when secs > 0. ->
-        Mtime.max_stamp
-    | None ->
-        Mtime.min_stamp
-end
+let elapsed = Mtime_clock.counter ()
 
 let add_to_queue name ty start newfunc =
-  let ( ++ ) = Clock.add_span in
-  let item =
-    {Ipq.ev= {func= newfunc; ty; name}; Ipq.time= Mtime_clock.now () ++ start}
-  in
-  with_lock lock (fun () -> Ipq.add queue item) ;
+  let time = Mtime.Span.add (Mtime_clock.count elapsed) start in
+  with_lock lock (fun () ->
+      Ipq.(add queue {ev= {func= newfunc; ty; name}; time})
+  ) ;
   Delay.signal delay
 
 let remove_from_queue name =
@@ -71,8 +56,8 @@ let add_periodic_pending () =
   with_lock lock @@ fun () ->
   match !pending_event with
   | Some ({ty= Periodic timer; _} as ev) ->
-      let ( ++ ) = Clock.add_span in
-      let item = {Ipq.ev; Ipq.time= Mtime_clock.now () ++ timer} in
+      let now = Mtime_clock.count elapsed in
+      let item = {Ipq.ev; Ipq.time= Mtime.Span.add now timer} in
       Ipq.add queue item ;
       pending_event := None
   | Some {ty= OneShot; _} ->
@@ -84,15 +69,15 @@ let loop () =
   debug "%s started" __MODULE__ ;
   try
     while true do
-      let now = Mtime_clock.now () in
+      let now = Mtime_clock.count elapsed in
       let deadline, item =
         with_lock lock @@ fun () ->
         (* empty: wait till we get something *)
         if Ipq.is_empty queue then
-          (Clock.add_span now 10.0, None)
+          (Mtime.Span.(add now (10 * s)), None)
         else
           let next = Ipq.maximum queue in
-          if Mtime.is_later next.Ipq.time ~than:now then
+          if Mtime.Span.is_longer next.Ipq.time ~than:now then
             (* not expired: wait till time or interrupted *)
             (next.Ipq.time, None)
           else (
@@ -110,7 +95,9 @@ let loop () =
       | None -> (
           (* Sleep until next event. *)
           let sleep =
-            Mtime.(span deadline now) |> Mtime.Span.(add ms) |> Clock.span_to_s
+            Mtime.Span.abs_diff deadline now
+            |> Mtime.Span.(add ms)
+            |> Clock.Timer.span_to_s
           in
           try ignore (Delay.wait delay sleep)
           with e ->

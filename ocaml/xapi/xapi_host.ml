@@ -926,24 +926,25 @@ let is_slave ~__context ~host:_ = not (Pool_role.is_master ())
 let ask_host_if_it_is_a_slave ~__context ~host =
   let ask_and_warn_when_slow ~__context =
     let local_fn = is_slave ~host in
-    let timeout = 10. in
+    let timeout = Mtime.Span.(10 * s) in
     let task_name = Context.get_task_id __context |> Ref.string_of in
     let ip, uuid =
       ( Db.Host.get_address ~__context ~self:host
       , Db.Host.get_uuid ~__context ~self:host
       )
     in
+    let module Scheduler = Xapi_stdext_threads_scheduler.Scheduler in
     let rec log_host_slow_to_respond timeout () =
+      let minimum a b = if Mtime.Span.compare a b > 0 then b else a in
+      let next_timeout = Mtime.Span.(minimum (2 * timeout) (300 * s)) in
       D.warn
         "ask_host_if_it_is_a_slave: host taking a long time to respond - IP: \
          %s; uuid: %s"
         ip uuid ;
-      Xapi_stdext_threads_scheduler.Scheduler.add_to_queue task_name
-        Xapi_stdext_threads_scheduler.Scheduler.OneShot timeout
-        (log_host_slow_to_respond (min (2. *. timeout) 300.))
+      Scheduler.add_to_queue task_name Scheduler.OneShot timeout
+        (log_host_slow_to_respond next_timeout)
     in
-    Xapi_stdext_threads_scheduler.Scheduler.add_to_queue task_name
-      Xapi_stdext_threads_scheduler.Scheduler.OneShot timeout
+    Scheduler.add_to_queue task_name Scheduler.OneShot timeout
       (log_host_slow_to_respond timeout) ;
     let res =
       Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context
@@ -951,7 +952,7 @@ let ask_host_if_it_is_a_slave ~__context ~host =
           Client.Client.Pool.is_slave ~rpc ~session_id ~host
       )
     in
-    Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue task_name ;
+    Scheduler.remove_from_queue task_name ;
     res
   in
   Server_helpers.exec_with_subtask ~__context "host.ask_host_if_it_is_a_slave"
@@ -1497,8 +1498,16 @@ let sync_data ~__context ~host = Xapi_sync.sync_host ~__context host
 (* Nb, no attempt to wrap exceptions yet *)
 
 let backup_rrds ~__context ~host:_ ~delay =
-  Xapi_stdext_threads_scheduler.Scheduler.add_to_queue "RRD backup"
-    Xapi_stdext_threads_scheduler.Scheduler.OneShot delay (fun _ ->
+  let module Scheduler = Xapi_stdext_threads_scheduler.Scheduler in
+  let start =
+    match Clock.Timer.s_to_span delay with
+    | Some delay ->
+        delay
+    | None ->
+        let msg = ["Delay is too long (>100 days)"] in
+        raise Api_errors.(Server_error (internal_error, msg))
+  in
+  Scheduler.add_to_queue "RRD backup" Scheduler.OneShot start (fun _ ->
       let master_address = Pool_role.get_master_address_opt () in
       log_and_ignore_exn (Rrdd.backup_rrds master_address) ;
       log_and_ignore_exn (fun () ->

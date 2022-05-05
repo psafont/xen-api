@@ -444,8 +444,7 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
         List.iter Locking_helpers.kill_resource resources
       in
       let module Scheduler = Xapi_stdext_threads_scheduler.Scheduler in
-      Scheduler.add_to_queue (Ref.string_of task_id) Scheduler.OneShot
-        (Clock.Timer.span_to_s timeout)
+      Scheduler.add_to_queue (Ref.string_of task_id) Scheduler.OneShot timeout
         cancel ;
       let transport =
         if Pool_role.is_master () then

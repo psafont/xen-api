@@ -5,7 +5,7 @@ module Delay : sig
   val make : unit -> t
   (** Makes a Delay.t *)
 
-  val wait : t -> float -> bool
+  val wait : t -> Mtime.Span.t -> bool
   (** Wait for the specified amount of time. Returns true if we waited the full
       length of time, false if we were woken *)
 
@@ -26,9 +26,6 @@ val handle_of_rpc : Rpc.t -> handle
 val make : unit -> t
 (** Creates a scheduler *)
 
-(** Items can be scheduled as a delta measured in seconds from now. *)
-type time = Delta of int
-
 (** This module is for dumping the state of a scheduler *)
 module Dump : sig
   type u = {time: int64; thing: string}
@@ -42,7 +39,7 @@ module Dump : sig
   val make : t -> dump
 end
 
-val one_shot : t -> time -> string -> (unit -> unit) -> handle
+val one_shot : t -> Mtime.Span.t -> string -> (unit -> unit) -> handle
 (** Insert a one-shot item into the scheduler. *)
 
 val cancel : t -> handle -> unit
@@ -56,8 +53,9 @@ module PipeDelay : sig
   (** Makes a PipeDelay.t *)
 
   val wait : t -> float -> bool
-  (** Wait for the specified amount of time. Returns true if we waited the full
-      length of time, false if we were woken *)
+  (** Wait for the specified amount of seconds. Returns true if we waited the full
+      length of time, false if we were woken. Uses float to be able to be used
+      along Thread.wait *)
 
   val signal : t -> unit
   (** Signal anyone currently waiting with the PipeDelay.t *)

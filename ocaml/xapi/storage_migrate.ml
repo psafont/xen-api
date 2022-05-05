@@ -16,7 +16,7 @@ module D = Debug.Make (struct let name = "storage_migrate" end)
 
 open D
 
-(** As SXM is such a long running process, we dedicate this to log important 
+(** As SXM is such a long running process, we dedicate this to log important
   milestones during the SXM process *)
 module SXM = Debug.Make (struct
   let name = "SXM"
@@ -456,7 +456,7 @@ let add_to_sm_config vdi_info key value =
   let vdi_info = remove_from_sm_config vdi_info key in
   {vdi_info with sm_config= (key, value) :: vdi_info.sm_config}
 
-(** This module [MigrateLocal] consists of the concrete implementations of the 
+(** This module [MigrateLocal] consists of the concrete implementations of the
 migration part of SMAPI. Functions inside this module are sender driven, which means
 they tend to be executed on the sender side. although there is not a hard rule
 on what is executed on the sender side, this provides some heuristics. *)
@@ -605,8 +605,8 @@ module MigrateLocal = struct
       perform_cleanup_actions !on_fail ;
       raise e
 
-  (** [copy_into_sr] does not requires a dest vdi to be provided, instead, it will 
-  find the nearest vdi on the [dest] sr, and if there is no such vdi, it will 
+  (** [copy_into_sr] does not requires a dest vdi to be provided, instead, it will
+  find the nearest vdi on the [dest] sr, and if there is no such vdi, it will
   create one. *)
   let copy_into_sr ~task ~dbg ~sr ~vdi ~url ~dest ~verify_dest =
     debug "copy sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
@@ -883,7 +883,8 @@ module MigrateLocal = struct
              ) ;
              alm.State.Send_state.watchdog <-
                Some
-                 (Scheduler.one_shot scheduler (Scheduler.Delta 5)
+                 (Scheduler.one_shot scheduler
+                    Mtime.Span.(5 * s)
                     "tapdisk_watchdog" inner
                  )
          | None ->
@@ -1230,8 +1231,6 @@ exception Timeout of Mtime.Span.t
 
 let reqs_outstanding_timeout = Mtime.Span.(150 * s)
 
-let pp_time () = Fmt.str "%a" Mtime.Span.pp
-
 (* Tapdisk should time out after 2 mins. We can wait a little longer *)
 
 let pre_deactivate_hook ~dbg:_ ~dp:_ ~sr ~vdi =
@@ -1261,7 +1260,8 @@ let pre_deactivate_hook ~dbg:_ ~dp:_ ~sr ~vdi =
                    (st, elapsed)
                in
                let st, elapsed = wait () in
-               debug "Got final stats after waiting %a" pp_time elapsed ;
+               debug "Got final stats after waiting %a" Debug.Pp.mtime_span
+                 elapsed ;
                if st.Stats.nbd_mirror_failed = 1 then (
                  error "tapdisk reports mirroring failed" ;
                  s.failed <- true
@@ -1271,7 +1271,7 @@ let pre_deactivate_hook ~dbg:_ ~dp:_ ~sr ~vdi =
              error
                "Timeout out after %a waiting for tapdisk to complete all \
                 outstanding requests"
-               pp_time elapsed ;
+               Debug.Pp.mtime_span elapsed ;
              s.failed <- true
          | e ->
              error "Caught exception while finally checking mirror state: %s"

@@ -200,6 +200,8 @@ let test_with_cancel_failure () =
         false
     )
 
+let one_second = Mtime.Span.(1 * s)
+
 (* Similar to test_with_cancel, but in this case the cancellation function is
    called after the task is started *)
 let test_with_cancel2 () =
@@ -211,7 +213,7 @@ let test_with_cancel2 () =
         T.with_cancel task
           (fun () -> cancel_fn_run := true)
           (fun () ->
-            ignore (Scheduler.Delay.wait delay 1.0) ;
+            ignore (Scheduler.Delay.wait delay one_second) ;
             T.check_cancelling task ;
             Some "foo"
           )
@@ -246,7 +248,7 @@ let test_with_cancel_failure2 () =
         T.with_cancel task
           (fun () -> failwith "moo")
           (fun () ->
-            ignore (Scheduler.Delay.wait delay 1.0) ;
+            ignore (Scheduler.Delay.wait delay one_second) ;
             T.check_cancelling task ;
             Some "foo"
           )

@@ -33,7 +33,7 @@ let periodic_update_sync_task_name = "Periodic update synchronization"
 
 let secs_per_hour = 60 * 60
 
-let update_sync_minimum_interval = Ptime.Span.of_int_s (2 * secs_per_hour)
+let update_sync_minimum_interval = Mtime.Span.(2 * hour)
 
 let secs_per_day = 24 * secs_per_hour
 
@@ -83,10 +83,16 @@ let day_of_next_sync ~now ~tz_offset_s ~frequency =
   Ptime.add_span beginning_of_day (delay_of days) |> Option.get
 
 let time_until_next_sync_internal ~now ~next_sync =
-  let delay = Ptime.diff next_sync now in
+  (* The conversion is not precise: it doesn't take into account leap seconds
+     This is because UNIX seconds may be 0, 1 or 2 SI (monotonic) seconds.
+     This loss of precision is acceptable for daily / weekly updates *)
+  let delay =
+    let unix_delay = Ptime.diff next_sync now in
+    Mtime.Span.((Ptime.Span.to_int_s unix_delay |> Option.get) * s)
+  in
   if Xapi_fist.disable_periodic_update_sync_sec_randomness () then
     delay
-  else if Ptime.Span.compare delay update_sync_minimum_interval > 0 then
+  else if Mtime.Span.is_longer delay ~than:update_sync_minimum_interval then
     delay
   else (* Enforce a minimum of 2 hours between schedules *)
     update_sync_minimum_interval
@@ -98,7 +104,7 @@ let time_until_next_sync ~now ~next_sync =
   | Some delay -> (
     try
       let seconds = int_of_string (String.trim delay) in
-      Ptime.Span.of_int_s seconds
+      Mtime.Span.(seconds * s)
     with _ ->
       debug
         "[PeriodicUpdateSync] failed to interpret periodic update sync delay: \
@@ -107,7 +113,7 @@ let time_until_next_sync ~now ~next_sync =
       time_until_next_sync_internal ~now ~next_sync
   )
 
-let seconds_until_next_schedule ~__context =
+let time_until_next_schedule ~__context =
   let frequency =
     Db.Pool.get_update_sync_frequency ~__context
       ~self:(Helpers.get_pool ~__context)
@@ -115,9 +121,7 @@ let seconds_until_next_schedule ~__context =
   let day_of_week =
     Db.Pool.get_update_sync_day ~__context ~self:(Helpers.get_pool ~__context)
   in
-  debug
-    "[PeriodicUpdateSync] seconds_until_next_schedule, frequency=%s, \
-     day_configed=%Ld"
+  debug "%s, frequency=%s, day_configured=%Ld" __FUNCTION__
     (frequency_to_str ~frequency)
     day_of_week ;
   let frequency = frequency_of_freq_and_day frequency day_of_week in
@@ -126,8 +130,9 @@ let seconds_until_next_schedule ~__context =
   let delay = random_delay () in
   let next_day = day_of_next_sync ~now ~tz_offset_s ~frequency in
   let next_sync = Ptime.add_span next_day delay |> Option.get in
-  let delay = time_until_next_sync ~now ~next_sync |> Ptime.Span.to_float_s in
-  debug "[PeriodicUpdateSync] delay for next update sync: %f seconds" delay ;
+  let delay = time_until_next_sync ~now ~next_sync in
+  debug "%s: next update sync will happen in %a" __FUNCTION__
+    Debug.Pp.mtime_span delay ;
   delay
 
 let rec update_sync () =
@@ -164,7 +169,7 @@ let rec update_sync () =
 
 and add_to_queue ~__context () =
   Scheduler.add_to_queue periodic_update_sync_task_name Scheduler.OneShot
-    (seconds_until_next_schedule ~__context)
+    (time_until_next_schedule ~__context)
     update_sync
 
 let set_enabled ~__context ~value =

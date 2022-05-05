@@ -50,10 +50,6 @@ type t = {
   ; m: Mutex.t
 }
 
-type time = Delta of int
-
-(*type t = int64 * int [@@deriving rpc]*)
-
 let span_to_s span =
   Mtime.Span.to_uint64_ns span |> Int64.to_float |> fun ns -> ns /. 1e9
 
@@ -61,7 +57,7 @@ let time_of_span span = span_to_s span |> ceil |> Int64.of_float
 
 let mtime_sub time now = Mtime.Span.abs_diff time now |> time_of_span
 
-let now () = Mtime_clock.elapsed ()
+let elapsed = Mtime_clock.counter ()
 
 module Dump = struct
   type u = {time: int64; thing: string} [@@deriving rpc]
@@ -69,7 +65,7 @@ module Dump = struct
   type dump = u list [@@deriving rpc]
 
   let make s =
-    let now = now () in
+    let now = Mtime_clock.count elapsed in
     with_lock s.m (fun () ->
         HandleMap.fold
           (fun (time, _) i acc ->
@@ -79,12 +75,8 @@ module Dump = struct
     )
 end
 
-let mtime_add x t =
-  let dt = x *. 1e9 |> Int64.of_float |> Mtime.Span.of_uint64_ns in
-  Mtime.Span.add dt t
-
-let one_shot_f s dt (name : string) f =
-  let time = mtime_add dt (now ()) in
+let one_shot s dt name f =
+  let time = Mtime.Span.add dt (Mtime_clock.count elapsed) in
   with_lock s.m (fun () ->
       let id = s.next_id in
       s.next_id <- s.next_id + 1 ;
@@ -95,13 +87,11 @@ let one_shot_f s dt (name : string) f =
       handle
   )
 
-let one_shot s (Delta x) name f = one_shot_f s (float x) name f
-
 let cancel s handle =
   with_lock s.m (fun () -> s.schedule <- HandleMap.remove handle s.schedule)
 
 let process_expired s =
-  let t = now () in
+  let t = Mtime_clock.count elapsed in
   let expired =
     with_lock s.m (fun () ->
         let expired, eq, unexpired = HandleMap.split (t, max_int) s.schedule in
@@ -129,19 +119,21 @@ let rec main_loop s =
   let sleep_until =
     with_lock s.m (fun () ->
         try HandleMap.min_binding s.schedule |> fst |> fst
-        with Not_found -> mtime_add 3600. (now ())
+        with Not_found ->
+          let now = Mtime_clock.count elapsed in
+          Mtime.Span.(add now (1 * hour))
     )
   in
-  let this = now () in
-  let seconds =
-    if Mtime.Span.compare sleep_until this > 0 then
+  let now = Mtime_clock.count elapsed in
+  let period =
+    if Mtime.Span.compare sleep_until now > 0 then
       (* be careful that this is absolute difference,
          it is never negative! *)
-      Mtime.Span.abs_diff sleep_until this |> span_to_s
+      Mtime.Span.abs_diff sleep_until now
     else
-      0.
+      Mtime.Span.zero
   in
-  let (_ : bool) = PipeDelay.wait s.delay seconds in
+  let (_ : bool) = PipeDelay.wait s.delay (span_to_s period) in
   main_loop s
 
 let make_scheduler () =
@@ -167,10 +159,10 @@ module Delay = struct
 
   let make () = {c= Condition.create (); m= Mutex.create (); state= None}
 
-  let wait t seconds =
+  let wait t lapse =
     with_lock t.m (fun () ->
         let handle =
-          one_shot_f s seconds "Delay.wait" (fun () ->
+          one_shot s lapse "Delay.wait" (fun () ->
               if t.state = None then
                 t.state <- Some Timedout ;
               Condition.broadcast t.c

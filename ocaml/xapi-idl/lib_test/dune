@@ -45,6 +45,8 @@
    alcotest
    cohttp_posix
    fmt
+   mtime
+   mtime.clock.os
    result
    rpclib.core
    rpclib.json

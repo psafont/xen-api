@@ -124,9 +124,7 @@ let watchdog_scheduler = Scheduler.make ()
 let run_watchdog timeout (fire_fn : unit -> unit) f =
   let fired = ref (Some false) in
   let handle =
-    Scheduler.one_shot watchdog_scheduler
-      Scheduler.(Delta timeout)
-      "watchdog timeout"
+    Scheduler.one_shot watchdog_scheduler timeout "watchdog timeout"
     @@ fun () ->
     fired := None ;
     fire_fn () ;
@@ -160,7 +158,9 @@ let watchdog timeout pid f =
           false
     )
 
-let check_reusable x pid = watchdog 30 pid (fun () -> check_reusable_inner x)
+let check_reusable x pid =
+  let timeout = Mtime.Span.(30 * s) in
+  watchdog timeout pid (fun () -> check_reusable_inner x)
 
 let assert_dest_is_ok host =
   (* Double check whether we _should_ be able to talk to this host *)
