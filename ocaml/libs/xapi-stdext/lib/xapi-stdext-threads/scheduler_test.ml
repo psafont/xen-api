@@ -49,17 +49,21 @@ let mtime_span () =
 
 let test_single () =
   let finished = Event.new_channel () in
-  Scheduler.add_to_queue "one" Scheduler.OneShot 0.001 (send finished true) ;
+  Scheduler.add_to_queue "one" Scheduler.OneShot Mtime.Span.ms
+    (send finished true) ;
   start_schedule () ;
   Alcotest.(check bool) "result" true (receive finished)
 
 let test_remove_self mtime_span () =
   let which = Event.new_channel () in
-  Scheduler.add_to_queue "self" (Scheduler.Periodic 0.001) 0.001 (fun () ->
+  Scheduler.add_to_queue "self" (Scheduler.Periodic Mtime.Span.ms) Mtime.Span.ms
+    (fun () ->
       (* this should remove the periodic scheduling *)
       Scheduler.remove_from_queue "self" ;
       (* add an operation to stop the test *)
-      Scheduler.add_to_queue "stop" Scheduler.OneShot 0.1 (send which "stop") ;
+      Scheduler.add_to_queue "stop" Scheduler.OneShot
+        Mtime.Span.(100 * ms)
+        (send which "stop") ;
       send which "self" ()
   ) ;
   start_schedule () ;
@@ -74,12 +78,14 @@ let test_remove_self mtime_span () =
 
 let test_empty mtime_span () =
   let finished = Event.new_channel () in
-  Scheduler.add_to_queue "one" Scheduler.OneShot 0.001 (send finished true) ;
+  Scheduler.add_to_queue "one" Scheduler.OneShot Mtime.Span.ms
+    (send finished true) ;
   start_schedule () ;
   Alcotest.(check bool) "finished" true (receive finished) ;
   (* wait loop to go to wait with no work to do *)
   Thread.delay 0.1 ;
-  Scheduler.add_to_queue "two" Scheduler.OneShot 0.001 (send finished true) ;
+  Scheduler.add_to_queue "two" Scheduler.OneShot Mtime.Span.ms
+    (send finished true) ;
 
   let from_wait_to_receive = Mtime_clock.counter () in
   Alcotest.(check bool) "finished" true (receive finished) ;
@@ -91,13 +97,17 @@ let test_empty mtime_span () =
 let test_wakeup mtime_span () =
   let which = Event.new_channel () in
   (* schedule a long event *)
-  Scheduler.add_to_queue "long" Scheduler.OneShot 2.0 (send which "long") ;
+  Scheduler.add_to_queue "long" Scheduler.OneShot
+    Mtime.Span.(2 * s)
+    (send which "long") ;
   start_schedule () ;
   (* wait loop to go to wait with no work to do *)
   Thread.delay 0.1 ;
 
   (* schedule a quick event, should wake up the loop *)
-  Scheduler.add_to_queue "quick" Scheduler.OneShot 0.1 (send which "quick") ;
+  Scheduler.add_to_queue "quick" Scheduler.OneShot
+    Mtime.Span.(100 * ms)
+    (send which "quick") ;
 
   let from_wait_to_receive_quick = Mtime_clock.counter () in
   Alcotest.(check string) "same event name" "quick" (receive which) ;

@@ -278,6 +278,7 @@ let object_level_event_test _session_id =
     Alcotest.fail "failed to see object-level event change"
 
 let test_short_oneshot () =
+  let module Scheduler = Xapi_stdext_threads_scheduler.Scheduler in
   (* don't call event_setup_common here, it'll register a dummy event and hide the bug *)
   let started = ref false in
   let m = Mutex.create () in
@@ -287,7 +288,7 @@ let test_short_oneshot () =
     started := true ;
     Condition.broadcast cond ;
     Mutex.unlock m ;
-    Xapi_stdext_threads_scheduler.Scheduler.loop ()
+    Scheduler.loop ()
   in
   ignore (Thread.create scheduler ()) ;
   (* ensure scheduler sees an empty queue , by waiting for it to start *)
@@ -303,8 +304,7 @@ let test_short_oneshot () =
   let fired = Atomic.make false in
   let fire () = Atomic.set fired true in
   let task = "test_oneshot" in
-  Xapi_stdext_threads_scheduler.Scheduler.add_to_queue task
-    Xapi_stdext_threads_scheduler.Scheduler.OneShot 1. fire ;
+  Scheduler.add_to_queue task Scheduler.OneShot Mtime.Span.(1 * s) fire ;
   Thread.delay 2. ;
   assert (Atomic.get fired)
 

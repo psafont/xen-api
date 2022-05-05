@@ -89,7 +89,7 @@ module TestDayOfNextSync = struct
 end
 
 module TestTimeUntilNextSync = struct
-  let ptime_span = Alcotest.testable Ptime.Span.pp Ptime.Span.equal
+  let mtime_span = Alcotest.testable Mtime.Span.pp Mtime.Span.equal
 
   type test_case = {
       description: string
@@ -137,7 +137,7 @@ module TestTimeUntilNextSync = struct
     let next_sync = of_date_time_tz d_b t_b tz_offset_s in
     let now = of_date_time_tz d_a t_a tz_offset_s in
     let actual = time_until_next_sync ~now ~next_sync in
-    Alcotest.check ptime_span description (Ptime.Span.of_int_s expected) actual
+    Alcotest.check mtime_span description Mtime.Span.(expected * s) actual
 
   let tests_for_each_tz_from_test_case ({description; _} as test_case) =
     let test_from_tz (tz, tz_name) =

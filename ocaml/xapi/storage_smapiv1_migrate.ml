@@ -295,8 +295,8 @@ module Copy = struct
       perform_cleanup_actions !on_fail ;
       raise e
 
-  (** [copy_into_sr] does not requires a dest vdi to be provided, instead, it will 
-  find the nearest vdi on the [dest] sr, and if there is no such vdi, it will 
+  (** [copy_into_sr] does not requires a dest vdi to be provided, instead, it will
+  find the nearest vdi on the [dest] sr, and if there is no such vdi, it will
   create one. *)
   let copy_into_sr ~task ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest =
     D.debug "copy sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
@@ -539,8 +539,9 @@ let mirror_checker mirror_id tapdev =
         ) ;
         alm.State.Send_state.watchdog <-
           Some
-            (Scheduler.one_shot scheduler (Scheduler.Delta 5) "tapdisk_watchdog"
-               inner
+            (Scheduler.one_shot scheduler
+               Mtime.Span.(5 * s)
+               "tapdisk_watchdog" inner
             )
     | None ->
         ()

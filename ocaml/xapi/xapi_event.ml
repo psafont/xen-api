@@ -427,6 +427,7 @@ module From = struct
 
   let wait2 call from_id timer =
     let timeoutname = Printf.sprintf "event_from_timeout_%Ld" call.index in
+    let module Scheduler = Xapi_stdext_threads_scheduler.Scheduler in
     with_lock m (fun () ->
         while
           from_id = call.cur_id
@@ -437,10 +438,9 @@ module From = struct
           | Expired _ ->
               ()
           | Remaining delta ->
-              Xapi_stdext_threads_scheduler.Scheduler.add_to_queue_span
-                timeoutname Xapi_stdext_threads_scheduler.Scheduler.OneShot
-                delta (fun () -> Condition.broadcast c
-              ) ;
+              Scheduler.add_to_queue timeoutname Scheduler.OneShot
+                Mtime.Span.(add delta (500 * ms))
+                (fun () -> Condition.broadcast c) ;
               Condition.wait c m ;
               Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue
                 timeoutname
@@ -635,7 +635,7 @@ let from_inner __context session subs from from_t timer batching =
             (* The next iteration will fold over events starting after
                the last database event that matched a subscription. *)
             let next = last in
-            (self [@tailcall]) next
+            Thread.delay 0.05 ; (self [@tailcall]) next
           ) else
             result
         in
@@ -749,9 +749,9 @@ let from ~__context ~classes ~token ~timeout =
         )
   in
   (* We need to iterate because it's possible for an empty event set
-     	   to be generated if we peek in-between a Modify and a Delete; we'll
-     	   miss the Delete event and fail to generate the Modify because the
-     	   snapshot can't be taken. *)
+     to be generated if we peek in-between a Modify and a Delete; we'll
+     miss the Delete event and fail to generate the Modify because the
+     snapshot can't be taken. *)
   let rec loop () =
     let event_from =
       from_inner __context session subs from from_t timer batching

@@ -83,7 +83,10 @@ let remove h s =
     if j < n then
       let j =
         let j' = j + 1 in
-        if j' < n && d.(j').time < d.(j).time then j' else j
+        if j' < n && Mtime.Span.is_shorter d.(j').time ~than:d.(j).time then
+          j'
+        else
+          j
       in
       if Mtime.Span.is_shorter d.(j).time ~than:x.time then (
         d.(i) <- d.(j) ;
