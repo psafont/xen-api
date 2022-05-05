@@ -429,9 +429,7 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
         List.iter Locking_helpers.kill_resource resources
       in
       Xapi_periodic_scheduler.add_to_queue (Ref.string_of task_id)
-        Xapi_periodic_scheduler.OneShot
-        (Clock.Timer.span_to_s timeout)
-        cancel ;
+        Xapi_periodic_scheduler.OneShot timeout cancel ;
       let transport =
         if Pool_role.is_master () then
           Unix Xapi_globs.unix_domain_socket

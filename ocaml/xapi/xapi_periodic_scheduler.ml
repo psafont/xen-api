@@ -19,7 +19,7 @@ module Delay = Xapi_stdext_threads.Threadext.Delay
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-type func_ty = OneShot | Periodic of float
+type func_ty = OneShot | Periodic of Mtime.Span.t
 
 type t = {func: unit -> unit; ty: func_ty; name: string}
 
@@ -29,27 +29,12 @@ let (queue : t Ipq.t) = Ipq.create 50
 
 let lock = Mutex.create ()
 
-module Clock = struct
-  (** time span of s seconds *)
-  let span s = Mtime.Span.of_uint64_ns (Int64.of_float (s *. 1e9))
-
-  let add_span clock secs =
-    match Mtime.add_span clock (span secs) with
-    | Some t ->
-        t
-    | None ->
-        raise
-          Api_errors.(Server_error (internal_error, ["clock overflow"; __LOC__]))
-end
+let elapsed = Mtime_clock.counter ()
 
 let add_to_queue ?(signal = true) name ty start newfunc =
+  let time = Mtime.Span.add (Mtime_clock.count elapsed) start in
   with_lock lock (fun () ->
-      let ( ++ ) = Clock.add_span in
-      Ipq.add queue
-        {
-          Ipq.ev= {func= newfunc; ty; name}
-        ; Ipq.time= Mtime_clock.now () ++ start
-        }
+      Ipq.(add queue {ev= {func= newfunc; ty; name}; time})
   ) ;
   if signal then Delay.signal delay
 
@@ -68,8 +53,8 @@ let loop () =
       (* Doesn't happen often - the queue isn't usually empty *)
       else
         let next = with_lock lock (fun () -> Ipq.maximum queue) in
-        let now = Mtime_clock.now () in
-        if next.Ipq.time < now then (
+        let now = Mtime_clock.count elapsed in
+        if Mtime.Span.compare next.Ipq.time now < 0 then (
           let todo =
             (with_lock lock (fun () -> Ipq.pop_maximum queue)).Ipq.ev
           in
@@ -81,8 +66,8 @@ let loop () =
               add_to_queue ~signal:false todo.name todo.ty timer todo.func
         ) else (* Sleep until next event. *)
           let sleep =
-            Mtime.(span next.Ipq.time now)
-            |> Mtime.Span.add (Clock.span 0.001)
+            Mtime.Span.abs_diff next.Ipq.time now
+            |> Mtime.Span.(add (1 * ms))
             |> Scheduler.span_to_s
           in
           try ignore (Delay.wait delay sleep)

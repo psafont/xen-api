@@ -828,7 +828,8 @@ let start' ~task ~dbg:_ ~sr ~vdi ~dp ~url ~dest ~verify_dest =
            ) ;
            alm.State.Send_state.watchdog <-
              Some
-               (Scheduler.one_shot scheduler (Scheduler.Delta 5)
+               (Scheduler.one_shot scheduler
+                  Mtime.Span.(5 * s)
                   "tapdisk_watchdog" inner
                )
        | None ->
@@ -1117,8 +1118,6 @@ exception Timeout of Mtime.Span.t
 
 let reqs_outstanding_timeout = Mtime.Span.(150 * s)
 
-let pp_time () = Fmt.str "%a" Mtime.Span.pp
-
 (* Tapdisk should time out after 2 mins. We can wait a little longer *)
 
 let pre_deactivate_hook ~dbg:_ ~dp:_ ~sr ~vdi =
@@ -1148,7 +1147,8 @@ let pre_deactivate_hook ~dbg:_ ~dp:_ ~sr ~vdi =
                    (st, elapsed)
                in
                let st, elapsed = wait () in
-               debug "Got final stats after waiting %a" pp_time elapsed ;
+               debug "Got final stats after waiting %a" Debug.Pp.mtime_span
+                 elapsed ;
                if st.Stats.nbd_mirror_failed = 1 then (
                  error "tapdisk reports mirroring failed" ;
                  s.failed <- true
@@ -1158,7 +1158,7 @@ let pre_deactivate_hook ~dbg:_ ~dp:_ ~sr ~vdi =
              error
                "Timeout out after %a waiting for tapdisk to complete all \
                 outstanding requests"
-               pp_time elapsed ;
+               Debug.Pp.mtime_span elapsed ;
              s.failed <- true
          | e ->
              error "Caught exception while finally checking mirror state: %s"

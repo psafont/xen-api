@@ -876,7 +876,6 @@ let snapshot ~__context ~vdi ~driver_params =
     It is sufficient to wait for all the VBDs to disappear, because a VBD
     cannot be destroyed if it is plugged. *)
 let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
-  let timeout = Mtime.Span.(timeout * s) in
   let vdi_uuid = Db.VDI.get_uuid ~__context ~self in
   (* We watch the "VBDs" field of this VDI. *)
   let classes = [Printf.sprintf "VDI/%s" (Ref.string_of self)] in
@@ -925,7 +924,6 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
   let token, initial_vbds = next_token_and_vbds ~token:"" ~timeout in
   (* When we use an empty token, we always get back the whole VDI record *)
   let initial_vbds = Option.get initial_vbds in
-  let pp_time () = Fmt.str "%a" Mtime.Span.pp in
   let rec loop ~token ~remaining_vbds =
     let elapsed = Mtime_clock.count from_start in
     if remaining_vbds <> [] && Mtime.Span.compare elapsed timeout < 0 then (
@@ -938,7 +936,7 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
       debug
         "wait_for_vbds_to_be_unplugged_and_destroyed: remaining: %a until \
          timeout"
-        pp_time remaining ;
+        Debug.Pp.mtime_span remaining ;
       let token, most_recent_vbds =
         next_token_and_vbds ~token ~timeout:remaining
       in
@@ -1055,7 +1053,7 @@ let _data_destroy ~__context ~self ~timeout =
       raise e
   )
 
-let data_destroy = _data_destroy ~timeout:4
+let data_destroy = _data_destroy ~timeout:Mtime.Span.(4 * s)
 
 let resize ~__context ~vdi ~size =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi) ;

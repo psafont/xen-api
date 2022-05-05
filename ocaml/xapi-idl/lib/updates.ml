@@ -161,7 +161,8 @@ functor
       let id =
         Option.map
           (fun timeout ->
-            Scheduler.one_shot t.s (Scheduler.Delta timeout) dbg cancel_fn
+            let timeout = Mtime.Span.(timeout * s) in
+            Scheduler.one_shot t.s timeout dbg cancel_fn
           )
           timeout
       in
