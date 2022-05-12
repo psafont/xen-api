@@ -4,6 +4,7 @@ type t = {
     name: string
   ; domid: Xenctrl.domid
   ; exec_path: string
+  ; pid_filename: string
   ; chroot: Xenops_sandbox.Chroot.t
   ; timeout_seconds: float
   ; args: string list

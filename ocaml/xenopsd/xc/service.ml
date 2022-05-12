@@ -1,4 +1,4 @@
-module D = Debug.Make (struct let name = "service" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open! D
 module Unixext = Xapi_stdext_unix.Unixext
@@ -14,6 +14,7 @@ type t = {
     name: string
   ; domid: Xenctrl.domid
   ; exec_path: string
+  ; pid_filename: string
   ; chroot: Chroot.t
   ; timeout_seconds: float
   ; args: string list
@@ -71,7 +72,6 @@ let start_and_wait_for_readyness ~task ~service =
     Chroot.absolute_path_outside service.chroot (Path.of_string ~relative:p)
   in
 
-  let pid_name = Printf.sprintf "%s-%d.pid" service.name service.domid in
   let cancel_name =
     Printf.sprintf "%s-%s.cancel" service.name (Xenops_task.get_dbg task)
   in
@@ -96,11 +96,11 @@ let start_and_wait_for_readyness ~task ~service =
       (* treat deleted directory or pidfile as cancelling *)
       | Cancelled, _, _ | _, (Inotify.Ignored | Inotify.Delete_self), _ ->
           Cancelled
-      | _, Inotify.Delete, Some name when name = pid_name ->
+      | _, Inotify.Delete, Some name when name = service.pid_filename ->
           Cancelled
       | _, Inotify.Create, Some name when name = cancel_name ->
           Cancelled
-      | _, Inotify.Create, Some name when name = pid_name ->
+      | _, Inotify.Create, Some name when name = service.pid_filename ->
           Created
       | _, _, _ ->
           acc
