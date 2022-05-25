@@ -772,7 +772,7 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
     restrict_to ~domain:Unix.PF_INET (Db.PIF.get_DNS ~__context ~self)
   in
   Db.PIF.set_DNS ~__context ~self
-    ~value:(String.concat "," (List.concat [ipv6_dNS; pif_ipv4_dNS])) ;
+    ~value:(String.concat "," (List.concat [pif_ipv4_dNS; ipv6_dNS])) ;
   if Db.PIF.get_currently_attached ~__context ~self then (
     debug
       "PIF %s is currently_attached and the configuration has changed; calling \
