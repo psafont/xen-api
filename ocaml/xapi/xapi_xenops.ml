@@ -396,7 +396,10 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
                VM does not have a VTPM associated, otherwise the associated
                VTPM gets always attached. *)
             if bool vm.API.vM_platform false "vtpm" then
-              Some (Xapi_vtpm.create ~__context ~vM:vmref ~is_unique:false)
+              Some
+                (Xapi_vtpm.create ~__context ~vM:vmref ~is_unique:false
+                   ~sR:Ref.null
+                )
             else
               None
         | [vtpm] ->
@@ -404,8 +407,12 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
         | _ :: _ :: _ ->
             failwith "Multiple vTPMs are not supported"
       in
-      let uuid = Db.VTPM.get_uuid ~__context ~self:vtpm in
-      Some (Xenops_interface.Vm.Vtpm (Uuidm.of_string uuid |> Option.get))
+      let vdi = Db.VTPM.get_VDI ~__context ~self:vtpm in
+      let uuid =
+        Db.VTPM.get_uuid ~__context ~self:vtpm |> Uuidm.of_string |> Option.get
+      in
+      let device = disk_of_vdi ~__context ~self:vdi |> Option.get in
+      Some (Xenops_interface.Vm.Vtpm {uuid; device})
     in
 
     {

@@ -63,6 +63,10 @@ module Nvram_uefi_variables = struct
           (Printf.sprintf "Error creating Nvram_uefi_variables.default_t: %s" m)
 end
 
+module Vtpm = struct
+  type t = {uuid: Uuidm.t; device: TopLevel.disk} [@@deriving rpcty, sexp]
+end
+
 module Vm = struct
   type igd_passthrough = GVT_d [@@deriving rpcty, sexp]
 
@@ -78,7 +82,7 @@ module Vm = struct
 
   let default_firmware = Bios [@@deriving rpcty]
 
-  type tpm = Vtpm of Uuidm.t [@@deriving rpcty, sexp]
+  type tpm = Vtpm of Vtpm.t [@@deriving rpcty, sexp]
 
   type hvm_info = {
       hap: bool [@default true]

@@ -585,6 +585,16 @@ let add' _copts x () =
                       )
                   }
             | false ->
+                let tpm =
+                  let ( let* ) = Option.bind in
+                  let* id = find_opt _vtpm in
+                  let* disk = find_opt _vtpm_disk in
+                  let uuid = string id |> Uuidm.of_string |> Option.get in
+                  let device =
+                    (parse_disk_info (string disk)).disk |> Option.get
+                  in
+                  Some (Vtpm {uuid; device})
+                in
                 HVM
                   {
                     hap= true
@@ -603,14 +613,7 @@ let add' _copts x () =
                   ; qemu_disk_cmdline= false
                   ; qemu_stubdom= false
                   ; firmware= Xenops_types.Vm.default_firmware
-                  ; tpm=
-                      ( match find_opt _vtpm with
-                      | Some id ->
-                          Some
-                            (Vtpm (string id |> Uuidm.of_string |> Option.get))
-                      | _ ->
-                          None
-                      )
+                  ; tpm
                   }
           in
           let uuid =

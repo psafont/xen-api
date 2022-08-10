@@ -2257,8 +2257,8 @@ module Dm_Common = struct
     let stop_qemu () = Service.Qemu.stop ~xs ~qemu_domid domid in
     let stop_swptm () =
       Option.iter
-        (fun (Xenops_interface.Vm.Vtpm vtpm_uuid) ->
-          Service.Swtpm.stop dbg ~xs ~domid ~vm_uuid ~vtpm_uuid
+        (fun (Xenops_interface.Vm.Vtpm {uuid; device}) ->
+          Service.Swtpm.stop dbg ~xs ~domid ~vm_uuid ~vtpm_uuid:uuid
         )
         vtpm ;
       Xenops_sandbox.Swtpm_guard.stop dbg ~domid ~vm_uuid
@@ -3722,9 +3722,9 @@ module Dm = struct
     (* start swtpm-wrapper if appropriate and modify QEMU arguments as needed *)
     let tpmargs =
       match info.tpm with
-      | Some (Vtpm vtpm_uuid) ->
+      | Some (Vtpm {uuid; device}) ->
           let tpm_socket_path =
-            Service.Swtpm.start ~xs task domid ~vtpm_uuid ~index:0
+            Service.Swtpm.start ~xs task domid ~vtpm_uuid:uuid ~index:0
           in
           [
             "-chardev"

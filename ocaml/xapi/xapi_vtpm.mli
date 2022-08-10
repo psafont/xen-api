@@ -13,7 +13,11 @@
  *)
 
 val create :
-  __context:Context.t -> vM:[`VM] API.Ref.t -> is_unique:bool -> [`VTPM] Ref.t
+     __context:Context.t
+  -> vM:[`VM] Ref.t
+  -> sR:[`SR] Ref.t
+  -> is_unique:bool
+  -> [`VTPM] Ref.t
 
 val copy :
   __context:Context.t -> vM:[`VM] Ref.t -> [`VTPM] Ref.t -> [`VTPM] Ref.t
