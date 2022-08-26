@@ -1,0 +1,10 @@
+(executable
+ (name fence)
+ (libraries xenctrl)
+)
+
+(install
+ (package xapi)
+ (section libexec_root)
+ (files (fence.exe as fence.bin))
+)

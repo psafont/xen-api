@@ -1,0 +1,21 @@
+(executable
+  (modes exe)
+  (name xxhash_stubgen)
+  (libraries
+    ctypes.stubs
+    xxhash_bindings
+  )
+  (modules xxhash_stubgen)
+)
+
+(library
+  (name xxhash_bindings)
+  (modes best)
+  (libraries
+    ctypes
+    ctypes.stubs
+    integers
+  )
+  (modules xxhash_bindings)
+)
+

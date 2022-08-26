@@ -1,0 +1,13 @@
+(test
+  (name xen_api_test)
+  (package xen-api-client)
+  (libraries
+    
+    alcotest
+    rpclib.xml
+    uri
+    xapi-client
+    xapi-types
+    xen-api-client
+  )
+)

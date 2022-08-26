@@ -1,0 +1,55 @@
+(library
+ (name xapi_xenopsd)
+ (wrapped false)
+ (libraries
+   astring
+   xapi_xenopsd_c_stubs
+   cohttp
+   cohttp_posix
+   fd-send-recv
+   fmt
+   forkexec
+   mtime
+   re
+   gzip
+   zstd
+   result
+   rpclib.core
+   rpclib.json
+   rpclib.xml
+   rresult
+   sexplib
+   sexplib0
+   stunnel
+   uri
+   uuid
+   uuidm
+   uutf
+   threads.posix
+   xapi-backtrace
+   xapi_version
+   xapi-idl
+   xapi-idl.storage
+   xapi-idl.storage.interface
+   xapi-idl.updates
+   xapi-idl.guard.privileged
+   xapi-idl.xen
+   xapi-idl.xen.interface
+   xapi-idl.xen.interface.types
+   xapi-log
+   xapi-open-uri
+   clock
+   xapi-stdext-pervasives
+   xapi-stdext-threads
+   xapi-stdext-unix
+   xapi-tracing
+   xapi-tracing-export
+   xmlm
+ )
+ (preprocess
+   (per_module
+    ((pps ppx_sexp_conv) Suspend_image)
+    ((pps ppx_deriving_rpc) Interface Xenops_hooks Xenops_migrate Xenops_server Xenops_server_plugin Xenops_server_simulator)
+   )
+ )
+)

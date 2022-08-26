@@ -1,0 +1,43 @@
+(library
+  (modes best)
+  (foreign_stubs
+    (language c)
+    (names direct_copy_stubs)
+  )
+  (name vhd_lib)
+  (wrapped false)
+  (libraries
+    astring
+    bigarray-compat
+    cohttp
+    cohttp-lwt
+    cstruct
+    io-page
+    lwt
+    lwt.unix
+    lwt_ssl
+    nbd
+    nbd-unix
+    re.str
+    result
+    rpclib.core
+    rpclib.json
+    sha
+    ssl
+    tar
+    uri
+    uuidm
+    vhd-format
+    vhd-format-lwt
+    tapctl
+    xapi-stdext-std
+    xapi-stdext-unix
+    xapi-log
+    xen-api-client-lwt
+  )
+  (preprocess
+    (per_module
+     ((pps ppx_deriving_rpc) Nbd_input Image)
+     ((pps ppx_cstruct) Chunked)))
+)
+

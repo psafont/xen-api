@@ -1,0 +1,34 @@
+(library
+  (name certificate_check)
+  (modules certificate_check)
+  (modes best)
+  (libraries
+    astring
+    ptime
+    xapi-expiry-alerts
+    xapi-client
+    xapi-consts
+    xapi-types
+    clock
+  )
+)
+
+(executable
+  (modes exe)
+  (name certificate_check_main)
+  (modules certificate_check_main)
+  (libraries
+    certificate_check
+
+    http_lib
+    xapi-client
+    xapi-types
+    xapi-stdext-pervasives
+  )
+)
+
+(install
+  (files (certificate_check_main.exe as alert-certificate-check))
+  (package xapi)
+  (section libexec_root)
+)

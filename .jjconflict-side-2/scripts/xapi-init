@@ -1,0 +1,128 @@
+#! /bin/bash
+
+if [ -f /etc/sysconfig/xapi ]; then
+  # shellcheck disable=SC1091
+  # disalbe the check as not available on checking machine
+  . /etc/sysconfig/xapi
+fi
+
+XAPI_STARTUP_COOKIE=/var/run/xapi_startup.cookie
+XAPI_INIT_COMPLETE_COOKIE=/var/run/xapi_init_complete.cookie
+XAPI_BLOCK_STARTUP_COOKIE=@ETCXENDIR@/xapi_block_startup
+XAPI_BOOT_TIME_INFO_UPDATED=@ETCXENDIR@/boot_time_info_updated
+
+# Enable core dumping for xapi
+ulimit -c unlimited
+
+start() {
+	echo -n $"Starting xapi: "
+
+	# clear out any old xapi coredumps
+	rm -rf /var/xapi/debug
+
+        if [ -e /var/lock/subsys/xapi ]; then
+	    if [ -e /var/run/xapi.pid ] && [ -e "/proc/$(cat /var/run/xapi.pid)" ]; then
+		echo $"cannot start xapi: already running.";
+		logger "cannot start xapi: already running.";
+		return 1
+	    fi
+	fi
+	# This bit is ok though:
+	rm -f ${XAPI_STARTUP_COOKIE}
+	rm -f ${XAPI_INIT_COMPLETE_COOKIE}
+	# Enable backtraces
+	export OCAMLRUNPARAM="b"
+
+	# For debugging, prevent xapi startup
+	if [ -e ${XAPI_BLOCK_STARTUP_COOKIE} ]; then
+            if [ -e ${XAPI_BOOT_TIME_INFO_UPDATED} ]; then
+	    logger "Aborting xapi startup because ${XAPI_BLOCK_STARTUP_COOKIE} is present and the system has just booted. Remove file and try again";
+	    echo $"startup blocked."
+	    logger $"startup blocked."
+	    return 1
+            fi
+	fi
+
+	if [ -e ${XAPI_BOOT_TIME_INFO_UPDATED} ]; then
+	    # clear out qemu coredumps/chroot dirs on system boot:
+	    rm -rf /var/xen/qemu/*
+	    #rm -f ${XAPI_BOOT_TIME_INFO_UPDATED}
+	    # clear out swtpm chroots on system boot. After boot, we
+	    # have no domains running and the domid counter is reset. We
+	    # want to avoid collisions with new domains. CA-375992
+	    rm -rf /var/lib/xcp/run/*
+	    echo
+	    # shellcheck disable=SC2154
+	    # xapiflags may come from sourced files
+	    #
+	    # shellcheck disable=SC2086
+	    # quote introduce invalid argument on empty
+	    exec "@OPTDIR@/bin/xapi" -nowatchdog ${xapiflags} \
+		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE} -onsystemboot
+		RETVAL=$?
+	else
+	    echo
+	    # shellcheck disable=SC2154
+	    # shellcheck disable=SC2086
+	    exec "@OPTDIR@/bin/xapi" -nowatchdog ${xapiflags} \
+		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE}
+		RETVAL=$?
+	fi
+}
+
+stop() {
+	echo -n $"Stopping xapi: "
+        if [ ! -e /var/lock/subsys/xapi ]; then
+	    echo $"cannot stop xapi: xapi is not running."
+	    logger $"cannot stop xapi: xapi is not running."
+	    return 1;
+	fi
+	rm -f ${XAPI_STARTUP_COOKIE}
+	rm -f ${XAPI_INIT_COMPLETE_COOKIE}
+
+	# Find out if xapi has died
+	RETRIES=60
+	RETRY_SHUTDOWN_AGENT=1
+	while [ ${RETRIES} -ne 0 ]; do
+		if [ "${RETRY_SHUTDOWN_AGENT}" -ne 0 ]; then
+			xe host-shutdown-agent 2> /dev/null && RETRY_SHUTDOWN_AGENT=0
+		fi
+		
+		# Finish if all xapis have gone 
+		xapi_pids=$(pidof xapi)
+		if [ -z "$xapi_pids" ]; then
+			echo $"xapi stopped successfully"
+			rm -f /var/run/xapi.pid /var/lock/subsys/xapi
+			logger $"xapi stopped successfully"
+			return 0
+		fi
+		sleep 1
+		echo -n .
+		RETRIES=$(( RETRIES - 1 ))
+	done
+
+	killproc xapi
+	RETVAL=$?
+	if [ $RETVAL -eq 0 ]; then
+	    logger "xapi stopped forcibly"
+	    echo $"xapi stopped successfully"
+	    rm -f /var/run/xapi.pid /var/lock/subsys/xapi
+	else
+	    logger "failed to stop xapi"
+	    echo $"failed to stop xapi"
+	fi
+
+	return $RETVAL
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  *)
+	echo $"Usage: $0 {start|stop}"
+	exit 1
+esac

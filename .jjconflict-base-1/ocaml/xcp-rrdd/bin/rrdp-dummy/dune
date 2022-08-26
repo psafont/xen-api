@@ -1,0 +1,13 @@
+(executable
+  (name rrdp_dummy)
+  (modes exe)
+  (libraries
+    
+    rrdd-plugin
+    xapi-idl.rrd
+    xapi-rrd
+    xenstore.unix
+    xenstore_transport.unix
+  )
+)
+

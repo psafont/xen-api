@@ -1,0 +1,28 @@
+(library
+ (name networklibs)
+ (modes best)
+ (libraries
+  astring
+  forkexec
+  mtime
+  mtime.clock.os
+  re
+  re.perl
+  result
+  rpclib.core
+  rpclib.json
+  rresult
+  threads.posix
+  uri
+  xapi-stdext-pervasives
+  xapi-stdext-std
+  xapi-stdext-threads
+  xapi-stdext-unix
+  xapi-inventory
+  xapi-idl.network
+  xapi-log
+  xapi-open-uri
+  yojson
+ )
+ (wrapped false)
+)

@@ -1,0 +1,42 @@
+(library
+ (name tracing)
+ (modules tracing)
+ (libraries astring re uri yojson xapi-log xapi-stdext-threads threads.posix)
+ (preprocess
+  (pps ppx_deriving_yojson))
+ (public_name xapi-tracing))
+
+(library
+ (name tracing_export)
+ (modules tracing_export)
+ (public_name xapi-tracing-export)
+ (libraries
+  cohttp
+  cohttp-posix
+  ptime
+  ptime.clock.os
+  rpclib.core
+  rpclib.json
+  result
+  rresult
+  tracing
+  threads.posix
+  uri
+  xapi-log
+  xapi-open-uri
+  xapi-stdext-threads
+  xapi-stdext-unix
+  zstd)
+ (preprocess
+  (pps ppx_deriving_rpc)))
+
+(library
+ (name tracing_propagator)
+ (modules propagator)
+ (libraries http-lib tracing))
+
+(test
+ (name test_tracing)
+ (modules test_tracing)
+ (package xapi-tracing)
+ (libraries tracing alcotest fmt uuid xapi-log))

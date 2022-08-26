@@ -1,0 +1,10 @@
+(test
+ (name suite)
+ (package xapi-nbd)
+ (libraries
+  alcotest
+  alcotest-lwt
+  lwt
+  uuid
+  vbd_store)
+)

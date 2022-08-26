@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+		<script type="text/javascript" src="main.js"></script>
+		<script type="text/javascript" src="branding.js"></script>
+		<script type="text/javascript" src="api/index.json"></script>
+		<script type="text/javascript" src="api/releases.json"></script>
+		<script type="text/javascript" src="apidoc.js"></script>
+		<script>
+			make_title();
+			if (cls != "")
+				document.write('<script src="api/', cls, '.json" type="text/JavaScript"><\/script>');
+			if (rel != "") {
+				if (rel == first_release)
+					rels = releases.slice(0, releases.indexOf(first_release) + 1);
+				else
+					rels = [rel];
+				function ld(info) {
+					if (rels.length > 0)
+						load_script('api/' + rels.pop() + '.json', function(){return ld(info.concat(release_info));});
+					else
+						release_info = info;
+				}
+				ld([]);
+			}
+		</script>
+		<link rel="stylesheet" href="style.css" />
+	</head>
+	<body onload="build();">
+		<div id="wrap">
+			<div id="header"></div>
+			<div id="main">
+				<div id="container"><div id="content">
+					<h1 class="title">API Classes</h1>
+					<p>Click on a class to view the associated fields and messages.</p>
+
+					<img src="classes.png" usemap="#graph" border="0" />
+@graph_placeholder@
+					<h1>Classes, Fields and Messages</h1>
+					<p>Classes have both <i>fields</i> and <i>messages.</i> Messages are either <i>implicit</i> or <i>explicit</i> where an implicit message is one of:</p>
+					<ul>
+					<li> a constructor (usually called &quot;create&quot;);</li>
+					<li> a destructor (usually called &quot;destroy&quot;);</li>
+					<li> &quot;get_by_name_label&quot;;</li>
+					<li> &quot;get_by_uuid&quot;</li>
+					<li> &quot;get_record&quot;; and</li>
+					<li> &quot;get_all&quot;.</li>
+					</ul>
+					<p>Explicit messages include all the rest, more class-specific messages (e.g. &quot;VM.start&quot;, &quot;VM.clone&quot;)</p>
+					<p>Every field has at least one <i>accessor</i> depending both on its type and whether it is read-only or read-write. Accessors for a field named &quot;X&quot; would be a proper subset of:</p>
+					<ul>
+					<li> set_X: change the value of field X (only if it is read-write);</li>
+					<li> get_X: retrieve the value of field X;</li>
+					<li> add_X: add a new element (only if a field has type set);</li>
+					<li> remove_X: remove an element (only if a field has type set);</li>
+					<li> add_to_X: add a key-value pair (only if a field has type map); and</li>
+					<li> remove_from_X: remove a key (only if a field has type map).</li>
+					</ul>
+				</div></div>
+				<div id="sidebar"></div>
+				<div id="footer"></div>
+			</div>
+		</div>
+	</body>
+</html>
+

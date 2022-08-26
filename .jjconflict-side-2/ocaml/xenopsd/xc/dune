@@ -1,0 +1,181 @@
+(library
+ (name xenopsd_xc)
+ (modes best)
+ (modules :standard \
+          numa
+          xenops_xc_main
+          memory_breakdown
+          memory_summary
+          domain_sethandle
+          cancel_utils_test)
+ (libraries
+  astring
+  base64
+  cpuid
+  ezxenstore.core
+  ezxenstore.watch
+  fd-send-recv
+  fmt
+  forkexec
+  inotify
+  mtime
+  mtime.clock.os
+  polly
+  re
+  result
+  rpclib.core
+  rpclib.json
+  rresult
+  rrdd-plugin
+  rrdd-plugin.base
+  rrdd-plugin.local
+  sexplib0
+  qmp
+  threads.posix
+  uri
+  uuid
+  uuidm
+  xapi-backtrace
+  xapi-idl
+  xapi-idl.memory
+  xapi-idl.network
+  xapi-idl.rrd
+  xapi-idl.storage
+  xapi-idl.storage.interface
+  xapi-idl.guard.privileged
+  xapi-idl.xen.interface
+  xapi-idl.xen.interface.types
+  xapi-log
+  xapi-rrd
+  clock
+  xapi-stdext-pervasives
+  xapi-stdext-std
+  xapi-stdext-threads
+  xapi-stdext-unix
+  xapi-tracing
+  xapi-tracing-export
+  xapi_xenopsd
+  xapi_xenopsd_c_stubs
+  xapi_xenopsd_xc_c_stubs
+  xenctrl
+  xenstore
+  xenstore_transport.unix
+ )
+
+ (preprocess
+   (per_module
+    ((pps ppx_deriving_rpc) Device Device_common Domain Xenops_server_xen)
+   )
+ )
+ (wrapped false)
+)
+
+(executable
+ (name numa)
+ (modules numa)
+ (libraries fmt logs logs.fmt mtime mtime.clock threads.posix xenctrl xenopsd_xc)
+)
+
+(executable
+ (name xenops_xc_main)
+ (modes exe)
+ (modules xenops_xc_main)
+ (libraries
+  ezxenstore.core
+  uuid
+  xapi-idl
+  xapi-idl.xen.interface
+  xapi-inventory
+  xapi-stdext-unix
+  xapi_xenopsd
+  xenctrl
+  xenstore_transport.unix
+  xenopsd_xc
+ )
+)
+
+(executable
+ (name memory_breakdown)
+ (modes exe)
+ (modules memory_breakdown)
+ (libraries
+  astring
+  cmdliner
+
+  ezxenstore.core
+  uuid
+  xapi-idl.memory
+  clock
+  xapi-stdext-unix
+  xenctrl
+  xenopsd_xc
+  xenstore_transport.unix
+ )
+)
+
+(install
+ (files (xenops_xc_main.exe as xenopsd-xc))
+ (section sbin)
+ (package xapi-tools)
+)
+
+(executable
+ (name memory_summary)
+ (modes exe)
+ (modules memory_summary)
+ (libraries
+
+  clock
+  xapi-stdext-unix
+  xapi_xenopsd
+  xenctrl
+ )
+)
+
+(executable
+ (name domain_sethandle)
+ (modes exe)
+ (modules domain_sethandle)
+ (libraries
+  cmdliner
+  ezxenstore
+  xenctrl
+ )
+)
+
+(executable
+ (name cancel_utils_test)
+ (modes exe)
+ (modules cancel_utils_test)
+ (libraries
+  cmdliner
+
+  ezxenstore.core
+  threads.posix
+  xapi-idl.xen.interface
+  xapi_xenopsd
+  xenctrl
+  xenopsd_xc
+  xenstore_transport.unix
+ )
+
+)
+(rule
+ (with-stdout-to
+  xenopsd-xc.1
+  (run %{dep:xenops_xc_main.exe} --help=groff)
+ )
+)
+
+(rule
+ (target xenopsd-xc.1.gz)
+ (deps (:man xenopsd-xc.1))
+ (action
+   (with-stdout-to %{target} (with-stdin-from %{man} (run gzip))))
+)
+
+(install
+ (section man)
+ (files xenopsd-xc.1.gz)
+ (package xapi-tools)
+)

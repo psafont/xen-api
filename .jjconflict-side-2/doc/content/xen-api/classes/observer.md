@@ -1,0 +1,4 @@
++++
+title = "Observer"
+class = "Observer"
++++

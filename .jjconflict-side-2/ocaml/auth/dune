@@ -1,0 +1,11 @@
+(library
+  (modes best)
+  (foreign_stubs
+    (language c)
+    (names xa_auth xa_auth_stubs)
+  )
+  (name pam)
+  (c_library_flags -lpam -lcrypt)
+  (wrapped false)
+)
+

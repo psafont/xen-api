@@ -1,0 +1,49 @@
+(executable
+  (modes exe)
+  (name quicktest)
+  (public_name quicktestbin)
+  (package xapi-debug)
+  (libraries
+    alcotest
+    astring
+    ezxenstore
+    ezxenstore.watch
+    fmt
+    forkexec
+    http_lib
+    mtime
+    mtime.clock.os
+    pam
+    qcheck-alcotest
+    result
+    rresult
+    rpclib.core
+    rrdd_libs
+    stunnel
+    unixext_test
+    test_timer
+    threads.posix
+    unix
+    uuid
+    xapi-client
+    xapi-consts
+    xapi-datamodel
+    xapi_internal
+    xapi-log
+    xapi-types
+    clock
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xenctrl
+    xml-light2
+  )
+  (preprocess (per_module ((pps ppx_deriving_rpc) Quicktest_vm_lifecycle)))
+)
+
+(rule
+ (alias runtest)
+ (package xapi-debug)
+ (action (run ./quicktest.exe -skip-xapi -- list))
+)

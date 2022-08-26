@@ -1,0 +1,17 @@
+(library
+  (name tapctl)
+  (modes best)
+  (wrapped false)
+  (preprocess (pps ppx_deriving_rpc))
+  (libraries
+    astring
+    re
+    rpclib.core
+    rpclib.json
+    threads.posix
+    forkexec
+    xapi-stdext-unix
+    xapi-stdext-threads
+  )
+)
+

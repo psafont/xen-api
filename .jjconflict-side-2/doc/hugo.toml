@@ -1,0 +1,76 @@
+baseURL = "https://xapi-project.github.io/new-docs/"
+languageCode = 'en-us'
+title = 'XAPI Toolstack Developer Documentation'
+disablePathToLower = true
+pygmentsCodeFences = true
+assetsDir = "assets"
+
+[module]
+[[module.imports]]
+    path = 'github.com/McShelby/hugo-theme-relearn'
+
+# The latest upstream version of hugo-theme-relearn needs hugo 0.121.0:
+# https://mcshelby.github.io/hugo-theme-relearn/basics/requirements/index.html
+[module.hugoVersion]
+    min = "0.126.0"
+
+# Newer Hugo needs to set the renderer to `unsafe = true` to support the raw HTML
+# code that a number of pages intentionally use.
+# goldmark is already the default renderer. The only change is the flag for raw HTML:
+[markup]
+  defaultMarkdownHandler = 'goldmark'
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+
+[outputs]
+# Home and section pages should also have a print icon for the print view:
+home = [ "HTML", "RSS",  "PRINT"]
+section = [ "HTML", "RSS", "PRINT"]
+
+[params]
+editURL = 'https://github.com/xapi-project/xen-api/edit/master/doc/content/${FilePath}'
+# Enable the theme variant selector, default to auto:
+themeVariant = [
+    "auto",
+    "zen-light",
+    "zen-dark",
+    "red",
+    "blue",
+    "green",
+    "learn",
+    "neon",
+    "relearn-light",
+    "relearn-bright",
+    "relearn-dark"
+]
+# auto switches between "red" and "zen-dark" depending on the browser/OS dark mode:
+themeVariantAuto = ["red", "zen-dark"]
+# Consistency: Use the font of the Hugo Relearn theme also for Mermaid diagrams:
+# securityLevel=loose is the default of Relearn, it allows HTML links in diagrams:
+mermaidInitialize = '{ "fontFamily": "Roboto Flex", "securityLevel": "loose" }'
+alwaysopen = false
+collapsibleMenu = true
+
+  [params.imageEffects]
+
+    #
+    # Enable a soft shadow around the images that make the images appear to
+    # stand out ever so slightly like paper on a desk, giving them a smooth look:
+    #
+    shadow = true
+
+    #
+    # The CSS-based photographer's lightbox makes the image border flash
+    # on mouse-over and darkens the rest of the page when clicking on images.
+    #
+    # It is better to disable it as it serves no proper function for the
+    # toolstack docs and causes a border around the image to appear/disappear
+    # in a flash when entering/leaving the image. Disabling it turns the sudden
+    # appearance and disappearance of the flashy border off.
+    #
+    # Initially, this was based on the Featherlight jQuery plugin, which would
+    # have enlarged the images, but the CSS-only solution appears inadequate
+    # for a proper lightbox as it does not zoom the image:
+    #
+    lightbox = false

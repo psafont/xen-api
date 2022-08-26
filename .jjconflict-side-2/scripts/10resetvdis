@@ -1,0 +1,36 @@
+#!/bin/bash
+set -e
+
+# Call the SM backend python program to reset the locks on all the VDIs that were on the
+# host that has been declared dead
+
+HOSTUUID=$2
+REASON=$4
+
+function reset {
+	logger "Resetting VDIs on host $HOSTUUID"
+	IFS=","
+	for i in `xe pbd-list host-uuid=$HOSTUUID params=sr-uuid --minimal`
+	do
+		"/opt/xensource/sm/resetvdis.py" $HOSTUUID $i
+	done
+}
+
+# Only reset the VDIs if the host is actually fenced, or the user has requested it.
+case "$REASON" in
+	 fenced)
+		reset
+		;;
+	 user)
+		reset
+		;;
+	dbdestroy)
+		reset
+		;;
+	clean-shutdown)
+		;;
+	*)
+		logger "Invalid argument to $3 ($4)"
+		exit 1
+		;;
+esac

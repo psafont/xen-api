@@ -1,0 +1,16 @@
+(executable
+  (modes exe)
+  (name cdrommon)
+  (libraries
+    cdrom
+    threads
+    unix
+    xapi-stdext-unix
+  )
+)
+
+(install
+  (files (cdrommon.exe as cdrommon))
+  (section libexec_root)
+  (package xapi)
+)

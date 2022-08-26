@@ -1,0 +1,273 @@
+name: Generate and Build SDKs
+
+permissions: {}
+
+on:
+  workflow_call:
+    inputs:
+      xapi_version:
+        required: true
+        type: string
+
+jobs:
+  generate-sdk-sources:
+    name: Generate SDK sources
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup XenAPI environment
+        uses: ./.github/workflows/setup-xapi-environment
+        with:
+          xapi_version: ${{ inputs.xapi_version }}
+
+      - name: Generate SDKs
+        shell: bash
+        run: opam exec -- make sdk
+
+      - name: Store C SDK source
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDK_Source_C
+          path: |
+            _build/install/default/share/c/*
+            !_build/install/default/share/c/dune
+
+      - name: Store C# SDK source
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDK_Source_CSharp
+          path: _build/install/default/share/csharp/*
+
+      - name: Store PowerShell SDK source
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDK_Source_PowerShell
+          path: _build/install/default/share/powershell/*
+
+      - name: Store Java SDK source
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDK_Source_Java
+          path: _build/install/default/share/java/*
+
+      - name: Store Go SDK source
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDK_Artifacts_Go
+          path: |
+            _build/install/default/share/go/*
+            !_build/install/default/share/go/dune
+            !_build/install/default/share/go/**/*_test.go
+
+      # sdk-ci runs some Go unit tests.
+      # This setting ensures that SDK date time
+      # tests are run on a machine that
+      # isn't using UTC
+      - name: Set Timezone to Tokyo for datetime tests
+        run: |
+          sudo timedatectl set-timezone Asia/Tokyo
+
+      - name: Run CI for SDKs
+        uses: ./.github/workflows/sdk-ci
+
+      - name: Trim dune cache
+        run: opam exec -- dune cache trim --size=2GiB
+
+  build-c-sdk:
+    name: Build C SDK
+    runs-on: ubuntu-latest
+    needs: generate-sdk-sources
+    permissions:
+      contents: read
+
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get install libxml2-dev
+
+      - name: Retrieve C SDK source
+        uses: actions/download-artifact@v4
+        with:
+          name: SDK_Source_C
+          path: source/
+
+      - name: Build C SDK
+        shell: bash
+        run: make -C source
+
+      - name: Store C SDK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDK_Artifacts_C
+          path: |
+            source/*
+            !source/src/*.o
+
+  build-java-sdk:
+    name: Build Java SDK
+    runs-on: ubuntu-latest
+    needs: generate-sdk-sources
+    permissions:
+      contents: read
+
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get install maven
+
+      - name: Retrieve Java SDK source
+        uses: actions/download-artifact@v4
+        with:
+          name: SDK_Source_Java
+          path: source/
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # Java Tests are run at compile time.
+      # This setting ensures that SDK date time
+      # tests are run on a machine that
+      # isn't using UTC
+      - name: Set Timezone to Tokyo for datetime tests
+        run: |
+          sudo timedatectl set-timezone Asia/Tokyo
+
+      - name: Build Java SDK
+        shell: bash
+        run: |
+          xapi_version="${{ inputs.xapi_version }}"
+          xapi_version="${xapi_version//v/}"
+          mkdir -p target && mvn -f source/xen-api/pom.xml -B -Drevision=$xapi_version-prerelease clean package && mv source/xen-api/target/*.jar target/
+
+      - name: Store Java SDK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDK_Artifacts_Java
+          path: target/*
+
+  build-csharp-sdk:
+    name: Build C# SDK
+    runs-on: windows-2022
+    needs: generate-sdk-sources
+    permissions:
+      contents: read
+
+    steps:
+      - name: Strip 'v' prefix from xapi version
+        shell: pwsh
+        run: echo "XAPI_VERSION_NUMBER=$("${{ inputs.xapi_version }}".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Retrieve C# SDK source
+        uses: actions/download-artifact@v4
+        with:
+          name: SDK_Source_CSharp
+          path: source/
+
+        # All tests builds and pipelines should
+        # work on other timezones. This setting ensures that
+        # SDK date time tests are run on a machine that
+        # isn't using UTC
+      - name: Set Timezone to Tokyo for datetime tests
+        shell: pwsh
+        run: Set-TimeZone -Id "Tokyo Standard Time"
+
+      - name: Test C# SDK
+        shell: pwsh
+        run: |
+          dotnet test source/XenServerTest `
+          --disable-build-servers `
+          -p:DefineConstants=BUILD_FOR_TEST `
+          --verbosity=normal
+
+      - name: Build C# SDK
+        shell: pwsh
+        run: |
+          dotnet build source/src `
+          --disable-build-servers `
+          --configuration Release `
+          -p:Version=${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned `
+          --verbosity=normal
+
+      - name: Store C# SDK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDK_Binaries_CSharp
+          path: source/src/bin/Release/XenServer.NET.${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned.nupkg
+
+  build-powershell-7x-sdk:
+    name: Build PowerShell 7.x SDK
+    strategy:
+      fail-fast: false
+      matrix:
+        dotnet: ["6", "8"]
+    needs: build-csharp-sdk
+    runs-on: windows-2022
+    permissions:
+      contents: read
+
+    steps:
+      - name: Strip 'v' prefix from xapi version
+        shell: pwsh
+        run: echo "XAPI_VERSION_NUMBER=$("${{ inputs.xapi_version }}".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Retrieve PowerShell SDK source
+        uses: actions/download-artifact@v4
+        with:
+          name: SDK_Source_PowerShell
+          path: source/
+
+      - name: Retrieve C# SDK binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: SDK_Binaries_CSharp
+          path: csharp/
+
+      - name: Set up dotnet CLI (.NET ${{ matrix.dotnet }})
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+
+      - name: Setup project and NuGet source
+        shell: pwsh
+        run: |
+          dotnet nuget add source --name local ${{ github.workspace }}\csharp
+          dotnet add source/src package XenServer.NET --version ${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned
+
+      - name: Build PowerShell SDK (.NET ${{ matrix.dotnet }})
+        shell: pwsh
+        run: |
+          dotnet build source/src/XenServerPowerShell.csproj `
+             --disable-build-servers `
+             --configuration Release `
+             -p:Version=${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned `
+             -p:TargetFramework=net${{ matrix.dotnet }}.0 `
+             --verbosity=normal`
+
+      - name: Update SDK and PS versions in "XenServerPSModule.psd1"
+        shell: pwsh
+        run: |
+          (Get-Content "source\XenServerPSModule.psd1") -replace "@SDK_VERSION@","${{ env.XAPI_VERSION_NUMBER }}" | Set-Content -Path "source\XenServerPSModule.psd1"
+          (Get-Content "source\XenServerPSModule.psd1") -replace "@PS_VERSION@","7.0" | Set-Content -Path "source\XenServerPSModule.psd1"
+
+      - name: Move binaries to destination folder
+        shell: pwsh
+        run: |
+          New-Item -Path "." -Name "output" -ItemType "directory"
+          Copy-Item -Verbose "source\README.md" -Destination "output"  -Force
+          Copy-Item -Verbose "source\LICENSE" -Destination "output" -Force
+          Copy-Item -Path "source\src\bin\Release\net${{ matrix.dotnet }}.0\*" -Include "*.dll" "output\"
+          Get-ChildItem -Path "source" |`
+          Where-Object { $_.Extension -eq ".ps1" -or $_.Extension -eq ".ps1xml" -or $_.Extension -eq ".psd1" -or $_.Extension -eq ".txt"  } |`
+          ForEach-Object -Process { Copy-Item -Verbose $_.FullName -Destination "output" }
+
+      - name: Store PowerShell SDK (.NET ${{ matrix.dotnet }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDK_Binaries_XenServerPowerShell_NET${{ matrix.dotnet }}
+          path: output/**/*

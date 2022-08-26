@@ -1,0 +1,14 @@
+(library
+  (name ezxenstore_core)
+  (public_name ezxenstore.core)
+  (libraries
+    cmdliner
+    logs
+    threads
+    uuidm
+    (re_export xenstore)
+    (re_export xenstore_transport)
+    threads.posix
+    xapi-stdext-unix
+    (re_export xenstore.unix))
+)

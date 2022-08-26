@@ -1,0 +1,91 @@
+/*
+ * Copyright (c) Cloud Software Group, Inc.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   1) Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *
+ *   2) Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials
+ *      provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+using System;
+
+namespace XenAPI
+{
+    public enum API_Version
+    {
+{{#releases}}
+        /// <summary>{{branding}} ({{code_name}})</summary>
+        API_{{version_major}}_{{version_minor}} = {{version_index}},
+{{/releases}}
+        LATEST = {{latest_version_index}},
+        UNKNOWN = 99
+    }
+
+    public static partial class Helper
+    {
+        public static string APIVersionString(API_Version v)
+        {
+            switch (v)
+            {
+{{#releases}}
+                case API_Version.API_{{version_major}}_{{version_minor}}:
+                    return "{{version_major}}.{{version_minor}}";
+{{/releases}}
+                default:
+                    return "Unknown";
+            }
+        }
+
+        public static API_Version GetAPIVersion(long major, long minor)
+        {
+            try
+            {
+                return (API_Version)Enum.Parse(typeof(API_Version), $"API_{major}_{minor}");
+            }
+            catch (ArgumentException)
+            {
+                return API_Version.UNKNOWN;
+            }
+        }
+
+        /// <summary>
+        /// Converts the string representation of an API version number to its API_Version equivalent.
+        /// This function assumes that API version numbers are of form a.b
+        /// </summary>
+        public static API_Version GetAPIVersion(string version)
+        {
+            if (version != null)
+            {
+                string[] tokens = version.Split('.');
+                int major, minor;
+                if (tokens.Length == 2 &&
+                    int.TryParse(tokens[0], out major) &&
+                    int.TryParse(tokens[1], out minor))
+                {
+                    return GetAPIVersion(major, minor);
+                }
+            }
+            return API_Version.UNKNOWN;
+        }
+    }
+}

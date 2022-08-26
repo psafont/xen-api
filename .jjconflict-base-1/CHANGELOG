@@ -1,0 +1,116 @@
+1.9.80 (2015-09-09):
+ * storage: plugging on a slave before a master is now an error
+ * xenvmd is restarted over master transitions
+ * preliminary support for SR-level RRDs
+ * storage: a plugin can have cluster stack constraints
+ * support for a windows VM drivers upgrade tool 'xenprep'
+ * change queue prefix to org.xen.xapi
+ * add XenAPI extension mechanism
+ * add LVHD thin provisioning upgrade API
+ * support polling modes for VBDs
+ * storage: a plugin can report cluster/mirror health
+ * storage: many updates to SMAPIv3
+ * storage: generate an alert when a cluster/mirror is degraded
+ * storage: add rawhba and lvmofcoe to the whitelist
+ * fix `sm-cli mirror-list`
+
+1.9.70 (2015-08-14):
+ * add originator for `login_with_password`
+ * new API: VM.import
+ * new CLI: VM import from URL
+ * initial support for thin provisioning on block storage
+ * lots of VGPU improvements
+ * allow storage motion of halted VMs
+ * support for TLS 1.2
+ * initial support for FCoE
+ * preliminary support for SMAPIv3
+ * preliminary support for multiple cluster stacks
+ * new CLI support for reading database dumps
+ 
+1.9.60 (2015-04-04):
+ * fix release_version of get_SRs_required_for_recover
+ * support SM backend-kind override via VDI.other_config key
+ * support floppy disk drives
+ * when performing a snapshot, set is_a_snapshot
+ * update API version to 2.4
+ * don't double-count HA-protected VMs when restarting them
+ * don't create refs for snapshots that don't exist on import
+ * expose RDP state, via guest agents, via VM guest metrics
+ * read all paths from the config file
+ * use 'ip' rather than 'ifconfig'
+ * block the pool-join if the joining host has a network bond
+ * use local force_state_reset after cross-pool SMX
+ * correct error text for assert_no_shared_srs_on_me
+ * allow ISO VBDs to be made from any SR
+ * disallow resume while a checkpoint is ongoing
+ * don't pause tapdisk
+ * use oclock rather than Unix.time
+ * import_raw_vdi: pass content-length to vhd-tool
+ * update hostname when it changes
+ * allow WLB servers to have an IPv6 address
+ * make sure we return the task reference when cancelling a task
+ * python: fix compatibility with python 2.7
+ * add a plugin to install supplemental packs
+ * create a PGPU for the system display device
+ * allow PCI vendors to be whitelisted for GPU passthrough
+ * allow passthrough of vga_arbiter device when appropriate
+ * remove VM hooks which are now handled by xenopsd
+ * set the content-length and close the tar header when exporting metadata
+ * handle cancellation of cross-host VDI.copy
+ * prevent VM.revert deleting all VDIs unconditionally
+ * update VDI.snapshot_of links after a VM.revert
+ * support for read-caching
+ * check for enough disk space before installing hotfixes
+ * VM.hard_reboot cancels VM.clean_reboot
+
+1.9.58 (2014-11-20):
+ * examples: wrap task.destroy with an exception handler
+ * add GC stats reporting
+ * support a "feature-suspend" flag
+ * fix HTTP requests with an empty cookie
+ * add opam file
+ * add documentation
+ * update to new backtrace API
+ * xe: add "--trace" option to print backtraces
+ * add license check for vGPU
+ * run migration pre-checks for VDI.pool_migrate
+ * tidy up the internal database interface
+
+1.9.56 (2014-09-15):
+ * configure: allow -warn-error to be disabled
+ * use SMAPIv2 VDI.stat for XenAPI VDI.update
+ * annotate startup tasks with extra debug information
+ * examples: add a streaming export/import example
+ * prevent the event queue from taking up too much memory
+
+1.9.55 (2014-09-14):
+ * re-add xenopsd plugin for xen-bugtool
+ * don't break when system gpg binary is upgraded
+ * set the right month for host crashdump records
+ * allow the location of the inventory file to read from xapi.conf
+
+1.9.53 (2014-09-10):
+ * revamped configuration handling and support of config file overrides
+ * prevent timeouts when collecting bugtools
+ * allow vCPU hotplug for HVM guests if feature-vcpu-hotplug is set
+ * improve cancellation of VM migration
+ * use busybox for DHCP on the host internal management network
+
+1.11.0 (2013-07-11):
+ * CP-5113: Queue VM.unpause immediately after VM.start
+ * CA-109295: Allow other_config:hvm_serial to set values other than "pty"
+ * CA-108913: Initialise parameters on the stack
+ * Don't automatically install rrdd-devel packages
+ * Do not try deleting the old xenguest log file
+ * CA-101777: some improvements on metadata backup/restore
+ * CA-100685: When domain disappears during VM shutdown, just do it w/ no error
+ * CA-104674: Don't add genid to VMs that don't need one
+ * Add scripts to help maintain version tags and changelog entries
+ * CA-93557: Fix poor performance for VMs in 'Restart' vs 'Restart if possible'
+ * networkd: do signal xapi when an IP address is removed
+ * CP-5095:Retrieve a list of SRs required to recover a VM through xapi
+ * CA-98077: Block SXM when VM has a VDI with on_boot=reset
+ * CA-108515: Prevent the destruction of SR configured as IntelliCache SR
+
+1.10.0 (2013-06-26):
+ * Initial changelog entry, more to come after sprint wk28

@@ -1,0 +1,30 @@
+(executable
+ (name main)
+ (modules main)
+ (libraries
+   astring
+   cmdliner
+   
+   lwt
+   lwt.unix
+   message-switch-lwt
+   result
+   rresult
+   rpclib.core
+   rpclib.json
+   rpclib-lwt
+   uuidm
+   xapi_guard
+   xapi_guard_server
+   xapi-idl
+   xapi-idl.guard.privileged
+   xapi-log
+   xapi-types
+   xapi_version
+   xen-api-client-lwt)
+ (preprocess (pps ppx_deriving_rpc)))
+
+(install
+ (package varstored-guard)
+ (section sbin)
+ (files (main.exe as varstored-guard)))

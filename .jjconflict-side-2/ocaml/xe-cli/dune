@@ -1,0 +1,22 @@
+(executable
+  (modes exe)
+  (name newcli)
+  (public_name xe)
+  (package xe)
+  (libraries
+    astring
+    
+    fpath
+    safe-resources
+    stunnel
+    threads
+    tracing
+    uri
+    yojson
+    xapi-backtrace
+    xapi-cli-protocol
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-unix
+  )
+)

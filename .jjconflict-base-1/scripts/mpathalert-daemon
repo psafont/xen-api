@@ -1,0 +1,16 @@
+#!/bin/sh
+
+case "$1" in
+	start)
+		systemctl start mpathalert
+		;;
+	stop)
+		systemctl stop mpathalert
+		;;
+	restart)
+		systemctl restart mpathalert
+		;;
+	*)
+		echo $"Usage: $0 {start|stop|restart}"
+		exit 1
+esac

@@ -1,0 +1,25 @@
+#!/bin/sh
+#
+# Copyright (c) Citrix Systems 2008. All rights reserved.
+#
+
+# Simple script to upload a file or directory. If this script
+# exits with code 0 we assume the upload was successful..
+
+CRASH=$1
+
+export http_proxy=$PROXY
+export ftp_proxy=$PROXY
+
+url_file=$(mktemp --suffix="upload-wrapper")
+printf 'url = "%s"' $URL > $url_file
+
+# If it's a directory then tar it up and stream. Otherwise just send the file
+if [ -d $CRASH ];
+then
+  tar --sparse -cz $CRASH | curl --config $url_file -T - 2>&1
+else
+  cat $CRASH | curl --config $url_file -T - 2>&1
+fi
+
+rm -f $url_file

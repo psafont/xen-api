@@ -1,0 +1,78 @@
+(data_only_dirs test_data)
+
+(library
+  (name test_lib)
+  (modules idl_test_common)
+  (libraries
+    (re_export alcotest) xapi-idl (re_export rpclib.core) rpclib.json rpclib.xml result)
+  (wrapped false)
+)
+
+(executable
+ (name guard_interfaces_test)
+ (modules guard_interfaces_test)
+ (libraries
+   test_lib
+   xapi-idl.guard.privileged
+   xapi-idl.guard.varstored
+ )
+)
+
+(rule
+  (alias runtest)
+  (package xapi-idl)
+  (deps (:exe ./guard_interfaces_test.exe) (source_tree test_data/guard))
+  (action (run %{exe}))
+)
+
+(test
+ (name device_number_test)
+ (package xapi-idl)
+ (modules device_number_test)
+ (libraries
+   alcotest
+   fmt
+   xapi-idl.xen.interface.types
+ )
+)
+
+(test
+ (name test)
+ (modes exe)
+ (package xapi-idl)
+ (modules (:standard \ idl_test_common guard_interfaces_test device_number_test))
+ (libraries
+   alcotest
+   cohttp_posix
+   fmt
+   result
+   rpclib.core
+   rpclib.json
+   rpclib.markdown
+   rpclib.xml
+   test_lib
+   threads.posix
+   xapi-idl
+   xapi-idl.cluster
+   xapi-idl.rrd
+   xapi-idl.memory
+   xapi-idl.updates
+   xapi-idl.network
+   xapi-idl.gpumon
+   xapi-idl.storage
+   xapi-idl.storage.interface
+   xapi-idl.v6
+   xapi-idl.xen
+   xapi-idl.xen.interface
+   xapi-log
+   xapi-stdext-unix
+   xapi-stdext-threads
+ )
+ (preprocess (per_module ((pps ppx_deriving_rpc) Task_server_test Updates_test))))
+
+(rule
+  (alias runtest)
+  (package xapi-idl)
+  (deps (:exe ./test.exe) (source_tree test_data/guard))
+  (action (run %{exe}))
+)

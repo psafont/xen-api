@@ -1,0 +1,48 @@
+{
+	"mail-alarms":{
+		"cpu_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} Alarm: CPU usage on {cls} \"{name_label}\"",
+			"body":"CPU usage on {cls} \"{name_label}\" has been on average {value}% for the last {period} seconds.\nThis alarm is set to be triggered when CPU usage is more than {level}%.\n\nFor Alarm Settings, please log into your {brand_console} Console and click on \"{cls_name}\"->\n\"Properties\"->\"Alerts\"\n"
+		},
+		"network_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} Alarm: Network usage on {cls} \"{name_label}\"",
+			"body":"Network usage on {cls} \"{name_label}\" has been on average {value} B/s for the last {period} seconds.\nThis alarm is set to be triggered when Network usage is more than {level} B/s.\n\nFor Alarm Settings, please log into your {brand_console} Console and click on \"{cls_name}\"->\n\"Properties\"->\"Alerts\"\n"
+		},
+		"memory_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} Alarm: Memory usage on {cls} \"{name_label}\"",
+			"body":"Free memory on {cls} \"{name_label}\" has been on average {value} KiB for the last {period} seconds.\nThis alarm is set to be triggered when free memory is less than {level} KiB.\n\nFor Alarm Settings, please log into your {brand_console} Console and click on \"{cls_name}\"->\n\"Properties\"->\"Alerts\"\n"
+		},
+		"disk_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} Alarm: Disk usage on VM \"{name_label}\"",
+			"body":"Disk usage on VM \"{name_label}\" has been on average {value} B/s for the last {period} seconds.\nThis alarm is set to be triggered when Disk usage is more than {level} B/s.\n\nFor Alarm Settings, please log into your {brand_console} Console and click on \"VM\"->\n\"Properties\"->\"Alerts\"\n"
+		},
+		"dom0fs_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} Alarm: Filesystem nearly full on \"{name_label}\"",
+			"body":"The filesystem usage on \"{name_label}\" is at {value}%.\nThis alarm is set to be triggered when filesystem usage is more than {level}%.\n\n"
+		},
+		"dom0logfs_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} Alarm: Log partition nearly full on \"{name_label}\"",
+			"body":"The log partition usage on \"{name_label}\" is at {value}%.\nThis alarm is set to be triggered when log partition usage is more than {level}%.\n\n"
+		},
+		"dom0memory_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} Alarm: Dom0 memory demand is high on \"{name_label}\"",
+			"body":"The memory required by the control domain on \"{name_label}\" is about {value}% of its allocated memory. Occasional performance degradation can be expected when memory swapping is forced to happen.\nThis alarm is set to be triggered when the memory required by the control domain is above {level}% of its allocated memory.\n\n"
+		},
+		"wlb_consultation_failure":{
+			"subject":"[{pool_name}] {product_brand} Alarm: Attempt to consult WLB for VM \"{name_label}\" failed",
+			"body":"A workload balancing consultation for VM {name_label} failed.\nThe operation was completed using the default algorithm instead of a workload balancing recommendation.\n\n"
+		},
+		"wlb_optimization_alert":{
+			"subject":"Workload Balancing Alert: Optimization alert from pool {pool_name}",
+			"body":"The Workload Balancing Server has reported that pool {pool_name} is in need of optimization.\n{pool_name} is in optimization mode {optimization_mode} and is in a {severity} state.\n\n"
+		},
+		"ha_host_failed":{
+			"subject":"[{pool_name}] {product_brand} HA Alarm: {text}",
+			"body":"{text}\n\nThis alarm is set to be triggered when a host belonging to a high availability pool fails.\n"
+		},
+		"sr_io_throughput_total_alert":{
+			"subject":"[{pool_name}] Storage Throughput Alarm: The total IO throughput on \"{sr_name}\"",
+			"body":"The total read and write throughput of server \"{name_label}\" on storage repository \"{sr_name}\" has been {value} MB/s for the last {period} seconds.\nThis alarm is set to be triggered when the total throughput exceeds {level} KB/s.\n\nFor Alarm Settings, please log into your {brand_console} Console and click on \"Storage\"->\n\"Properties\"->\"Alerts\"\n"
+		}
+	}
+}

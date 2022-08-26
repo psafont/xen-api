@@ -1,0 +1,36 @@
+(executable
+ (modes exe)
+ (name squeezed)
+  (flags (:standard -bin-annot))
+  (libraries
+    xapi-stdext-threads
+    xapi-stdext-pervasives
+    xapi-stdext-unix
+    xapi_version
+    astring
+    
+    rpclib.core
+    squeeze
+    threads.posix
+    xenctrl
+    xenstore
+    xenstore.unix
+    xenstore_transport
+    xenstore_transport.unix
+    rpclib
+    xapi-consts.xapi_version
+    xapi-idl
+    xapi-idl.memory
+    xapi-log
+    xapi-types
+    uuid
+    re
+    re.str
+  )
+)
+
+(install
+ (package xapi-tools)
+ (section sbin)
+ (files (squeezed.exe as squeezed))
+)

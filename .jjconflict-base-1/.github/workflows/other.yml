@@ -1,0 +1,127 @@
+name: Build and test (other)
+
+permissions: {}
+
+on:
+  # When only Hugo docs change, this workflow is not required:
+  push:
+    paths-ignore:
+      - 'doc/**'
+      - '.github/workflows/hugo.yml'
+  pull_request:
+  schedule:
+    # run daily, this refreshes the cache
+    - cron: "13 2 * * *"
+  merge_group:
+
+concurrency: # On new push, cancel old workflows from the same PR, branch or tag:
+  group: ${{ github.workflow }}-${{github.event_name}}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-test:
+    name: Python tests
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pull-requests: write # allow commenting on the PR
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # To check which files changed: origin/master..HEAD
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{matrix.python-version}}
+
+      - uses: actions/cache@v4
+        name: Setup cache for running pre-commit fast
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - run: echo "::add-matcher::.github/workflows/python-warning-matcher.json"
+        name: "Setup GitHub for reporting Python warnings as annotations in pull request code review"
+
+      - uses: pre-commit/action@v3.0.1
+        name: Run pre-commit checks (no spaces at end of lines, etc)
+        with:
+          extra_args: --all-files --verbose --hook-stage pre-commit
+        env:
+          SKIP: no-commit-to-branch
+
+      - name: Upload coverage report to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          format: cobertura
+          files: .git/coverage${{matrix.python-version}}.xml
+          flag-name: python${{matrix.python-version}}
+          parallel: true
+          fail-on-error: false
+
+      - uses: dciborow/action-pylint@0.1.0
+        with:
+          reporter: github-pr-review
+          level: warning
+          # To be customized to cover remaining Python scripts:
+          glob_pattern: "**/*.py"
+        continue-on-error: true
+
+      - name: Run pytype checks
+        run: pip install pandas pytype toml && ./pytype_reporter.py
+        env:
+          PR_NUMBER: ${{ github.event.number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTYPE_REPORTER_DEBUG: True
+
+      - name: pyflakes
+        uses: reviewdog/action-pyflakes@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+        continue-on-error: true
+
+  # For coverage of 2.7 and 3.11 we upload to Coveralls in parallel mode.
+  # To view the Coveralls results of the PR, click on the "Details" link to the right
+  # of the Coveralls Logo in the Checks section of the PR.
+  finish-parallel-coveralls-upload:
+    name: Finish coverage upload
+    needs: python-test  # run after the python-test has completed uploading coverages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Finish the parallel coverage upload to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          fail-on-error: false
+          parallel-finished: true
+
+  deprecation-test:
+    name: Deprecation tests
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate empty configuration for make to be happy
+        run: touch config.mk
+
+      - name: quality-gate
+        run: make quality-gate
+
+  test-sdk-builds:
+    name: Test SDK builds
+    uses: ./.github/workflows/generate-and-build-sdks.yml
+    permissions:
+      contents: read
+    with:
+      # Ensure you also update ocaml-tests
+      # when changing this value, to keep builds
+      # consistent
+      xapi_version: "v0.0.0"

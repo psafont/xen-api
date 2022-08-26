@@ -1,0 +1,22 @@
+(library
+  (name uuid)
+  (public_name uuid)
+  (modules uuidx)
+  (libraries
+    mtime
+    mtime.clock.os
+    ptime
+    ptime.clock.os
+    threads.posix
+    unix
+    (re_export uuidm)
+  )
+  (wrapped false)
+)
+
+(test
+  (name uuid_test)
+  (package uuid)
+  (modules uuid_test)
+  (libraries alcotest fmt uuid)
+  )

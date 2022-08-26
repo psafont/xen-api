@@ -1,0 +1,11 @@
+(library
+  (name message_switch_lwt)
+  (public_name message-switch-lwt)
+  (libraries
+    cohttp-lwt-unix
+    message-switch-core
+    (re_export lwt)
+    (re_export lwt.unix)
+  )
+)
+

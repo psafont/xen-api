@@ -1,0 +1,22 @@
+(executable
+  (name storage_test)
+  (libraries
+    alcotest
+    fmt
+    lwt
+    lwt.unix
+    rpclib.core
+    rpclib.xml
+    xapi_storage
+  )
+)
+
+(rule
+  (alias runtest)
+  (package xapi-storage)
+  (deps
+    (:x storage_test.exe)
+    (source_tree ../../rpc-light)
+  )
+  (action (run %{x}))
+)

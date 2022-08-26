@@ -1,0 +1,61 @@
+#!/bin/bash
+
+TYPE=`echo ${XENBUS_PATH} | cut -f 2 -d '/'`
+DOMID=`echo ${XENBUS_PATH} | cut -f 3 -d '/'`
+DEVID=`echo ${XENBUS_PATH} | cut -f 4 -d '/'`
+
+VM=$(xenstore-read "/local/domain/${DOMID}/vm" 2> /dev/null)
+DOMUUID=$(xenstore-read "${VM}/uuid" 2> /dev/null)
+PRIVATE=/xapi/${DOMUUID}/private/${TYPE}/${DEVID}
+HOTPLUG=/xapi/${DOMUUID}/hotplug/${DOMID}/${TYPE}/${DEVID}
+HOTPLUG_STATUS="${XENBUS_PREFIX}${XENBUS_PATH}/hotplug-status"
+
+syslog ()
+{
+	logger -tscripts-block "$*"
+}
+
+case "$1" in
+add)
+	if [ "$XENBUS_PREFIX" = "" ]; then
+		params=$(xenstore-read "${XENBUS_PATH}/params")
+		params=$(readlink -f $params || echo $params)
+		frontend="/local/domain/${DOMID}/device/${TYPE}/${DEVID}"
+		syslog "${XENBUS_PATH}: add params=\"${params}\""
+
+		# Write physical-device field only for real block devices.
+		if [ "$TYPE" != "9pfs" ]; then
+			if [[ $params =~ nbd:unix:([^:]*) ]]
+			then
+				physical_device_path=$(readlink -f ${BASH_REMATCH[1]})
+				syslog "${XENBUS_PATH}: physical-device-path=${physical_device_path}"
+				xenstore-exists "${XENBUS_PATH}/physical-device-path"
+				if [ $? -eq 1 ]; then
+					syslog "${XENBUS_PATH}: writing physical-device-path=${physical_device_path}"
+					xenstore-write "${XENBUS_PATH}/physical-device-path" "${physical_device_path}"
+				fi
+			else
+				physical_device=$(/usr/bin/stat --format="%t:%T" "${params}")
+				syslog "${XENBUS_PATH}: physical-device=${physical_device}"
+				xenstore-exists "${XENBUS_PATH}/physical-device"
+				if [ $? -eq 1 ]; then
+					syslog "${XENBUS_PATH}: writing physical-device=${physical_device}"
+					xenstore-write "${XENBUS_PATH}/physical-device" "${physical_device}"
+				fi
+			fi
+		fi
+	fi
+	xenstore-write "${HOTPLUG}/hotplug" "online"
+	xenstore-write "${HOTPLUG_STATUS}" "connected"
+	;;
+change)
+	syslog "${XENBUS_PATH}: change"
+	;;
+remove)
+	syslog "${XENBUS_PATH}: remove"
+	xenstore-exists "${HOTPLUG_STATUS}" && xenstore-rm "${HOTPLUG_STATUS}"
+	xenstore-exists "${HOTPLUG}/hotplug" && xenstore-rm "${HOTPLUG}/hotplug"
+	# so that exitcode is 0 even if above xenstore-exists has failed
+	true
+	;;
+esac

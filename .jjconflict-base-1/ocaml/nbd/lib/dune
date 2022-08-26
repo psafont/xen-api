@@ -1,0 +1,31 @@
+(library
+ (name consts)
+ (modes best)
+ (modules consts)
+)
+
+(library
+ (name local_xapi_session)
+ (modes best)
+ (modules local_xapi_session)
+ (libraries
+  consts
+  lwt
+  lwt_log
+  lwt.unix
+  rpclib.core
+  xapi-types
+  xen-api-client-lwt
+ )
+)
+
+(library
+ (name vbd_store)
+ (modes best)
+ (libraries
+  lwt
+  lwt_log
+  lwt.unix
+ )
+ (modules vbd_store)
+)

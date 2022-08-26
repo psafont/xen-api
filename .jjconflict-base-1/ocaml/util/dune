@@ -1,0 +1,25 @@
+(rule
+(with-stdout-to xapi_build_info.ml
+  (bash "echo let date=\\\"$(date +%Y%m%dT%H:%M:%SZ)\\\"")))
+
+(library
+  (name xapi_version)
+  (public_name xapi-consts.xapi_version)
+  (modules xapi_version xapi_build_info)
+  ; avoid rebuilding everything when the implementation (of e.g. date) changes
+  ; accessing version information is not performance critical:
+  ; we don't want it inlined
+  (flags (:standard -opaque))
+  (libraries
+    dune-build-info
+    xapi-inventory
+  )
+  (wrapped false)
+)
+
+(library
+  (name xapi_host_driver_helpers)
+  (modules xapi_host_driver_helpers)
+  (libraries yojson angstrom xapi-stdext-unix)
+  (wrapped false)
+)

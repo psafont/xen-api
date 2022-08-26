@@ -1,0 +1,17 @@
+(executable
+  (modes exe)
+  (name vncproxy)
+  (public_name vncproxy)
+  (package xapi-debug)
+  (libraries
+    
+    http_lib
+    stunnel
+    xapi-client
+    xapi-consts
+    xapi-types
+    xapi-stdext-unix
+    xapi-stdext-pervasives
+  )
+)
+

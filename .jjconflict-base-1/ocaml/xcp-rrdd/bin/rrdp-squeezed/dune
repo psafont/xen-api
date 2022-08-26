@@ -1,0 +1,25 @@
+(executable
+  (modes exe)
+  (name rrdp_squeezed)
+  (libraries
+    rrdd-plugin
+    rrdd_plugin_xenctrl
+    rrdd_plugins_libs
+    xapi-stdext-std
+    ezxenstore
+    ezxenstore.watch
+    xapi-idl.rrd
+    xapi-log
+    xapi-rrd
+    xenctrl
+    xenstore
+    xenstore.unix
+    xenstore_transport
+  )
+)
+
+(install
+  (package xapi)
+  (files (rrdp_squeezed.exe as xcp-rrdd-plugins/xcp-rrdd-squeezed))
+  (section libexec_root)
+)

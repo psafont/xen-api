@@ -1,0 +1,18 @@
+(library
+  (name xen_api_client)
+  (public_name xen-api-client)
+  (wrapped false)
+  (libraries
+    astring
+    cohttp
+    re.str
+    rpclib
+    xapi-rrd
+    uri
+    uuid
+    xmlm
+    xapi-client
+    xapi-types
+  )
+)
+

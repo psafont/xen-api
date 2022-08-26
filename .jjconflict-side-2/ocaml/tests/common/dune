@@ -1,0 +1,34 @@
+(library
+  (name tests_common)
+  (modules :standard)
+  (modes best)
+  (wrapped false)
+  (libraries
+    alcotest
+    fmt
+    http_lib
+    rpclib.core
+    rpclib.json
+    rpclib.xml
+    threads.posix
+    uuid
+    xapi_aux
+    xapi-consts
+    xapi_database
+    xapi-datamodel
+    xapi-idl
+    xapi-idl.memory
+    xapi-idl.network
+    xapi-idl.xen.interface
+    xapi_internal
+    xapi-inventory
+    xapi-log
+    xapi-test-utils
+    xapi-types
+    clock
+    xapi-stdext-threads.scheduler
+    xapi-stdext-unix
+    xapi_timeslice
+  )
+)
+

@@ -1,0 +1,6 @@
+(executable
+  (name list_domains)
+  (public_name list_domains)
+  (package xapi-tools)
+  (libraries  xenctrl xapi-idl.memory ezxenstore.watch uuid)
+)

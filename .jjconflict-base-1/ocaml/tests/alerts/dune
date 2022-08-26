@@ -1,0 +1,17 @@
+(test
+  (name test_suite)
+  (package xapi)
+  (libraries
+    alcotest
+    certificate_check
+    clock
+    daily_license_check
+    expiry_alert
+    fmt
+    xapi-consts
+    xapi-log
+    xapi-types
+    uuid
+  )
+  (action (run %{test} --color=always))
+)

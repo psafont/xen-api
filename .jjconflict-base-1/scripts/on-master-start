@@ -1,0 +1,36 @@
+#!/bin/sh
+
+# Example on-master-start script
+#
+start() {
+	printf "%s" "Assuming role of master: "
+	touch /tmp/master
+	echo "OK"
+	return 0
+}
+
+stop() {
+	echo "Dropping role of master: "
+	rm -f /tmp/master
+	return 0
+}
+
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart)
+	restart
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac

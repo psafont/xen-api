@@ -1,0 +1,73 @@
+(library
+ (name xcp_storage_interface_types)
+ (public_name xapi-idl.storage.interface.types)
+ (modules vdi_automaton)
+ (libraries
+   result
+   rpclib.core
+   rresult
+   threads
+   xapi-idl
+ )
+ (wrapped false)
+ (preprocess (pps ppx_deriving_rpc)))
+
+(library
+ (name xcp_storage_interface)
+ (public_name xapi-idl.storage.interface)
+ (modules storage_interface)
+ (libraries
+   astring
+   result
+   rpclib.core
+   rpclib.json
+   rresult
+   clock
+   xapi-idl
+   xapi-idl.storage.interface.types
+   xapi-log
+ )
+ (wrapped false)
+ (preprocess (pps ppx_deriving_rpc ppx_deriving.show)))
+
+(library
+ (name xcp_storage)
+ (public_name xapi-idl.storage)
+ (modules
+  (:standard \ storage_interface storage_test vdi_automaton suite
+    vdi_automaton_test))
+ (libraries
+   rpclib.core
+   threads.posix
+   xapi-idl
+   xapi-idl.storage.interface
+   clock
+ )
+ (wrapped false))
+
+(test
+ (name storage_test)
+ (modes exe)
+ (modules storage_test)
+ (package xapi-idl)
+ (libraries
+   alcotest
+   cmdliner
+   
+   xapi-idl
+   xapi-idl.storage
+   xapi-idl.storage.interface
+ ))
+
+(test
+ (name suite)
+ (modes exe)
+ (modules suite vdi_automaton_test)
+ (libraries
+   alcotest
+   
+   xapi-idl.storage.interface
+   xapi-idl.storage.interface.types
+ )
+ (package xapi-idl)
+ (deps storage_test.exe))

@@ -1,0 +1,48 @@
+{
+	"mail-alarms":{
+		"cpu_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} アラート: {cls} \"{name_label}\" の CPU 使用率",
+			"body":"{cls} \"{name_label}\" の CPU 使用率は最近の {period} 秒で平均 {value}% です。\nこのアラートは CPU 使用率が {level}% を超えると発するように設定されています。\n\n[アラート設定] は、{brand_console} コンソールにログインして次の順にをクリックしてください。\n[{cls_name}] -> [プロパティ] -> [アラート]\n"
+		},
+		"network_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} アラート: {cls} \"{name_label}\" のネットワーク使用量",
+			"body":"{cls} \"{name_label}\" のネットワーク使用量は最近の {period} 秒で平均 {value} バイト/秒です。\nこのアラートはネットワーク使用量が {level} バイト/秒を超えると発するように設定されています。\n\n[アラート設定] は、{brand_console} コンソールにログインして次の順にをクリックしてください。\n[{cls_name}] -> [プロパティ] -> [アラート]\n"
+		},
+		"memory_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} アラート: {cls} \"{name_label}\" のメモリ使用率",
+			"body":"{cls} \"{name_label}\" の空きメモリは最近の {period} 秒で平均 {value} KiB です。\nこのアラートは空きメモリが {level} KiB を下回ると発するように設定されています。\n\n[アラート設定] は、{brand_console} コンソールにログインして次の順にをクリックしてください。\n[{cls_name}] -> [プロパティ] -> [アラート]\n"
+		},
+		"disk_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} アラート: VM \"{name_label}\" のディスク使用量",
+			"body":"VM \"{name_label}\" のディスク使用量は最近の {period} 秒で平均 {value} バイト/秒です。\nこのアラートはディスク使用量が {level} バイト/秒を超えると発するように設定されています。\n\n[アラート設定] は、{brand_console} コンソールにログインして次の順にをクリックしてください。\n[VM] -> [プロパティ] -> [アラート]\n"
+		},
+		"dom0fs_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} アラート: \"{name_label}\" のファイルシステムがほぼいっぱいです",
+			"body":"\"{name_label}\" のファイルシステム使用率は {value}% です。\nこのアラートはファイルシステム使用率が {level}% を超えると発するよう設定されています。\n\n"
+		},
+		"dom0logfs_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} アラート: \"{name_label}\" のログパーティションがほぼいっぱいです",
+			"body":"\"{name_label}\" のログ パーティション使用率は {value}% です。\nこのアラートはログ パーティション使用率が {level}% を超えると発するよう設定されています。\n\n"
+		},
+		"dom0memory_usage_alarm":{
+			"subject":"[{pool_name}] {product_brand} アラート: \"{name_label}\" の Dom0 メモリ要求が高い値です",
+			"body":"\"{name_label}\" のコントロール ドメインによるメモリ要求は割り当てられたメモリの {value}% です。 メモリ スワッピングの発生によりパフォーマンスが低下する場合があります。 \n割り当てられたメモリに対するコントロール ドメインのメモリ要求の割合が {level}% を超えるとアラートが送信されます。\n\n"
+		},
+		"wlb_consultation_failure":{
+			"subject":"[{pool_name}] {product_brand} アラート: VM \"{name_label}\" の WLB 情報の取得に失敗しました",
+			"body":"VM {name_label} のワークロード バランス情報の取得に失敗しました\nこの操作はワークロードバランスの推奨ではなくデフォルトのアルゴリズムを使用して完了しました。\n\n"
+		},
+		"wlb_optimization_alert":{
+			"subject":"ワークロード バランス アラート: プール {pool_name} からの最適化アラート",
+			"body":"ワークロード バランス サーバーがプール {pool_name} に最適化が必要であることを報告しています。\n{pool_name} は最適化モード {optimization_mode} で {severity} の状態です。\n\n"
+		},
+		"ha_host_failed":{
+			"subject":"[{pool_name}] {product_brand} 高可用性アラート: {text}",
+			"body":"{text}\n\nこのアラートは、高可用性プールに属しているホストが失敗したときに発するよう設定されています。\n"
+		},
+		"sr_io_throughput_total_alert":{
+			"subject":"[{pool_name}] ストレージ スループット アラート: 「{sr_name}」 の IO スループット合計",
+			"body":"ストレージ リポジトリ「{name_label}」上のサーバー「{sr_name}」における読み取りおよび書き込み合計スループットは、最近の {period} 秒で {value} MB/秒です。\nこのアラートは合計スループットが {level} KB/秒を超えると発するように設定されています。\n\n[アラート設定] は、{brand_console} コンソールにログインして次の順にをクリックしてください。\n[サーバー] -> [プロパティ] -> [アラート]\n"
+		}
+	}
+}

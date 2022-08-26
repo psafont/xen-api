@@ -1,0 +1,20 @@
+(executable
+  (modes exe)
+  (name main)
+  (libraries
+    cmdliner
+    message-switch-core
+    message-switch-unix
+    mtime
+    rpclib.core
+    rpclib.json
+    threads.posix
+  )
+  (preprocess (pps ppx_deriving_rpc))
+)
+
+(install
+ (package message-switch-cli)
+ (section sbin)
+ (files (main.exe as message-cli))
+)

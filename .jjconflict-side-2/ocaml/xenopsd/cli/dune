@@ -1,0 +1,53 @@
+(menhir (modules xn_cfg_parser))
+(ocamllex xn_cfg_lexer)
+
+(executable
+  (name main)
+  (libraries
+      astring
+      cmdliner
+
+      re
+      result
+      rpclib.core
+      rpclib.json
+      rresult
+      threads
+      uuid
+      uuidm
+      xapi-idl
+      xapi-idl.xen
+      xapi-idl.xen.interface
+      xapi-idl.xen.interface.types
+      xapi-stdext-pervasives
+      xapi-stdext-unix
+      yojson
+  )
+  (preprocess (per_module ((pps ppx_deriving_rpc) Common Xn_cfg_types)))
+)
+
+(install
+  (files (main.exe as xenops-cli))
+  (section sbin)
+  (package xapi-tools)
+)
+
+(rule
+ (with-stdout-to
+  xenops-cli.1
+  (run %{dep:main.exe} --help=groff)
+ )
+)
+
+(rule
+ (target xenops-cli.1.gz)
+ (deps (:man xenops-cli.1))
+ (action
+  (with-stdout-to %{target} (with-stdin-from %{man} (run gzip))))
+)
+
+(install
+ (section man)
+ (files xenops-cli.1.gz)
+ (package xapi-tools)
+)

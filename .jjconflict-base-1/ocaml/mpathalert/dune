@@ -1,0 +1,18 @@
+(executable
+  (modes exe)
+  (name mpathalert)
+  (public_name mpathalert)
+  (package xapi)
+  (libraries    
+    http_lib
+    threads.posix
+    uuid
+    xapi-client
+    xapi-consts
+    xapi-types
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+  )
+)
+

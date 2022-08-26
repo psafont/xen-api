@@ -1,0 +1,22 @@
+(executable
+  (modes exe)
+  (name gen_json)
+  (libraries    
+    fmt
+    xapi-datamodel
+    xapi-consts
+    xapi-stdext-unix
+    xapi-stdext-std
+    yojson
+  )
+)
+
+(rule
+  (alias runtest)
+  (deps
+    (:x gen_json.exe)
+  )
+  (package xapi-datamodel)
+  (action (run %{x}))
+)
+

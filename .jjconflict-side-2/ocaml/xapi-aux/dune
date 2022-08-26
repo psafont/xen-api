@@ -1,0 +1,32 @@
+(library
+  (name xapi_aux)
+  (modes best)
+  (modules :standard \ version_test)
+  (libraries
+    astring
+    clock
+    cstruct
+    forkexec
+    ipaddr
+    ipaddr.unix
+    tar
+    threads.posix
+    xapi-consts
+    xapi-idl.network
+    xapi-inventory
+    xapi-log
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xml-light2
+  )
+  (wrapped false)
+)
+
+; to run this test: dune exec ./version_test.exe
+(tests
+ (names version_test)
+  (modes (best exe))
+  (modules version_test)
+  (package xapi)
+  (libraries
+    xapi_aux alcotest))

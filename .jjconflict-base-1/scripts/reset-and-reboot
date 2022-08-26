@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Reset and reboot the host. Called by XAPI to finish a pool.eject operation.
+# State files and the UPGRADE=true flag (if it exists) are removed so that
+# network, storage, and all one-time initialization scripts are rerun after
+# reboot.
+
+export FIRSTBOOT_DATA_DIR=/etc/firstboot.d/data
+export XENSOURCE_INVENTORY=/etc/xensource-inventory
+
+grep -sv '^UPGRADE=' ${FIRSTBOOT_DATA_DIR}/host.conf >/tmp/host.conf.$$
+rm -f ${FIRSTBOOT_DATA_DIR}/host.conf
+[ -s /tmp/host.conf.$$ ] && mv -f /tmp/host.conf.$$ ${FIRSTBOOT_DATA_DIR}/host.conf
+rm -f /tmp/host.conf.$$
+
+# CA-21443: restore initial management interface configuration
+if [ -d /etc/firstboot.d/data/initial-ifcfg ] ; then
+    if [ -r /etc/firstboot.d/data/initial-ifcfg/network.dbcache ] ; then
+        cp -fp /etc/firstboot.d/data/initial-ifcfg/network.dbcache /var/xen/network.dbcache
+    else
+        for f in /etc/sysconfig/network-scripts/ifcfg* ; do
+            [ -e $f -a $f != '/etc/sysconfig/network-scripts/ifcfg-lo' ] && rm -f $f
+        done
+        cp -fp /etc/firstboot.d/data/initial-ifcfg/* /etc/sysconfig/network-scripts
+    fi
+fi
+
+echo "Resetting state and rebooting"
+rm -f /var/lib/misc/ran-*
+
+echo "Removing internal host private key + other internal host certificates in /etc/xensource and /etc/stunnel"
+# a new xapi-pool-tls.pem will be generated when we come back up
+rm -f  /etc/xensource/xapi-pool-tls.pem
+rm -f  /etc/stunnel/xapi-pool-ca-bundle.pem
+rm -fr /etc/stunnel/certs-pool
+
+echo "Removing trusted ca certificates in /etc/stunnel"
+rm -f  /etc/stunnel/xapi-stunnel-ca-bundle.pem
+rm -fr /etc/stunnel/certs
+
+# do not remove /etc/xensource/xapi-ssl.pem
+
+# ensure TLS verification is disabled when we come back
+rm -f /var/xapi/verify-certificates
+tmp="$(mktemp /tmp/xensource-inventory.XXXXXX)"
+grep -v FIRSTBOOT_ENABLE_TLS_VERIFICATION "$XENSOURCE_INVENTORY" > "$tmp"
+echo "FIRSTBOOT_ENABLE_TLS_VERIFICATION='false'" >> "$tmp"
+mv "$tmp" "$XENSOURCE_INVENTORY"
+
+/sbin/reboot

@@ -1,0 +1,19 @@
+(library
+  (name message_switch_unix)
+  (public_name message-switch-unix)
+  (modules
+    protocol_unix
+    protocol_unix_scheduler
+  )
+  (libraries
+    cohttp
+    message-switch-core
+    rpclib.core
+    rpclib.json
+    threads.posix
+    tracing
+    xapi-stdext-threads
+    xapi-stdext-unix
+  )
+)
+

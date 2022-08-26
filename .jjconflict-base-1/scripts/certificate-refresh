@@ -1,0 +1,17 @@
+#! /bin/bash
+# wait randomly up to 10m (600s) and refresh the pool-internal
+# host certificate of this host
+
+set -e
+
+source /etc/xensource-inventory
+host="$INSTALLATION_UUID"
+prio="local5.error"
+tag="$0"
+xe=/opt/xensource/bin/xe
+
+if test -f /tmp/fist_certificate_refresh; then
+  /usr/bin/sleep $((RANDOM % 600))
+  $xe host-refresh-server-certificate host="$host" 2>&1 | logger -p "$prio" -t "$tag"
+fi
+exit 0
