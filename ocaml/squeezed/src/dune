@@ -1,31 +1,35 @@
 (executable
  (modes exe)
  (name squeezed)
- (public_name squeezed)
- (package xapi-squeezed)
-  (flags (:standard -bin-annot))
-  (libraries
-    xapi-stdext-threads
-    xapi-stdext-pervasives
-    xapi-stdext-unix
-    astring
-    dune-build-info
-    rpclib.core
-    squeeze
-    threads.posix
-    xenctrl
-    xenstore
-    xenstore.unix
-    xenstore_transport
-    xenstore_transport.unix
-    rpclib
+ (flags (:standard -bin-annot))
+ (libraries
+   xapi-stdext-threads
+   xapi-stdext-pervasives
+   xapi-stdext-unix
+   astring
+   dune-build-info
+   rpclib.core
+   squeeze
+   threads.posix
+   xenctrl
+   xenstore
+   xenstore.unix
+   xenstore_transport
+   xenstore_transport.unix
+   rpclib
     xapi-consts.xapi_version
-    xapi-idl
-    xapi-idl.memory
-    xapi-log
-    xapi-types
-    uuid
-    re
-    re.str
-  )
+   xapi-idl
+   xapi-idl.memory
+   xapi-log
+   xapi-types
+   uuid
+   re
+   re.str
+ )
+)
+
+(install
+ (section sbin)
+ (package xapi-squeezed)
+ (files (squeezed.exe as squeezed))
 )

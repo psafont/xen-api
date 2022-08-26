@@ -220,8 +220,6 @@ install: build doc sdk doc-json
 	install -D ocaml/xenopsd/scripts/swtpm-wrapper $(DESTDIR)$(QEMU_WRAPPER_DIR)/swtpm-wrapper
 	install -D ./ocaml/xenopsd/scripts/pygrub-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/pygrub-wrapper
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) QEMU_WRAPPER_DIR=$(QEMU_WRAPPER_DIR) XENOPSD_LIBEXECDIR=$(XENOPSD_LIBEXECDIR) ETCDIR=$(ETCDIR) ./ocaml/xenopsd/scripts/make-custom-xenopsd.conf
-# squeezed
-	install -D _build/install/default/bin/squeezed $(DESTDIR)$(SBINDIR)/squeezed
 # xcp-networkd
 	install -D -m 755 _build/install/default/bin/xapi-networkd         $(DESTDIR)$(SBINDIR)/xcp-networkd
 	install -D -m 755 _build/install/default/bin/networkd_db           $(DESTDIR)$(BINDIR)/networkd_db
@@ -273,6 +271,7 @@ install: build doc sdk doc-json
 		cohttp-posix \
 		xapi-rrd \
 		xapi-rrdd \
+		xapi-squeezed \
 		xapi-inventory \
 		xapi-stdext-date \
 		xapi-stdext-encodings \
@@ -339,6 +338,7 @@ uninstall:
 		cohttp-posix \
 		xapi-rrd \
 		xapi-rrdd \
+		xapi-squeezed \
 		xapi-inventory \
 		xapi-stdext-date \
 		xapi-stdext-encodings \
