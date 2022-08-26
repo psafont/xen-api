@@ -1,12 +1,15 @@
 (rule
- (targets xcp-networkd.1)
- (deps networkd.exe)
- (action
-  (with-stdout-to
-   %{targets}
-   (run %{deps} "--help=groff")
-  )
+ (with-stdout-to
+  xcp-networkd.1
+  (run %{dep:networkd.exe} --help=groff)
  )
+)
+
+(rule
+ (target xcp-networkd.1.gz)
+ (deps (:man xcp-networkd.1))
+ (action
+  (with-stdout-to %{target} (with-stdin-from %{man} (run gzip))))
 )
 
 (executable
@@ -42,22 +45,17 @@
 
 (alias
  (name man)
- (deps xcp-networkd.1)
+ (deps xcp-networkd.1.gz)
 )
 
 (install
  (package xapi-tools)
  (section man)
- (files xcp-networkd.1)
+ (files xcp-networkd.1.gz)
 )
 
 (install
  (package xapi-tools)
  (section sbin)
  (files (networkd.exe as xcp-networkd))
-)
-
-(alias
- (name xapi-doc)
- (deps (alias man))
 )
