@@ -27,9 +27,6 @@ DEST=${!#}
 
 INSTALL="install -m ${MODE}"
 
-SCRIPTS_DIR=`dirname ${0}`
-BASE_PATH=`${SCRIPTS_DIR}/base-path xapi.conf`
-
 for FILE in ${FILES}; do
   ${INSTALL} ${FILE} ${DEST} || exit 1
   if [ -d ${DEST} ]; then
