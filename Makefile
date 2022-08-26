@@ -120,7 +120,7 @@ install-extra:
 	mkdir -p $(DESTDIR)$(OPTMANDIR)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
-	mkdir -p $(DESTDIR)/usr/bin
+	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)/usr/libexec/xapi
 	mkdir -p $(DESTDIR)$(MANDIR)/man1
 	mkdir -p $(DESTDIR)/etc
@@ -128,7 +128,7 @@ install-extra:
 # ocaml/xapi
 	scripts/install.sh 755 ocaml/quicktest/quicktest $(DESTDIR)$(OPTDIR)/debug
 # ocaml/xe-cli
-	ln -sf $(OPTDIR)/bin/xe $(DESTDIR)/usr/bin/xe
+	ln -sf $(OPTDIR)/bin/xe $(DESTDIR)$(BINDIR)/xe
 	scripts/install.sh 755 ocaml/xe-cli/bash-completion $(DESTDIR)/etc/bash_completion.d/xe
 # rrd2csv
 	scripts/install.sh 644 ocaml/rrd2csv/man/rrd2csv.1.man $(DESTDIR)$(OPTMANDIR)/rrd2csv.1
@@ -149,31 +149,78 @@ install-extra:
 # common flags and packages for 'dune install' and 'dune uninstall'
 DUNE_IU_PACKAGES1=-j $(JOBS) --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR)
 DUNE_IU_PACKAGES1+=--libexecdir=$(XENOPSD_LIBEXECDIR) --datadir=$(SDKDIR)
-DUNE_IU_PACKAGES1+=xapi-client xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types
-DUNE_IU_PACKAGES1+=xen-api-client xen-api-client-lwt rrdd-plugin rrd-transport
-DUNE_IU_PACKAGES1+=gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources
-DUNE_IU_PACKAGES1+=message-switch message-switch-cli message-switch-core message-switch-lwt
-DUNE_IU_PACKAGES1+=message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli
-DUNE_IU_PACKAGES1+=xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-tracing-export xapi-expiry-alerts cohttp-posix
-DUNE_IU_PACKAGES1+=xapi-rrd xapi-inventory clock xapi-sdk
-DUNE_IU_PACKAGES1+=xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck xapi-tools
+DUNE_IU_PACKAGES1+=xapi-client \
+		   xapi-schema \
+		   xapi-consts \
+		   xapi-cli-protocol \
+		   xapi-datamodel \
+		   xapi-types \
+                   xen-api-client \
+		   xen-api-client-lwt \
+		   rrdd-plugin \
+		   rrd-transport \
+                   gzip \
+		   http-lib \
+		   pciutil \
+		   sexpr \
+		   stunnel \
+		   uuid \
+		   xml-light2 \
+		   zstd \
+		   xapi-compression \
+		   safe-resources \
+                   message-switch \
+		   message-switch-cli \
+		   message-switch-core \
+		   message-switch-lwt \
+                   message-switch-unix \
+		   xapi-idl \
+		   forkexec \
+		   xapi-forkexecd \
+		   xapi-storage \
+		   xapi-storage-script \
+		   xapi-storage-cli \
+                   xapi-nbd \
+		   varstored-guard \
+		   xapi-log \
+		   xapi-open-uri \
+		   xapi-tracing \
+		   xapi-tracing-export \
+		   xapi-expiry-alerts \
+		   cohttp-posix \
+                   xapi-rrd \
+		   xapi-inventory \
+		   clock \
+		   xapi-sdk \
+                   xapi-stdext-date \
+		   xapi-stdext-encodings \
+		   xapi-stdext-pervasives \
+		   xapi-stdext-std \
+		   xapi-stdext-threads \
+		   xapi-stdext-unix \
+		   xapi-stdext-zerocheck \
+		   xapi-tools
 
 
 install-dune1:
 # dune can install libraries and several other files into the right locations
 	dune install $(DUNE_IU_PACKAGES1)
 
-DUNE_IU_PACKAGES2=-j $(JOBS) --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --datadir=$(DOCDIR)  xapi xe
+DUNE_IU_PACKAGES2=-j $(JOBS) --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --datadir=$(DOCDIR)
+DUNE_IU_PACKAGES2+=xapi \
+		   xe
 
 install-dune2:
 	dune install $(DUNE_IU_PACKAGES2)
 
-DUNE_IU_PACKAGES3=-j $(JOBS) --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --bindir=$(OPTDIR)/debug --datadir=$(OPTDIR)/debug xapi-debug
+DUNE_IU_PACKAGES3=-j $(JOBS) --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --bindir=$(OPTDIR)/debug --datadir=$(OPTDIR)/debug
+DUNE_IU_PACKAGES3+=xapi-debug
 
 install-dune3:
 	dune install $(DUNE_IU_PACKAGES3)
 
-DUNE_IU_PACKAGES4=-j $(JOBS) --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --libexecdir=/usr/libexec --mandir=$(MANDIR) vhd-tool
+DUNE_IU_PACKAGES4=-j $(JOBS) --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --libexecdir=/usr/libexec --mandir=$(MANDIR)
+DUNE_IU_PACKAGES3+=vhd-tool
 
 install-dune4:
 	dune install $(DUNE_IU_PACKAGES4)
