@@ -81,8 +81,6 @@ doc:
 	dune exec --profile=$(PROFILE) -- ocaml/idl/datamodel_main.exe -closed -markdown $(XAPIDOC)/markdown
 	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(XAPIDOC)
 	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} $(XAPIDOC)/markdown/ \;
-# Build manpages, networkd generated these
-	dune build --profile=$(PROFILE) -f @man
 
 sdk:
 	cp $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml
@@ -220,10 +218,6 @@ install: build doc sdk doc-json
 	install -D ocaml/xenopsd/scripts/swtpm-wrapper $(DESTDIR)$(QEMU_WRAPPER_DIR)/swtpm-wrapper
 	install -D ./ocaml/xenopsd/scripts/pygrub-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/pygrub-wrapper
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) QEMU_WRAPPER_DIR=$(QEMU_WRAPPER_DIR) XENOPSD_LIBEXECDIR=$(XENOPSD_LIBEXECDIR) ETCDIR=$(ETCDIR) ./ocaml/xenopsd/scripts/make-custom-xenopsd.conf
-# xcp-networkd
-	install -D -m 755 _build/install/default/bin/xapi-networkd         $(DESTDIR)$(SBINDIR)/xcp-networkd
-	install -D -m 755 _build/install/default/bin/networkd_db           $(DESTDIR)$(BINDIR)/networkd_db
-	install -D -m 644 _build/default/ocaml/networkd/bin/xcp-networkd.1 $(DESTDIR)$(MANDIR)/man1/xcp-networkd.1
 # wsproxy
 	install -D -m 755 _build/install/default/bin/wsproxy $(DESTDIR)$(LIBEXECDIR)/wsproxy
 # dune can install libraries and several other files into the right locations
@@ -234,6 +228,7 @@ install: build doc sdk doc-json
 		xapi-cli-protocol \
 		xapi-datamodel \
 		xapi-types \
+		xapi-networkd \
 		xapi-xenopsd-simulator \
 		xen-api-client \
 		xen-api-client-lwt \
@@ -301,6 +296,7 @@ uninstall:
 		xapi-cli-protocol \
 		xapi-datamodel \
 		xapi-types \
+		xapi-networkd \
 		xapi-xenopsd-simulator \
 		xen-api-client \
 		xen-api-client-lwt \
