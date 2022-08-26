@@ -1,6 +1,12 @@
 (executable
  (name fence)
- (public_name fence.bin)
- (package xapi-xenopsd-xc)
  (libraries xenctrl)
+)
+
+; Current install location cannot be replicated in dune because libexec_root
+; is set as /lib currently, see https://github.com/ocaml/dune/issues/5735
+(install
+  (section libexec_root)
+  (files (fence.exe as fence.bin))
+  (package xapi-xenopsd-xc)
 )
