@@ -134,7 +134,7 @@ install: build doc sdk doc-json
 	mkdir -p $(DESTDIR)$(OPTMANDIR)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
-	mkdir -p $(DESTDIR)/usr/bin
+	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)/usr/libexec/xapi
 	mkdir -p $(DESTDIR)$(MANDIR)/man1
 	mkdir -p $(DESTDIR)/etc
@@ -149,7 +149,7 @@ install: build doc sdk doc-json
 	cp -f _build/install/default/bin/xsh $(DESTDIR)$(OPTDIR)/bin/xsh
 # ocaml/xe-cli
 	scripts/install.sh 755 _build/install/default/bin/xe $(DESTDIR)$(OPTDIR)/bin/xe
-	ln -sf $(OPTDIR)/bin/xe $(DESTDIR)/usr/bin/xe
+	ln -sf $(OPTDIR)/bin/xe $(DESTDIR)$(BINDIR)/xe
 	scripts/install.sh 755 ocaml/xe-cli/bash-completion $(DESTDIR)/etc/bash_completion.d/xe
 # ocaml/vncproxy
 	scripts/install.sh 755 _build/install/default/bin/vncproxy $(DESTDIR)$(OPTDIR)/debug/vncproxy
@@ -179,13 +179,13 @@ install: build doc sdk doc-json
 # ocaml/xs-trace
 	scripts/install.sh 755 _build/install/default/bin/xs-trace $(DESTDIR)/usr/bin/xs-trace
 # xcp-rrdd
-	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)/usr/sbin/xcp-rrdd
-	install -D _build/install/default/bin/rrddump $(DESTDIR)/usr/bin/rrddump
+	install -D _build/install/default/bin/xcp-rrdd               $(DESTDIR)$(SBINDIR)/xcp-rrdd
+	install -D _build/install/default/bin/rrddump                $(DESTDIR)$(BINDIR)/rrddump
 # rrd-cli
-	install -D _build/install/default/bin/rrd-cli $(DESTDIR)/usr/bin/rrd-cli
+	install -D _build/install/default/bin/rrd-cli                $(DESTDIR)$(BINDIR)/rrd-cli
 # rrd-transport
-	install -D _build/install/default/bin/rrdreader $(DESTDIR)/usr/bin/rrdreader
-	install -D _build/install/default/bin/rrdwriter $(DESTDIR)/usr/bin/rrdwriter
+	install -D _build/install/default/bin/rrdreader              $(DESTDIR)$(BINDIR)/rrdreader
+	install -D _build/install/default/bin/rrdwriter              $(DESTDIR)$(BINDIR)/rrdwriter
 # rrdd-plugins
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-iostat $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-iostat
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-squeezed $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-squeezed
@@ -196,7 +196,7 @@ install: build doc sdk doc-json
 	install -D -m 644 ocaml/xcp-rrdd/bin/rrdp-scripts/logrotate-rrdd-plugins $(DESTDIR)/etc/logrotate.d/xcp-rrdd-plugins
 # vhd-tool
 	install -m 755 _build/install/default/bin/sparse_dd        $(DESTDIR)/usr/libexec/xapi/sparse_dd
-	install -m 755 _build/install/default/bin/vhd-tool         $(DESTDIR)/usr/bin/vhd-tool
+	install -m 755 _build/install/default/bin/vhd-tool         $(DESTDIR)$(BINDIR)/vhd-tool
 	install -m 644 ocaml/vhd-tool/cli/sparse_dd.conf           $(DESTDIR)/etc/sparse_dd.conf
 	install -m 755 _build/install/default/bin/get_vhd_vsize    $(DESTDIR)/usr/libexec/xapi/get_vhd_vsize
 	install -m 755 ocaml/vhd-tool/scripts/get_nbd_extents.py   $(DESTDIR)$(LIBEXECDIR)/get_nbd_extents.py
@@ -229,21 +229,63 @@ install: build doc sdk doc-json
 # squeezed
 	install -D _build/install/default/bin/squeezed $(DESTDIR)/$(SBINDIR)/squeezed
 # xcp-networkd
-	install -m 755 _build/install/default/bin/xapi-networkd         $(DESTDIR)/usr/sbin/xcp-networkd
-	install -m 755 _build/install/default/bin/networkd_db           $(DESTDIR)/usr/bin/networkd_db
-	install -m 644 _build/default/ocaml/networkd/bin/xcp-networkd.1 $(DESTDIR)/usr/share/man/man1/xcp-networkd.1
+	install -D -m 755 _build/install/default/bin/xapi-networkd         $(DESTDIR)$(SBINDIR)/xcp-networkd
+	install -D -m 755 _build/install/default/bin/networkd_db           $(DESTDIR)$(BINDIR)/networkd_db
+	install -D -m 644 _build/default/ocaml/networkd/bin/xcp-networkd.1 $(DESTDIR)$(MANDIR)/man1/xcp-networkd.1
 # wsproxy
 	install -m 755 _build/install/default/bin/wsproxy $(DESTDIR)$(LIBEXECDIR)/wsproxy
 # dune can install libraries and several other files into the right locations
 	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
-		xapi-client xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
-		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
-		gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
-		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
-		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli \
-		xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-expiry-alerts cohttp-posix \
-		xapi-rrd xapi-inventory \
-		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck xapi-stdext
+		xapi-client \
+		xapi-schema \
+		xapi-consts \
+		xapi-cli-protocol \
+		xapi-datamodel \
+		xapi-types \
+		xen-api-client \
+		xen-api-client-lwt \
+		xen-api-client-async \
+		rrdd-plugin \
+		rrd-transport \
+		gzip \
+		http-lib \
+		pciutil \
+		sexpr \
+		stunnel \
+		uuid \
+		xml-light2 \
+		zstd \
+		xapi-compression \
+		safe-resources \
+		message-switch \
+		message-switch-async \
+		message-switch-cli \
+		message-switch-core \
+		message-switch-lwt \
+		message-switch-unix \
+		xapi-idl \
+		forkexec \
+		xapi-forkexecd \
+		xapi-storage \
+		xapi-storage-script \
+		xapi-storage-cli \
+		xapi-nbd \
+		varstored-guard \
+		xapi-log \
+		xapi-open-uri \
+		xapi-tracing \
+		xapi-expiry-alerts \
+		cohttp-posix \
+		xapi-rrd \
+		xapi-inventory \
+		xapi-stdext-date \
+		xapi-stdext-encodings \
+		xapi-stdext-pervasives \
+		xapi-stdext-std \
+		xapi-stdext-threads \
+		xapi-stdext-unix \
+		xapi-stdext-zerocheck \
+		xapi-stdext
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/jekyll $(DESTDIR)$(DOCDIR)
@@ -258,14 +300,56 @@ install: build doc sdk doc-json
 uninstall:
 	# only removes what was installed with `dune install`
 	dune uninstall --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
-		xapi-client xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
-		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
-		gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
-		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
-		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-log \
-		xapi-open-uri xapi-tracing xapi-expiry-alerts cohttp-posix \
-		xapi-rrd xapi-inventory \
-		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck xapi-stdext
+		xapi-client \
+		xapi-schema \
+		xapi-consts \
+		xapi-cli-protocol \
+		xapi-datamodel \
+		xapi-types \
+		xen-api-client \
+		xen-api-client-lwt \
+		xen-api-client-async \
+		rrdd-plugin \
+		rrd-transport \
+		gzip \
+		http-lib \
+		pciutil \
+		sexpr \
+		stunnel \
+		uuid \
+		xml-light2 \
+		zstd \
+		xapi-compression \
+		safe-resources \
+		message-switch \
+		message-switch-async \
+		message-switch-cli \
+		message-switch-core \
+		message-switch-lwt \
+		message-switch-unix \
+		xapi-idl \
+		forkexec \
+		xapi-forkexecd \
+		xapi-storage \
+		xapi-storage-script \
+		xapi-storage-cli \
+		xapi-nbd \
+		varstored-guard \
+		xapi-log \
+		xapi-open-uri \
+		xapi-tracing \
+		xapi-expiry-alerts \
+		cohttp-posix \
+		xapi-rrd \
+		xapi-inventory \
+		xapi-stdext-date \
+		xapi-stdext-encodings \
+		xapi-stdext-pervasives \
+		xapi-stdext-std \
+		xapi-stdext-threads \
+		xapi-stdext-unix \
+		xapi-stdext-zerocheck \
+		xapi-stdext
 
 compile_flags.txt: Makefile
 	(ocamlc -config-var ocamlc_cflags;\
