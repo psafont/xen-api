@@ -126,12 +126,12 @@ install-extra:
 	mkdir -p $(DESTDIR)/etc
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 # ocaml/xapi
-	scripts/install.sh 755 ocaml/quicktest/quicktest $(DESTDIR)$(OPTDIR)/debug
+	install -D -m 755 ocaml/quicktest/quicktest $(DESTDIR)$(OPTDIR)/debug
 # ocaml/xe-cli
 	ln -sf $(OPTDIR)/bin/xe $(DESTDIR)$(BINDIR)/xe
-	scripts/install.sh 755 ocaml/xe-cli/bash-completion $(DESTDIR)/etc/bash_completion.d/xe
+	install -D -m 755 ocaml/xe-cli/bash-completion $(DESTDIR)/etc/bash_completion.d/xe
 # rrd2csv
-	scripts/install.sh 644 ocaml/rrd2csv/man/rrd2csv.1.man $(DESTDIR)$(OPTMANDIR)/rrd2csv.1
+	install -D -m 644 ocaml/rrd2csv/man/rrd2csv.1.man $(DESTDIR)$(OPTMANDIR)/rrd2csv.1
 # rrdd-plugins
 	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xcp-rrdd-plugins.xml
 	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xcp-rrdd-plugins/stuff.xml
