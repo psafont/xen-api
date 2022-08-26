@@ -197,8 +197,6 @@ install: build doc sdk doc-json
 	install -D _build/install/default/bin/fence.bin $(DESTDIR)$(LIBEXECDIR)/fence.bin
 	install -D _build/install/default/man/man1/xenopsd-xc.1.gz $(DESTDIR)$(MANDIR)/man1/xenopsd-xc.1.gz
 	install -D _build/install/default/bin/set-domain-uuid $(DESTDIR)$(XENOPSD_LIBEXECDIR)/set-domain-uuid
-	install -D _build/install/default/bin/xenops-cli $(DESTDIR)$(SBINDIR)/xenops-cli
-	install -D _build/install/default/man/man1/xenops-cli.1.gz $(DESTDIR)$(MANDIR)/man1/xenops-cli.1.gz
 	install -D _build/install/default/bin/list_domains $(DESTDIR)$(BINDIR)/list_domains
 	install -D ocaml/xenopsd/scripts/vif $(DESTDIR)$(XENOPSD_LIBEXECDIR)/vif
 	install -D ocaml/xenopsd/scripts/vif-real $(DESTDIR)$(XENOPSD_LIBEXECDIR)/vif-real
@@ -226,6 +224,7 @@ install: build doc sdk doc-json
 		xapi-datamodel \
 		xapi-types \
 		xapi-networkd \
+		xapi-xenopsd-cli \
 		xapi-xenopsd-simulator \
 		xen-api-client \
 		xen-api-client-lwt \
@@ -295,6 +294,7 @@ uninstall:
 		xapi-datamodel \
 		xapi-types \
 		xapi-networkd \
+		xapi-xenopsd-cli \
 		xapi-xenopsd-simulator \
 		xen-api-client \
 		xen-api-client-lwt \
