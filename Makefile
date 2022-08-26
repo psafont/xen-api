@@ -146,7 +146,6 @@ install: build doc sdk doc-json
 	install -D -m 755 _build/install/default/bin/xapi $(DESTDIR)$(OPTDIR)/bin/xapi
 	scripts/install.sh 755 ocaml/quicktest/quicktest $(DESTDIR)$(OPTDIR)/debug
 	install -D -m 755 _build/install/default/bin/quicktestbin $(DESTDIR)$(OPTDIR)/debug/quicktestbin
-	install -D -m 644 _build/install/default/share/xapi/rbac_static.csv $(DESTDIR)$(OPTDIR)/debug
 # ocaml/xsh
 	install -D -m 755 _build/install/default/bin/xsh             $(DESTDIR)$(OPTDIR)/bin/xsh
 # ocaml/xe-cli
