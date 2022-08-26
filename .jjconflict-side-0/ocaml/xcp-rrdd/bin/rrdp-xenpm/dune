@@ -1,0 +1,20 @@
+(executable
+  (modes exe)
+  (name rrdp_xenpm)
+  (libraries
+    rrdd-plugin
+    rrdd-plugin.base
+    rrdd_plugins_libs
+    str
+    xapi-idl.rrd
+    xapi-log
+    xapi-rrd
+    xenctrl
+  )
+)
+
+(install
+  (package xapi)
+  (files (rrdp_xenpm.exe as xcp-rrdd-plugins/xcp-rrdd-xenpm))
+  (section libexec_root)
+)

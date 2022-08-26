@@ -1,0 +1,14 @@
+(executable
+  (modes exe)
+  (name rrddump)
+  (public_name rrddump)
+  (libraries
+    
+    rrd-transport
+    xapi-rrd
+    xapi-rrd.unix
+    xmlm
+  )
+  (package xapi-tools)
+)
+

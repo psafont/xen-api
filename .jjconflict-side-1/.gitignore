@@ -1,0 +1,38 @@
+_build/
+*.bak
+*.native
+.merlin
+_coverage/
+*.install
+*.swp
+compile_flags.txt
+_opam
+
+# tests
+xapi-db.xml
+xapi-db.xml.generation
+
+config.mk
+
+# python packaging
+**/__pycache__/
+**/*.pyc
+python3/examples/setup.py
+python3/examples/XenAPI.egg-info/
+python3/examples/build/
+python3/examples/dist/
+
+# configure-generated files
+ocaml/xenopsd/scripts/vif
+ocaml/xenopsd/scripts/xen-backend.rules
+ocaml/xenopsd/xentoollog_flags
+
+ocaml/idl/gen_lifecycle.exe
+ocaml/idl/api_version.ml.in2
+
+# hugo
+.hugo_build.lock
+go.sum
+doc/public
+
+.DS_Store

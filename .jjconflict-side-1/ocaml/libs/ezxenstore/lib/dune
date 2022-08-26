@@ -1,0 +1,9 @@
+(library
+  (name ezxenstore)
+  (public_name ezxenstore)
+  (wrapped false)
+  (libraries
+    (re_export ezxenstore_core)
+    (re_export ezxenstore_watch)
+  )
+)

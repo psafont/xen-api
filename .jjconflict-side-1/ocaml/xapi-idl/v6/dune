@@ -1,0 +1,33 @@
+(library
+ (name xcp_v6)
+ (public_name xapi-idl.v6)
+ (modules (:standard \ v6_cli))
+ (libraries
+   result
+   rpclib.core
+   rresult
+   threads.posix
+   xapi-idl
+   xapi-log
+ )
+ (wrapped false)
+ (preprocess (pps ppx_deriving_rpc)))
+
+(executable
+ (name v6_cli)
+ (modes exe)
+ (modules v6_cli)
+ (libraries
+   cmdliner
+
+   rpclib.cmdliner
+   rpclib.core
+   rpclib.markdown
+   xapi-idl
+   xapi-idl.v6
+   xapi-log
+ ))
+
+(cram
+ (package xapi-idl)
+ (deps v6_cli.exe))

@@ -1,0 +1,61 @@
+digraph "graph" {
+  fontname="Verdana";
+  start=7;
+  layout=neato;
+  overlap=scale;
+  size="3,5";
+  resolution=210;
+
+  node [shape=box style=filled fillcolor=chocolate];
+      host [URL="?c=host"]
+      PBD [URL="?c=PBD"]
+      SR [URL="?c=SR"]
+      VDI [URL="?c=VDI"]
+      VBD [URL="?c=VBD"]
+      VM [URL="?c=VM"]
+      VIF [URL="?c=VIF"]
+      network [URL="?c=network"]
+      PIF [URL="?c=PIF"]
+      user [URL="?c=user"]
+      session [URL="?c=session"]
+      VGPU [URL="?c=VGPU"]
+      PGPU [URL="?c=PGPU"]
+      GPU_group [URL="?c=GPU_group"];
+
+  node [shape=ellipse style=filled fillcolor=wheat];
+      pool [URL="?c=pool"]
+      task [URL="?c=task"]
+      event [URL="?c=event"]
+      host_cpu [URL="?c=host_cpu"]
+      host_metrics [URL="?c=host_metrics"]
+      SM [URL="?c=SM"]
+      VM_metrics [URL="?c=VM_metrics"]
+      VM_guest_metrics [URL="?c=VM_guest_metrics"]
+      console [URL="?c=console"]
+      PIF_metrics [URL="?c=PIF_metrics"];
+
+  edge [arrowhead="none", arrowtail="none"]
+
+  user -> session
+  session -> host
+  host -> host_metrics
+  host -> host_cpu
+  host -> PBD [arrowhead="crow"]
+  host -> PGPU [arrowhead="crow"]
+  SR -> PBD [arrowhead="crow"]
+  SR -> VDI [arrowhead="crow"]
+  SR -> SM
+  VDI -> VBD [arrowhead="crow"]
+  VM -> VBD  [arrowhead="crow"]
+  VM -> VIF [arrowhead="crow"]
+  VM -> VM_metrics
+  VM -> VM_guest_metrics
+  VM -> console [arrowhead="crow"]
+  VM-> VGPU [arrowhead="crow"]
+  GPU_group -> VGPU [arrowhead="crow"]
+  GPU_group -> PGPU [arrowhead="crow"]
+  network -> VIF [arrowhead="crow"]
+  network -> PIF [arrowhead="crow"]
+  host -> PIF [arrowhead="crow"]
+  PIF -> PIF_metrics
+}

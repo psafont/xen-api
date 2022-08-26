@@ -1,0 +1,20 @@
+(library
+  (name xapi_stdext_unix)
+  (public_name xapi-stdext-unix)
+  (libraries
+    fd-send-recv
+    integers
+    polly
+    unix
+    xapi-backtrace
+    threads.posix
+    unix-errno
+    unix-errno.unix
+    astring
+    xapi-stdext-pervasives)
+  (foreign_stubs
+    (language c)
+    (names
+      blkgetsize_stubs
+      unixext_stubs))
+)

@@ -1,0 +1,22 @@
+(executable
+ (name dbgring)
+; (public_name dbgring)
+; (package xapi-tools)
+ (libraries
+   
+   xapi_xenopsd
+   xenctrl
+   xenmmap
+   xenstore
+   xenstore.unix
+   xenstore_transport
+   xenstore_transport.unix
+   threads
+   xapi-idl.xen
+   rpclib.core
+   uutf
+   xapi-log
+   rpclib.json
+   xapi-stdext-pervasives
+ )
+)

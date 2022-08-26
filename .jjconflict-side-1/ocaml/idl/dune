@@ -1,0 +1,103 @@
+(library
+  (name xapi_datamodel)
+  (public_name xapi-datamodel)
+  (modules datamodel datamodel_common datamodel_utils datamodel_types
+    datamodel_errors datamodel_roles datamodel_vm datamodel_host
+    datamodel_pool datamodel_cluster datamodel_cluster_host dm_api escaping
+    datamodel_values datamodel_schema datamodel_certificate
+    datamodel_diagnostics datamodel_repository datamodel_lifecycle
+    datamodel_vtpm datamodel_observer datamodel_vm_group api_version
+    datamodel_host_driver datamodel_driver_variant)
+  (libraries
+    rpclib.core
+    sexplib0
+    sexpr
+    threads
+    xapi-backtrace
+    xapi-consts
+    xapi-schema
+    clock
+    xapi-stdext-std
+  )
+  (wrapped false)
+  (preprocess (per_module ((pps ppx_deriving_rpc) Datamodel_types)))
+)
+
+(executable
+  (modes exe)
+  (name datamodel_main)
+  (modules datamodel_main dot_backend dtd_backend markdown_backend)
+  (libraries
+    mustache
+    xapi-datamodel
+    xapi-stdext-std
+    xapi-stdext-pervasives
+    xapi-stdext-unix
+  )
+)
+
+(rule
+  (aliases markdowngen xapi-doc)
+  (deps
+    (:x datamodel_main.exe)
+    (source_tree templates)
+    (:md autogen-static/management-api.md)
+  )
+  (targets (dir autogen))
+  (package xapi-datamodel)
+  (action
+    (progn
+      (run mkdir -p autogen)
+      (run %{x} -closed -markdown)
+      (run cp %{md} autogen/management-api.md)
+    ))
+)
+
+(install
+  (package xapi)
+  (section share_root)
+  (files
+    (glob_files (autogen/*.md with_prefix markdown))
+    (glob_files (autogen/*.yml with_prefix markdown))
+  )
+)
+
+(tests
+  (names schematest test_datetimes)
+  (modes exe)
+  (modules schematest test_datetimes)
+  (libraries
+    astring
+    rpclib.core
+    rpclib.json
+    xapi_datamodel
+  )
+  (package xapi-datamodel)
+)
+
+(executable
+  (modes exe)
+  (name gen_lifecycle)
+  (public_name gen_lifecycle)
+  (package xapi-datamodel)
+  (modules gen_lifecycle)
+  (libraries
+    xapi-datamodel
+    xapi-consts.xapi_version
+  )
+  (promote (until-clean))
+ )
+
+; use the binary promoted file from the source dir (not the build dir) that has
+; the correct version number embedded
+(rule
+ (deps gen_lifecycle.exe (universe))
+ (action (with-stdout-to datamodel_lifecycle.ml.generated (system %{project_root}/../../ocaml/idl/gen_lifecycle.exe))))
+
+; 'diff' handles promotion too, see https://dune.readthedocs.io/en/stable/concepts.html?highlight=diffing#diffing-and-promotion
+(rule
+  (alias update-dm-lifecycle)
+  (action
+    (diff datamodel_lifecycle.ml datamodel_lifecycle.ml.generated)))
+
+(data_only_dirs templates)

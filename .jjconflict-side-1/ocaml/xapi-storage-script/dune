@@ -1,0 +1,95 @@
+(library
+  (name private)
+  (modules lib)
+  (libraries
+    fmt
+    inotify
+    inotify.lwt
+    lwt
+    lwt.unix
+    rpclib.core
+    )
+  (preprocess (pps ppx_deriving_rpc))
+  )
+
+(test
+  (name test_lib)
+  (modules test_lib)
+  (package xapi-storage-script)
+  (libraries alcotest alcotest-lwt lwt fmt private)
+  )
+
+(executable
+  (name main)
+  (modules main)
+  (libraries
+    base
+
+    fmt
+    logs
+    logs.lwt
+    lwt
+    lwt.unix
+    message-switch-lwt
+    message-switch-unix
+    ppx_deriving.runtime
+    private
+    result
+    rpclib.core
+    rpclib.json
+    rpclib-lwt
+    sexplib
+    sexplib0
+    uri
+    threads.posix
+    xapi-backtrace
+    xapi-consts
+    xapi-consts.xapi_version
+    xapi-idl
+    xapi-idl.rrd
+    xapi-idl.storage
+    xapi-idl.storage.interface
+    xapi-log
+    xapi-rrd
+    clock
+    xapi-storage
+  )
+  (preprocess (pps ppx_sexp_conv))
+)
+
+(install
+ (package xapi-storage-script)
+ (section sbin)
+ (files (main.exe as xapi-storage-script)))
+
+(rule
+  (targets xapi-storage-script.8)
+  (package xapi-storage-script)
+  (deps
+    (:x main.exe)
+  )
+  (action (with-stdout-to %{targets} (run %{x} --help=groff)))
+)
+
+(install
+  (section man)
+  (package xapi-storage-script)
+  (files (xapi-storage-script.8 as man8/xapi-storage-script.8))
+)
+
+(cram
+  (alias runtest-python)
+  (runtest_alias false)
+  (package xapi-storage-script)
+  (deps
+    main.exe
+    ../xapi-storage/python/xapi/storage/api/v5/datapath.py
+    ../xapi-storage/python/xapi/storage/api/v5/plugin.py
+    ../xapi-storage/python/xapi/storage/api/v5/task.py
+    ../xapi-storage/python/xapi/storage/api/v5/volume.py
+    (source_tree ../xapi-storage/python/xapi)
+    (source_tree test/volume)
+  )
+)
+
+(data_only_dirs test examples)

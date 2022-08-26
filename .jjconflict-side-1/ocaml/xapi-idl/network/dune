@@ -1,0 +1,34 @@
+(library
+ (name xcp_network)
+ (public_name xapi-idl.network)
+ (modules (:standard \ network_cli))
+ (libraries
+   result
+   rpclib.core
+   rpclib.json
+   rresult
+   threads.posix
+   xapi-idl
+   xapi-log
+   ipaddr
+ )
+ (wrapped false)
+ (preprocess (pps ppx_deriving_rpc)))
+
+(executable
+ (name network_cli)
+ (modes exe)
+ (modules network_cli)
+ (libraries
+   cmdliner
+
+   rpclib.cmdliner
+   rpclib.core
+   rpclib.markdown
+   xapi-idl
+   xapi-idl.network
+ ))
+
+(cram
+ (package xapi-idl)
+ (deps network_cli.exe))

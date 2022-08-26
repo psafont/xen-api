@@ -1,0 +1,38 @@
+(executable
+  (modes exe)
+  (name rrdp_iostat)
+  (libraries
+    astring
+    cstruct
+
+    ezxenstore.core
+    inotify
+    mtime
+    mtime.clock.os
+    rrdd-plugin
+    rrdd-plugin.base
+    rrdd_plugin_xenctrl
+    rrdd_plugins_libs
+    str
+    stringext
+    threads.posix
+    uuid
+    xapi-idl.rrd
+    xapi-log
+    xapi-rrd
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xenctrl
+    xenstore
+    xenstore.unix
+    xenstore_transport
+  )
+)
+
+(install
+  (package xapi)
+  (files (rrdp_iostat.exe as xcp-rrdd-plugins/xcp-rrdd-iostat))
+  (section libexec_root)
+)

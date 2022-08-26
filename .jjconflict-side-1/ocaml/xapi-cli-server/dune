@@ -1,0 +1,52 @@
+(rule
+  (target generated_record_utils.ml)
+  (deps
+    (:gen ../idl/ocaml_backend/gen_api_main.exe)
+  )
+  (action
+   (with-stdout-to %{target}
+    (run %{gen} utils --filter-internal --filter closed)))
+)
+
+(library
+  (name xapi_cli_server)
+  (modes best)
+  (libraries
+    astring
+    base64
+    http_lib
+    httpsvr
+    rpclib.core
+    rpclib.xml
+    re
+    result
+    rresult
+    sexplib
+    sexplib0
+    uri
+    tar
+    threads.posix
+    xapi-backtrace
+    xapi-consts
+    xapi_version
+    xapi_database
+    xapi-datamodel
+    xapi-log
+    xapi-types
+    xapi-client
+    xapi-cli-protocol
+    xapi_aux
+    clock
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xapi-tracing
+    tracing_propagator
+    xmlm
+    xml-light2
+  )
+  (preprocess (per_module ((pps ppx_deriving_rpc) Cli_operations)))
+  (wrapped false)
+)
+

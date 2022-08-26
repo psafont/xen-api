@@ -1,0 +1,20 @@
+(executable
+  (name stress)
+  (libraries
+    alcotest
+    alcotest-lwt
+    lwt
+    vhd_lib
+    vhd-format
+    vhd-format-lwt
+  )
+)
+
+(rule
+  (alias stresstest)
+  (deps
+    (:x stress.exe)
+    (source_tree .)
+  )
+  (action (run %{x}))
+)

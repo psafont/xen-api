@@ -1,0 +1,34 @@
+(executable
+ (name xenops_simulator_main)
+ (libraries
+   
+   xapi-idl.xen.interface
+   xapi_xenopsd
+ )
+)
+
+(install
+ (files (xenops_simulator_main.exe as xenopsd-simulator))
+ (section sbin)
+ (package xapi-tools)
+)
+
+(rule
+ (with-stdout-to
+  xenopsd-simulator.1
+  (run %{dep:xenops_simulator_main.exe} --help=groff)
+ )
+)
+
+(rule
+ (target xenopsd-simulator.1.gz)
+ (deps (:man xenopsd-simulator.1))
+ (action
+  (with-stdout-to %{target} (with-stdin-from %{man} (run gzip))))
+)
+
+(install
+ (section man)
+ (files xenopsd-simulator.1.gz)
+ (package xapi-tools)
+)

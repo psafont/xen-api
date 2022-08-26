@@ -1,0 +1,19 @@
+(library
+  (name message_switch_core)
+  (public_name message-switch-core)
+  (libraries
+    astring
+    cohttp
+    rpclib.core
+    rpclib.json
+    sexplib
+    sexplib0
+    threads.posix
+    tracing
+    uri
+    xapi-log
+    xapi-stdext-threads
+  )
+  (preprocess (per_module ((pps ppx_deriving_rpc ppx_sexp_conv) Protocol)))
+)
+

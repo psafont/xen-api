@@ -1,0 +1,16 @@
+(executable
+ (public_name suspend-image-viewer)
+ (name suspend_image_viewer)
+ (package xapi-debug)
+ (libraries
+  cmdliner
+  forkexec
+  result
+  uuid
+  xapi-consts.xapi_version
+  xapi-idl
+  xapi-log
+  xapi-stdext-unix
+  xapi_xenopsd
+ )
+)

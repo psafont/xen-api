@@ -1,0 +1,71 @@
+#!/bin/bash
+#########################################################################
+# Script to switch IPv6 on or off on a host
+#
+# Usage:
+#   xe-enable-ipv6  <option>
+#
+# where <option> is either:
+#   enabled      - Interfaces can acquire IPv6 addresses
+#   disabled     - Interfaces cannot acquire IPv6 addresses
+#
+#########################################################################
+
+function syntax {
+	echo "Syntax: $0 [enable|disable]"
+	exit 1
+}
+
+if [ $# != 1 ]; then
+	syntax
+fi
+
+. /etc/xensource-inventory
+
+if [ $1 = "enable" ]; then
+	# Enable IPv6 networking
+	sed -i '/^NETWORKING_IPV6=/d' /etc/sysconfig/network
+	sed -i '/^IPV6_AUTOCONF=/d' /etc/sysconfig/network
+	echo "NETWORKING_IPV6=YES" >> /etc/sysconfig/network
+	echo "IPV6_AUTOCONF=NO" >> /etc/sysconfig/network
+	chkconfig ip6tables on
+
+	cat > /etc/sysctl.d/91-net-ipv6.conf <<- EOF
+	net.ipv6.conf.all.disable_ipv6=0
+	net.ipv6.conf.default.disable_ipv6=0
+
+	# Defines how link-local and autoconf addresses are generated.
+	# A value of 1 does the following:
+	#   - do not generate a link-local address
+	#   - use EUI64 for addresses generated from autoconf
+	# "all" only affects the current state of all interfaces
+	# "default" affect all interfaces that are created in the future
+	net.ipv6.conf.all.addr_gen_mode=1
+	net.ipv6.conf.default.addr_gen_mode=1
+EOF
+
+	echo "IPv6 enabled.  You may now need to reboot the host"
+elif [ $1 = "disable" ]; then
+	all_ifaces=`xe pif-list minimal=true`
+	no_ipv6_ifaces=`xe pif-list IPv6-configuration-mode=None minimal=true`
+
+	if [ ${#all_ifaces} -ne ${#no_ipv6_ifaces} ]; then
+		echo "Please re-configure all pool interfaces to disable IPv6 before disabling it on the host."
+		exit 1
+	fi
+
+	chkconfig ip6tables off
+	sed -i '/^NETWORKING_IPV6=/d' /etc/sysconfig/network
+	sed -i '/^IPV6_AUTOCONF=/d' /etc/sysconfig/network
+	echo "NETWORKING_IPV6=NO" >> /etc/sysconfig/network
+	echo "IPV6_AUTOCONF=NO" >> /etc/sysconfig/network
+
+	cat > /etc/sysctl.d/91-net-ipv6.conf <<- EOF
+	net.ipv6.conf.all.disable_ipv6=1
+	net.ipv6.conf.default.disable_ipv6=1
+EOF
+
+	echo "IPv6 disabled.  You may now need to reboot the host"
+else
+	syntax
+fi

@@ -1,0 +1,15 @@
+(executable
+  (modes byte)
+  (name gen_api_main)
+  (libraries
+    astring
+    cmdliner
+    uuidm
+    xapi-consts
+    xapi-datamodel
+    xapi-log
+    xapi-stdext-std
+  )
+)
+
+(data_only_dirs python)

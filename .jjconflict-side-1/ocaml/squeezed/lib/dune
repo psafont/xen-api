@@ -1,0 +1,12 @@
+(library
+  (name squeeze)
+  (modes best)
+  (flags (:standard -bin-annot))
+  (libraries
+    re
+    re.str
+    xapi-log
+    threads
+  )
+  (wrapped false)
+)

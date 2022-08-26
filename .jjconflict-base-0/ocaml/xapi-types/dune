@@ -1,0 +1,30 @@
+(rule
+  (target aPI.ml)
+  (deps
+    (:gen ../idl/ocaml_backend/gen_api_main.exe)
+  )
+  (action
+   (with-stdout-to %{target}
+    (run %{gen} api --filter-internal --filter closed)))
+)
+
+(library
+  (name xapi_types)
+  (public_name xapi-types)
+  (flags (:standard -w -33))
+  (libraries
+    astring
+    rpclib.core
+    rpclib.json
+    rpclib.xml
+    uuid
+    xapi-consts
+    clock
+    xapi-stdext-unix
+  )
+  (wrapped false)
+  (preprocess
+    (per_module
+      ((pps ppx_deriving_rpc) API Event_types SecretString)
+      ((pps ppx_deriving_rpc ppx_deriving.enum) Features)))
+)

@@ -1,0 +1,12 @@
+(library
+  (name rrdd_libs)
+  (modules constants stats)
+  (flags (:standard -bin-annot))
+  (libraries
+    threads.posix
+    xapi-log
+    xapi-stdext-threads
+    xapi_version
+  )
+)
+

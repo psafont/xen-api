@@ -1,0 +1,27 @@
+(rule
+  (target client.ml)
+  (deps
+    (:gen ../idl/ocaml_backend/gen_api_main.exe)
+  )
+  (action
+   (with-stdout-to %{target}
+    (run %{gen} client --filter-internal --filter closed)))
+)
+
+(library
+  (name xapi_client)
+  (public_name xapi-client)
+  (flags (:standard -w -50))
+  (libraries
+    mtime
+    mtime.clock.os
+    (re_export rpclib.core)
+    xapi-consts
+    xapi-log
+    xapi-types
+    clock
+    xapi-stdext-pervasives
+  )
+  (wrapped false)
+)
+

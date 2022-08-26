@@ -1,0 +1,76 @@
+(library
+  (name rrdd_libs_internal)
+  (wrapped false)
+  (modes best)
+  (modules (:standard \ xcp_rrdd))
+  (libraries
+    astring
+    ezxenstore
+    gzip
+    http_lib
+    httpsvr
+    inotify
+    clock
+    mtime.clock
+    rpclib.core
+    rrd-transport
+    rrd-transport.lib
+    stunnel
+    threads.posix
+    uuid
+    xapi-backtrace
+    xapi-consts
+    xapi-idl.network
+    xapi-idl.rrd
+    xapi-inventory
+    xapi-log
+    xapi-rrd
+    xapi-rrd.unix
+    rrdd_libs
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xmlm
+    yojson
+  )
+)
+
+(executable
+  (modes exe)
+  (name xcp_rrdd)
+  (modules xcp_rrdd)
+  (libraries
+    astring
+    ezxenstore.core
+    forkexec
+    http_lib
+    httpsvr
+    inotify
+    clock
+    rpclib.core
+    rpclib.json
+    rpclib.xml
+    rrdd_libs_internal
+    rrdd_plugin_xenctrl
+    rrd-transport
+    threads.posix
+    uuid
+    xapi-backtrace
+    xapi-consts.xapi_version
+    xapi-idl
+    xapi-idl.network
+    xapi-idl.rrd
+    xapi-log
+    xapi-rrd
+    rrdd_libs
+    xapi-stdext-pervasives
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xenctrl
+  )
+)
+
+(install
+  (package xapi-tools)
+  (files (xcp_rrdd.exe as xcp-rrdd))
+  (section sbin)
+)

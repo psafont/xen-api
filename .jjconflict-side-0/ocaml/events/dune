@@ -1,0 +1,12 @@
+(executable
+  (modes exe)
+  (name event_listen)
+  (public_name event_listen)
+  (package xapi-debug)
+  (libraries
+    http_lib
+    xapi-client
+    xapi-types
+  )
+)
+

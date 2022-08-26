@@ -1,0 +1,76 @@
+(library
+  (name gencertlib)
+  (wrapped true)
+  (modules lib selfcert pem)
+  (modes best)
+  (libraries
+    angstrom
+    astring
+    digestif
+    forkexec
+    mirage-crypto
+    mirage-crypto-pk
+    mirage-crypto-rng
+    mirage-crypto-rng.unix
+    ptime
+    ptime.clock.os
+    result
+    rresult
+    x509
+    xapi-backtrace
+    xapi-consts
+    xapi-log
+    xapi-inventory
+    xapi-stdext-unix
+  )
+)
+
+(executable
+  (modes exe)
+  (name gencert)
+  (modules gencert)
+  (libraries
+    astring
+    gencertlib
+    x509
+    xapi-inventory
+    xapi_aux
+    xapi-log
+  )
+)
+
+(install
+  (files (gencert.exe as gencert))
+  (section libexec_root)
+  (package xapi)
+)
+
+(test
+  (name test_lib)
+  (package xapi)
+  (modes exe)
+  (modules test_lib test_pem)
+  (libraries
+    alcotest
+    digestif
+    fmt
+    gencertlib
+    mirage-crypto
+    mirage-crypto-pk
+    mirage-crypto-rng
+    mirage-crypto-rng.unix
+    ptime
+    result
+    rresult
+    x509
+    xapi-consts
+    xapi-datamodel
+    xapi-stdext-unix
+  )
+  (deps
+    (source_tree test_data)
+  )
+  (action (run %{test} --color=always))
+)
+
+(data_only_dirs test_data)

@@ -1,0 +1,5 @@
+(library
+  (name wslib)
+  (modes best)
+  (libraries base64 lwt lwt.unix)
+)

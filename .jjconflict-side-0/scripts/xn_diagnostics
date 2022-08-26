@@ -1,0 +1,22 @@
+#!/bin/sh
+
+echo Querying all xenopsd queues:
+for queue in $(message-cli list | grep org.xen.xapi.xenops); do
+  echo xenops-cli list --queue $queue
+  xenops-cli list --queue $queue
+  echo xenops-cli list --verbose --queue $queue
+  xenops-cli list --verbose --queue $queue
+  echo xenops-cli diagnostics --queue $queue
+  xenops-cli diagnostics --queue $queue
+done
+
+echo Querying Unix domain socket xenopsd:
+if [ -e /var/lib/xcp/xenopsd ]; then
+  echo xenops-cli list
+  xenops-cli list
+  echo xenops-cli list --verbose
+  xenops-cli list --verbose
+  echo xenops-cli diagnostics
+  xenops-cli diagnostics
+fi
+

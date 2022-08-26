@@ -1,0 +1,22 @@
+(library
+  (name xapi_compression)
+  (public_name xapi-compression)
+  (modules xapi_compression)
+  (libraries
+    forkexec
+    threads
+    safe-resources
+    xapi-log
+    xapi-stdext-pervasives
+    xapi-stdext-unix
+  )
+)
+
+(executable
+ (name xapi_gzip)
+ (modes exe)
+ (modules xapi_gzip)
+ ; don't install this
+ ; (public_name xapi-gzip)
+ ; (package xapi-compression)
+ (libraries xapi_compression cmdliner))

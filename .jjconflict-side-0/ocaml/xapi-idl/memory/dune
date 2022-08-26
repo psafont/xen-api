@@ -1,0 +1,30 @@
+(library
+ (name xcp_memory)
+ (public_name xapi-idl.memory)
+ (modules (:standard \ memory_cli))
+ (libraries
+   result
+   rpclib.core
+   rresult
+   xapi-idl
+   xapi-log
+ )
+ (wrapped false)
+ (preprocess (pps ppx_deriving_rpc)))
+
+(executable
+ (name memory_cli)
+ (modes exe)
+ (modules memory_cli)
+ (libraries
+   cmdliner
+   rpclib.cmdliner
+   rpclib.core
+   rpclib.markdown
+   xapi-idl
+   xapi-idl.memory
+ ))
+
+(cram
+ (package xapi-idl)
+ (deps memory_cli.exe))

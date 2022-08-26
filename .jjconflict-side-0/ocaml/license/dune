@@ -1,0 +1,33 @@
+(library
+  (modes best)
+  (name daily_license_check)
+  (modules daily_license_check)
+  (libraries
+    http_lib
+    ptime
+    xapi-consts
+    xapi-client
+    xapi-types
+    clock
+  )
+)
+
+(executable
+  (modes exe)
+  (name daily_license_check_main)
+  (modules daily_license_check_main)
+  (libraries
+    daily_license_check
+    http_lib
+    xapi-client
+    xapi-types
+    clock
+    xapi-stdext-pervasives
+  )
+)
+
+(install
+  (files (daily_license_check_main.exe as daily-license-check))
+  (package xapi)
+  (section libexec_root)
+)

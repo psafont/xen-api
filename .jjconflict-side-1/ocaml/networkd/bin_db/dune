@@ -1,0 +1,10 @@
+(executable
+ (name networkd_db)
+ (public_name networkd_db)
+ (package xapi-tools)
+ (modes exe)
+ (libraries
+  
+  networklibs
+  xapi-idl.network)
+)

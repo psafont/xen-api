@@ -1,0 +1,26 @@
+(rule
+  (targets xxhash_stubs.c xxhash_generated.ml)
+  (deps
+    (:gen ../stubs/xxhash_stubgen.exe)
+  )
+  (action (run %{gen}))
+)
+
+(library
+  (foreign_stubs
+    (language c)
+    (names xxhash_stubs)
+  )
+  (modes best)
+  (name xxhash)
+  (wrapped false)
+  (libraries
+    ctypes
+    ctypes.stubs
+    integers
+    xxhash_bindings
+    xapi-stdext-pervasives
+  )
+  (c_library_flags (-lxxhash))
+)
+

@@ -1,0 +1,8 @@
+(library
+  (name unixpwd)
+  (modes best)
+  (libraries
+    unixpwd_stubs
+  )
+)
+

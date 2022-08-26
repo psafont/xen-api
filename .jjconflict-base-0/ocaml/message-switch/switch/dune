@@ -1,0 +1,38 @@
+(executable
+  (modes exe)
+  (name switch_main)
+  (libraries
+    cmdliner
+    cohttp
+    cohttp-lwt
+    cohttp-lwt-unix
+    conduit-lwt-unix
+    cstruct
+    io-page
+    lwt
+    lwt.unix
+    lwt_log
+    message-switch-core
+    message-switch-lwt
+    message-switch-unix
+    mirage-block
+    mirage-block-unix
+    mirage-time
+    mtime
+    mtime.clock.os
+    result
+    rpclib.core
+    rpclib.json
+    shared-block-ring
+    sexplib
+    sexplib0
+    uri
+  )
+  (preprocess (per_module ((pps ppx_sexp_conv) Logging Q Switch_main)))
+)
+
+(install
+  (package message-switch)
+  (section sbin)
+  (files (switch_main.exe as message-switch))
+)

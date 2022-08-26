@@ -1,0 +1,30 @@
+(library
+ (name xapi_idl_guard_varstored)
+ (public_name xapi-idl.guard.varstored)
+ (modules (:standard \ varstored_cli))
+ (libraries
+   (re_export rpclib.core)
+   threads
+   xapi-idl.xen
+   xapi-idl.xen.interface
+   xcp
+ )
+ (preprocess (pps ppx_deriving_rpc)))
+
+(executable
+ (name varstored_cli)
+ (modes exe)
+ (modules varstored_cli)
+ (libraries
+   cmdliner
+
+   rpclib.cmdliner
+   rpclib.core
+   rpclib.markdown
+   xapi-idl
+   xapi-idl.guard.varstored
+ ))
+
+(cram
+ (package xapi-idl)
+ (deps varstored_cli.exe))

@@ -1,0 +1,2 @@
+available: os = "linux" | os = "macos"
+depexts: ["linux-headers"] {os-distribution = "alpine"}

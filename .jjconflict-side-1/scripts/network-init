@@ -1,0 +1,147 @@
+#!/bin/bash
+###
+# Prepare networking from config files in data dir
+
+set -e
+
+export FIRSTBOOT_DATA_DIR=/etc/firstboot.d/data
+export XENSOURCE_INVENTORY=/etc/xensource-inventory
+export XE=/opt/xensource/bin/xe
+
+source ${XENSOURCE_INVENTORY}
+
+MANAGEMENT_CONF=${FIRSTBOOT_DATA_DIR}/management.conf
+NETWORK_CONF=${FIRSTBOOT_DATA_DIR}/network.conf
+UPGRADE="false"
+[ -r ${FIRSTBOOT_DATA_DIR}/host.conf ] && . ${FIRSTBOOT_DATA_DIR}/host.conf
+
+pif_attached() {
+    local pif=$1
+    attached=$($XE pif-list params=currently-attached uuid=$pif --minimal)
+    managed=$($XE pif-list params=managed uuid=$pif --minimal)
+    test "$attached" == "true" || test "$managed" == "false"
+}
+
+prepare_networking() {
+
+    $XE pif-scan host-uuid=${INSTALLATION_UUID}
+
+    if [ -e ${MANAGEMENT_CONF} ] ; then
+        source ${MANAGEMENT_CONF}
+        if [ -n "${BOND_MODE}" ] ; then
+            BOND_NETWORK="$($XE network-create name-label='Bonded pool-wide network with mode '${BOND_MODE}' and devices '${BOND_MEMBERS})"
+            IFS=',' read -r -a MEMBERS <<< "${BOND_MEMBERS}"
+            for MEMBER_DEVICE in "${MEMBERS[@]}"
+            do :
+                if MEMBER_PIF="$($XE pif-list host-uuid=${INSTALLATION_UUID} device=${MEMBER_DEVICE} params=uuid --minimal)" ; then
+                    if [ -z "${PIFS}" ] ; then
+                        PIFS=${MEMBER_PIF}
+                    else
+                        PIFS+=",${MEMBER_PIF}"
+                    fi
+                else
+                    logger "Warning: cannot find ${MEMBER_DEVICE} for adding to bond ${LABEL}'s members"
+                fi
+            done
+            BOND_UUID="$($XE bond-create network-uuid=${BOND_NETWORK} mode=${BOND_MODE} pif-uuids=${PIFS})"
+            BOND_PIF="$($XE bond-param-get param-name=master uuid=${BOND_UUID})"
+            PIF="${BOND_PIF}"
+        else
+            PIF="$($XE pif-list host-uuid=${INSTALLATION_UUID} device=${LABEL} params=uuid --minimal)"
+        fi
+        if [ -n "$PIF" ] ; then
+            if [ -n "${VLAN}" ] ; then
+                VLAN_NETWORK="$($XE network-create name-label='Pool-wide network associated with '${LABEL}' on VLAN'${VLAN})"
+                VLAN_PIF="$($XE vlan-create pif-uuid=${PIF} network-uuid=${VLAN_NETWORK} vlan=${VLAN})"
+                PIF="${VLAN_PIF}"
+            fi
+            isStatic=false
+            case $MODE in
+                dhcp|none)
+                    $XE pif-reconfigure-ip uuid=${PIF} mode=${MODE} || true
+                    ;;
+                static)
+                    isStatic=true
+                    $XE pif-reconfigure-ip uuid=${PIF} mode=static IP=${IP} netmask=${NETMASK} gateway=${GATEWAY} ${DNS+DNS=$DNS} || true
+                    ;;
+            esac
+            case $MODEV6 in
+                dhcp|none|autoconf)
+                    $XE pif-reconfigure-ipv6 uuid=${PIF} mode=${MODEV6} || true
+                    ;;
+                static)
+                    isStatic=true
+                    $XE pif-reconfigure-ipv6 uuid=${PIF} mode=static IPv6=${IPv6} gateway=${IPv6_GATEWAY} ${DNS+DNS=$DNS} || true
+                    ;;
+            esac
+            if [ $isStatic = true ] ; then
+                domain=`echo $DOMAIN | tr ' ' ','`
+                [ $domain ] && $XE pif-param-set uuid=${PIF} other-config:domain=$domain || true
+            fi
+            if [ "${MANAGEMENT_ADDRESS_TYPE}" = "IPv6" ] ; then
+                    $XE host-management-disable
+                    $XE pif-set-primary-address-type uuid="${PIF}" primary_address_type=${MANAGEMENT_ADDRESS_TYPE}
+            fi
+            $XE host-management-reconfigure pif-uuid="${PIF}"
+        else
+            logger "Warning: cannot configure IP settings for management PIF with name ${LABEL}"
+        fi
+
+        unset MODE IP NETMASK GATEWAY DOMAIN PIF LABEL
+
+        # we now attempt to plug all PIFs that are not already plugged:
+        for pif in $($XE pif-list params=uuid --minimal | sed 's/,/ /g'); do
+            if ! pif_attached $pif; then
+                $XE pif-plug uuid=$pif || true
+            fi
+        done
+    fi
+}
+
+rename_network_label() {
+    # In common criteria certification deployment, user must ensure:
+    # - The 1st NIC (eth0) is for Management Network
+    # - The 2nd NIC (eth1) is for Storage Network
+    # - others (ethX, X>=2) is for Guest Network
+    # This function is to rename these network labels to appropriate.
+
+    if [ "${CC_PREPARATIONS}" != "true" ]; then
+        echo "Skipped common criteria settings"
+        return
+    fi
+
+    for device in $(ls /sys/class/net | grep -E '^eth[0-9]+$')
+    do
+        device_id=$(echo ${device} | sed 's/^eth//')
+        if [ ${device_id} -eq 0 ]; then
+            name_label="Management Network"
+        elif [ ${device_id} -eq 1 ]; then
+            name_label="Storage Network"
+        elif [ ${device_id} -ge 2 ]; then
+            name_label="Guest Network $((${device_id} - 2))"
+            pif_uuid=$(${XE} pif-list device=${device} params=uuid --minimal)
+            ${XE} pif-reconfigure-ip uuid="${pif_uuid}" mode=none
+            ${XE} pif-reconfigure-ipv6 uuid="${pif_uuid}" mode=none
+        else
+            echo "Warning: found unsupported device ${device}"
+            continue
+        fi
+
+        network_uuid=$(${XE} pif-list device=${device} params=network-uuid --minimal)
+        ${XE} network-param-set uuid=${network_uuid} name-label="${name_label}"
+        echo "Renamed network label of ${network_uuid} to ${name_label}, device: ${device}"
+    done
+}
+
+if [ "$UPGRADE" = "true" ]; then
+    rename_network_label
+else
+    prepare_networking
+    rename_network_label
+    # Ensure changes are synced to disk
+    xe pool-sync-database
+    ${XE} pool-enable-tls-verification
+fi
+
+touch /var/lib/misc/ran-network-init
+exit 0

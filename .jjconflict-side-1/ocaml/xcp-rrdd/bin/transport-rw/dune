@@ -1,0 +1,15 @@
+(executables
+  (modes exe)
+  (names reader writer)
+  (public_names rrdreader rrdwriter)
+  (package xapi-tools)
+  (libraries
+    cmdliner
+    
+    rrd-transport
+    threads.posix
+    xapi-idl.rrd
+    xapi-rrd
+  )
+)
+

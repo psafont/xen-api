@@ -1,0 +1,14 @@
+(executable
+ (name example)
+ (libraries
+   astring
+   rpclib.core
+   xapi-consts.xapi_version
+   xapi-idl
+   xapi-log
+ )
+ (preprocess (pps ppx_deriving_rpc)))
+
+(cram
+ (package xapi-idl)
+ (deps example.exe))

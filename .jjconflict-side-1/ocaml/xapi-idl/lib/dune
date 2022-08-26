@@ -1,0 +1,66 @@
+(library
+ (name xcp)
+ (public_name xapi-idl)
+ (modules (:standard \ scheduler task_server updates))
+ (libraries
+   astring
+   cmdliner
+   cohttp
+   cohttp-posix
+   fd-send-recv
+   logs
+   message-switch-core
+   message-switch-unix
+   mtime
+   mtime.clock.os
+   re
+   rpclib.core
+   rpclib.json
+   rpclib.xml
+   result
+   rresult
+   sexplib
+   sexplib0
+   threads.posix
+   tracing
+   unix
+   uri
+   uuidm
+   xapi_timeslice
+   xapi-backtrace
+   xapi-consts
+   xapi-log
+   xapi-open-uri
+   xapi-stdext-pervasives
+   xapi-stdext-threads
+   xapi-stdext-unix
+   xapi-inventory
+   xmlm
+ )
+ (wrapped false)
+ (preprocess
+   (per_module
+     ((pps ppx_deriving_rpc) Xcp_channel Xcp_channel_protocol TypeCombinators Observer_helpers Observer_skeleton)
+     ((pps ppx_sexp_conv ppx_deriving_rpc) Xcp_pci))))
+
+(library
+ (name xcp_updates)
+ (public_name xapi-idl.updates)
+ (modules updates task_server scheduler)
+ (libraries
+   mtime
+   mtime.clock.os
+   rpclib.core
+   rpclib.json
+   sexplib
+   sexplib0
+   tracing
+   threads.posix
+   xapi-backtrace
+   xapi-idl
+   xapi-log
+   xapi-stdext-pervasives
+   xapi-stdext-threads
+ )
+ (wrapped false)
+ (preprocess (per_module ((pps ppx_deriving_rpc) Updates Scheduler))))

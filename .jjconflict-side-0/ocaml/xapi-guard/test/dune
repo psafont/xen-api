@@ -1,0 +1,39 @@
+(test
+ (name xapi_guard_test)
+ (modes exe)
+ (modules (:standard \ cache_test))
+ (libraries
+  alcotest
+  alcotest-lwt
+  
+  fmt
+  lwt
+  rpclib.core
+  uri
+  uuid
+  xapi_guard
+  xapi_guard_server
+  xapi-log
+  xapi-types
+  xapi_version
+  xen-api-client-lwt)
+ (package varstored-guard)
+ )
+
+(executable
+ (name cache_test)
+ (modules cache_test)
+ (libraries
+   fmt
+   logs
+   logs.fmt
+   logs.lwt
+   lwt
+   lwt.unix
+   mtime
+   mtime.clock.os
+   result
+   uuidm
+   xapi-log
+   xapi_guard)
+ (preprocess (pps ppx_deriving_rpc)))

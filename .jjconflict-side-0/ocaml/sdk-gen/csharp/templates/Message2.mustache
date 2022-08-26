@@ -1,0 +1,98 @@
+/*
+ * Copyright (c) Cloud Software Group, Inc.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   1) Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *
+ *   2) Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials
+ *      provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+
+namespace XenAPI
+{
+    public partial class Message : XenObject<Message>
+    {
+        public enum MessageType
+        {
+            UPDATES_FEATURE_EXPIRED,
+            UPDATES_FEATURE_EXPIRING_WARNING,
+            UPDATES_FEATURE_EXPIRING_MAJOR,
+            UPDATES_FEATURE_EXPIRING_CRITICAL,
+            GFS2_CAPACITY,
+            LEAF_COALESCE_START_MESSAGE,
+            LEAF_COALESCE_COMPLETED,
+            LEAF_COALESCE_FAILED,
+            POST_ATTACH_SCAN_FAILED,
+            WLB_HOST_POWER_OFF,
+            WLB_HOST_POWER_ON,
+            WLB_SERVER_TIME_DISCREPANCY,
+            WLB_VM_RELOCATION,
+{{#message_types}}
+            {{{message_type}}},
+{{/message_types}}
+            unknown
+        }
+
+        public MessageType Type
+        {
+            get
+            {
+                switch (this.name)
+                {
+                    case "UPDATES_FEATURE_EXPIRED":
+                        return MessageType.UPDATES_FEATURE_EXPIRED;
+                    case "UPDATES_FEATURE_EXPIRING_WARNING":
+                        return MessageType.UPDATES_FEATURE_EXPIRING_WARNING;
+                    case "UPDATES_FEATURE_EXPIRING_MAJOR":
+                        return MessageType.UPDATES_FEATURE_EXPIRING_MAJOR;
+                    case "UPDATES_FEATURE_EXPIRING_CRITICAL":
+                        return MessageType.UPDATES_FEATURE_EXPIRING_CRITICAL;
+                    case "GFS2_CAPACITY":
+                        return MessageType.GFS2_CAPACITY;
+                    case "LEAF_COALESCE_START_MESSAGE":
+                        return MessageType.LEAF_COALESCE_START_MESSAGE;
+                    case "LEAF_COALESCE_COMPLETED":
+                        return MessageType.LEAF_COALESCE_COMPLETED;
+                    case "LEAF_COALESCE_FAILED":
+                        return MessageType.LEAF_COALESCE_FAILED;
+                    case "POST_ATTACH_SCAN_FAILED":
+                        return MessageType.POST_ATTACH_SCAN_FAILED;
+                    case "WLB_HOST_POWER_OFF":
+                        return MessageType.WLB_HOST_POWER_OFF;
+                    case "WLB_HOST_POWER_ON":
+                        return MessageType.WLB_HOST_POWER_ON;
+                    case "WLB_SERVER_TIME_DISCREPANCY":
+                        return MessageType.WLB_SERVER_TIME_DISCREPANCY;
+                    case "WLB_VM_RELOCATION":
+                        return MessageType.WLB_VM_RELOCATION;
+{{#message_types}}
+                    case "{{{message_type}}}":
+                        return MessageType.{{{message_type}}};
+{{/message_types}}
+                    default:
+                        return MessageType.unknown;
+                }
+            }
+        }
+    }
+}

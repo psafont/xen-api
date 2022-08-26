@@ -1,0 +1,159 @@
+include ../config.mk
+
+IPROG=./install.sh 755
+IDATA=./install.sh 644
+
+.PHONY: noarch-install install
+
+install:
+	mkdir -p $(DESTDIR)$(OPTDIR)/bin
+	mkdir -p $(DESTDIR)$(VARPATCHDIR)
+	mkdir -p $(DESTDIR)$(VARPATCHDIR)/applied
+	mkdir -p $(DESTDIR)$(HOOKSDIR)
+	mkdir -p $(DESTDIR)$(ETCXENDIR)
+	mkdir -p $(DESTDIR)/etc/logrotate.d
+	mkdir -p $(DESTDIR)/etc/yum/pluginconf.d
+	mkdir -p $(DESTDIR)$(ETCXENDIR)/master.d
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	mkdir -p $(DESTDIR)/var/lib/xcp
+	mkdir -p $(DESTDIR)/usr/lib/systemd/system
+	mkdir -p $(DESTDIR)/usr/lib/yum-plugins
+	mkdir -p $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
+	mkdir -p $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/
+	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
+	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) thread_diagnostics $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) list_plugins $(DESTDIR)$(LIBEXECDIR)
+	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/xapi
+	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/xenopsd
+	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/observer
+	$(IDATA) bugtool-plugin/xapi.xml $(DESTDIR)$(ETCXENDIR)/bugtool
+	$(IDATA) bugtool-plugin/xapi/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xapi
+	$(IDATA) bugtool-plugin/xenopsd.xml $(DESTDIR)$(ETCXENDIR)/bugtool
+	$(IDATA) bugtool-plugin/xenopsd/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xenopsd
+	$(IDATA) bugtool-plugin/observer.xml $(DESTDIR)$(ETCXENDIR)/bugtool
+	$(IDATA) bugtool-plugin/observer/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/observer
+	$(IPROG) fence $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xha-lc $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xapi-health-check $(DESTDIR)$(LIBEXECDIR)
+	$(IDATA) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
+	$(IDATA) xapi-logrotate.conf $(DESTDIR)/etc/logrotate.d/xapi
+	$(IPROG) xapi-tracing-log-trim.sh $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xapi-autostart-vms $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) udhcpd.skel $(DESTDIR)$(ETCXENDIR)/udhcpd.skel
+	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
+	$(IPROG) db.conf.skel $(DESTDIR)$(ETCXENDIR)/db.conf
+	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCXENDIR)/db.conf.rio
+	$(IPROG) xapi-init $(DESTDIR)$(LIBEXECDIR)/xapi-init
+	$(IPROG) save-boot-info $(DESTDIR)$(LIBEXECDIR)/save-boot-info
+	$(IPROG) attach-static-vdis $(DESTDIR)$(LIBEXECDIR)/attach-static-vdis
+	$(IPROG) generate-iscsi-iqn $(DESTDIR)$(LIBEXECDIR)/generate-iscsi-iqn
+	$(IPROG) network-init $(DESTDIR)$(LIBEXECDIR)/network-init
+	$(IPROG) control-domain-params-init $(DESTDIR)$(LIBEXECDIR)/control-domain-params-init
+	$(IPROG) reset-and-reboot $(DESTDIR)$(LIBEXECDIR)/reset-and-reboot
+	$(IDATA) cdrommon@.service $(DESTDIR)/usr/lib/systemd/system/cdrommon@.service
+	$(IDATA) gencert.service $(DESTDIR)/usr/lib/systemd/system/gencert.service
+	$(IDATA) xapi-domains.service $(DESTDIR)/usr/lib/systemd/system/xapi-domains.service
+	$(IDATA) generate-iscsi-iqn.service $(DESTDIR)/usr/lib/systemd/system/generate-iscsi-iqn.service
+	$(IDATA) xapi.service $(DESTDIR)/usr/lib/systemd/system/xapi.service
+	$(IDATA) attach-static-vdis.service $(DESTDIR)/usr/lib/systemd/system/attach-static-vdis.service
+	$(IDATA) save-boot-info.service $(DESTDIR)/usr/lib/systemd/system/save-boot-info.service
+	$(IDATA) mpathalert.service $(DESTDIR)/usr/lib/systemd/system/mpathalert.service
+	$(IDATA) xapi-init-complete.target $(DESTDIR)/usr/lib/systemd/system/xapi-init-complete.target
+	$(IDATA) xapi-wait-init-complete.service $(DESTDIR)/usr/lib/systemd/system/xapi-wait-init-complete.service
+	$(IDATA) xcp-networkd.service $(DESTDIR)/usr/lib/systemd/system/xcp-networkd.service
+	$(IDATA) xcp-networkd.conf $(DESTDIR)/etc/xcp-networkd.conf
+	$(IDATA) wsproxy.service $(DESTDIR)/usr/lib/systemd/system/wsproxy.service
+	$(IDATA) wsproxy.socket $(DESTDIR)/usr/lib/systemd/system/wsproxy.socket
+	$(IDATA) varstored-guard.service $(DESTDIR)/usr/lib/systemd/system/varstored-guard.service
+	$(IDATA) network-init.service $(DESTDIR)/usr/lib/systemd/system/network-init.service
+	$(IDATA) control-domain-params-init.service $(DESTDIR)/usr/lib/systemd/system/control-domain-params-init.service
+	$(IDATA) xapi-nbd.service $(DESTDIR)/usr/lib/systemd/system/xapi-nbd.service
+	$(IDATA) xapi-nbd.path $(DESTDIR)/usr/lib/systemd/system/xapi-nbd.path
+	$(IDATA) 10-stunnel-increase-number-of-file-descriptors.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/10-stunnel-increase-number-of-file-descriptors.conf
+	$(IDATA) 11-stunnel-gencert.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/11-stunnel-gencert.conf
+	$(IDATA) xcp-rrdd.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd.service
+	$(IDATA) xcp-rrdd-xenpm.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-xenpm.service
+	$(IDATA) xcp-rrdd-iostat.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-iostat.service
+	$(IDATA) xcp-rrdd-squeezed.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-squeezed.service
+	$(IDATA) xcp-rrdd-squeezed.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-squeezed.service
+	$(IDATA) xcp-rrdd-dcmi.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-dcmi.service
+	$(IDATA) xcp-rrdd-cpu.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-cpu.service
+	$(IDATA) xcp-rrdd-netdev.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-netdev.service
+	mkdir -p $(DESTDIR)$(ETCXENDIR)/master.d
+	$(IPROG) on-master-start $(DESTDIR)$(ETCXENDIR)/master.d/01-example
+	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCXENDIR)/master.d/03-mpathalert-daemon
+	mkdir -p $(DESTDIR)/etc/sysconfig
+	$(IPROG) sysconfig-xapi $(DESTDIR)/etc/sysconfig/xapi
+	$(IPROG) xcp-rrdd-sysconfig $(DESTDIR)/etc/sysconfig/xcp-rrdd
+	$(IPROG) xcp-rrdd-conf $(DESTDIR)/etc/xcp-rrdd.conf
+	mkdir -p $(DESTDIR)/usr/lib/tmpfiles.d
+	$(IPROG) xcp-rrdd-tmp $(DESTDIR)/usr/lib/tmpfiles.d/xcp-rrdd.conf
+	$(IPROG) nbd-firewall-config.sh $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) update-ca-bundle.sh $(DESTDIR)$(OPTDIR)/bin
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) debug_ha_query_liveset $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) xe-mount-iso-sr $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-toolstack-restart $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-xentrace $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-edit-bootloader $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-get-network-backend $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-enable-all-plugin-metrics $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) with-vdi $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) import-update-key $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) pool.conf $(DESTDIR)$(ETCXENDIR)
+	mkdir -p $(DESTDIR)/etc/pam.d
+	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
+	$(IPROG) upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
+	$(IDATA) usb-policy.conf $(DESTDIR)$(ETCXENDIR)
+	mkdir -p $(DESTDIR)$(OPTDIR)/packages/iso #omg XXX
+	$(IPROG) xapi-rolling-upgrade-miami $(DESTDIR)$(LIBEXECDIR)/xapi-rolling-upgrade
+	$(IPROG) set-hostname $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) update-mh-info $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) host-bugreport-upload $(DESTDIR)$(LIBEXECDIR)/host-bugreport-upload
+	$(IPROG) xe-backup-metadata $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-restore-metadata $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) backup-metadata-cron $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) pbis-force-domain-leave $(DESTDIR)$(LIBEXECDIR)
+	mkdir -p $(DESTDIR)$(EXTENSIONDIR)
+	mkdir -p $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) plugins/firewall-port $(DESTDIR)$(PLUGINDIR)
+	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
+	$(IPROG) 10resetvdis $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
+	mkdir -p $(DESTDIR)/etc/bash_completion.d
+	$(IPROG) xe-switch-network-backend-bash-completion $(DESTDIR)/etc/bash_completion.d/xe-switch-network-backend
+	$(IPROG) xe-switch-network-backend $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-syslog-reconfigure $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xe-install-supplemental-pack $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-enable-ipv6 $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) pv2hvm $(DESTDIR)$(OPTDIR)/bin
+	mkdir -p $(DESTDIR)/etc/cron.daily
+	mkdir -p $(DESTDIR)/etc/cron.hourly
+	$(IPROG) license-check $(DESTDIR)/etc/cron.daily/
+	$(IPROG) certificate-check $(DESTDIR)/etc/cron.daily/
+	$(IPROG) certificate-refresh $(DESTDIR)/etc/cron.hourly/
+	mkdir -p $(DESTDIR)/etc/cron.d
+	$(IDATA) xapi-tracing-log-trim.cron $(DESTDIR)/etc/cron.d/xapi-tracing-log-trim.cron
+	mkdir -p $(DESTDIR)/opt/xensource/gpg
+# host-backup-restore
+	$(IPROG) host-backup-restore/host-backup $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) host-backup-restore/host-restore $(DESTDIR)$(LIBEXECDIR)
+# YUM plugins
+	$(IPROG) yum-plugins/accesstoken.py $(DESTDIR)$(YUMPLUGINDIR)
+	$(IDATA) yum-plugins/accesstoken.conf $(DESTDIR)$(YUMPLUGINCONFDIR)
+	$(IPROG) yum-plugins/xapitoken.py $(DESTDIR)$(YUMPLUGINDIR)
+	$(IDATA) yum-plugins/xapitoken.conf $(DESTDIR)$(YUMPLUGINCONFDIR)
+	$(IPROG) yum-plugins/ptoken.py $(DESTDIR)$(YUMPLUGINDIR)
+	$(IDATA) yum-plugins/ptoken.conf $(DESTDIR)$(YUMPLUGINCONFDIR)
+# maillanguages
+	mkdir -p $(DESTDIR)/etc/xapi.d/mail-languages
+	$(IDATA) mail-languages/en-US.json $(DESTDIR)/etc/xapi.d/mail-languages
+	$(IDATA) mail-languages/zh-CN.json $(DESTDIR)/etc/xapi.d/mail-languages
+	$(IDATA) mail-languages/ja-JP.json $(DESTDIR)/etc/xapi.d/mail-languages
+# uefi
+	mkdir -p $(DESTDIR)/etc/xapi.d/efi-clone
+
+# toolstack.target to manage toolstack services as a group
+	$(IDATA) toolstack.target  $(DESTDIR)/usr/lib/systemd/system/toolstack.target

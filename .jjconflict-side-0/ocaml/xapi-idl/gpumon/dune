@@ -1,0 +1,32 @@
+(library
+ (name xapi_gpumon)
+ (public_name xapi-idl.gpumon)
+ (modules (:standard \ gpumon_cli))
+ (libraries
+   result
+   rpclib.core
+   rresult
+   threads
+   xapi-idl
+   xapi-log
+ )
+ (wrapped false)
+ (preprocess (per_module ((pps ppx_deriving_rpc) Gpumon_interface))))
+
+(executable
+ (name gpumon_cli)
+ (modes exe)
+ (public_name gpumon-cli)
+ (package xapi-idl)
+ (modules gpumon_cli)
+ (libraries
+   cmdliner
+   rpclib.cmdliner
+   rpclib.core
+   rpclib.markdown
+   xapi-idl
+   xapi-idl.gpumon))
+
+(cram
+ (package xapi-idl)
+ (deps gpumon_cli.exe))
