@@ -179,11 +179,6 @@ install: build doc sdk doc-json
 	scripts/install.sh 644 ocaml/rrd2csv/man/rrd2csv.1.man       $(DESTDIR)$(OPTMANDIR)/rrd2csv.1
 # ocaml/xs-trace
 	install -D -m 755 _build/install/default/bin/xs-trace        $(DESTDIR)/usr/bin/xs-trace
-# xcp-rrdd
-	install -D _build/install/default/bin/xcp-rrdd               $(DESTDIR)$(SBINDIR)/xcp-rrdd
-	install -D _build/install/default/bin/rrddump                $(DESTDIR)$(BINDIR)/rrddump
-# rrd-cli
-	install -D _build/install/default/bin/rrd-cli                $(DESTDIR)$(BINDIR)/rrd-cli
 # rrd-transport
 	install -D _build/install/default/bin/rrdreader              $(DESTDIR)$(BINDIR)/rrdreader
 	install -D _build/install/default/bin/rrdwriter              $(DESTDIR)$(BINDIR)/rrdwriter
@@ -278,6 +273,7 @@ install: build doc sdk doc-json
 		xapi-expiry-alerts \
 		cohttp-posix \
 		xapi-rrd \
+		xapi-rrdd \
 		xapi-inventory \
 		xapi-stdext-date \
 		xapi-stdext-encodings \
@@ -342,6 +338,7 @@ uninstall:
 		xapi-expiry-alerts \
 		cohttp-posix \
 		xapi-rrd \
+		xapi-rrdd \
 		xapi-inventory \
 		xapi-stdext-date \
 		xapi-stdext-encodings \
