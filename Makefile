@@ -198,8 +198,6 @@ install: build doc sdk doc-json
 	install -m 755 ocaml/vhd-tool/scripts/get_nbd_extents.py   $(DESTDIR)$(LIBEXECDIR)/get_nbd_extents.py
 	install -m 644 ocaml/vhd-tool/scripts/python_nbd_client.py $(DESTDIR)$(LIBEXECDIR)/python_nbd_client.py
 # xenopsd
-	install -D _build/install/default/bin/xenopsd-simulator $(DESTDIR)$(SBINDIR)/xenopsd-simulator
-	install -D _build/install/default/man/man1/xenopsd-simulator.1.gz $(DESTDIR)$(MANDIR)/man1/xenopsd-simulator.1.gz
 	install -D _build/install/default/bin/xenopsd-xc $(DESTDIR)$(SBINDIR)/xenopsd-xc
 	install -D _build/install/default/bin/fence.bin $(DESTDIR)$(LIBEXECDIR)/fence.bin
 	install -D _build/install/default/man/man1/xenopsd-xc.1.gz $(DESTDIR)$(MANDIR)/man1/xenopsd-xc.1.gz
@@ -238,6 +236,7 @@ install: build doc sdk doc-json
 		xapi-cli-protocol \
 		xapi-datamodel \
 		xapi-types \
+		xapi-xenopsd-simulator \
 		xen-api-client \
 		xen-api-client-lwt \
 		xen-api-client-async \
@@ -303,6 +302,7 @@ uninstall:
 		xapi-cli-protocol \
 		xapi-datamodel \
 		xapi-types \
+		xapi-xenopsd-simulator \
 		xen-api-client \
 		xen-api-client-lwt \
 		xen-api-client-async \

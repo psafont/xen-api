@@ -1,7 +1,5 @@
 (executable
  (name xenops_simulator_main)
- (public_name xenopsd-simulator)
- (package xapi-xenopsd-simulator)
  (libraries
    dune-build-info
    xapi-idl.xen.interface
@@ -21,6 +19,12 @@
  (deps (:man xenopsd-simulator.1))
  (action
   (with-stdout-to %{target} (with-stdin-from %{man} (run gzip))))
+)
+
+(install
+ (section sbin)
+ (files (xenops_simulator_main.exe as xenopsd-simulator))
+ (package xapi-xenopsd-simulator)
 )
 
 (install
