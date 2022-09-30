@@ -1893,9 +1893,9 @@ let update_snapshot_and_parent_links ~__context state =
         )
     ) ;
     if cls = Datamodel_common._vm then (
-      let parent = Db.VM.get_parent ~__context ~self:ref in
-      debug "lookup for parent = '%s'" (Ref.string_of parent) ;
       try
+        let parent = Db.VM.get_parent ~__context ~self:ref in
+        debug "lookup for parent = '%s'" (Ref.string_of parent) ;
         let parent = lookup parent state.table in
         Db.VM.set_parent ~__context ~self:ref ~value:parent
       with _ -> debug "no parent found"
