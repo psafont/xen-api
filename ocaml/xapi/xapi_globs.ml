@@ -979,7 +979,7 @@ let winbind_allow_kerberos_auth_fallback = ref false
 
 let winbind_keep_configuration = ref false
 
-let winbind_ldap_query_subject_timeout = ref 20.
+let winbind_ldap_query_subject_timeout = ref Mtime.Span.(20 * s)
 
 let tdb_tool = ref "/usr/bin/tdbtool"
 
@@ -1121,9 +1121,17 @@ let xapi_globs_spec =
   ; ("max_observer_file_size", Int max_observer_file_size)
   ]
 
-let options_of_xapi_globs_spec =
+let args_with_desc_spec =
+  [
+    ( "winbind_ldap_query_subject_timeout"
+    , ShortDurationFromSeconds winbind_ldap_query_subject_timeout
+    , "Timeout to perform ldap query for subject information"
+    )
+  ]
+
+let args_of_spec spec =
   List.map
-    (fun (name, ty) ->
+    (fun (name, ty, desc) ->
       ( name
       , ( match ty with
         | Float x ->
@@ -1161,10 +1169,20 @@ let options_of_xapi_globs_spec =
               let literal = Clock.Timer.span_to_s !x |> string_of_float in
               Fmt.str "%s (%a)" literal Mtime.Span.pp !x
         )
-      , Printf.sprintf "Set the value of '%s'" name
+      , desc
       )
     )
-    xapi_globs_spec
+    spec
+
+let options_of_xapi_globs_spec =
+  let no_desc =
+    List.map
+      (fun (name, ty) -> (name, ty, Printf.sprintf "Set the value of '%s'" name))
+      xapi_globs_spec
+    |> args_of_spec
+  in
+  let with_desc = args_of_spec args_with_desc_spec in
+  List.concat [with_desc; no_desc]
 
 let xenopsd_queues =
   ref
@@ -1439,11 +1457,6 @@ let other_options =
     , (fun () -> string_of_bool !winbind_keep_configuration)
     , "Whether to clear winbind configuration when join domain failed or leave \
        domain"
-    )
-  ; ( "winbind_ldap_query_subject_timeout"
-    , Arg.Set_float winbind_ldap_query_subject_timeout
-    , (fun () -> string_of_float !winbind_ldap_query_subject_timeout)
-    , "Timeout to perform ldap query for subject information"
     )
   ; ( "hsts_max_age"
     , Arg.Set_int hsts_max_age

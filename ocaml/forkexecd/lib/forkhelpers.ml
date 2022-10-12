@@ -144,6 +144,9 @@ let getpid (_sock, pid) = pid
 
 type 'a result = Success of string * 'a | Failure of string * exn
 
+let span_to_s span =
+  Mtime.Span.to_uint64_ns span |> Int64.to_float |> fun ns -> ns /. 1e9
+
 let temp_dir_server =
   Filename.concat runtime_path "/run/nonpersistent/forkexecd/"
 
@@ -315,8 +318,8 @@ let safe_close_and_exec ?tracing ?env stdin stdout stderr
     close_fds
 
 let execute_command_get_output_inner ?tracing ?env ?stdin
-    ?(syslog_stdout = NoSyslogging) ?(redirect_stderr_to_stdout = false)
-    ?(timeout = -1.0) cmd args =
+    ?(syslog_stdout = NoSyslogging) ?(redirect_stderr_to_stdout = false) timeout
+    cmd args =
   let to_close = ref [] in
   let close fd =
     if List.mem fd !to_close then (
@@ -354,8 +357,13 @@ let execute_command_get_output_inner ?tracing ?env ?stdin
                     close wr
                   )
                   stdinandpipes ;
-                if timeout > 0. then
-                  Unix.setsockopt_float sock Unix.SO_RCVTIMEO timeout ;
+                ( match timeout with
+                | Some span ->
+                    let timeout = span_to_s span in
+                    Unix.setsockopt_float sock Unix.SO_RCVTIMEO timeout
+                | None ->
+                    ()
+                ) ;
                 with_tracing ~tracing ~name:"Forkhelpers.waitpid" @@ fun _ ->
                 try waitpid (sock, pid)
                 with Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
@@ -380,12 +388,12 @@ let execute_command_get_output_inner ?tracing ?env ?stdin
 let execute_command_get_output ?tracing ?env ?(syslog_stdout = NoSyslogging)
     ?(redirect_stderr_to_stdout = false) ?timeout cmd args =
   with_tracing ~tracing ~name:__FUNCTION__ @@ fun tracing ->
-  execute_command_get_output_inner ?tracing ?env ?stdin:None ?timeout
-    ~syslog_stdout ~redirect_stderr_to_stdout cmd args
+  execute_command_get_output_inner ?tracing ?env ?stdin:None ~syslog_stdout
+    ~redirect_stderr_to_stdout timeout cmd args
 
 let execute_command_get_output_send_stdin ?tracing ?env
     ?(syslog_stdout = NoSyslogging) ?(redirect_stderr_to_stdout = false)
     ?timeout cmd args stdin =
   with_tracing ~tracing ~name:__FUNCTION__ @@ fun tracing ->
   execute_command_get_output_inner ?tracing ?env ~stdin ~syslog_stdout
-    ~redirect_stderr_to_stdout ?timeout cmd args
+    ~redirect_stderr_to_stdout timeout cmd args

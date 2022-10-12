@@ -1,7 +1,7 @@
 (executable
  (modes exe)
  (name fe_test)
- (libraries forkexec uuid xapi-stdext-unix))
+ (libraries forkexec mtime mtime.clock.os uuid xapi-stdext-unix))
 
 (rule
  (alias runtest)
