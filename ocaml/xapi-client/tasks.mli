@@ -23,7 +23,7 @@ val wait_for_all :
 val with_tasks_destroy :
      rpc:(Rpc.call -> Rpc.response)
   -> session_id:API.ref_session
-  -> timeout:float
+  -> timeout:Mtime.Span.t
   -> tasks:API.ref_task list
   -> bool
 (** [with_tasks_destroy ~rpc ~session_id ~timeout ~tasks] is like [wait_for_all] except after [timeout] has elapsed
