@@ -146,15 +146,35 @@ exception Timeout
 
 val with_socket_timeout : Unix.file_descr -> float option -> (unit -> 'a) -> 'a
 
-val time_limited_write : Unix.file_descr -> int -> bytes -> float -> unit
+val time_limited_write :
+  Unix.file_descr -> int -> bytes -> Clock.Timer.t -> unit
+(** [time_limited_write fd amount data timer] Write as many bytes to the file
+    descriptor [fd], up to [amount] as possible from [data] before [timer]
+    expires. Raises [Timeout] exception when less than [amount] bytes have been
+    written at the time [timer] expires. Writes into the file descriptor [fd]
+    at the current cursor position. *)
 
 val time_limited_write_substring :
-  Unix.file_descr -> int -> string -> float -> unit
+  Unix.file_descr -> int -> string -> Clock.Timer.t -> unit
+(** [time_limited_write_substring fd amount data timer] Write as many bytes to
+    the file descriptor [fd], up to [amount] as possible from [data] before
+    [timer] expires. Raises [Timeout] exception when less than [amount] bytes
+    have been written at the time [timer] expires. Writes into the file
+    descriptor [fd] at the current cursor position. *)
 
-val time_limited_read : Unix.file_descr -> int -> float -> string
+val time_limited_read : Unix.file_descr -> int -> Clock.Timer.t -> string
+(** [time_limited_read fd amount timer] Read as many bytes from the file
+    descriptor [fd], up to [amount] as possible before [timer] expires. Raises
+    [Timeout] exception when less than [amount] bytes have been read at the
+    time [timer] expires. Reads from the file descriptor at the current cursor
+    position. *)
 
-val time_limited_single_read :
-  Unix.file_descr -> int -> max_wait:float -> string
+val time_limited_single_read : Unix.file_descr -> int -> Mtime.Span.t -> string
+(** [time_limited_single_read fd length duration] Reads [length] bytes from
+    the file descriptor [fd] in a single read, allowing up to [duration] of
+    time to pass. Raises [Timeout] exception when less than [amount] bytes have
+    been read after [duration] of time has passed. It may raise exceptions that
+    come from {{Unix.read}} *)
 
 val select :
      Unix.file_descr list

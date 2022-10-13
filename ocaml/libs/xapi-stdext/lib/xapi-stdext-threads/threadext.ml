@@ -86,9 +86,7 @@ module Delay = struct
           let open Xapi_stdext_unix.Unixext in
           (* flush the single byte from the pipe *)
           try
-            let (_ : string) =
-              time_limited_single_read pipe_out 1 ~max_wait:seconds
-            in
+            let (_ : string) = time_limited_single_read pipe_out 1 amount in
             false
           with Timeout -> true
           (* return true if we waited the full length of time, false if we were woken *)

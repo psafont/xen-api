@@ -524,9 +524,22 @@ let really_read_string fd length =
 (* --------------------------------------------------------------------------------------- *)
 (* Functions to read and write to/from a file descriptor with a given latest response time *)
 
+module Timer = Clock.Timer
+
 exception Timeout
 
+(* Ceiling the value in the conversions is important because 0 means to wait
+   forever *)
+
 let to_milliseconds ms = ms *. 1000. |> ceil |> int_of_float
+
+let span_to_milliseconds sp =
+  let ns = Mtime.Span.to_uint64_ns sp in
+  let unceiled = Int64.div ns 1_000_000L in
+  if Int64.rem ns 1_000_000L > 0L then
+    Int64.(succ unceiled |> to_int)
+  else
+    Int64.to_int unceiled
 
 (* Allocating a new polly and waiting like this results in at least 3 syscalls.
    An alternative for sockets would be to use [setsockopt],
@@ -537,7 +550,7 @@ let to_milliseconds ms = ms *. 1000. |> ceil |> int_of_float
    [setsockopt_float] to set the timeout
    [clear_nonblock] to ensure the socket is non-blocking
 *)
-let with_polly_wait kind fd f =
+let with_polly_wait kind fd timer f =
   match Unix.(LargeFile.fstat fd).st_kind with
   | S_DIR ->
       failwith "File descriptor cannot be a directory for read/write"
@@ -549,98 +562,90 @@ let with_polly_wait kind fd f =
          and check the timeout after each chunk.
          select() would've silently succeeded here, whereas epoll() is stricted and returns EPERM
       *)
-      let wait remaining_time = if remaining_time < 0. then raise Timeout in
+      let wait () = if Timer.has_expired timer then raise Timeout in
       f wait fd
   | S_CHR | S_FIFO | S_SOCK ->
       with_polly @@ fun polly ->
       Polly.add polly fd kind ;
-      let wait remaining_time =
-        let milliseconds = to_milliseconds remaining_time in
-        if milliseconds <= 0 then raise Timeout ;
-        let ready =
-          Polly.wait polly 1 milliseconds @@ fun _ event_on_fd _ ->
-          assert (event_on_fd = fd)
-        in
-        if ready = 0 then raise Timeout
+      let wait () =
+        match Timer.remaining timer with
+        | Remaining remaining ->
+            let milliseconds = span_to_milliseconds remaining in
+            let ready =
+              Polly.wait polly 1 milliseconds @@ fun _ event_on_fd _ ->
+              assert (event_on_fd = fd)
+            in
+            if ready = 0 then raise Timeout
+        | Expired _ ->
+            raise Timeout
       in
       f wait fd
 
-(* Write as many bytes to a file descriptor as possible from data before a given clock time. *)
-(* Raises Timeout exception if the number of bytes written is less than the specified length. *)
-(* Writes into the file descriptor at the current cursor position. *)
 let time_limited_write_internal
     (write : Unix.file_descr -> 'a -> int -> int -> int) filedesc length data
-    target_response_time =
-  with_polly_wait Polly.Events.out filedesc @@ fun wait filedesc ->
+    timer =
+  with_polly_wait Polly.Events.out filedesc timer @@ fun wait filedesc ->
   let total_bytes_to_write = length in
-  let bytes_written = ref 0 in
-  let now = ref (Unix.gettimeofday ()) in
-  while !bytes_written < total_bytes_to_write && !now < target_response_time do
-    let remaining_time = target_response_time -. !now in
-    wait remaining_time ;
-    let bytes_to_write = total_bytes_to_write - !bytes_written in
-    let bytes =
-      try write filedesc data !bytes_written bytes_to_write
-      with
-      | Unix.Unix_error (Unix.EAGAIN, _, _)
-      | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
-      ->
-        0
-    in
-    (* write from buffer=data from offset=bytes_written, length=bytes_to_write *)
-    bytes_written := bytes + !bytes_written ;
-    now := Unix.gettimeofday ()
-  done ;
-  if !bytes_written = total_bytes_to_write then
-    ()
-  else (* we ran out of time *)
-    raise Timeout
+  let rec loop bytes_written =
+    if bytes_written = total_bytes_to_write then
+      ()
+    else (
+      wait () ;
+      let bytes_to_write = total_bytes_to_write - bytes_written in
+      let bytes =
+        try write filedesc data bytes_written bytes_to_write
+        with
+        | Unix.Unix_error (Unix.EAGAIN, _, _)
+        | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
+        ->
+          0
+      in
+      (* write from buffer=data from offset=bytes_written, length=bytes_to_write *)
+      let bytes_written = bytes + bytes_written in
+      loop bytes_written
+    )
+  in
+  loop 0
 
-let time_limited_write filedesc length data target_response_time =
-  time_limited_write_internal Unix.single_write filedesc length data
-    target_response_time
+let time_limited_write filedesc length data timer =
+  time_limited_write_internal Unix.single_write filedesc length data timer
 
-let time_limited_write_substring filedesc length data target_response_time =
+let time_limited_write_substring filedesc length data timer =
   time_limited_write_internal Unix.single_write_substring filedesc length data
-    target_response_time
+    timer
 
-(* Read as many bytes to a file descriptor as possible before a given clock time. *)
-(* Raises Timeout exception if the number of bytes read is less than the desired number. *)
-(* Reads from the file descriptor at the current cursor position. *)
-let time_limited_read filedesc length target_response_time =
-  with_polly_wait Polly.Events.inp filedesc @@ fun wait filedesc ->
+let time_limited_read filedesc length timer =
+  with_polly_wait Polly.Events.inp filedesc timer @@ fun wait filedesc ->
   let total_bytes_to_read = length in
-  let bytes_read = ref 0 in
   let buf = Bytes.make total_bytes_to_read '\000' in
-  let now = ref (Unix.gettimeofday ()) in
-  while !bytes_read < total_bytes_to_read && !now < target_response_time do
-    let remaining_time = target_response_time -. !now in
-    wait remaining_time ;
-    let bytes_to_read = total_bytes_to_read - !bytes_read in
-    let bytes =
-      try Unix.read filedesc buf !bytes_read bytes_to_read
-      with
-      | Unix.Unix_error (Unix.EAGAIN, _, _)
-      | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
-      ->
-        0
-    in
-    (* read into buffer=buf from offset=bytes_read, length=bytes_to_read *)
-    if bytes = 0 then
-      raise End_of_file (* End of file has been reached *)
-    else
-      bytes_read := bytes + !bytes_read ;
-    now := Unix.gettimeofday ()
-  done ;
-  if !bytes_read = total_bytes_to_read then
-    Bytes.unsafe_to_string buf
-  else (* we ran out of time *)
-    raise Timeout
+  let rec loop bytes_read =
+    if bytes_read = total_bytes_to_read then
+      Bytes.unsafe_to_string buf
+    else (
+      wait () ;
+      let bytes_to_read = total_bytes_to_read - bytes_read in
+      let bytes =
+        try Unix.read filedesc buf bytes_read bytes_to_read
+        with
+        | Unix.Unix_error (Unix.EAGAIN, _, _)
+        | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
+        ->
+          0
+      in
+      (* read into buffer=buf from offset=bytes_read, length=bytes_to_read *)
+      if bytes = 0 then
+        raise End_of_file (* End of file has been reached *)
+      else
+        loop (bytes + bytes_read)
+    )
+  in
+  loop 0
 
-let time_limited_single_read filedesc length ~max_wait =
+let time_limited_single_read filedesc length duration =
+  let timer = Timer.start ~duration in
   let buf = Bytes.make length '\000' in
-  with_polly_wait Polly.Events.inp filedesc @@ fun wait filedesc ->
-  wait max_wait ;
+  with_polly_wait Polly.Events.inp filedesc timer @@ fun wait filedesc ->
+  wait () ;
   let bytes =
     try Unix.read filedesc buf 0 length
     with
@@ -649,7 +654,10 @@ let time_limited_single_read filedesc length ~max_wait =
     ->
       0
   in
-  Bytes.sub_string buf 0 bytes
+  if bytes < length then
+    raise Timeout
+  else
+    Bytes.sub_string buf 0 bytes
 
 (** see [select(2)] "Correspondence between select() and poll() notifications".
     Note that HUP and ERR are ignored in events and returned only in revents.
@@ -660,8 +668,6 @@ let pollin_set = Polly.Events.(rdnorm lor rdband lor inp lor hup lor err)
 let pollout_set = Polly.Events.(wrband lor wrnorm lor out lor err)
 
 let pollerr_set = Polly.Events.pri
-
-let to_milliseconds ms = ms *. 1e3 |> ceil |> int_of_float
 
 (* we could change lists to proper Sets once the Unix.select to Unixext.select conversion is done *)
 

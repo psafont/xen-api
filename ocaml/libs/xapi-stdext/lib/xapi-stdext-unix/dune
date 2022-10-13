@@ -2,6 +2,7 @@
   (name xapi_stdext_unix)
   (public_name xapi-stdext-unix)
   (libraries
+    clock
     fd-send-recv
     integers
     polly

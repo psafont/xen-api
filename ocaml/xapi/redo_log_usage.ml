@@ -28,7 +28,7 @@ let read_from_redo_log log staging_path db_ref =
   Redo_log.startup log ;
   (* 2. Read the database and any deltas from it into the in-memory cache, applying the deltas to the database *)
   let latest_generation = ref None in
-  let read_db gen_count fd expected_length latest_response_time =
+  let read_db gen_count fd expected_length timer =
     (* Read the database from the fd into a file *)
     let temp_file = Filename.temp_file "from-vdi" ".db" in
     Xapi_stdext_pervasives.Pervasiveext.finally
@@ -43,7 +43,7 @@ let read_from_redo_log log staging_path db_ref =
           Xapi_stdext_unix.Unixext.read_data_in_string_chunks
             (fun str length ->
               Xapi_stdext_unix.Unixext.time_limited_write_substring outfd length
-                str latest_response_time
+                str timer
             )
             fd
         in
