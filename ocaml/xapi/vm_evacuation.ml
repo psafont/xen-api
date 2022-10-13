@@ -11,8 +11,15 @@ let estimate_evacuate_timeout ~__context ~host =
   in
   (* Conservative estimation based on 1000Mbps link, and the memory usage of
      Dom0 (which is not going to be transferred) is an intentional surplus *)
-  let t = Int64.to_float memory_used *. 8. /. (1000. *. 1024. *. 1024.) in
-  max 240. t
+  let t_ns =
+    Int64.to_float memory_used *. 1000_000. *. 8. /. (1024. *. 1024.)
+  in
+  let t = Mtime.Span.(Float.to_int t_ns * ns) in
+  let max_t = Mtime.Span.(4 * min) in
+  if Mtime.Span.is_longer t ~than:max_t then
+    max_t
+  else
+    t
 
 (* Returns a tuple of lists: The first containing the control domains, and the second containing the regular VMs *)
 let get_resident_vms ~__context ~self =
@@ -21,7 +28,7 @@ let get_resident_vms ~__context ~self =
     (fun vm -> Db.VM.get_is_control_domain ~__context ~self:vm)
     my_resident_vms
 
-let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
+let ensure_no_vms ~__context ~rpc ~session_id =
   let open Client in
   let is_running vm = Db.VM.get_power_state ~__context ~self:vm = `Running in
   let host = Helpers.get_localhost ~__context in
@@ -56,12 +63,7 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
     TaskHelper.exn_if_cancelling ~__context ;
     (* First check if _we_ have been cancelled *)
     info "Requesting evacuation of host" ;
-    let timeout =
-      if evacuate_timeout > 0. then
-        evacuate_timeout
-      else
-        estimate_evacuate_timeout ~__context ~host
-    in
+    let timeout = estimate_evacuate_timeout ~__context ~host in
     let tasks =
       [
         Client.Async.Host.evacuate ~rpc ~session_id ~host ~network:Ref.null
@@ -88,7 +90,8 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
              Client.Async.VM.clean_shutdown ~rpc ~session_id ~vm
          )
     in
-    Tasks.with_tasks_destroy ~rpc ~session_id ~timeout:60. ~tasks |> ignore
+    let timeout = Mtime.Span.(1 * min) in
+    Tasks.with_tasks_destroy ~rpc ~session_id ~timeout ~tasks |> ignore
   in
   let hard_shutdown vms =
     TaskHelper.exn_if_cancelling ~__context ;
@@ -137,7 +140,7 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
   ) ;
   log_and_ignore_exn (fun () -> get_running_domains () |> shutdown)
 
-let ensure_no_vms ~__context ~evacuate_timeout =
+let ensure_no_vms ~__context =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout
+      ensure_no_vms ~__context ~rpc ~session_id
   )
