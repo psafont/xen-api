@@ -90,6 +90,7 @@
 
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_unix
+module Timer = Clock.Timer
 module Db_globs = Xapi_database.Db_globs
 module Block_device_io_errors = Xapi_database.Block_device_io_errors
 
@@ -183,18 +184,16 @@ let get_pointer half =
 
 (* Lay out a blank double-buffered redo log on the given block device. *)
 (* May raise Unixext.Timeout exception *)
-let initialise_redo_log block_dev_fd target_response_time =
+let initialise_redo_log block_dev_fd timer =
   ignore_int (Unixext.seek_to block_dev_fd 0) ;
-  Unixext.time_limited_write_substring block_dev_fd magic_size magic
-    target_response_time ;
-  Unixext.time_limited_write_substring block_dev_fd 2 "\0000"
-    target_response_time
+  Unixext.time_limited_write_substring block_dev_fd magic_size magic timer ;
+  Unixext.time_limited_write_substring block_dev_fd 2 "\0000" timer
 
 (* write the NUL and set the initial validity byte to 0 *)
 
 (* Check that the given filename refers to a valid redo-log block device. Returns a read/write file descriptor. *)
 (* May raise exceptions Unixext.Timeout or Unix.Unix_error *)
-let open_block_device block_dev target_response_time =
+let open_block_device block_dev timer =
   (* Check that the block device exists and is writeable *)
   R.info "Checking block device..." ;
   ( try Unix.access block_dev [Unix.F_OK; Unix.W_OK; Unix.R_OK]
@@ -210,12 +209,11 @@ let open_block_device block_dev target_response_time =
   R.debug "Block device opened" ;
   (* Check that it's a redo-log block device *)
   let magic' =
-    try Unixext.time_limited_read block_dev_fd 16 target_response_time
-    with End_of_file -> ""
+    try Unixext.time_limited_read block_dev_fd 16 timer with End_of_file -> ""
   in
   if magic' <> magic then (
     R.warn "Magic string not matched. Initialising redo log..." ;
-    initialise_redo_log block_dev_fd target_response_time
+    initialise_redo_log block_dev_fd timer
   ) ;
   block_dev_fd
 
@@ -224,22 +222,19 @@ let seek_to_validity_byte block_dev_fd =
   ignore_int (Unixext.seek_to block_dev_fd pos_validity_byte)
 
 (* Read the validity byte from the given block device. *)
-let read_validity_byte block_dev_fd target_response_time =
+let read_validity_byte block_dev_fd timer =
   seek_to_validity_byte block_dev_fd ;
-  let validity =
-    Unixext.time_limited_read block_dev_fd 1 target_response_time
-  in
+  let validity = Unixext.time_limited_read block_dev_fd 1 timer in
   validity
 
 (* Set the validity byte in the given block device to indicate the given half is active. *)
-let set_validity_byte block_dev_fd half target_response_time =
+let set_validity_byte block_dev_fd half timer =
   seek_to_validity_byte block_dev_fd ;
   let validity = half_to_string half in
-  Unixext.time_limited_write_substring block_dev_fd 1 validity
-    target_response_time
+  Unixext.time_limited_write_substring block_dev_fd 1 validity timer
 
 (* Seeks to, and returns, the position just after the last db or delta record in the given half. *)
-let seek_past_last_record block_dev_fd half target_response_time =
+let seek_past_last_record block_dev_fd half timer =
   (* (We could use read_database and read_deltas instead of this implementation) *)
   (* Seek to the start of the half *)
   let cursor = ref (Unixext.seek_to block_dev_fd (start_of_half half)) in
@@ -248,9 +243,7 @@ let seek_past_last_record block_dev_fd half target_response_time =
     (* Seek past the first marker *)
     cursor := Unixext.seek_rel block_dev_fd marker_size ;
     (* Read the next 16 bytes: the length of this record *)
-    let len_str =
-      Unixext.time_limited_read block_dev_fd size_size target_response_time
-    in
+    let len_str = Unixext.time_limited_read block_dev_fd size_size timer in
     let len = try int_of_string len_str with _ -> 0 in
     if len = 0 then (
       (* The "length" was zero or it contained a non-ASCII decimal integer. Rewind back past it. *)
@@ -265,10 +258,8 @@ let seek_past_last_record block_dev_fd half target_response_time =
 (* Return the length, the db and the marker. Assumes the cursor is pointing to the start of a db record. *)
 (* Checks that the marker at the start of the record matches the marker at the end and raises NonMatchingMarkers if not. *)
 (* val read_database : Unix.file_descr -> float -> (int * (Unix.file_descr -> unit) * Generation.t * string) *)
-let read_database block_dev_fd target_response_time =
-  let read len =
-    Unixext.time_limited_read block_dev_fd len target_response_time
-  in
+let read_database block_dev_fd timer =
+  let read len = Unixext.time_limited_read block_dev_fd len timer in
   let marker_start = read marker_size in
   let len_str = read size_size in
   let len = try int_of_string len_str with _ -> 0 in
@@ -297,10 +288,8 @@ let read_database block_dev_fd target_response_time =
 
 (* Return the length, the db and the marker. Assumes the cursor is pointing to the start of a delta record. *)
 (* If there is no record here, this function raises EndOfDeltas. *)
-let read_delta block_dev_fd target_response_time =
-  let read len =
-    Unixext.time_limited_read block_dev_fd len target_response_time
-  in
+let read_delta block_dev_fd timer =
+  let read len = Unixext.time_limited_read block_dev_fd len timer in
   let len_str = read size_size in
   let len = try int_of_string len_str with _ -> 0 in
   (* See if it's a valid delta *)
@@ -324,27 +313,31 @@ let listen_on sock =
   (* 1 = maximum number of pending requests *)
   s
 
-let accept_conn s latest_response_time =
-  let now = Unix.gettimeofday () in
-  let timeout = latest_response_time -. now in
-  (* Await an incoming connection... *)
-  let ready_to_read, _, _ = Xapi_stdext_unix.Unixext.select [s] [] [] timeout in
-  R.info "Finished selecting" ;
-  if List.mem s ready_to_read then
-    (* We've received a connection. Accept it and return the socket. *)
-    fst (Unix.accept s)
-  else (* We must have timed out *)
-    raise Unixext.Timeout
+let accept_conn s timer =
+  match Timer.remaining timer with
+  | Remaining time ->
+      (* Await an incoming connection... *)
+      let timeout = Clock.Timer.span_to_s time in
+      let ready_to_read, _, _ =
+        Xapi_stdext_unix.Unixext.select [s] [] [] timeout
+      in
+      R.info "Finished selecting" ;
+      if List.mem s ready_to_read then
+        (* We've received a connection. Accept it and return the socket. *)
+        fst (Unix.accept s)
+      else (* We must have timed out *)
+        raise Unixext.Timeout
+  | Expired _ ->
+      raise Unixext.Timeout
 
 (* Listen on a given socket. Accept a single connection and transfer all the data from it to dest_fd, or raise Timeout if target_response_time happens first. *)
 (* Raises NotEnoughSpace if the next write would exceed the available_space. *)
-let transfer_data_from_sock_to_fd sock dest_fd available_space
-    target_response_time =
+let transfer_data_from_sock_to_fd sock dest_fd available_space timer =
   (* Open the data channel *)
   let s = listen_on sock in
   try
     (* May raise a Timeout exception: CA-106403 *)
-    let data_client = accept_conn s target_response_time in
+    let data_client = accept_conn s timer in
     R.info "Accepted connection on data socket" ;
     ignore_exn (fun () -> Unix.close s) ;
     (* Read all the data from the data channel, writing it straight into the block device, keeping track of accumulated length *)
@@ -359,7 +352,7 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space
               (* Check that there's enough space *)
               if available_space - !total_length < len then raise NotEnoughSpace ;
               (* Otherwise write it *)
-              Unixext.time_limited_write dest_fd len chunk target_response_time ;
+              Unixext.time_limited_write dest_fd len chunk timer ;
               total_length := !total_length + len
             )
             ~block_size:65536 data_client
@@ -382,18 +375,17 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space
     ignore_exn (fun () -> Unix.close s) ;
     raise Unixext.Timeout
 
-let transfer_database_to_sock sock db_fn target_response_time =
+let transfer_database_to_sock sock db_fn timer =
   (* Open the data channel *)
   let s = listen_on sock in
-  let data_client = accept_conn s target_response_time in
+  let data_client = accept_conn s timer in
   R.info "Accepted connection on data socket" ;
   ignore_exn (fun () -> Unix.close s) ;
   finally
     (fun () ->
       (* Read the data and send it down the socket *)
       db_fn (fun chunk len ->
-          Unixext.time_limited_write_substring data_client len chunk
-            target_response_time
+          Unixext.time_limited_write_substring data_client len chunk timer
       )
     )
     (fun () ->
@@ -449,7 +441,7 @@ let read_length client = read_data client size_size
 (* Functions to perform the actions which may be requested by the client *)
 
 (* Perform a "writedb" operation. *)
-let action_writedb block_dev_fd client datasock target_response_time =
+let action_writedb block_dev_fd client datasock timer =
   let failure_mesg = "writedb|nack" in
   let success_mesg = "writedb|ack_" in
   R.debug "Received writedb command" ;
@@ -463,7 +455,7 @@ let action_writedb block_dev_fd client datasock target_response_time =
     (Bytes.to_string generation_count) ;
   (* Read the validity byte *)
   try
-    let validity = read_validity_byte block_dev_fd target_response_time in
+    let validity = read_validity_byte block_dev_fd timer in
     R.debug "Validity byte is [%s]" validity ;
     (* Decide which half of the double-buffered file to use. If the first half is currently valid, use the second half; and vice versa. *)
     let half_to_use =
@@ -479,8 +471,7 @@ let action_writedb block_dev_fd client datasock target_response_time =
       available_space ;
     if min_space_needed > available_space then raise NotEnoughSpace ;
     (* Write the marker *)
-    Unixext.time_limited_write block_dev_fd marker_size marker
-      target_response_time ;
+    Unixext.time_limited_write block_dev_fd marker_size marker timer ;
     R.debug "Written the marker [%s]" (Bytes.to_string marker) ;
     (* Save the current cursor position *)
     let pos_to_write_length = Unixext.current_cursor_pos block_dev_fd in
@@ -494,8 +485,7 @@ let action_writedb block_dev_fd client datasock target_response_time =
     in
     R.debug "Transferring data directly from socket..." ;
     let total_length =
-      transfer_data_from_sock_to_fd datasock block_dev_fd remaining_space
-        target_response_time
+      transfer_data_from_sock_to_fd datasock block_dev_fd remaining_space timer
     in
     (* may raise NotEnoughSpace or Timeout *)
     R.debug "Transfer complete. Total length was %d bytes" total_length ;
@@ -507,9 +497,8 @@ let action_writedb block_dev_fd client datasock target_response_time =
     if min_space_needed > remaining_space then raise NotEnoughSpace ;
     (* Write the generation count and marker *)
     Unixext.time_limited_write block_dev_fd generation_size generation_count
-      target_response_time ;
-    Unixext.time_limited_write block_dev_fd marker_size marker
-      target_response_time ;
+      timer ;
+    Unixext.time_limited_write block_dev_fd marker_size marker timer ;
     R.debug "Written generation count and marker" ;
     (* Save the current cursor position *)
     let pos_after_dbrecord = Unixext.current_cursor_pos block_dev_fd in
@@ -521,18 +510,18 @@ let action_writedb block_dev_fd client datasock target_response_time =
     in
     Unixext.time_limited_write block_dev_fd trample_size
       (Bytes.make trample_size '\000')
-      target_response_time ;
+      timer ;
     (* Seek backwards in the block device to where the length is supposed to go and write it *)
     ignore_int (Unixext.seek_to block_dev_fd pos_to_write_length) ;
     let total_length_str = Printf.sprintf "%016d" total_length in
     Unixext.time_limited_write_substring block_dev_fd size_size total_length_str
-      target_response_time ;
+      timer ;
     R.debug "Gone backwards and written the length %d at position %d"
       total_length pos_to_write_length ;
     (* Set the internal pointer for this half to the position after the db, generation count and marker *)
     set_pointer half_to_use pos_after_dbrecord ;
     (* Set the validity byte to indicate that this new half is now valid *)
-    set_validity_byte block_dev_fd half_to_use target_response_time ;
+    set_validity_byte block_dev_fd half_to_use timer ;
     (* Respond to the client indicating success *)
     send_response client success_mesg
   with
@@ -549,7 +538,7 @@ let action_writedb block_dev_fd client datasock target_response_time =
       send_failure client failure_mesg excstr
 
 (* Perform a "writedelta" operation. *)
-let action_writedelta block_dev_fd client _datasock target_response_time =
+let action_writedelta block_dev_fd client _datasock timer =
   let failure_mesg = "writedelta|nack" in
   let success_mesg = "writedelta|ack_" in
   (* Read marker, generation count, length and delta from client *)
@@ -569,7 +558,7 @@ let action_writedelta block_dev_fd client _datasock target_response_time =
     length ;
   (* Read the validity byte *)
   try
-    let validity = read_validity_byte block_dev_fd target_response_time in
+    let validity = read_validity_byte block_dev_fd timer in
     (* Decide which half of the double-buffered file to use *)
     let half_to_use =
       match validity with
@@ -586,7 +575,7 @@ let action_writedelta block_dev_fd client _datasock target_response_time =
     let pos =
       match ptr with
       | None ->
-          seek_past_last_record block_dev_fd half_to_use target_response_time
+          seek_past_last_record block_dev_fd half_to_use timer
           (* we don't know where it is, so find the position now *)
       | Some p ->
           Unixext.seek_to block_dev_fd p
@@ -609,8 +598,7 @@ let action_writedelta block_dev_fd client _datasock target_response_time =
     in
     let str = Bytes.concat Bytes.empty [str; Bytes.make trample_size '\000'] in
     (* Write the delta *)
-    Unixext.time_limited_write block_dev_fd (Bytes.length str) str
-      target_response_time ;
+    Unixext.time_limited_write block_dev_fd (Bytes.length str) str timer ;
     (* Set the internal pointer for this half to the position after this point *)
     set_pointer half_to_use (str_len + pos) ;
     (* Respond to the client indicating success *)
@@ -635,14 +623,14 @@ let action_writedelta block_dev_fd client _datasock target_response_time =
       send_failure client failure_mesg excstr
 
 (* Perform an "empty" operation, which invalidates the redo log. *)
-let action_empty block_dev_fd client _datasock target_response_time =
+let action_empty block_dev_fd client _datasock timer =
   let success_mesg = "empty|ack_" in
   let failure_mesg = "empty|nack" in
   R.info "Received command to initialise block device" ;
   (* Set the validity byte to indicate that neither half is valid *)
   try
     R.debug "Resetting validity byte..." ;
-    set_validity_byte block_dev_fd Neither target_response_time ;
+    set_validity_byte block_dev_fd Neither timer ;
     (* Respond to the client indicating success *)
     R.debug "Sending ack to client..." ;
     send_response client success_mesg
@@ -657,7 +645,7 @@ let action_empty block_dev_fd client _datasock target_response_time =
       send_failure client failure_mesg excstr
 
 (* Perform a "read" operation. *)
-let action_read block_dev_fd client datasock target_response_time =
+let action_read block_dev_fd client datasock timer =
   let end_mesg = "read|end__" in
   let db_mesg = "read|db___" in
   let delta_mesg = "read|delta" in
@@ -665,7 +653,7 @@ let action_read block_dev_fd client datasock target_response_time =
   R.debug "Received read command" ;
   (* Read the validity byte *)
   try
-    let validity = read_validity_byte block_dev_fd target_response_time in
+    let validity = read_validity_byte block_dev_fd timer in
     (* Decide which half of the double-buffered file to use *)
     let half_to_use =
       match validity with
@@ -683,18 +671,18 @@ let action_read block_dev_fd client datasock target_response_time =
     ignore_int (Unixext.seek_to block_dev_fd (start_of_half half_to_use)) ;
     (* Attempt to read a database record *)
     let length, db_fn, generation_count, marker =
-      read_database block_dev_fd target_response_time
+      read_database block_dev_fd timer
     in
     (* Send the generation count and length of the database to the client *)
     send_response client
       (Printf.sprintf "%s|%016Ld|%016d" db_mesg generation_count length) ;
     (* Open the data channel; send the contents of the database down the data channel; close the data channel *)
-    transfer_database_to_sock datasock db_fn target_response_time ;
+    transfer_database_to_sock datasock db_fn timer ;
     (* Attempt to read the deltas *)
     try
       while true do
         let length, delta, generation_count, marker' =
-          read_delta block_dev_fd target_response_time
+          read_delta block_dev_fd timer
         in
         if marker <> marker' then
           raise (NonMatchingMarkers (marker, marker'))
@@ -768,15 +756,15 @@ let _ =
     failwith "One of options -socket, -dump or -empty is required" ;
   if !dump then (
     (* Open the block device *)
-    let block_dev_fd =
-      open_block_device !block_dev
-        (Unix.gettimeofday () +. !Db_globs.redo_log_max_startup_time)
+    let startup_timer =
+      Timer.start ~duration:!Db_globs.redo_log_max_startup_time
     in
+    let block_dev_fd = open_block_device !block_dev startup_timer in
     R.info "Opened block device." ;
-    let target_response_time = Unix.gettimeofday () +. 3600. in
+    let response_timer = Timer.start ~duration:Mtime.Span.(1 * hour) in
     (* Read the validity byte *)
     try
-      let validity = read_validity_byte block_dev_fd target_response_time in
+      let validity = read_validity_byte block_dev_fd response_timer in
       Printf.printf "*** Validity byte: [%s]\n" validity ;
       let halves = [First; Second] in
       List.iter
@@ -787,7 +775,7 @@ let _ =
           (* Attempt to read a database record *)
           try
             let length, db_fn, generation_count, marker =
-              read_database block_dev_fd target_response_time
+              read_database block_dev_fd response_timer
             in
             Printf.printf
               "*** [Half %s] Database with generation count [%Ld] and length %d:\n"
@@ -799,7 +787,7 @@ let _ =
             (* Attempt to read the deltas *)
             while true do
               let length, delta, generation_count, marker' =
-                read_delta block_dev_fd target_response_time
+                read_delta block_dev_fd response_timer
               in
               if marker <> marker' then
                 raise (NonMatchingMarkers (marker, marker'))
@@ -838,14 +826,14 @@ let _ =
   ) ;
   (* if !dump *)
   if !empty then (
-    (* Open the block device *)
-    let block_dev_fd =
-      open_block_device !block_dev
-        (Unix.gettimeofday () +. !Db_globs.redo_log_max_startup_time)
+    let startup_timer =
+      Timer.start ~duration:!Db_globs.redo_log_max_startup_time
     in
+    (* Open the block device *)
+    let block_dev_fd = open_block_device !block_dev startup_timer in
     R.info "Opened block device." ;
-    let target_response_time = Unix.gettimeofday () +. 3600. in
-    initialise_redo_log block_dev_fd target_response_time ;
+    let response_timer = Timer.start ~duration:Mtime.Span.(1 * hour) in
+    initialise_redo_log block_dev_fd response_timer ;
     Printf.printf "Block device initialised.\n"
   ) ;
   (* if !empty *)
@@ -855,18 +843,15 @@ let _ =
     let s = listen_on !ctrlsock in
     (* Main loop: accept a new client, communicate with it until it stops sending commands, repeat. *)
     while true do
-      let start_of_startup = Unix.gettimeofday () in
-      let target_startup_response_time =
-        start_of_startup +. !Db_globs.redo_log_max_startup_time
+      let startup_timer =
+        Timer.start ~duration:!Db_globs.redo_log_max_startup_time
       in
       R.info "Awaiting incoming connections on %s..." !ctrlsock ;
-      let client = accept_conn s target_startup_response_time in
+      let client = accept_conn s startup_timer in
       R.info "Accepted a connection" ;
       (* Open the block device *)
       try
-        let block_dev_fd =
-          open_block_device !block_dev target_startup_response_time
-        in
+        let block_dev_fd = open_block_device !block_dev startup_timer in
         R.info "Opened block device '%s'" !block_dev ;
         finally
           (fun () ->
@@ -898,12 +883,12 @@ let _ =
                           send_failure client (str ^ "|nack")
                             ("Unknown command " ^ str)
                         )
-                      , 0.
+                      , Mtime.Span.zero
                       )
                 in
                 (* "Start the clock!" -- set the latest time by which we need to have responded to the client. *)
-                let target_response_time = Unix.gettimeofday () +. block_time in
-                action_fn block_dev_fd client !datasock target_response_time
+                let timer = Timer.start ~duration:block_time in
+                action_fn block_dev_fd client !datasock timer
               with
               (* this must be an exception in Unixext.really_read because action_fn doesn't throw exceptions *)
               | End_of_file ->

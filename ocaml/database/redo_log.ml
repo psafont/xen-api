@@ -14,6 +14,7 @@
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_std.Xstringext
 open Xapi_stdext_unix
+module Timer = Clock.Timer
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
@@ -73,8 +74,8 @@ type redo_log_conf = {
   ; device: string option ref
   ; currently_accessible: bool ref
   ; state_change_callback: (bool -> unit) option
-  ; time_of_last_failure: float ref
-  ; backoff_delay: int ref
+  ; timer: Timer.t ref
+  ; backoff_delay: Mtime.Span.t ref
   ; sock: Unix.file_descr option ref
   ; pid: (Forkhelpers.pidty * string * string) option ref
   ; dying_processes_mutex: Mutex.t
@@ -244,10 +245,6 @@ let generation_size = 16
 
 let length_size = 16
 
-let get_latest_response_time block_time =
-  let now = Unix.gettimeofday () in
-  now +. block_time
-
 (* Returns the PID of the process *)
 let start_io_process block_dev ctrlsockpath datasockpath =
   (* Execute the process *)
@@ -258,73 +255,72 @@ let start_io_process block_dev ctrlsockpath datasockpath =
     !Db_globs.redo_log_block_device_io
     args
 
-let connect sockpath latest_response_time =
+let connect sockpath timer =
   let rec attempt () =
     let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
     try
       Unix.connect s (Unix.ADDR_UNIX sockpath) ;
       D.debug "Connected to I/O process via socket %s" sockpath ;
       s
-    with Unix.Unix_error (a, b, _) ->
+    with Unix.Unix_error (a, b, _) -> (
       (* It's probably the case that the process hasn't started yet. *)
       (* See if we can afford to wait and try again *)
       Unix.close s ;
       let attempt_delay = !Db_globs.redo_log_connect_delay in
-      let now = Unix.gettimeofday () in
-      let remaining = latest_response_time -. now in
-      if attempt_delay < remaining then (
-        (* Wait for a while then try again *)
-        D.debug
-          "Waiting to connect to I/O process via socket %s (error was %s: \
-           %s)..."
-          sockpath b (Unix.error_message a) ;
-        D.debug "Remaining time for retries: %f" remaining ;
-        Thread.delay attempt_delay ;
-        attempt ()
-      ) else (
-        D.debug "%s timeout reached" __FUNCTION__ ;
-        raise Unixext.Timeout
-      )
+      match Timer.remaining timer with
+      | Remaining remaining ->
+          (* Wait for a while then try again *)
+          D.debug
+            "Waiting to connect to I/O process via socket %s (error was %s: \
+             %s)..."
+            sockpath b (Unix.error_message a) ;
+          D.debug "Remaining time for retries: %a" Debug.Pp.mtime_span remaining ;
+          Thread.delay attempt_delay ;
+          attempt ()
+      | Expired ago ->
+          D.debug "%s timeout reached %a ago" __FUNCTION__ Debug.Pp.mtime_span
+            ago ;
+          raise Unixext.Timeout
+    )
   in
   attempt ()
 
-let read_separator sock latest_response_time =
-  let sep = Unixext.time_limited_read sock 1 latest_response_time in
+let read_separator sock timer =
+  let sep = Unixext.time_limited_read sock 1 timer in
   if sep <> "|" then raise (CommunicationsProblem "expected separator") else ()
 
-let read_generation_count sock latest_response_time =
-  read_separator sock latest_response_time ;
+let read_generation_count sock response_timer =
+  read_separator sock response_timer ;
   let gen_count =
-    Unixext.time_limited_read sock generation_size latest_response_time
+    Unixext.time_limited_read sock generation_size response_timer
   in
   Generation.of_string gen_count
 
-let read_length sock latest_response_time =
-  read_separator sock latest_response_time ;
-  let length_str =
-    Unixext.time_limited_read sock length_size latest_response_time
-  in
+let read_length sock timer =
+  read_separator sock timer ;
+  let length_str = Unixext.time_limited_read sock length_size timer in
   let length = try int_of_string length_str with _ -> 0 in
   length
 
-let read_length_and_string sock latest_response_time =
-  let length = read_length sock latest_response_time in
-  read_separator sock latest_response_time ;
-  let str = Unixext.time_limited_read sock length latest_response_time in
+let read_length_and_string sock timer =
+  let length = read_length sock timer in
+  read_separator sock timer ;
+  let str = Unixext.time_limited_read sock length timer in
   str
 
-let read_database f gen_count sock latest_response_time datasockpath =
+let read_database f gen_count sock timer datasockpath =
   D.debug "Reading database with generation count %s"
     (Generation.to_string gen_count) ;
-  let expected_length = read_length sock latest_response_time in
+  let expected_length = read_length sock timer in
   R.debug "Expecting to receive database of length %d" expected_length ;
   (* Connect to the data socket *)
-  let datasock = connect datasockpath latest_response_time in
+  let datasock = connect datasockpath timer in
   R.debug "Connected to data socket" ;
   finally
     (fun () ->
-      (* Pass the gen_count and the socket's fd to f. f may raise Unixext.Timeout if it cannot complete before latest_response_time. *)
-      f gen_count datasock expected_length latest_response_time
+      (* Pass the gen_count and the socket's fd to f. f may raise
+         Unixext.Timeout if it cannot complete before latest_response_time. *)
+      f gen_count datasock expected_length timer
     )
     (fun () ->
       (* Close the data socket *)
@@ -339,20 +335,20 @@ let read_delta f gen_count sock latest_response_time =
   let entry = string_to_redo_log_entry str in
   f gen_count entry
 
-let rec read_read_response sock fn_db fn_delta expected_gen_count
-    latest_response_time datasockpath =
-  let hdr = Unixext.time_limited_read sock 5 latest_response_time in
+let rec read_read_response sock fn_db fn_delta expected_gen_count timer
+    datasockpath =
+  let hdr = Unixext.time_limited_read sock 5 timer in
   if hdr <> "read|" then raise (CommunicationsProblem "expected 'read|'") ;
-  let kind = Unixext.time_limited_read sock 5 latest_response_time in
+  let kind = Unixext.time_limited_read sock 5 timer in
   match kind with
   | "db___" ->
-      let gen_count = read_generation_count sock latest_response_time in
-      read_database fn_db gen_count sock latest_response_time datasockpath ;
+      let gen_count = read_generation_count sock timer in
+      read_database fn_db gen_count sock timer datasockpath ;
       read_read_response sock fn_db fn_delta
         (Generation.add_int gen_count 1)
-        latest_response_time datasockpath
+        timer datasockpath
   | "delta" ->
-      let gen_count = read_generation_count sock latest_response_time in
+      let gen_count = read_generation_count sock timer in
       (* Since Boston all deltas cause a bump in generation count, whether or not they are persisted to the redo_log. *)
       (* For safety, we should only read a delta if the generation count is higher than that of the last delta read. *)
       if gen_count < expected_gen_count then (
@@ -361,25 +357,25 @@ let rec read_read_response sock fn_db fn_delta expected_gen_count
            generation count of at least %Ld so skipping this record."
           gen_count expected_gen_count ;
         (* Now skip over all the remaining data that the process is trying to send, discarding it all *)
-        read_delta (fun _ _ -> ()) gen_count sock latest_response_time ;
-        read_read_response sock fn_db fn_delta expected_gen_count
-          latest_response_time datasockpath
+        read_delta (fun _ _ -> ()) gen_count sock timer ;
+        read_read_response sock fn_db fn_delta expected_gen_count timer
+          datasockpath
       ) else (
         R.debug
           "Found record with generation count %Ld which is >= expected \
            generation count %Ld"
           gen_count expected_gen_count ;
-        read_delta fn_delta gen_count sock latest_response_time ;
+        read_delta fn_delta gen_count sock timer ;
         read_read_response sock fn_db fn_delta
           (Generation.add_int gen_count 1)
-          latest_response_time datasockpath
+          timer datasockpath
       )
   | "end__" ->
       D.debug "Reached the end of the read response" ;
       ()
   | "nack_" ->
       (* Read the error message *)
-      let error = read_length_and_string sock latest_response_time in
+      let error = read_length_and_string sock timer in
       D.warn "Read error received: [%s]" error ;
       if error = Block_device_io_errors.timeout_error_msg then
         raise Unixext.Timeout
@@ -392,48 +388,50 @@ let rec read_read_response sock fn_db fn_delta expected_gen_count
 let action_read fn_db fn_delta sock datasockpath =
   R.debug "Performing read" ;
   (* Compute desired response time *)
-  let latest_response_time =
-    get_latest_response_time !Db_globs.redo_log_max_block_time_read
+  let response_timer =
+    Timer.start ~duration:!Db_globs.redo_log_max_block_time_read
   in
   (* Write *)
   let str = Bytes.of_string "read______" in
-  Unixext.time_limited_write sock (Bytes.length str) str latest_response_time ;
+  Unixext.time_limited_write sock (Bytes.length str) str response_timer ;
   (* Read response *)
   read_read_response sock fn_db fn_delta Generation.null_generation
-    latest_response_time datasockpath
+    response_timer datasockpath
 
 let action_write_db marker generation_count write_fn sock datasockpath =
   R.debug "Performing writedb (generation %Ld)" generation_count ;
   (* Compute desired response time *)
-  let latest_response_time =
-    get_latest_response_time !Db_globs.redo_log_max_block_time_writedb
+  let response_timer =
+    Timer.start ~duration:!Db_globs.redo_log_max_block_time_writedb
   in
   (* Send write command down control channel *)
   let str =
     Printf.sprintf "writedb___|%s|%016Ld" marker generation_count
     |> Bytes.of_string
   in
-  Unixext.time_limited_write sock (Bytes.length str) str latest_response_time ;
+  Unixext.time_limited_write sock (Bytes.length str) str response_timer ;
   (*
    * Connect to the data socket. Note that this may delay a bit before being
    * able to connect, as we might need to wait for the I/O process to start
    * listening on the socket.
    *)
-  let datasock = connect datasockpath latest_response_time in
+  let datasock = connect datasockpath response_timer in
   finally
     (fun () ->
-      (* Send data straight down the data channel, then close it to send an EOF. *)
-      (* Ideally, we would check whether this completes before the latest_response_time. Could implement this by performing the write in a separate thread. *)
+      (* Send data straight down the data channel, then close it to send an
+         EOF. Ideally, we would check whether this completes before the
+         latest_response_time. Could implement this by performing the write in
+         a separate thread. *)
       try
         write_fn datasock ;
         D.debug "Finished writing database to data socket"
       with
       | Sys_error e when e = "Connection reset by peer" ->
           (* CA-41914: Note that if the block_device_io process internally
-           * throws Timeout (or indeed any other exception), it will forcibly
-           * close this connection, we'll see a Sys_error("Connection reset by
-           * peer"). This can be safely suppressed because we'll hear all the
-           * gory details in the response we read over the control socket. *)
+             throws Timeout (or indeed any other exception), it will forcibly
+             close this connection, we'll see a Sys_error("Connection reset by
+             peer"). This can be safely suppressed because we'll hear all the
+             gory details in the response we read over the control socket. *)
           D.warn
             "I/O process forcibly closed the data socket while trying to write \
              database to it. Await the response to see why it did that."
@@ -454,7 +452,7 @@ let action_write_db marker generation_count write_fn sock datasockpath =
   let response_length = 12 in
   R.debug "Reading response..." ;
   let response =
-    Unixext.time_limited_read sock response_length latest_response_time
+    Unixext.time_limited_read sock response_length response_timer
   in
   R.debug "Got response [%s]" response ;
   match response with
@@ -462,7 +460,7 @@ let action_write_db marker generation_count write_fn sock datasockpath =
       ()
   | "writedb|nack" ->
       (* Read the error message *)
-      let error = read_length_and_string sock latest_response_time in
+      let error = read_length_and_string sock response_timer in
       D.warn "Write was unsuccessful: [%s]" error ;
       if error = Block_device_io_errors.timeout_error_msg then
         raise Unixext.Timeout
@@ -474,9 +472,8 @@ let action_write_db marker generation_count write_fn sock datasockpath =
 let action_write_delta marker generation_count data flush_db_fn sock
     _datasockpath =
   R.debug "Performing writedelta (generation %Ld)" generation_count ;
-  (* Compute desired response time *)
-  let latest_response_time =
-    get_latest_response_time !Db_globs.redo_log_max_block_time_writedelta
+  let response_timer =
+    Timer.start ~duration:!Db_globs.redo_log_max_block_time_writedelta
   in
   (* Write *)
   let str =
@@ -484,11 +481,11 @@ let action_write_delta marker generation_count data flush_db_fn sock
       (String.length data) data
     |> Bytes.of_string
   in
-  Unixext.time_limited_write sock (Bytes.length str) str latest_response_time ;
+  Unixext.time_limited_write sock (Bytes.length str) str response_timer ;
   (* Read response *)
   let response_length = 15 in
   let response =
-    Unixext.time_limited_read sock response_length latest_response_time
+    Unixext.time_limited_read sock response_length response_timer
   in
   match response with
   | "writedelta|ack_" ->
@@ -496,7 +493,7 @@ let action_write_delta marker generation_count data flush_db_fn sock
       ()
   | "writedelta|nack" ->
       (* Read the error message *)
-      let error = read_length_and_string sock latest_response_time in
+      let error = read_length_and_string sock response_timer in
       D.warn "Write was unsuccessful: [%s]" error ;
       if error = Block_device_io_errors.timeout_error_msg then
         raise Unixext.Timeout (* Propagate the timeout exception *)
@@ -504,7 +501,8 @@ let action_write_delta marker generation_count data flush_db_fn sock
         R.info
           "Not enough space on block device, so attempting to flush the DB..." ;
         flush_db_fn ()
-        (* There wasn't enough space to write the delta, so flush the current database instead, which will free up space. *)
+        (* There wasn't enough space to write the delta, so flush the current
+           database instead, which will free up space. *)
       ) else
         raise (RedoLogFailure error)
       (* Some other error *)
@@ -513,44 +511,35 @@ let action_write_delta marker generation_count data flush_db_fn sock
       raise
         (CommunicationsProblem ("unrecognised writedelta response [" ^ e ^ "]"))
 
-(* ----------------------------------------------------------------------------------------------- *)
-(* Functions relating to the exponential back-off of repeated attempts to reconnect after failure. *)
+(* Functions relating to the exponential back-off of repeated attempts to
+   reconnect after failure. *)
 
-let initialise_backoff_delay log =
+let reset_backoff_delay log =
+  log.timer := Timer.start ~duration:Db_globs.redo_log_initial_backoff_delay ;
   log.backoff_delay := Db_globs.redo_log_initial_backoff_delay
 
-let increase_backoff_delay log =
-  if !(log.backoff_delay) = 0 then
-    initialise_backoff_delay log
-  else
-    log.backoff_delay :=
-      !(log.backoff_delay) * Db_globs.redo_log_exponentiation_base ;
-  if !(log.backoff_delay) > Db_globs.redo_log_maximum_backoff_delay then
-    log.backoff_delay := Db_globs.redo_log_maximum_backoff_delay ;
-  D.debug "Bumped backoff delay to %d seconds" !(log.backoff_delay)
+let shortest a b = if Mtime.Span.compare a b > 0 then b else a
 
-let set_time_of_last_failure log =
-  let now = Unix.gettimeofday () in
-  log.time_of_last_failure := now ;
-  increase_backoff_delay log
-
-let reset_time_of_last_failure log =
-  log.time_of_last_failure := 0. ;
-  initialise_backoff_delay log
+let delay_again log =
+  let current_duration = !(log.backoff_delay) in
+  let doubled_duration = Mtime.Span.(2 * current_duration) in
+  let duration =
+    shortest doubled_duration Db_globs.redo_log_maximum_backoff_delay
+  in
+  log.timer := Timer.extend_by duration !(log.timer) ;
+  log.backoff_delay := duration ;
+  D.debug "Bumped backoff delay to %a" Debug.Pp.mtime_span duration
 
 let maybe_retry f log =
-  let now = Unix.gettimeofday () in
-  D.debug
-    "Considering whether to attempt to flush the DB... (backoff %d secs, time \
-     since last failure %.1f secs)"
-    !(log.backoff_delay)
-    (now -. !(log.time_of_last_failure)) ;
-  if now -. !(log.time_of_last_failure) >= float_of_int !(log.backoff_delay)
-  then (
-    D.debug "It's time for an attempt to reconnect and flush the DB." ;
-    f ()
-  ) else
-    D.debug "No; we'll wait a bit longer before trying again."
+  D.debug "Considering whether to attempt to flush the DB... (backoff %a)"
+    Debug.Pp.mtime_span !(log.backoff_delay) ;
+  match Timer.remaining !(log.timer) with
+  | Remaining remaining ->
+      D.debug "Not flushing, spare time until timeout: %a" Debug.Pp.mtime_span
+        remaining
+  | Expired _ ->
+      D.debug "Attempting to reconnect and flush the DB." ;
+      f ()
 
 (* -------------------------------------------------------------------- *)
 (* Functions relating to the lifecycle of the block device I/O process. *)
@@ -580,7 +569,8 @@ let shutdown log =
           let ipid = Forkhelpers.getpid p in
           D.info "Killing I/O process with pid %d" ipid ;
           Unix.kill ipid Sys.sigkill ;
-          (* Wait for the process to die. This is done in a separate thread in case it does not respond to the signal immediately. *)
+          (* Wait for the process to die. This is done in a separate thread in
+             case it does not respond to the signal immediately. *)
           ignore
             (Thread.create
                (fun () ->
@@ -614,14 +604,12 @@ let shutdown log =
 
 let broken log =
   D.debug "%s" __FUNCTION__ ;
-  set_time_of_last_failure log ;
+  delay_again log ;
   shutdown log ;
   cannot_connect_fn log
 
 let healthy log =
-  D.debug "%s" __FUNCTION__ ;
-  reset_time_of_last_failure log ;
-  can_connect_fn log
+  D.debug "%s" __FUNCTION__ ; reset_backoff_delay log ; can_connect_fn log
 
 exception TooManyProcesses
 
@@ -668,55 +656,51 @@ let startup log =
                 (Forkhelpers.getpid p)
         )
       ) ;
-      match !(log.pid) with
-      | Some (_, ctrlsockpath, _) -> (
-        match !(log.sock) with
-        | Some _ ->
-            () (* We're already connected *)
-        | None ->
-            let latest_connect_time =
-              get_latest_response_time !Db_globs.redo_log_max_startup_time
-            in
-            (* Now connect to the process via the socket *)
-            let s = connect ctrlsockpath latest_connect_time in
-            finally
-              (fun () ->
-                try
-                  (* Check that we connected okay by reading the startup message *)
-                  let response_length = 12 in
-                  let response =
-                    Unixext.time_limited_read s response_length
-                      latest_connect_time
-                  in
-                  match response with
-                  | "connect|ack_" ->
-                      D.info "Connect was successful" ;
-                      (* Save the socket. This defers the responsibility for closing it to shutdown(). *)
-                      log.sock := Some s
-                  | "connect|nack" ->
-                      (* Read the error message *)
-                      let error =
-                        read_length_and_string s latest_connect_time
-                      in
-                      D.warn "Connect was unsuccessful: [%s]" error ;
-                      broken log
-                  | e ->
-                      D.warn "Received unexpected connect response: [%s]" e ;
-                      broken log
-                with Unixext.Timeout ->
-                  D.warn "Timed out waiting to connect" ;
-                  broken log
-              )
-              (fun () ->
-                (* If the socket s has been opened, but sock hasn't been set then close it here. *)
-                match !(log.sock) with
-                | Some _ ->
-                    ()
-                | None ->
-                    ignore_exn (fun () -> Unix.close s)
-              )
-      )
-      | None ->
+      match (!(log.pid), !(log.sock)) with
+      | Some _, Some _ ->
+          () (* We're already connected *)
+      | Some (_, ctrlsockpath, _), None ->
+          let connect_timer =
+            Timer.start ~duration:!Db_globs.redo_log_max_startup_time
+          in
+          (* Now connect to the process via the socket *)
+          let s = connect ctrlsockpath connect_timer in
+          finally
+            (fun () ->
+              try
+                (* Check that we connected okay by reading the startup message *)
+                let response_length = 12 in
+                let response =
+                  Unixext.time_limited_read s response_length connect_timer
+                in
+                match response with
+                | "connect|ack_" ->
+                    D.info "Connect was successful" ;
+                    (* Save the socket. This defers the responsibility for
+                       closing it to shutdown(). *)
+                    log.sock := Some s
+                | "connect|nack" ->
+                    (* Read the error message *)
+                    let error = read_length_and_string s connect_timer in
+                    D.warn "Connect was unsuccessful: [%s]" error ;
+                    broken log
+                | e ->
+                    D.warn "Received unexpected connect response: [%s]" e ;
+                    broken log
+              with Unixext.Timeout ->
+                D.warn "Timed out waiting to connect" ;
+                broken log
+            )
+            (fun () ->
+              (* If the socket s has been opened, but sock hasn't been set then
+                 close it here. *)
+              match !(log.sock) with
+              | Some _ ->
+                  ()
+              | None ->
+                  ignore_exn (fun () -> Unix.close s)
+            )
+      | None, _ ->
           ()
       (* don't attempt to connect *)
     with TooManyProcesses ->
@@ -789,7 +773,7 @@ let create ~name ~state_change_callback ~read_only =
     ; device= ref None
     ; currently_accessible= ref true
     ; state_change_callback
-    ; time_of_last_failure= ref 0.
+    ; timer= ref (Timer.start ~duration:Db_globs.redo_log_initial_backoff_delay)
     ; backoff_delay= ref Db_globs.redo_log_initial_backoff_delay
     ; sock= ref None
     ; pid= ref None

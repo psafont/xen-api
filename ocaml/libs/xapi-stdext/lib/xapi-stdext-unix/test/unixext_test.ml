@@ -65,10 +65,11 @@ let test_time_limited_write =
       let fd = Xapi_fdcaps.Operations.For_test.unsafe_fd_exn wrapped_fd in
       Unix.set_nonblock fd ;
       let dt = Mtime_clock.counter () in
-      let deadline = Unix.gettimeofday () +. timeout in
+      let duration = Clock.Timer.s_to_span timeout |> Option.get in
+      let timer = Clock.Timer.start ~duration in
       let finally () = test_elapsed := Mtime_clock.count dt in
       Fun.protect ~finally (fun () ->
-          Unixext.time_limited_write_substring fd len buf deadline
+          Unixext.time_limited_write_substring fd len buf timer
       ) ;
       buf
     in
@@ -125,10 +126,11 @@ let test_time_limited_read =
     let fd = Xapi_fdcaps.Operations.For_test.unsafe_fd_exn wrapped_fd in
     Unix.set_nonblock fd ;
     let dt = Mtime_clock.counter () in
-    let deadline = Unix.gettimeofday () +. timeout in
+    let duration = Clock.Timer.s_to_span timeout |> Option.get in
+    let timer = Clock.Timer.start ~duration in
     let finally () = test_elapsed := Mtime_clock.count dt in
     Fun.protect ~finally (fun () ->
-        Unixext.time_limited_read fd behaviour.size deadline
+        Unixext.time_limited_read fd behaviour.size timer
     )
   in
   let observations, result =
