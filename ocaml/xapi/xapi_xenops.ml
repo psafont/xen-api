@@ -3235,11 +3235,12 @@ let events_from_xapi () =
                  received BUT we will not necessarily receive events for the new VMs *)
               let reregister = ref false in
               while not !reregister do
-                let api_timeout = 60. in
+                let ( ++ ) = Mtime.Span.add in
+                let api_timeout = Mtime.Span.(1 * min) in
                 let timeout =
-                  30.
-                  +. api_timeout
-                  +. !Xapi_database.Db_globs.master_connection_reset_timeout
+                  Mtime.Span.(30 * s)
+                  ++ api_timeout
+                  ++ !Xapi_database.Db_globs.master_connection_reset_timeout
                 in
                 let timebox_rpc =
                   Helpers.make_timeboxed_rpc ~__context timeout
@@ -3247,7 +3248,8 @@ let events_from_xapi () =
                 let from =
                   try
                     XenAPI.Event.from ~rpc:timebox_rpc ~session_id ~classes
-                      ~token:!token ~timeout:api_timeout
+                      ~token:!token
+                      ~timeout:Scheduler.(span_to_s api_timeout)
                     |> event_from_of_rpc
                   with e ->
                     Debug.log_backtrace e (Backtrace.get e) ;

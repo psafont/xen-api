@@ -25,6 +25,7 @@ type db_record = (string * string) list * (string * string list) list
 module D = Debug.Make (struct let name = "master_connection" end)
 
 open D
+module Timer = Clock.Timer
 
 let my_connection : Stunnel.t option ref = ref None
 
@@ -97,20 +98,20 @@ let force_connection_reset () =
         ) ;
       Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm
 
-(* whenever a call is made that involves read/write to the master connection, a timestamp is
-   written into this global: *)
-let last_master_connection_call : float option ref = ref None
+(* whenever a call is made that involves read/write to the master connection, a
+   timer is started *)
+let reconnect_clock : Timer.t option ref = ref None
 
-(* the master_connection_watchdog uses this time to determine whether the master connection
-   should be reset *)
+(* the master_connection_watchdog uses this clock to determine whether the
+   master connection should be reset *)
 
-(* Set and unset the timestamp global. (No locking required since we are operating under
-   mutual exclusion provided by the database lock here anyway) *)
-let with_timestamp f =
-  last_master_connection_call := Some (Unix.gettimeofday ()) ;
-  Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
-      last_master_connection_call := None
-  )
+(* Set and unset the reconnect clock. No locking required since we are
+   operating under mutual exclusion provided by the database lock *)
+let with_timer f =
+  let duration = !Db_globs.master_connection_reset_timeout in
+  reconnect_clock := Some (Timer.start ~duration) ;
+  let reset () = reconnect_clock := None in
+  Xapi_stdext_pervasives.Pervasiveext.finally f reset
 
 (* call force_connection_reset if we detect that a master-connection is blocked for too long.
    One common way this can happen is if we end up blocked waiting for a TCP timeout when the
@@ -120,40 +121,31 @@ let watchdog_start_mutex = Mutex.create ()
 let my_watchdog : Thread.t option ref = ref None
 
 let start_master_connection_watchdog () =
-  Xapi_stdext_threads.Threadext.Mutex.execute watchdog_start_mutex (fun () ->
-      match !my_watchdog with
-      | None ->
-          my_watchdog :=
-            Some
-              (Thread.create
-                 (fun () ->
-                   while true do
-                     try
-                       ( match !last_master_connection_call with
-                       | None ->
-                           ()
-                       | Some t ->
-                           let now = Unix.gettimeofday () in
-                           let since_last_call = now -. t in
-                           if
-                             since_last_call
-                             > !Db_globs.master_connection_reset_timeout
-                           then (
-                             debug
-                               "Master connection timeout: forcibly resetting \
-                                master connection" ;
-                             force_connection_reset ()
-                           )
-                       ) ;
-                       Thread.delay 10.
-                     with _ -> ()
-                   done
-                 )
-                 ()
-              )
-      | Some _ ->
-          ()
-  )
+  Xapi_stdext_threads.Threadext.Mutex.execute watchdog_start_mutex @@ fun () ->
+  match !my_watchdog with
+  | None ->
+      let watchdog =
+        Thread.create @@ fun () ->
+        while true do
+          try
+            ( match !reconnect_clock with
+            | None ->
+                ()
+            | Some timer ->
+                if Timer.has_expired timer then (
+                  debug
+                    "Master connection timeout: forcibly resetting master \
+                     connection" ;
+                  force_connection_reset ()
+                )
+            ) ;
+            Thread.delay 10.
+          with _ -> ()
+        done
+      in
+      my_watchdog := Some (watchdog ())
+  | Some _ ->
+      ()
 
 module StunnelDebug = Debug.Make (struct let name = "stunnel" end)
 
@@ -195,31 +187,77 @@ let open_secure_connection () =
     raise Goto_handler
   )
 
-(* Do a db xml_rpc request, catching exception and trying to reopen the connection if it
-   fails *)
-let connection_timeout = ref !Db_globs.master_connection_default_timeout
+let timeout = ref !Db_globs.master_connection_default_timeout
+
+let times_out = ref false
 
 (* if this is true then xapi will restart if retries exceeded [and enter emergency mode if still
    can't reconnect after reboot]. if this is false then xapi will just throw exception if retries
    are exceeded *)
 let restart_on_connection_timeout = ref true
 
+module Time : sig
+  (** Time allows the reconnect code to wait indefinitely until the connection
+      is established or wait for a certain amount of time when needed. The
+      elapsed amount of time builds on Timer.elapsed to provide the amount of
+      time since or after the timeout has been reached, if it exists, and it's
+      consistent with the elapsed amount of time, something that Timer doesn't
+      usually guarantee.
+    *)
+
+  type t
+
+  val start : unit -> t
+
+  val elapsed : t -> Mtime.Span.t * Timer.countdown Option.t
+end = struct
+  type timer = Infinite of Mtime_clock.counter | Finite of Timer.t
+
+  type t = timer
+
+  let start () =
+    if !times_out then
+      Finite (Timer.start ~duration:!timeout)
+    else
+      Infinite (Mtime_clock.counter ())
+
+  let elapsed t =
+    let expired timer =
+      let remaining = Timer.remaining timer in
+      let duration = Timer.duration timer in
+      let elapsed =
+        match remaining with
+        | Expired t ->
+            Mtime.Span.add duration t
+        | Remaining t ->
+            Mtime.Span.abs_diff duration t
+      in
+      (elapsed, Some remaining)
+    in
+
+    match t with
+    | Finite timer ->
+        expired timer
+    | Infinite counter ->
+        (Mtime_clock.count counter, None)
+end
+
 exception Content_length_required
+
+let shortest a b = if Mtime.Span.is_longer a ~than:b then b else a
 
 let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
     Db_interface.response =
-  let time_call_started = Unix.gettimeofday () in
+  let call_started = Time.start () in
   let write_ok = ref false in
   let result = ref "" in
-  let surpress_no_timeout_logs = ref false in
-  let backoff_delay = ref 2.0 in
-  (* initial delay = 2s *)
+  let supress_no_timeout_logs = ref false in
+  let min_backoff_delay = Mtime.Span.(2 * s) in
+  let max_backoff_delay = Mtime.Span.(256 * s) in
+  let backoff_delay = ref min_backoff_delay in
   let update_backoff_delay () =
-    backoff_delay := !backoff_delay *. 2.0 ;
-    if !backoff_delay < 2.0 then
-      backoff_delay := 2.0
-    else if !backoff_delay > 256.0 then
-      backoff_delay := 256.0
+    let doubled_delay = Mtime.Span.(2 * !backoff_delay) in
+    backoff_delay := shortest doubled_delay max_backoff_delay
   in
   let reconnect () =
     (* RPC failed - there's no way we can recover from this so try reopening connection every 2s + backoff delay *)
@@ -232,40 +270,39 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
         try Stunnel.disconnect st_proc with _ -> ()
       )
     ) ;
-    let time_sofar = Unix.gettimeofday () -. time_call_started in
-    if !connection_timeout < 0. then (
-      if not !surpress_no_timeout_logs then (
+    ( match Time.elapsed call_started with
+    | elapsed, None ->
+        if not !supress_no_timeout_logs then
+          error
+            "Connection to master died. Time in this call is %a; retrying \
+             indefinitely (suppressing logging for the call)"
+            Debug.Pp.mtime_span elapsed ;
+        supress_no_timeout_logs := true
+    | elapsed, Some (Expired excess) ->
         debug
-          "Connection to master died. I will continue to retry indefinitely \
-           (supressing future logging of this message)." ;
-        error
-          "Connection to master died. I will continue to retry indefinitely \
-           (supressing future logging of this message)."
-      ) ;
-      surpress_no_timeout_logs := true
-    ) else
-      debug
-        "Connection to master died: time taken so far in this call '%f'; will \
-         %s"
-        time_sofar
-        ( if !connection_timeout < 0. then
-            "never timeout"
-          else
-            Printf.sprintf "timeout after '%f'" !connection_timeout
-        ) ;
-    if time_sofar > !connection_timeout && !connection_timeout >= 0. then
-      if !restart_on_connection_timeout then (
-        debug "Exceeded timeout for retrying master connection: restarting xapi" ;
-        !Db_globs.restart_fn ()
-      ) else (
+          "Connection to master died. Time in this call is %a; timed out %a ago"
+          Debug.Pp.mtime_span elapsed Debug.Pp.mtime_span excess ;
+        if !restart_on_connection_timeout then (
+          debug
+            "Exceeded timeout for retrying master connection: restarting xapi" ;
+          !Db_globs.restart_fn ()
+        ) else (
+          debug
+            "Exceeded timeout for retrying master connection: raising \
+             Cannot_connect_to_master" ;
+          raise Cannot_connect_to_master
+        )
+    | elapsed, Some (Remaining spare) ->
         debug
-          "Exceeded timeout for retrying master connection: raising \
-           Cannot_connect_to_master" ;
-        raise Cannot_connect_to_master
-      ) ;
-    debug "Sleeping %f seconds before retrying master connection..."
+          "Connection to master died. Time in this call is %a; will time out \
+           in %a"
+          Debug.Pp.mtime_span elapsed Debug.Pp.mtime_span spare ;
+        ()
+    ) ;
+    debug "Sleeping %a before retrying master connection..." Debug.Pp.mtime_span
       !backoff_delay ;
-    let timed_out = Scheduler.PipeDelay.wait delay !backoff_delay in
+    let delay_s = Scheduler.span_to_s !backoff_delay in
+    let timed_out = Scheduler.PipeDelay.wait delay delay_s in
     if not timed_out then
       debug "%s: Sleep interrupted, retrying master connection now" __FUNCTION__ ;
     update_backoff_delay () ;
@@ -290,7 +327,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
           raise Goto_handler
       | Some stunnel_proc ->
           let fd = stunnel_proc.Stunnel.fd in
-          with_timestamp (fun () ->
+          with_timer (fun () ->
               with_http request
                 (fun (response, _) ->
                   (* XML responses must have a content-length because we cannot use the Xml.parse_in
