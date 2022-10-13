@@ -48,11 +48,11 @@ val idempotent_map : bool ref
 
 val permanent_master_failure_retry_interval : float ref
 
-val master_connection_reset_timeout : float ref
+val master_connection_reset_timeout : Mtime.Span.t ref
 
-val master_connection_retry_timeout : float ref
+val master_connection_retry_timeout : Mtime.Span.t
 
-val master_connection_default_timeout : float ref
+val master_connection_retry_times_out : bool ref
 
 val pool_secret : Db_secret_string.t ref
 

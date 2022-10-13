@@ -1148,16 +1148,7 @@ let event_next_delay, event_next_entry =
 
 let xapi_globs_spec =
   [
-    ( "master_connection_reset_timeout"
-    , Float Db_globs.master_connection_reset_timeout
-    )
-  ; ( "master_connection_retry_timeout"
-    , Float Db_globs.master_connection_retry_timeout
-    )
-  ; ( "master_connection_default_timeout"
-    , Float Db_globs.master_connection_default_timeout
-    )
-  ; ("qemu_dm_ready_timeout", Float qemu_dm_ready_timeout)
+    ("qemu_dm_ready_timeout", Float qemu_dm_ready_timeout)
   ; ("hotplug_timeout", Float hotplug_timeout)
   ; ("pif_reconfigure_ip_timeout", Float pif_reconfigure_ip_timeout)
   ; ("pool_db_sync_interval", Float pool_db_sync_interval)

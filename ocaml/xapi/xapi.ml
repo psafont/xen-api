@@ -926,12 +926,6 @@ let server_init () =
   in
   test_open !Xapi_globs.test_open ;
   Unixext.unlink_safe "/etc/xensource/boot_time_info_updated" ;
-  (* Record the initial value of Master_connection.connection_timeout and set it to 'never'. When we are a slave who
-     has just started up we want to wait forever for the master to appear. (See CA-25481) *)
-  let initial_connection_timeout = !Master_connection.connection_timeout in
-  Master_connection.connection_timeout := -1. ;
-
-  (* never timeout *)
   let initialize_auth_semaphores ~__context =
     let pool = Helpers.get_pool ~__context in
     Xapi_session.set_local_auth_max_threads
@@ -1217,13 +1211,11 @@ let server_init () =
             done ;
             debug "Startup successful" ;
             Xapi_globs.slave_emergency_mode := false ;
-            Master_connection.connection_timeout := initial_connection_timeout ;
+            (* We can't tolerate an exception in db synchronization so fall back into emergency mode
+               if this happens and try again later.. *)
+            Master_connection.retry_times_out := true ;
+            Master_connection.restart_on_connection_timeout := false ;
             ( try
-                (* We can't tolerate an exception in db synchronization so fall back into emergency mode
-                   if this happens and try again later.. *)
-                Master_connection.restart_on_connection_timeout := false ;
-                Master_connection.connection_timeout := 10. ;
-                (* give up retrying after 10s *)
                 Db_cache_impl.initialise () ;
                 Sm.register ~__context () ;
                 Startup.run ~__context
@@ -1240,8 +1232,7 @@ let server_init () =
                    to try again. Entering emergency mode." ;
                 server_run_in_emergency_mode ()
             ) ;
-            Master_connection.connection_timeout :=
-              !Db_globs.master_connection_retry_timeout ;
+            Master_connection.retry_times_out := false ;
             Master_connection.restart_on_connection_timeout := true ;
             Master_connection.on_database_connection_established :=
               fun () -> on_master_restart ~__context

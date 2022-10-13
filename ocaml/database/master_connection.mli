@@ -34,7 +34,9 @@ val on_database_connection_established : (unit -> unit) ref
 
 val open_secure_connection : unit -> unit
 
-val connection_timeout : float ref
+val retry_times_out : bool ref
+
+val retry_timeout : Mtime.Span.t ref
 
 val restart_on_connection_timeout : bool ref
 
