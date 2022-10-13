@@ -11,7 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Keep track of changes to the database by writing deltas to a block device. Communicates with another process which does the block device I/O. *)
+(** Keep track of changes to the database by writing deltas to a block device.
+    Communicates with another process which does the block device I/O. *)
 
 (** {2 VDI related} *)
 
@@ -99,7 +100,7 @@ type t =
       represents the write to the field with name [fldname] of a row in table [tblname] with key [objref], overwriting its value with [newval]. *)
 
 val apply :
-     (Generation.t -> Unix.file_descr -> int -> float -> unit)
+     (Generation.t -> Unix.file_descr -> int -> Clock.Timer.t -> unit)
   -> (Generation.t -> t -> unit)
   -> [< `RO | `RW] redo_log
   -> unit
@@ -107,7 +108,10 @@ val apply :
     This function is best-effort only and does not raise any exceptions in the case of error.
     [apply db_fn delta_fn] will cause [db_fn] and [delta_fn] to be invoked for each database or database delta which is read.
     The block device will consist of a sequence of zero or more databases and database deltas.
-    For each database, [db_fn] is invoked with the database's generation count, a file descriptor from which to read the database's contents, the length of the database in bytes and the latest response time. The [db_fn] function may raise {!Unixext.Timeout} if the transfer is not complete by the latest response time.
+    For each database, [db_fn] is invoked with the database's generation count,
+    a file descriptor from which to read the database's contents, the length of
+    the database in bytes and a timer. The [db_fn] function may raise
+    {!Unixext.Timeout} if the transfer is not complete when the time expires.
     For each database delta, [delta_fn] is invoked with the delta's generation count and the value of the delta. *)
 
 val flush_db_to_redo_log : Db_cache_types.Database.t -> [< `RW] redo_log -> bool
