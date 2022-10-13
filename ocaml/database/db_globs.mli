@@ -16,25 +16,23 @@ val redo_log_block_device_io : string ref
 
 val redo_log_connect_delay : float ref
 
-val redo_log_max_block_time_empty : float ref
+val redo_log_max_block_time_empty : Mtime.Span.t ref
 
-val redo_log_max_block_time_read : float ref
+val redo_log_max_block_time_read : Mtime.Span.t ref
 
-val redo_log_max_block_time_writedelta : float ref
+val redo_log_max_block_time_writedelta : Mtime.Span.t ref
 
-val redo_log_max_block_time_writedb : float ref
+val redo_log_max_block_time_writedb : Mtime.Span.t ref
 
-val redo_log_initial_backoff_delay : int
+val redo_log_initial_backoff_delay : Mtime.Span.t
 
-val redo_log_exponentiation_base : int
-
-val redo_log_maximum_backoff_delay : int
+val redo_log_maximum_backoff_delay : Mtime.Span.t
 
 val redo_log_max_dying_processes : int
 
 val redo_log_comms_socket_stem : string
 
-val redo_log_max_startup_time : float ref
+val redo_log_max_startup_time : Mtime.Span.t ref
 
 val redo_log_length_of_half : int
 

@@ -78,6 +78,7 @@
  (name block_device_io)
  (modules block_device_io)
  (libraries
+  clock
   xapi_database
   xapi-log
   xapi-stdext-pervasives
