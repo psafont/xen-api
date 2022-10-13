@@ -24,11 +24,11 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
      to allow NBD traffic on them. At startup, we don't know on which
      interfaces NBD is allowed, and we always update the firewall. *)
   let allowed_interfaces = None in
-  let api_timeout = 60. in
   let timeout =
-    30.
-    +. api_timeout
-    +. !Xapi_database.Db_globs.master_connection_reset_timeout
+    Mtime.Span.(
+      add (90 * s) !Xapi_database.Db_globs.master_connection_reset_timeout
+    )
+    |> Scheduler.span_to_s
   in
   let wait_for_network_change ~token =
     let from =

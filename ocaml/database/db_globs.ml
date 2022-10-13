@@ -63,14 +63,11 @@ let idempotent_map = ref false
 
 let permanent_master_failure_retry_interval = ref 60.
 
-let master_connection_reset_timeout = ref 120.
+let master_connection_reset_timeout = ref Mtime.Span.(2 * min)
 
-(* amount of time to retry master_connection before (if
-   restart_on_connection_timeout is set) restarting xapi; -ve means don't
-   timeout: *)
-let master_connection_retry_timeout = ref (-1.)
+let master_connection_retry_timeout = ref Mtime.Span.zero
 
-let master_connection_default_timeout = ref 10.
+let master_connection_default_timeout = ref Mtime.Span.(10 * s)
 
 let pool_secret = ref (Db_secret_string.of_string "")
 
