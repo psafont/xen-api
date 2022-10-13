@@ -27,55 +27,45 @@ let wait_for_all_inner ~rpc ~session_id ~all_timeout ~tasks =
   let classes =
     List.map (fun task -> Printf.sprintf "task/%s" (Ref.string_of task)) tasks
   in
-  let timeout_span =
-    match all_timeout with
-    | Some t ->
-        Some (t *. 1e9 |> Int64.of_float |> Mtime.Span.of_uint64_ns)
-    | None ->
-        None
-  in
-  let timer = Mtime_clock.counter () in
+  let elapsed = Mtime_clock.counter () in
   let timeout = 5.0 in
   let rec wait ~token ~task_set =
-    if TaskSet.is_empty task_set then
-      true
-    else
-      match timeout_span with
-      | Some span when Mtime.Span.compare (Mtime_clock.count timer) span > 0 ->
-          let tasks = TaskSet.elements task_set in
-          let tasks_str =
-            tasks |> List.map Ref.really_pretty_and_small |> String.concat ","
-          in
-          D.info "Waiting for tasks timed out on %s" tasks_str ;
-          false
-      | _ ->
-          let open Event_types in
-          let event_from_rpc =
-            Client.Event.from ~rpc ~session_id ~classes ~token ~timeout
-          in
-          let event_from = Event_types.event_from_of_rpc event_from_rpc in
-          let records =
-            List.map Event_helper.record_of_event event_from.events
-          in
-          (* If any records indicate that a task is no longer pending, remove that task from the set. *)
-          let pending_task_set =
-            List.fold_left
-              (fun task_set' record ->
-                match record with
-                | Event_helper.Task (t, Some t_rec) ->
-                    if
-                      TaskSet.mem t task_set'
-                      && t_rec.API.task_status <> `pending
-                    then
-                      TaskSet.remove t task_set'
-                    else
-                      task_set'
-                | _ ->
+    match (TaskSet.is_empty task_set, all_timeout) with
+    | true, _ ->
+        true
+    | false, Some limit
+      when Mtime.Span.is_longer (Mtime_clock.count elapsed) ~than:limit ->
+        let tasks = TaskSet.elements task_set in
+        let tasks_str =
+          tasks |> List.map Ref.really_pretty_and_small |> String.concat ","
+        in
+        D.info "Waiting for tasks timed out on %s" tasks_str ;
+        false
+    | _ ->
+        let open Event_types in
+        let event_from_rpc =
+          Client.Event.from ~rpc ~session_id ~classes ~token ~timeout
+        in
+        let event_from = Event_types.event_from_of_rpc event_from_rpc in
+        let records = List.map Event_helper.record_of_event event_from.events in
+        (* If any records indicate that a task is no longer pending, remove that task from the set. *)
+        let pending_task_set =
+          List.fold_left
+            (fun task_set' record ->
+              match record with
+              | Event_helper.Task (t, Some t_rec) ->
+                  if
+                    TaskSet.mem t task_set' && t_rec.API.task_status <> `pending
+                  then
+                    TaskSet.remove t task_set'
+                  else
                     task_set'
-              )
-              task_set records
-          in
-          wait ~token:event_from.Event_types.token ~task_set:pending_task_set
+              | _ ->
+                  task_set'
+            )
+            task_set records
+        in
+        wait ~token:event_from.Event_types.token ~task_set:pending_task_set
   in
   let token = "" in
   let task_set =
@@ -90,7 +80,8 @@ let wait_for_all ~rpc ~session_id ~tasks =
 
 let with_tasks_destroy ~rpc ~session_id ~timeout ~tasks =
   let wait_or_cancel () =
-    D.info "Waiting for %d tasks, timeout: %.3fs" (List.length tasks) timeout ;
+    D.info "Waiting for %d tasks, timeout: %a" (List.length tasks)
+      Debug.Pp.mtime_span timeout ;
     if
       not
         (wait_for_all_inner ~rpc ~session_id ~all_timeout:(Some timeout) ~tasks)
@@ -103,8 +94,8 @@ let with_tasks_destroy ~rpc ~session_id ~timeout ~tasks =
         )
         tasks ;
       (* cancel is not immediate, give it a reasonable chance to take effect *)
-      wait_for_all_inner ~rpc ~session_id ~all_timeout:(Some 60.) ~tasks
-      |> ignore ;
+      let all_timeout = Some Mtime.Span.(1 * min) in
+      wait_for_all_inner ~rpc ~session_id ~all_timeout ~tasks |> ignore ;
       false
     ) else
       true

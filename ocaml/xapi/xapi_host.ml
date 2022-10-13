@@ -827,7 +827,7 @@ let prepare_for_poweroff ~__context ~host =
           because we might need it when unplugging the PBDs
     *)
     Remote_requests.stop_request_thread () ;
-  Vm_evacuation.ensure_no_vms ~__context ~evacuate_timeout:0. ;
+  Vm_evacuation.ensure_no_vms ~__context ;
   Xapi_ha.before_clean_shutdown_or_reboot ~__context ~host ;
   Xapi_pbd.unplug_all_pbds ~__context ;
   if not i_am_master then
