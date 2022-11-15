@@ -98,6 +98,7 @@
     sexpr
     sha
     stunnel
+    systemd
     tapctl
     tar
     tar-unix
