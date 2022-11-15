@@ -15,6 +15,8 @@ After=xenopsd-xc.service
 After=xenstored.service
 After=stunnel@xapi.service
 
+Before=xapi-init-complete.target
+
 Conflicts=shutdown.target
 
 [Service]
@@ -31,4 +33,4 @@ ExecStopPost=/usr/bin/rm -f /var/lock/subsys/xapi /var/run/xapi.pid /var/run/xap
 StandardError=journal
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=xapi-init-complete.target
