@@ -25,7 +25,7 @@ LimitNOFILE=16384
 User=root
 Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"
 Environment="MALLOC_CONF=narenas:1,tcache:true"
-Type=simple
+Type=notify
 Restart=on-failure
 ExecStart=@LIBEXECDIR@/xapi-init start
 ExecStartPost=/usr/bin/touch /var/lock/subsys/xapi
