@@ -587,9 +587,8 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
     ~platform ~pCI_bus ~other_config ~last_boot_CPU_flags ~last_booted_record
     ~recommendations ~xenstore_data ~ha_always_run ~ha_restart_priority ~tags
-    ~blocked_operations:_ ~protection_policy:_ ~is_snapshot_from_vmpp:_
-    ~snapshot_schedule:_ ~is_vmss_snapshot:_ ~appliance ~start_delay
-    ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
+    ~blocked_operations:_ ~snapshot_schedule:_ ~is_vmss_snapshot:_ ~appliance
+    ~start_delay ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
     ~hardware_platform_version ~has_vendor_device ~reference_label ~domain_type
     ~nVRAM : API.ref_VM =
   (* Add random mac_seed if there isn't one specified already *)
@@ -612,14 +611,13 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
   *)
   let metrics = Ref.make ()
   and metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
-  let vCPUs_utilisation = [(0L, 0.)] in
   let suspended = power_state = `Suspended in
   let current_domain_type = if suspended then domain_type else `unspecified in
   Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
-    ~memory_actual:0L ~vCPUs_number:0L ~vCPUs_utilisation ~vCPUs_CPU:[]
-    ~vCPUs_params:[] ~vCPUs_flags:[] ~state:[] ~start_time:Date.epoch
-    ~install_time:Date.epoch ~last_updated:Date.epoch ~other_config:[]
-    ~hvm:false ~nested_virt:false ~nomigrate:false ~current_domain_type ;
+    ~memory_actual:0L ~vCPUs_number:0L ~vCPUs_CPU:[] ~vCPUs_params:[]
+    ~vCPUs_flags:[] ~state:[] ~start_time:Date.epoch ~install_time:Date.epoch
+    ~last_updated:Date.epoch ~other_config:[] ~hvm:false ~nested_virt:false
+    ~nomigrate:false ~current_domain_type ;
   let domain_type =
     if domain_type = `unspecified then
       derive_domain_type ~hVM_boot_policy
@@ -665,13 +663,12 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~last_boot_CPU_flags:_last_boot_CPU_flags ~is_control_domain:false ~metrics
     ~guest_metrics:Ref.null ~last_booted_record:_last_booted_record
     ~xenstore_data ~recommendations ~blobs:[] ~ha_restart_priority
-    ~ha_always_run ~tags ~bios_strings:[] ~protection_policy:Ref.null
-    ~is_snapshot_from_vmpp:false ~snapshot_schedule:Ref.null
+    ~ha_always_run ~tags ~bios_strings:[] ~snapshot_schedule:Ref.null
     ~is_vmss_snapshot:false ~appliance ~start_delay ~shutdown_delay ~order
     ~suspend_SR ~version ~generation_id ~hardware_platform_version
     ~has_vendor_device ~requires_reboot:false ~reference_label ~domain_type
-    ~pending_guidances:[] ~recommended_guidances:[]
-    ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;
+    ~pending_guidances:[] ~pending_guidances_recommended:[]
+    ~pending_guidances_full:[] ;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref ;
   update_memory_overhead ~__context ~vm:vm_ref ;
   update_vm_virtual_hardware_platform_version ~__context ~vm:vm_ref ;

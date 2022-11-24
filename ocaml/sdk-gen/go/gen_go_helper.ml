@@ -64,7 +64,7 @@ let records =
   List.map
     (fun obj ->
       let obj_name = snake_to_camel obj.name ^ "Record" in
-      (obj_name, Datamodel_utils.fields_of_obj obj)
+      (obj_name, Datamodel_utils.active_fields_of_obj obj)
     )
     objects
 
@@ -341,7 +341,7 @@ module Json = struct
         `String (String.trim desc)
 
   let ctor_fields_of_obj obj =
-    Datamodel_utils.fields_of_obj obj
+    Datamodel_utils.active_fields_of_obj obj
     |> List.filter (function
          | {qualifier= StaticRO | RW; _} ->
              true
@@ -515,7 +515,7 @@ module Json = struct
       (fun obj ->
         let obj_name = snake_to_camel obj.name in
         let name_internal = snake_to_camel ~internal:true obj.name in
-        let fields = Datamodel_utils.fields_of_obj obj in
+        let fields = Datamodel_utils.active_fields_of_obj obj in
         let types =
           List.map (fun field -> field.ty) fields |> Listext.List.setify
         in

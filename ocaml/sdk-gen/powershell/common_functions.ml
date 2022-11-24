@@ -166,7 +166,7 @@ and cut_msg_name message_name fn_type =
     message_name
 
 and has_uuid x =
-  let all_fields = DU.fields_of_obj x in
+  let all_fields = DU.active_fields_of_obj x in
   List.filter (fun fld -> fld.full_name = ["uuid"]) all_fields <> []
 
 and has_name x = DU.obj_has_get_by_name_label x

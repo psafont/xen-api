@@ -597,7 +597,6 @@ module VM : HandlerTools = struct
             Memory_check.vm_compute_memory_overhead ~vm_record
         }
       in
-      let vm_record = {vm_record with API.vM_protection_policy= Ref.null} in
       (* Full restore preserves UUIDs, so if we are replacing an existing VM the version number should be incremented *)
       (* to keep track of how many times this VM has been restored. If not a full restore, then we don't need to keep track. *)
       let vm_record =
@@ -792,8 +791,6 @@ module GuestMetrics : HandlerTools = struct
       ~pV_drivers_version:gm_record.API.vM_guest_metrics_PV_drivers_version
       ~pV_drivers_up_to_date:
         gm_record.API.vM_guest_metrics_PV_drivers_up_to_date
-      ~memory:gm_record.API.vM_guest_metrics_memory
-      ~disks:gm_record.API.vM_guest_metrics_disks
       ~networks:gm_record.API.vM_guest_metrics_networks
       ~pV_drivers_detected:gm_record.API.vM_guest_metrics_PV_drivers_detected
       ~other:gm_record.API.vM_guest_metrics_other

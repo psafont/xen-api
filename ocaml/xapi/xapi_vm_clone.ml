@@ -387,16 +387,15 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     ~xenstore_data:all.Db_actions.vM_xenstore_data
     ~ha_restart_priority:all.Db_actions.vM_ha_restart_priority
     ~ha_always_run:false ~tags:all.Db_actions.vM_tags
-    ~bios_strings:all.Db_actions.vM_bios_strings ~protection_policy:Ref.null
-    ~is_snapshot_from_vmpp:false ~is_vmss_snapshot ~snapshot_schedule:Ref.null
-    ~appliance:Ref.null ~start_delay:0L ~shutdown_delay:0L ~order:0L
-    ~suspend_SR:Ref.null ~version:0L ~generation_id
+    ~bios_strings:all.Db_actions.vM_bios_strings ~is_vmss_snapshot
+    ~snapshot_schedule:Ref.null ~appliance:Ref.null ~start_delay:0L
+    ~shutdown_delay:0L ~order:0L ~suspend_SR:Ref.null ~version:0L ~generation_id
     ~hardware_platform_version:all.Db_actions.vM_hardware_platform_version
     ~has_vendor_device:all.Db_actions.vM_has_vendor_device
     ~requires_reboot:false ~reference_label:all.Db_actions.vM_reference_label
     ~domain_type:all.Db_actions.vM_domain_type ~nVRAM:all.Db_actions.vM_NVRAM
-    ~pending_guidances:[] ~recommended_guidances:[]
-    ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;
+    ~pending_guidances:[] ~pending_guidances_recommended:[]
+    ~pending_guidances_full:[] ;
   (* update the VM's parent field in case of snapshot. Note this must be done after "ref"
      	   has been created, so that its "children" field can be updated by the database layer *)
   ( match disk_op with

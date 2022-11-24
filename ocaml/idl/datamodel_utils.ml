@@ -148,8 +148,8 @@ module Relations = struct
     || List.mem_assoc x (List.map (fun (k, v) -> (v, k)) rels)
 end
 
-(** Compute a flat list of fields from a datamodel object *)
-let fields_of_obj (x : obj) : field list =
+(** Like [active_fields_of_obj], but contains Removed fields *)
+let all_fields_of_obj (x : obj) : field list =
   let rec of_contents = function
     | Namespace (_, xs) ->
         List.concat_map of_contents xs
@@ -158,14 +158,26 @@ let fields_of_obj (x : obj) : field list =
   in
   List.concat_map of_contents x.contents
 
+(** Compute a flat list of non-removed fields from a datamodel object *)
+let active_fields_of_obj x =
+  let rec of_contents = function
+    | Namespace (_, xs) ->
+        List.concat_map of_contents xs
+    | Field x when x.lifecycle.state <> Removed_s ->
+        [x]
+    | _ ->
+        []
+  in
+  List.concat_map of_contents x.contents
+
 (* True if an object has a label (and therefore should have a get_by_name_label message *)
 let obj_has_get_by_name_label x =
-  let all_fields = fields_of_obj x in
+  let all_fields = all_fields_of_obj x in
   List.filter (fun fld -> fld.full_name = ["name"; "label"]) all_fields <> []
 
 (* True if an object has tags (and therefore should have a get_tags message *)
 let obj_has_get_tags x =
-  let all_fields = fields_of_obj x in
+  let all_fields = all_fields_of_obj x in
   List.filter (fun fld -> fld.full_name = ["tags"]) all_fields <> []
 
 (** XXX: unfortunately we don't mark which parameters of a message refer to the self;
@@ -183,7 +195,7 @@ let find_self_parameter (msg : message) =
         )
 
 let plural name =
-  if Xstringext.String.endswith "metrics" name then
+  if String.ends_with ~suffix:"metrics" name then
     name ^ " instances"
   else
     name ^ "s"
@@ -478,7 +490,7 @@ let all_new_messages_of_field obj fld =
     implicit ones.
     NB this list requires filtering before being used for (eg) a client *)
 let messages_of_obj (x : obj) document_order : message list =
-  let all_fields = fields_of_obj x in
+  let all_fields = all_fields_of_obj x in
   let self = self_of_obj x in
 
   (* Generate appropriate get/set/add/remove messages for each field.

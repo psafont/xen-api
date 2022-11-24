@@ -195,7 +195,7 @@ and gen_decl cls =
       ; ( "fields"
         , `A
             (cls
-            |> Datamodel_utils.fields_of_obj
+            |> Datamodel_utils.active_fields_of_obj
             |> List.map (fun field ->
                    `O
                      [
@@ -265,7 +265,7 @@ and gen_impl cls =
     )
     cls.messages ;
 
-  let allFields = cls |> Datamodel_utils.fields_of_obj in
+  let allFields = cls |> Datamodel_utils.active_fields_of_obj in
   let result_type message =
     match message.msg_result with
     | Some res ->

@@ -323,14 +323,14 @@ let create_and_set_guest_metrics (lookup : string -> string option)
   let new_gm_uuid = Uuidx.to_string (Uuidx.make ())
   and new_gm_ref = Ref.make () in
   Db.VM_guest_metrics.create ~__context ~ref:new_gm_ref ~uuid:new_gm_uuid
-    ~os_version:initial_gm.os_version ~netbios_name:initial_gm.netbios_name
+    ~os_version:initial_gm.os_version
     ~pV_drivers_version:initial_gm.pv_drivers_version
-    ~pV_drivers_up_to_date:pV_drivers_detected ~memory:[] ~disks:[]
-    ~networks:initial_gm.networks ~pV_drivers_detected ~other:initial_gm.other
+    ~pV_drivers_up_to_date:pV_drivers_detected ~networks:initial_gm.networks
+    ~pV_drivers_detected ~other:initial_gm.other
     ~last_updated:(Date.of_unix_time initial_gm.last_updated)
     ~other_config:[] ~live:true
     ~can_use_hotplug_vbd:initial_gm.can_use_hotplug_vbd
-    ~can_use_hotplug_vif:initial_gm.can_use_hotplug_vif ;
+    ~can_use_hotplug_vif:initial_gm.can_use_hotplug_vif ~netbios_name:[] ;
   Db.VM.set_guest_metrics ~__context ~self ~value:new_gm_ref ;
   (* Update the cache with the new values *)
   with_lock mutex (fun () -> Hashtbl.replace cache domid initial_gm) ;

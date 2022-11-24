@@ -372,7 +372,7 @@ module TypesOfMessages = struct
     List.map
       (fun obj ->
         let obj_name = String.lowercase_ascii obj.name in
-        (obj_name, Datamodel_utils.fields_of_obj obj)
+        (obj_name, Datamodel_utils.active_fields_of_obj obj)
       )
       objects
 
