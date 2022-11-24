@@ -290,9 +290,8 @@ let ensure_vm_metrics_records_exist __context =
         let m = Ref.make () in
         let uuid = Uuidx.to_string (Uuidx.make ()) in
         Db.VM_metrics.create ~__context ~ref:m ~uuid ~vCPUs_number:0L
-          ~vCPUs_utilisation:[] ~memory_actual:0L ~vCPUs_CPU:[] ~vCPUs_params:[]
-          ~vCPUs_flags:[] ~start_time:Clock.Date.epoch
-          ~install_time:Clock.Date.epoch ~state:[]
+          ~memory_actual:0L ~vCPUs_CPU:[] ~vCPUs_params:[] ~vCPUs_flags:[]
+          ~start_time:Clock.Date.epoch ~install_time:Clock.Date.epoch ~state:[]
           ~last_updated:Clock.Date.epoch ~other_config:[] ~hvm:false
           ~nested_virt:false ~nomigrate:false ~current_domain_type:`unspecified ;
         Db.VM.set_metrics ~__context ~self:vm ~value:m

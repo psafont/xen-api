@@ -343,17 +343,6 @@ let check_appliance ~vmr ~op ~ref_str =
   | _ ->
       None
 
-(* VM cannot be converted into a template while it is assigned to a protection policy. *)
-let check_protection_policy ~vmr ~op ~ref_str =
-  match op with
-  | `make_into_template ->
-      Some
-        ( Api_errors.vm_assigned_to_protection_policy
-        , [ref_str; Ref.string_of vmr.Db_actions.vM_protection_policy]
-        )
-  | _ ->
-      None
-
 (* VM cannot be converted into a template while it is assigned to a snapshot schedule. *)
 let check_snapshot_schedule ~vmr ~ref_str = function
   | `make_into_template ->
@@ -471,9 +460,6 @@ let check_operation_error ~__context ~ref =
   let pcis = vmr.Db_actions.vM_attached_PCIs in
   let is_appliance_valid =
     Db.is_valid_ref __context vmr.Db_actions.vM_appliance
-  in
-  let is_protection_policy_valid =
-    Db.is_valid_ref __context vmr.Db_actions.vM_protection_policy
   in
   let rolling_upgrade_in_progress =
     Helpers.rolling_upgrade_in_progress ~__context
@@ -681,15 +667,6 @@ let check_operation_error ~__context ~ref =
       check current_error (fun () ->
           if is_appliance_valid then
             check_appliance ~vmr ~op ~ref_str
-          else
-            None
-      )
-    in
-    (* Check for errors caused by VM being assigned to a protection policy. *)
-    let current_error =
-      check current_error (fun () ->
-          if is_protection_policy_valid then
-            check_protection_policy ~vmr ~op ~ref_str
           else
             None
       )

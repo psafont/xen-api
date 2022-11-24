@@ -863,10 +863,12 @@ let create_obj ?lifecycle ~in_oss_since ~gen_constructor_destructor ~gen_events
       )
       messages
   in
+  let obj_lifecycle = Lifecycle.from lifecycle in
+  let in_database = in_db && obj_lifecycle.state <> Removed_s in
   {
     name
   ; description= descr
-  ; obj_lifecycle= Lifecycle.from lifecycle
+  ; obj_lifecycle
   ; messages= msgs
   ; contents
   ; doccomments
@@ -875,7 +877,7 @@ let create_obj ?lifecycle ~in_oss_since ~gen_constructor_destructor ~gen_events
   ; persist
   ; gen_events
   ; obj_release= release
-  ; in_database= in_db
+  ; in_database
   ; obj_allowed_roles= messages_default_allowed_roles
   ; obj_implicit_msg_allowed_roles= implicit_messages_allowed_roles
   ; obj_doc_tags= doc_tags

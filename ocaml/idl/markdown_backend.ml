@@ -166,11 +166,11 @@ let generate_class cls =
       ; ("class_deprecated", `Bool (cls.obj_lifecycle.state = Deprecated_s))
       ; ("class_removed", `Bool (cls.obj_lifecycle.state = Removed_s))
       ; ("is_event", `Bool (String.lowercase_ascii cls.name = "event"))
-      ; ("has_fields", `Bool (Datamodel_utils.fields_of_obj cls <> []))
+      ; ("has_fields", `Bool (Datamodel_utils.all_fields_of_obj cls <> []))
       ; ( "fields"
         , `A
             (cls
-            |> Datamodel_utils.fields_of_obj
+            |> Datamodel_utils.all_fields_of_obj
             |> List.sort (fun x y ->
                    compare_case_ins
                      (Datamodel_utils.wire_name_of_field x)

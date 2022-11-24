@@ -187,7 +187,6 @@ val create :
   -> tags:string list
   -> blocked_operations:'a
   -> protection_policy:[`VMPP] Ref.t
-  -> is_snapshot_from_vmpp:bool
   -> snapshot_schedule:[`VMSS] Ref.t
   -> is_vmss_snapshot:bool
   -> appliance:API.ref_VM_appliance
@@ -333,9 +332,6 @@ val copy_bios_strings :
   __context:Context.t -> vm:[`VM] Ref.t -> host:[`host] Ref.t -> unit
 (** Copy the BIOS strings from a host to the VM, unless the VM's BIOS strings
  *  had already been set. *)
-
-val set_protection_policy :
-  __context:Context.t -> self:API.ref_VM -> value:API.ref_VMPP -> unit
 
 val set_snapshot_schedule :
   __context:Context.t -> self:API.ref_VM -> value:API.ref_VMSS -> unit

@@ -64,7 +64,7 @@ let compute_object_references_to_follow (obj_name : string) =
     | _ ->
         None
   in
-  let fields = Datamodel_utils.fields_of_obj obj in
+  let fields = Datamodel_utils.active_fields_of_obj obj in
   List.filter_map find_related_object fields
 
 (* For each object, precompute a list of related objects [(object,

@@ -25,13 +25,11 @@ type event_record =
   | Host_cpu of [`host_cpu] Ref.t * API.host_cpu_t option
   | Network of [`network] Ref.t * API.network_t option
   | VIF of [`VIF] Ref.t * API.vIF_t option
-  | VIF_metrics of [`VIF_metrics] Ref.t * API.vIF_metrics_t option
   | PIF of [`PIF] Ref.t * API.pIF_t option
   | PIF_metrics of [`PIF_metrics] Ref.t * API.pIF_metrics_t option
   | SR of [`SR] Ref.t * API.sR_t option
   | VDI of [`VDI] Ref.t * API.vDI_t option
   | VBD of [`VBD] Ref.t * API.vBD_t option
-  | VBD_metrics of [`VBD_metrics] Ref.t * API.vBD_metrics_t option
   | PBD of [`PBD] Ref.t * API.pBD_t option
   | Crashdump of [`crashdump] Ref.t * API.crashdump_t option
   | VTPM of [`VTPM] Ref.t * API.vTPM_t option
@@ -40,7 +38,6 @@ type event_record =
   | Pool of [`pool] Ref.t * API.pool_t option
   | Message of [`message] Ref.t * API.message_t option
   | Secret of [`secret] Ref.t * API.secret_t option
-  | VMPP of [`VMPP] Ref.t * API.vMPP_t option
   | VMSS of [`VMSS] Ref.t * API.vMSS_t option
 
 let record_of_event ev =
@@ -96,11 +93,6 @@ let record_of_event ev =
   | "vif" ->
       VIF
         (Ref.of_string ev.Event_types.reference, Option.map API.vIF_t_of_rpc rpc)
-  | "vif_metrics" ->
-      VIF_metrics
-        ( Ref.of_string ev.Event_types.reference
-        , Option.map API.vIF_metrics_t_of_rpc rpc
-        )
   | "pif" ->
       PIF
         (Ref.of_string ev.Event_types.reference, Option.map API.pIF_t_of_rpc rpc)
@@ -117,11 +109,6 @@ let record_of_event ev =
   | "vbd" ->
       VBD
         (Ref.of_string ev.Event_types.reference, Option.map API.vBD_t_of_rpc rpc)
-  | "vbd_metrics" ->
-      VBD_metrics
-        ( Ref.of_string ev.Event_types.reference
-        , Option.map API.vBD_metrics_t_of_rpc rpc
-        )
   | "pbd" ->
       PBD
         (Ref.of_string ev.Event_types.reference, Option.map API.pBD_t_of_rpc rpc)
@@ -159,11 +146,6 @@ let record_of_event ev =
       Secret
         ( Ref.of_string ev.Event_types.reference
         , Option.map API.secret_t_of_rpc rpc
-        )
-  | "vmpp" ->
-      VMPP
-        ( Ref.of_string ev.Event_types.reference
-        , Option.map API.vMPP_t_of_rpc rpc
         )
   | "vmss" ->
       VMSS

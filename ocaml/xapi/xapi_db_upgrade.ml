@@ -480,32 +480,6 @@ let upgrade_pif_metrics =
       )
   }
 
-let remove_vmpp =
-  {
-    description= "Removing VMPP metadata (feature was removed)"
-  ; version= (fun x -> x <= tampa)
-  ; fn=
-      (fun ~__context ->
-        let vmpps = Db.VMPP.get_all ~__context in
-        List.iter (fun self -> Db.VMPP.destroy ~__context ~self) vmpps ;
-        let open Xapi_database.Db_filter_types in
-        let vms =
-          Db.VM.get_refs_where ~__context
-            ~expr:
-              (Not
-                 (Eq
-                    (Field "protection_policy", Literal (Ref.string_of Ref.null))
-                 )
-              )
-        in
-        List.iter
-          (fun self ->
-            Db.VM.set_protection_policy ~__context ~self ~value:Ref.null
-          )
-          vms
-      )
-  }
-
 let add_default_pif_properties =
   {
     description= "Adding default PIF properties"
@@ -978,7 +952,6 @@ let rules =
   ; upgrade_ha_restart_priority
   ; upgrade_auto_poweron
   ; upgrade_pif_metrics
-  ; remove_vmpp
   ; populate_pgpu_vgpu_types
   ; set_vgpu_types
   ; add_default_pif_properties

@@ -234,8 +234,6 @@ let check_uuid ~__context ~cls ~uuid =
         ignore (Db.SR.get_by_uuid ~__context ~uuid)
     | `Pool ->
         ignore (Db.Pool.get_by_uuid ~__context ~uuid)
-    | `VMPP ->
-        ignore (Db.VMPP.get_by_uuid ~__context ~uuid)
     | `VMSS ->
         ignore (Db.VMSS.get_by_uuid ~__context ~uuid)
     | `PVS_proxy ->
