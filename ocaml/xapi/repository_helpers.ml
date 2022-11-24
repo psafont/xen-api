@@ -138,7 +138,7 @@ let create_repository_record ~__context ~name_label ~name_description
   let ref = Ref.make () in
   let uuid = Uuidx.(to_string (make ())) in
   Db.Repository.create ~__context ~ref ~uuid ~name_label ~name_description
-    ~binary_url ~source_url ~update ~hash:"" ~up_to_date:false ~gpgkey_path ;
+    ~binary_url ~source_url ~update ~hash:"" ~gpgkey_path ;
   ref
 
 module DomainNameIncludeIP = struct
