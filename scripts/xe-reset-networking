@@ -13,10 +13,17 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Lesser General Public License for more details.
 """
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import input
+from builtins import *
 import sys
 import os
-import commands
+import subprocess
 import time
 import re
 from optparse import OptionParser
@@ -186,7 +193,7 @@ the command with appropriate arguments (use --help for a list of options).
 Type 'yes' to continue.
 Type 'no' to cancel.
 """
-		res = raw_input(warning + '\n'.join(configuration) + confirmation)
+		res = input(warning + '\n'.join(configuration) + confirmation)
 		if res != 'yes':
 			sys.exit(1)
 	

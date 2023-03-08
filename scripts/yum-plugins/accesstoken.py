@@ -11,6 +11,14 @@
 # The content of the file referred by the <token-file-path> looks like:
 # { 'token': '...', 'token_id': '...' }
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import *
 from yum import config
 from yum.plugins import TYPE_CORE
 import json

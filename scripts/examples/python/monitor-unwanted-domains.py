@@ -1,6 +1,12 @@
 #!/usr/bin/env python2
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
 import os, subprocess, XenAPI, inventory, time, sys
 
 # Script which monitors the domains running on a host, looks for
@@ -71,7 +77,7 @@ if __name__ == "__main__":
         time.sleep(1)
         paused = list_paused_domains ()
         # GC the domain_first_noticed map
-        for d in domain_first_noticed.keys():
+        for d in list(domain_first_noticed.keys()):
             if d not in paused:
                 log("domid %s uuid %s: looks ok now, forgetting about it" % d)
                 del domain_first_noticed[d]

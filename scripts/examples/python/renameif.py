@@ -16,6 +16,12 @@
 # Allow the user to change the MAC address -> interface mapping
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
 import XenAPI, inventory, sys
 
 def warn(txt):
@@ -24,7 +30,7 @@ def warn(txt):
 def show_pifs(pifs):
     print("NIC MAC               Notes")
     print("----------------------------------------------")
-    for ref in pifs.keys():
+    for ref in list(pifs.keys()):
         notes = []
         if pifs[ref]['management']:
             notes.append("management interface")
@@ -42,7 +48,7 @@ def show_pifs(pifs):
 
 def select(pifs, key):
     """Select a PIF by device name or MAC"""
-    for ref in pifs.keys():
+    for ref in list(pifs.keys()):
         if pifs[ref]['device'][3:] == key:
             return ref
         if pifs[ref]['MAC'].upper() == key.upper():
@@ -53,7 +59,7 @@ def save(session, host, pifs):
     """Commit changes"""
     # Check that device names are unique
     devices = []
-    for ref in pifs.keys():
+    for ref in list(pifs.keys()):
         devices.append(pifs[ref]['device'][3:])
     for i in set(devices):
         devices.remove(i)
@@ -62,7 +68,7 @@ def save(session, host, pifs):
         print("Aborted.")
         sys.exit(1)
     vifs = []
-    for ref in pifs.keys():
+    for ref in list(pifs.keys()):
         net = pifs[ref]['network']
         for vif in session.xenapi.network.get_VIFs(net):
             if session.xenapi.VIF.get_currently_attached(vif):
@@ -83,13 +89,13 @@ def save(session, host, pifs):
         print("Hot-unplugging interface %s on VM %s" % (dev, uuid))
         session.xenapi.VIF.unplug(vif)
         
-    for ref in pifs.keys():
+    for ref in list(pifs.keys()):
         mac = pifs[ref]['MAC']        
         if pifs[ref]['management']:
             print("Disabling management NIC (%s)" % mac)
             session.xenapi.host.management_disable()
         session.xenapi.PIF.forget(ref)
-    for ref in pifs.keys():
+    for ref in list(pifs.keys()):
         mac = pifs[ref]['MAC']
         device = pifs[ref]['device']
         mode = pifs[ref]['ip_configuration_mode']
@@ -119,7 +125,7 @@ def renameif(session):
         warn("This host is a slave; it is not possible to rename the management interface")
 
     pifs = session.xenapi.PIF.get_all_records()
-    for ref in pifs.keys():
+    for ref in list(pifs.keys()):
         if pifs[ref]['host'] != host or pifs[ref]['physical'] != True:
             del pifs[ref]
             
@@ -135,7 +141,7 @@ def renameif(session):
         if x.lower() == 'save':
             # If a slave, filter out the management PIF
             if host != master:
-                for ref in pifs.keys():
+                for ref in list(pifs.keys()):
                     if pifs[ref]['management']:
                         del pifs[ref]
             save(session, host, pifs)

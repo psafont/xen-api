@@ -1,13 +1,19 @@
 #!/usr/bin/env python2
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
 import XenAPI, sys
 
 def go(x, name):
     vm = x.xenapi.VM.get_by_name_label(name)[0]
     vbds = x.xenapi.VM.get_VBDs(vm)
-    non_empty = filter(lambda y:not(x.xenapi.VBD.get_empty(y)), vbds)
-    vdis = map(lambda y:x.xenapi.VBD.get_VDI(y), non_empty)
+    non_empty = [y for y in vbds if not(x.xenapi.VBD.get_empty(y))]
+    vdis = [x.xenapi.VBD.get_VDI(y) for y in non_empty]
     
     print("Calling API call on %s" % (repr(vdis)))
     result = x.xenapi.SR.lvhd_stop_using_these_vdis_and_call_script(vdis, "echo", "main", { "hello": "there", "sleep": "10" })

@@ -3,10 +3,20 @@
 # Common functions for managing statically-attached (ie onboot, without xapi) VDIs
 
 from __future__ import print_function
-import sys, os, subprocess, json, urlparse, itertools
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import map
+from builtins import next
+from builtins import str
+from builtins import range
+from builtins import *
+import sys, os, subprocess, json, urllib.parse, itertools
 import os.path
 import time
-import XenAPI, inventory, xmlrpclib
+import XenAPI, inventory, xmlrpc.client
 
 main_dir = "/etc/xensource/static-vdis"
 
@@ -85,7 +95,7 @@ def check_clusterstack(ty):
 def sr_attach(ty, device_config):
     check_clusterstack(ty)
 
-    args = [arg for (k,v) in device_config.iteritems()
+    args = [arg for (k,v) in device_config.items()
             for arg in ["--configuration", k, v]]
     return call_volume_plugin(ty, "SR.attach", args)
 
@@ -95,7 +105,7 @@ def list():
         all = os.listdir(main_dir)
     except:
         pass
-    return map(load, all)
+    return list(map(load, all))
 
 def fresh_name():
     all = []
@@ -159,7 +169,7 @@ def add(session, vdi_uuid, reason):
 
     sm = None
     all_sm = session.xenapi.SM.get_all_records()
-    for sm_ref in all_sm.keys():
+    for sm_ref in list(all_sm.keys()):
         if all_sm[sm_ref]['type'] == ty:
             sm = all_sm[sm_ref]
             break
@@ -195,7 +205,7 @@ def add(session, vdi_uuid, reason):
     fresh = fresh_name()
     path = main_dir + "/" + fresh
     os.mkdir(path)
-    for key in data.keys():
+    for key in list(data.keys()):
         write_whole_file(path + "/" + key, data[key])
 
 def delete(vdi_uuid):
@@ -221,11 +231,11 @@ def doexec(args, inputtext=None):
     return (rc,stdout,stderr)
 
 def call_backend_attach(driver, config):
-    args = map(lambda arg: arg.encode('utf8'), [driver, config])
+    args = [arg.encode('utf8') for arg in [driver, config]]
     xml = doexec(args)
     if xml[0] != 0:
         raise Exception("SM_BACKEND_FAILURE(%d, %s, %s)" % xml)
-    xmlrpc = xmlrpclib.loads(xml[1])
+    xmlrpc = xmlrpc.client.loads(xml[1])
     try:
     	path = xmlrpc[0][0]['params']
     except:
@@ -233,13 +243,13 @@ def call_backend_attach(driver, config):
     return path
 
 def call_backend_detach(driver, config):
-    params = xmlrpclib.loads(config)[0][0]
+    params = xmlrpc.client.loads(config)[0][0]
     params['command'] = 'vdi_detach_from_config'
-    config = xmlrpclib.dumps(tuple([params]), params['command'])
+    config = xmlrpc.client.dumps(tuple([params]), params['command'])
     xml = doexec([ driver, config ])
     if xml[0] != 0:
         raise Exception("SM_BACKEND_FAILURE(%d, %s, %s)" % xml)
-    xmlrpc = xmlrpclib.loads(xml[1])
+    xmlrpc = xmlrpc.client.loads(xml[1])
     try:
         res = xmlrpc[0][0]['params']
     except:
@@ -294,7 +304,7 @@ def attach(vdi_uuid):
                     vol_key = read_whole_file(d + "/volume-key")
                     vol_uri = read_whole_file(d + "/volume-uri")
                     multipath = json.loads(read_whole_file(d + "/multipath"))
-                    scheme = urlparse.urlparse(vol_uri).scheme
+                    scheme = urllib.parse.urlparse(vol_uri).scheme
                     # Set the multipath flag if required
                     if multipath:
                         with open(MULTIPATH_FLAG, 'a'):
@@ -339,7 +349,7 @@ def detach(vdi_uuid):
                 volume_plugin = read_whole_file(d + "/volume-plugin")
                 vol_key = read_whole_file(d + "/volume-key")
                 vol_uri = read_whole_file(d + "/volume-uri")
-                scheme = urlparse.urlparse(vol_uri).scheme
+                scheme = urllib.parse.urlparse(vol_uri).scheme
                 call_datapath_plugin(scheme, "Datapath.deactivate", [ vol_uri, "0" ])
                 call_datapath_plugin(scheme, "Datapath.detach", [ vol_uri, "0" ])
             os.unlink(d + "/disk")

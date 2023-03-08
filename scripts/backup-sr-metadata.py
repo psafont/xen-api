@@ -3,6 +3,13 @@
 # (c) Anil Madhavapeddy, Citrix Systems Inc, 2008
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import *
 import atexit
 import XenAPI
 import sys
@@ -55,7 +62,7 @@ def main(argv):
     metaxml = doc.createElement("meta")
     doc.appendChild(metaxml)
 
-    for srref in srs.keys():
+    for srref in list(srs.keys()):
         srrec = srs[srref]
         srxml = doc.createElement("sr")
         set_if_exists(srxml, srrec, 'uuid')

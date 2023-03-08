@@ -3,6 +3,12 @@
 # Count the number of events received from the master
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
 import XenAPI, sys, time
 
 iso8601 = "%Y-%m-%dT%H:%M:%SZ"

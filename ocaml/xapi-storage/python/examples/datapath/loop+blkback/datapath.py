@@ -16,9 +16,16 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from builtins import object
 import os
 import sys
-import urlparse
+import urllib.parse
 
 import xapi.storage.api.v5.datapath
 from xapi.storage.common import call
@@ -64,8 +71,8 @@ class Implementation(xapi.storage.api.v5.datapath.Datapath_skeleton):
         pass
 
     def attach(self, dbg, uri, domain):
-        parsed_url = urlparse.urlparse(uri)
-        query = urlparse.parse_qs(parsed_url.query)
+        parsed_url = urllib.parse.urlparse(uri)
+        query = urllib.parse.parse_qs(parsed_url.query)
 
         file_path = os.path.realpath(parsed_url.path)
 
@@ -97,7 +104,7 @@ class Implementation(xapi.storage.api.v5.datapath.Datapath_skeleton):
         pass
 
     def detach(self, dbg, uri, domain):
-        parsed_url = urlparse.urlparse(uri)
+        parsed_url = urllib.parse.urlparse(uri)
 
         file_path = os.path.realpath(parsed_url.path)
 

@@ -1,4 +1,13 @@
 #!/usr/bin/env python2
+from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from past.utils import old_div
+from builtins import object
 import argparse
 import threading
 import logging
@@ -53,11 +62,11 @@ class IGMPQueryInjector(object):
         ether_part = Ether(src='00:00:00:00:00:00', dst=dst_mac)
         ip_part = IP(ttl=1, src='0.0.0.0', dst='224.0.0.1')
         igmp_part = IGMP(type=0x11)
-        igmp_part.mrcode = (self.max_resp_time / 100) & 0xff
+        igmp_part.mrcode = (old_div(self.max_resp_time, 100)) & 0xff
         igmp_part.igmpize()
         # Make this IGMP query packet as an unicast packet
         ether_part.dst = dst_mac
-        sendp(ether_part / ip_part / igmp_part, iface=iface, verbose=False)
+        sendp(old_div(old_div(ether_part, ip_part), igmp_part), iface=iface, verbose=False)
 
     def inject(self):
         if not self.vifs:
@@ -106,7 +115,7 @@ class IGMPQueryInjector(object):
         t.join(self.vif_connected_timeout)
         if watcher.watches:
             log.warning('Wait vif state change timeout')
-            for vif in watcher.watches.itervalues():
+            for vif in watcher.watches.values():
                 log.warning("Vif:%s state did not change to '%s', don't inject IGMP query to mac: %s" %
                             (vif, VIF_CONNECTED_STATE, get_vif_mac(vif)))
 

@@ -1,6 +1,12 @@
 #!/usr/bin/env python2
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
 print("Program attempts to log into an XAPI server, fetch a list of VMs and")
 print("then calls VM.get_otherConfig on the first one in a loop")
 print()

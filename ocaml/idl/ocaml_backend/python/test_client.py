@@ -1,7 +1,13 @@
 #!/usr/bin/env python2
 
 from __future__ import print_function
-import getopt, sys, xmlrpclib
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+import getopt, sys, xmlrpc.client
 
 url = "http://dhcp108:70000" #default
 parsed = getopt.getopt(sys.argv[1:], "u:url")
@@ -9,7 +15,7 @@ if len(parsed[0]) == 1:
    url = parsed[0][0][1]
 
 # Create an object to represent our server.
-server = xmlrpclib.Server(url);
+server = xmlrpc.client.Server(url);
 
 # Call the server and get our result.
 print("Logging in... ", end=' ')

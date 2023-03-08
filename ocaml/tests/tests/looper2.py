@@ -1,6 +1,12 @@
 #!/usr/bin/env python2
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
 print("Program attempts to log into an XAPI server to fetch a list of VMs and")
 print("a list of debug objects. It then chooses the first debug object, ")
 print("queries the int->float map and then calls the 'recycle' message using")

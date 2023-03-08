@@ -3,12 +3,18 @@
 
 # Code ripped out of 'xgt' script for now
 from __future__ import print_function
-import commands, xmlrpclib, os, sys, httplib, socket, urllib2, signal
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+import subprocess, xmlrpc.client, os, sys, http.client, socket, urllib.request, urllib.error, urllib.parse, signal
 
 verbose = True
 
 ##### begin hack.  Provide xmlrpc over UNIX domain socket (cut+pasted from eliloader):
-class UDSHTTPConnection(httplib.HTTPConnection):
+class UDSHTTPConnection(http.client.HTTPConnection):
     """ Stupid hacked up HTTPConnection subclass to allow HTTP over Unix domain
     sockets. """
     def connect(self):
@@ -16,15 +22,15 @@ class UDSHTTPConnection(httplib.HTTPConnection):
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(path)
 
-class UDSHTTP(httplib.HTTP):
+class UDSHTTP(http.client.HTTP):
     _connection_class = UDSHTTPConnection
 
-class UDSTransport(xmlrpclib.Transport):
+class UDSTransport(xmlrpc.client.Transport):
     def make_connection(self, host):
         return UDSHTTP(host)
 
 def xapi_local():
-    return xmlrpclib.Server("http://_var_xapi_xapi/", transport=UDSTransport())
+    return xmlrpc.client.Server("http://_var_xapi_xapi/", transport=UDSTransport())
 ##### end hack.
 
 
@@ -34,7 +40,7 @@ class CommandException(Exception):
 
 def run(cmd, *args):
     debug("+ " + cmd % args)
-    (ret, out) = commands.getstatusoutput(cmd % args)
+    (ret, out) = subprocess.getstatusoutput(cmd % args)
     if verbose:
         try: 
             for line in out.split("\n"):

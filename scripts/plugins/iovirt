@@ -11,6 +11,14 @@
 # of the form "<index>/<pciid>" for pci and "<index>/<mac>" for sriovmacs
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import *
 import XenAPI, inventory
 import XenAPIPlugin
 import os
@@ -147,7 +155,7 @@ def _get_assignments(session):
     expr = 'field "is_a_template" = "false" and field "is_a_snapshot" = "false"'
     vms = session.xenapi.VM.get_all_records_where(expr)
     devices = {}
-    for vm in vms.values():
+    for vm in list(vms.values()):
         # Ignore VMs with no PCI passthrough config or an empty config
         if 'pci' not in vm['other_config']:
             continue
@@ -155,7 +163,7 @@ def _get_assignments(session):
             continue
         vmuuid = vm['uuid']
         assignments = _get_vm_assignments(session, vmuuid)
-        for index in assignments.keys():
+        for index in list(assignments.keys()):
             devices[assignments[index][0]] = (vmuuid,
                                               index,
                                               assignments[index][1],
@@ -238,7 +246,7 @@ def _set_vm_assignments(session, vmuuid, assignments):
     # specified VM removing any existing config first. assignments is a
     # dictionary index => (pciid, vendorid, deviceid, mac, vlan) where
     # vendorid and deviceid need not be set.
-    indexlist = assignments.keys()
+    indexlist = list(assignments.keys())
     indexlist.sort()
     pcilist = []
     maclist = []
@@ -280,7 +288,7 @@ def assign_free_vf(session, args):
     
     assigned = _get_assignments(session)
     vfs = _get_vfs()
-    for vfid in assigned.keys():
+    for vfid in list(assigned.keys()):
         if vfid in vfs:
             del vfs[vfid]
     if "uuid" not in args:
@@ -335,7 +343,7 @@ def assign_free_vf(session, args):
     else:
         i = 0
         while True:
-            if not i in ourassignments.keys():
+            if not i in list(ourassignments.keys()):
                 index = i
                 break
             i = i + 1
@@ -353,11 +361,11 @@ def assign_free_vf(session, args):
     
     # Choose a suitable VF. Preference is for lower numbered VFs
     revdict = {}
-    for vfid in vfs.keys():
+    for vfid in list(vfs.keys()):
         rvf, rdev = vfs[vfid]
         rkey = "%08u%s" % (int(rvf), rdev)
         revdict[rkey] = vfid
-    revdictkeys = revdict.keys()
+    revdictkeys = list(revdict.keys())
     revdictkeys.sort()
     vfidlist = [revdict[x] for x in revdictkeys]
     myid = None
@@ -441,7 +449,7 @@ def unassign_vf(session, args, genericpci=False):
         vfnum = args["vf"]
         vfdisplay = "%s VF %s" % (ethdev, vfnum)
         vfs = _get_vfs()
-        for vfpciid in vfs.keys():
+        for vfpciid in list(vfs.keys()):
             if (vfnum, ethdev) == vfs[vfpciid]:
                 pciid = vfpciid
                 break
@@ -459,9 +467,9 @@ def unassign_vf(session, args, genericpci=False):
 
     # Remove the specified ID
     if pciid:
-        if not pciid in [x[0] for x in current.values()]:
+        if not pciid in [x[0] for x in list(current.values())]:
             raise "VM %s does not have %s assigned" % (vmuuid, vfdisplay)
-        for i in current.keys():
+        for i in list(current.keys()):
             if current[i][0] == pciid:
                 del current[i]
     else:
@@ -485,7 +493,7 @@ def assign_free_pci_device(session, args):
     deviceid = args["deviceid"]
     devices = _get_devices(vendorid, deviceid)
 
-    for pciid in assigned.keys():
+    for pciid in list(assigned.keys()):
         if pciid in devices:
             del devices[pciid]
     if "uuid" not in args:
@@ -500,13 +508,13 @@ def assign_free_pci_device(session, args):
     else:
         i = 0
         while True:
-            if not i in ourassignments.keys():
+            if not i in list(ourassignments.keys()):
                 index = i
                 break
             i = i + 1
 
     # Choose a suitable device. Preference is for lower numbered PCIIDs
-    pciids = devices.keys()
+    pciids = list(devices.keys())
     pciids.sort()
     myid = None
     if len(pciids) > 0:
@@ -558,7 +566,7 @@ def show_summary(session, args):
     """Return a textual summary of SR-IOV configuarion of this host."""
     assigned = _get_assignments(session)
     vfs = _get_vfs()
-    vfids = vfs.keys()
+    vfids = list(vfs.keys())
     vfids.sort()
     dom = xml.dom.minidom.Document()
     element = dom.createElement("iovirt")
@@ -618,7 +626,7 @@ def list_pci_devices(session, args):
     deviceid = args["deviceid"]
     devices = _get_devices(vendorid, deviceid)
     assigned = _get_assignments(session)
-    pciids = devices.keys()
+    pciids = list(devices.keys())
     pciids.sort()
     dom = xml.dom.minidom.Document()
     element = dom.createElement("iovirt")
@@ -670,7 +678,7 @@ def get_vm(session, args):
     vmuuid = args["uuid"]
     vfs = _get_vfs()
     current = _get_vm_assignments(session, vmuuid)
-    indexlist = current.keys()
+    indexlist = list(current.keys())
     indexlist.sort()
     dom = xml.dom.minidom.Document()
     element = dom.createElement("iovirt")
@@ -730,9 +738,9 @@ def prep_for_vm(session, args):
     current = _get_vm_assignments(session, vmuuid)
     vfs = _get_vfs()
     reply = []
-    for i in current.keys():
+    for i in list(current.keys()):
         pciid, vendorid, deviceid, mac, vlan = current[i]
-        if not pciid in vfs.keys():
+        if not pciid in list(vfs.keys()):
             # This is probably a non SR-IOV PCI device being passed
             # through. Log that we cannot find details and carry on
             # processing the device list.

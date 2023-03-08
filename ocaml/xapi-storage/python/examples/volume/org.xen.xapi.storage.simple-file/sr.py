@@ -16,10 +16,16 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
 import os
 import sys
-import urllib
-import urlparse
+import urllib.request, urllib.parse, urllib.error
+import urllib.parse
 
 import xapi.storage.api.v5.volume
 from xapi import InternalError
@@ -66,12 +72,12 @@ class Implementation(SR_skeleton):
         # As a simple "stateless" implementation, encode all the
         # configuration into the URI returned. This is passed back
         # into volume interface APIs and the stat and ls operations.
-        return urlparse.urlunparse((
+        return urllib.parse.urlunparse((
             'file',
             '',
             configuration['path'],
             '',
-            urllib.urlencode(configuration, True),
+            urllib.parse.urlencode(configuration, True),
             None))
 
     def detach(self, dbg, sr):
@@ -96,8 +102,8 @@ class Implementation(SR_skeleton):
         [stat sr] returns summary metadata associated with [sr]. Note this
         call does not return details of sub-volumes, see SR.ls.
         """
-        parsed_url = urlparse.urlparse(sr)
-        config = urlparse.parse_qs(parsed_url.query)
+        parsed_url = urllib.parse.urlparse(sr)
+        config = urllib.parse.parse_qs(parsed_url.query)
 
         description = (config['description'][0]
                        if 'description' in config

@@ -14,6 +14,12 @@
 #
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
 import fcntl
 import os
 import os.path
@@ -196,7 +202,7 @@ def clear_xs_ofport_path(vif):
 
 def make_vswitch_external_ids(vif):
     args = []
-    for (k, v) in vif.get_external_ids().items():
+    for (k, v) in list(vif.get_external_ids().items()):
         args += ["--", "set", "interface", vif.vif_name, 'external-ids:"%s"="%s"' % (k, v)]
     return args
 

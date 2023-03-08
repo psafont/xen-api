@@ -3,6 +3,13 @@
 # (c) Anil Madhavapeddy, Citrix Systems Inc, 2008
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import *
 import atexit
 import XenAPI
 import os, sys
@@ -81,7 +88,7 @@ def main(argv):
                 vms_in_sr[sruuid] = {}
             vms_in_sr[sruuid][vmuuid] = 1
     
-    for sruuid in vms_in_sr.keys():
+    for sruuid in list(vms_in_sr.keys()):
         linkdir = "%s/by-sr/%s" % (dir, sruuid)
         if os.path.isdir(linkdir):
             print("Directory %s already exists, skipping" % linkdir, file=sys.stderr)
@@ -91,7 +98,7 @@ def main(argv):
             os.makedirs(linkdir)
         except:
             print("Failed to create directory: %s" % linkdir, file=sys.stderr)
-        for vmuuid in vms_in_sr[sruuid].keys():
+        for vmuuid in list(vms_in_sr[sruuid].keys()):
             try:
                 src = "../../all/%s.vmmeta" % vmuuid
                 targ = "%s/%s.vmmeta" % (linkdir, vmuuid)

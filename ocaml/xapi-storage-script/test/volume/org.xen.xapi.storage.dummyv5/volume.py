@@ -3,9 +3,17 @@
 """
  Copyright (C) Citrix Systems, Inc.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import *
 import uuid
-import urlparse
+import urllib.parse
 import os
 import sys
 import xapi.storage.api.v5.volume
@@ -17,7 +25,7 @@ import plugin
 class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
 
     def create(self, dbg, sr, name, description, size, sharable):
-        urlparse.urlparse(sr)
+        urllib.parse.urlparse(sr)
         voluuid = str(uuid.uuid4())
         return {
             "name": name,
@@ -33,11 +41,11 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
         }
 
     def destroy(self, dbg, sr, key):
-        urlparse.urlparse(sr)
+        urllib.parse.urlparse(sr)
         return
 
     def stat(self, dbg, sr, key):
-        urlparse.urlparse(sr)
+        urllib.parse.urlparse(sr)
         qr = plugin.Implementation().query(dbg)
         return {
                 "name": qr['name'],

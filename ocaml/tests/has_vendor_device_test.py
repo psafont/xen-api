@@ -1,10 +1,16 @@
 #!/usr/bin/env python2
 
 from __future__ import print_function
-import xmlrpclib
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+import xmlrpc.client
 import sys
 
-s=xmlrpclib.Server("http://localhost/")
+s=xmlrpc.client.Server("http://localhost/")
 sess=s.session.login_with_password("root","xenroot")['Value']
 
 pool = s.pool.get_all(sess)['Value'][0]

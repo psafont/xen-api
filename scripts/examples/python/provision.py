@@ -19,10 +19,17 @@
 # which have been created from real VMs -- they have their own disks.
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from builtins import object
 import XenAPI
 import xml.dom.minidom
 
-class Disk:
+class Disk(object):
     """Represents a disk which should be created for this VM"""
     def __init__(self, device, size, sr, bootable):
         self.device = device # 0, 1, 2, ...
@@ -46,7 +53,7 @@ def parseDisk(element):
     b = element.getAttribute("bootable") == "true"
     return Disk(device, size, sr, b)
 
-class ProvisionSpec:
+class ProvisionSpec(object):
     """Represents a provisioning specification: currently a list of required disks"""
     def __init__(self):
         self.disks = []

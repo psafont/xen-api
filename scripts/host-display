@@ -9,7 +9,13 @@ boot (assuming that the boot config is not modified further), and is not
 necessarily correct at the time this script is called.
 """
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
 import os
 import os.path
 import re
@@ -95,14 +101,14 @@ def _get_com_port():
 
 def usage():
     """ Display a usage string. """
-    command_names = COMMANDS.keys()
+    command_names = list(COMMANDS.keys())
     command_names.sort()
     print("Usage:")
     print("    %s {%s}" % (sys.argv[0], '|'.join(command_names)))
 
 def main():
     """ Program entry point. """
-    if len(sys.argv) == 2 and sys.argv[1] in COMMANDS.keys():
+    if len(sys.argv) == 2 and sys.argv[1] in list(COMMANDS.keys()):
         bootloader = Bootloader.loadExisting()
         command = COMMANDS[sys.argv[1]]
         command(bootloader)

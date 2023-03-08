@@ -22,6 +22,14 @@
 # 3. return the device info to XAPI in json format
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import *
+from builtins import object
 import abc
 import argparse
 import json
@@ -30,6 +38,7 @@ import logging
 import pyudev
 import re
 import sys
+from future.utils import with_metaclass
 
 
 def log_list(l):
@@ -55,12 +64,11 @@ def hex_equal(h1, h2):
         return False
 
 
-class UsbObject(dict):
+class UsbObject(with_metaclass(abc.ABCMeta, dict)):
     """ Base class of USB classes, save USB properties in dict
 
     node(str): the key, device node
     """
-    __metaclass__ = abc.ABCMeta
 
     def __init__(self, node):
         super(UsbObject, self).__init__()

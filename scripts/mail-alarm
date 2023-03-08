@@ -11,6 +11,14 @@
 # the only thing that needs be set is pool:other-config:ssmtp-mailhub
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import *
+from builtins import object
 import XenAPI
 import sys
 import os
@@ -712,7 +720,7 @@ class SRIOThroughputTotalAlertETG(EmailTextGenerator):
         )
 
 
-class XapiMessage:
+class XapiMessage(object):
     def __init__(self, xml, mail_language, session):
         "Parse message XML"
         try:

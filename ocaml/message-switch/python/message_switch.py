@@ -15,9 +15,16 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from builtins import object
 import json
 
-class Http_request:
+class Http_request(object):
     def __init__(self, method, uri, body = None):
         self.method = method
         self.uri = uri
@@ -35,7 +42,7 @@ class Http_request:
             ]
         return "\r\n".join(lines)
 
-class Http_response:
+class Http_response(object):
     def __init__(self, body):
         self.body = body
 
@@ -56,7 +63,7 @@ class Http_response:
         rest = "\r\n".join(lines[3:])
         return cls(rest)
 
-class Message:
+class Message(object):
     def __init__(self, payload, correlation_id, reply_to = None):
         self.payload = payload
         self.correlation_id = correlation_id
@@ -83,14 +90,14 @@ class Message:
     def __str__(self):
         return json.dumps(self.save())
 
-class Login:
+class Login(object):
     def __init__(self, some_credential):
         self.some_credential = some_credential
 
     def to_request(self):
         return Http_request("GET", "/login/%s" % self.some_credential)
 
-class Create_request:
+class Create_request(object):
     def __init__(self, name = None):
         self.name = name
 
@@ -100,7 +107,7 @@ class Create_request:
             uri = uri + "/" + self.name
         return Http_request("GET", uri)
 
-class Create_response:
+class Create_response(object):
     def __init__(self, name = None):
         self.name = name
 
@@ -111,14 +118,14 @@ class Create_response:
     def to_response(self):
         return Http_response(self.name)
 
-class Subscribe:
+class Subscribe(object):
     def __init__(self, name):
         self.name = name
 
     def to_request(self):
         return Http_request("GET", "/subscribe/%s" % self.name)
 
-class Send:
+class Send(object):
     def __init__(self, name, message):
         self.name = name
         self.message = message
@@ -128,7 +135,7 @@ class Send:
         else:
             return Http_request("POST", "/send/%s/%d" % (self.name, self.message.correlation_id), self.message.payload)
 
-class Transfer_request:
+class Transfer_request(object):
     def __init__(self, ack_to, timeout):
         self.ack_to = ack_to
         self.timeout = timeout
@@ -136,7 +143,7 @@ class Transfer_request:
     def to_request(self):
         return Http_request("GET", "/transfer/%Ld/%.16g" % (self.ack_to, self.timeout))
 
-class Transfer_response:
+class Transfer_response(object):
     def __init__(self, messages):
         self.messages = messages
 
@@ -145,10 +152,10 @@ class Transfer_response:
         x = json.loads(response.body)
         result = {}
         for (k, v) in x["messages"]:
-            result[long(k)] = Message.load(v)
+            result[int(k)] = Message.load(v)
         return Transfer_response(result)
 
-class Ack:
+class Ack(object):
     def __init__(self, ack):
         self.ack = ack
 
@@ -171,7 +178,7 @@ class Bad_status(Exception):
 class Missing_content_length(Exception):
     def __init__(self):
         pass
-class StreamReader:
+class StreamReader(object):
     def __init__(self, sock):
         self.sock = sock
         self.buffered = ""
@@ -278,7 +285,7 @@ class Receiver(Thread):
         timeout = 5.0
         while True:
             messages = transfer(self.sock, self.reader, ack_to, timeout)
-            for id in messages.keys():
+            for id in list(messages.keys()):
                 ack_to = max(ack_to, id)
                 m = messages[id]
                 reply_to = m.reply_to
@@ -295,14 +302,14 @@ class Receiver(Thread):
                         del self.events[m.correlation_id]
                         event.set()
 
-class Connection:
+class Connection(object):
     def __init__(self, client, name):
         self.client = client
         self.name = name
     def rpc(self, request):
         return self.client.rpc(self.name, request)
 
-class Server:
+class Server(object):
     def __init__(self):
         pass
     def dispatch(self, request):
@@ -310,7 +317,7 @@ class Server:
         request.reply_to = None
         return request
 
-class Switch:
+class Switch(object):
     def __init__(self, some_credential, config = default_config, server = Server()):
         self.some_credential = some_credential
         self.config = config

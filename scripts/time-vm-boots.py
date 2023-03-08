@@ -20,6 +20,12 @@
 # the guest agent to report an IP address.
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
 import XenAPI
 import sys
 import time
@@ -40,7 +46,7 @@ def register_vm_metrics(session, vm_ref, vgm):
 
 def vm_of_metrics(ref):
     global vgm_to_vm
-    if not(ref in vgm_to_vm.keys()):
+    if not(ref in list(vgm_to_vm.keys())):
         return None
     return vgm_to_vm[ref]    
 
@@ -51,7 +57,7 @@ boots_seen = 0
 
 def dump_table(session):
     global vm_boot_times
-    for vm_ref in vm_boot_times.keys():
+    for vm_ref in list(vm_boot_times.keys()):
         name = session.xenapi.VM.get_name_label(vm_ref)
         print("%s %s" % (name, vm_boot_times[vm_ref]))
 
@@ -60,7 +66,7 @@ def seen_possible_boot(session, vm_ref):
     global vm_boot_times
     global interesting_vms
     global boots_seen
-    if not(vm_ref in vm_boot_times.keys()) and vm_ref in interesting_vms:
+    if not(vm_ref in list(vm_boot_times.keys())) and vm_ref in interesting_vms:
         t = time.strftime( "%Y%m%dT%H:%M:%SZ", time.gmtime())
         vm_boot_times[vm_ref] = t
         boots_seen += 1
@@ -72,9 +78,9 @@ def seen_possible_boot(session, vm_ref):
 
 
 def process_guest_metrics(session, ref, snapshot):
-    if "other" in snapshot.keys():
+    if "other" in list(snapshot.keys()):
         other = snapshot["other"]
-        if "feature-shutdown" in other.keys():
+        if "feature-shutdown" in list(other.keys()):
             the_vm = vm_of_metrics(ref)
             seen_possible_boot(session, the_vm)
 
@@ -83,7 +89,7 @@ def poll_metrics(session):
     while True:
         time.sleep(10)
         all_recs = session.xenapi.VM_guest_metrics.get_all_records()
-        for ref in all_recs.keys():
+        for ref in list(all_recs.keys()):
             snapshot = all_recs[ref]
             process_guest_metrics(session, ref, snapshot)
 
@@ -100,7 +106,7 @@ def process_metrics_event(session, ref):
     except Exception as e:
         print(repr(e))
         
-    if "feature-shutdown" in other.keys():
+    if "feature-shutdown" in list(other.keys()):
         seen_possible_boot(session, vm_ref)
         
 
@@ -159,7 +165,7 @@ or
 
     # We start watching all Halted VMs
     all_halted_vms = new_session.xenapi.VM.get_all_records()
-    for vm in all_halted_vms.keys():
+    for vm in list(all_halted_vms.keys()):
         vm_rec = all_halted_vms[vm]
         if vm_rec["power_state"] == "Halted" and not vm_rec["is_a_template"]:
             interesting_vms.append(vm)

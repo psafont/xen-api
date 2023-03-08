@@ -8,6 +8,13 @@
 # Configure it by:
 # yum-config-manager --setopt=<repo-name>.ptoken=file://<token-file-path> --save
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
 from yum import config
 from yum.plugins import TYPE_CORE
 

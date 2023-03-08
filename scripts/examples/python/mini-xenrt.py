@@ -4,7 +4,15 @@
 # Issue parallel loops of: reboot, suspend/resume, migrate
 
 from __future__ import print_function
-import xmlrpclib
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import *
+from builtins import object
+import xmlrpc.client
 from threading import Thread
 import time, sys
 
@@ -13,7 +21,7 @@ iso8601 = "%Y%m%dT%H:%M:%SZ"
 stop_on_first_failure = True
 stop = False
 
-class Operation:
+class Operation(object):
     def __init__(self):
         raise "this is supposed to be abstract, dummy"
     def execute(self, server, session_id):
@@ -109,13 +117,13 @@ if __name__ == "__main__":
         print("  -- performs parallel operations on VMs with the specified other-config key")
         sys.exit(1)
     
-    x = xmlrpclib.Server(sys.argv[1])
+    x = xmlrpc.client.Server(sys.argv[1])
     key = sys.argv[2]
     session = x.session.login_with_password("root", "xenroot", "1.0", "xen-api-scripts-minixenrt.py")["Value"]
     vms = x.VM.get_all_records(session)["Value"]
 
     workers = []
-    for vm in vms.keys():
+    for vm in list(vms.keys()):
         if key in vms[vm]["other_config"]:
             allowed_ops = vms[vm]["allowed_operations"]
             for op in [ "clean_reboot", "suspend", "pool_migrate" ]:

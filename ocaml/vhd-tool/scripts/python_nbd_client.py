@@ -25,7 +25,15 @@ https://github.com/NetworkBlockDevice/nbd/blob/master/doc/proto.md
 Additionally, it supports the BLOCK_STATUS extension:
 for the extension docs, see the same file in the extension-blockstatus branch.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from builtins import object
 import socket
 import struct
 import ssl

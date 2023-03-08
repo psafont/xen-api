@@ -3,7 +3,14 @@
 # Rewrite the VDI.sm_config:SCSIid fields in XVA metadata
 
 from __future__ import print_function
-import tarfile, xmlrpclib, optparse, StringIO, sys
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from builtins import object
+import tarfile, xmlrpc.client, optparse, io, sys
 
 class Object(object):
     """Represents an XVA metadata object, for example a VM, VBD, VDI, SR, VIF or Network.
@@ -43,14 +50,14 @@ class XVA(object):
     def __init__(self, input, ova):
         self._input = input
         self._version = ova["version"]
-        self._objects = map(lambda x: Object(x["class"], x["id"], x["snapshot"]), ova["objects"])
+        self._objects = [Object(x["class"], x["id"], x["snapshot"]) for x in ova["objects"]]
 
     def list(self):
         return self._objects
 
     def save(self, fileobj):
         # Reconstruct the ova.xml from Objects
-        ova_txt = xmlrpclib.dumps(({"version": self._version, "objects": map(lambda x:x.marshal(), self._objects)}, ))
+        ova_txt = xmlrpc.client.dumps(({"version": self._version, "objects": [x.marshal() for x in self._objects]}, ))
         prefix="<params>\n<param>\n"
         suffix="</param>\n</params>\n"
         if not(ova_txt.startswith(prefix)) or not(ova_txt.endswith(suffix)):
@@ -61,7 +68,7 @@ class XVA(object):
         output = tarfile.TarFile(mode='w', fileobj=fileobj)
         tarinfo = tarfile.TarInfo("ova.xml")
         tarinfo.size = len(ova_txt)
-        output.addfile(tarinfo, StringIO.StringIO(ova_txt))
+        output.addfile(tarinfo, io.StringIO(ova_txt))
         # Stream the contents of the input, copying to the output
         for name in self._input.getnames():
             if name == "ova.xml":
@@ -73,7 +80,7 @@ class XVA(object):
 def open_xva(name):
     t = tarfile.open(name = name)
     ova_txt = t.extractfile("ova.xml").read()
-    ova = xmlrpclib.loads("<params><param>" + ova_txt + "</param></params>")[0][0]
+    ova = xmlrpc.client.loads("<params><param>" + ova_txt + "</param></params>")[0][0]
     return XVA(t, ova)
 
 if __name__ == "__main__":

@@ -3,6 +3,14 @@
 # Script which shows how to use the XenAPI to find a particular Host's management interface
 # and send it a wake-on-LAN packet. Used for the power-on fucntionality as well.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import *
 import subprocess, sys, socket, struct, time, syslog
 
 import XenAPI, inventory

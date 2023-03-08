@@ -19,7 +19,14 @@
 # WARNING: this API is considered to be unstable and may be changed at-will
 
 from __future__ import print_function
-import os, sys, commands, json
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from builtins import object
+import os, sys, subprocess, json
 
 import smapiv2
 from smapiv2 import log, start, BackendError, Vdi_does_not_exist
@@ -29,7 +36,7 @@ root = "/sr/"
 # [run task cmd] executes [cmd], throwing a BackendError if exits with
 # a non-zero exit code.
 def run(task, cmd):
-    code, output = commands.getstatusoutput(cmd)
+    code, output = subprocess.getstatusoutput(cmd)
     if code != 0:
         log("%s: %s exitted with code %d: %s" % (task, cmd, code, output))
         raise BackendError
@@ -37,7 +44,7 @@ def run(task, cmd):
     return output
 
 # Use Linux "losetup" to create block devices from files
-class Loop:
+class Loop(object):
     # [_find task path] returns the loop device associated with [path]
     def _find(self, task, path):
         global root
@@ -60,7 +67,7 @@ class Loop:
         run(task, "losetup -d %s" % loop)
 
 # Use FreeBSD "mdconfig" to create block devices from files
-class Mdconfig:
+class Mdconfig(object):
     # [_find task path] returns the unit (mdX) associated with [path]
     def _find(self, task, path):
         # md0	vnode	 1024M	/root/big.img
@@ -90,7 +97,7 @@ def path_of_vdi(vdi):
 disk_suffix = ".raw"
 metadata_suffix = ".json"
 
-class RawFiles:
+class RawFiles(object):
     def __init__(self, device):
         self.device = device
 

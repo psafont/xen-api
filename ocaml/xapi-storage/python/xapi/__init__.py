@@ -25,7 +25,14 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import *
 import sys
 import traceback
 import json
@@ -67,7 +74,7 @@ class XenAPIException(Exception):
 
     def __init__(self, code, params):
         Exception.__init__(self)
-        if not isinstance(code, str) and not isinstance(code, unicode):
+        if not isinstance(code, str) and not isinstance(code, str):
             raise TypeError
         if not isinstance(params, list):
             raise TypeError
@@ -134,7 +141,7 @@ class UnknownMethod(InternalError):
 
 def is_long(x):
     try:
-        long(x)
+        int(x)
         return True
     except ValueError:
         return False

@@ -30,12 +30,22 @@
 # The "cf" CGI param specfies the row.  (All rows are returned if it's missing.)
 
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import filter
+from builtins import str
+from builtins import range
+from builtins import *
+from builtins import object
 import sys
 import os
 import getopt
 import traceback
 import XenAPI
-import urllib
+import urllib.request, urllib.parse, urllib.error
 from xml import sax            # used to parse rrd_updates because this may be large and sax is more efficient
 from xml.dom import minidom    # used to parse other-config:perfmon.  Efficiency is less important than reliability here
 from xml.parsers.expat import ExpatError
@@ -46,7 +56,7 @@ import syslog
 import socket
 import gc
 import signal
-import commands
+import subprocess
 
 def print_debug(string):
     if debug: 
@@ -110,7 +120,7 @@ class XapiSession(XenAPI.Session):
     def id(self):
         return self._session
 
-class ObjectReport:
+class ObjectReport(object):
     def __init__(self, objtype, uuid):
         self.objtype = objtype # a string like "vm", or "host" taken from an <entry> tag 
         self.uuid = uuid       # the object's uuid
@@ -118,7 +128,7 @@ class ObjectReport:
     def get_uuid(self):
         return self.uuid
     def get_var_names(self):
-        return self.vars.keys()
+        return list(self.vars.keys())
     def get_value(self, var_name, row):
         try:
             return (self.vars[var_name])[row]
@@ -129,7 +139,7 @@ class ObjectReport:
             self.vars[var_name] = []
         self.vars[var_name].insert(index, value)
 
-class RRDReport:
+class RRDReport(object):
     "This is just a data structure passed that is completed by RRDContentHandler"
     def __init__(self):
         self.reset()
@@ -142,7 +152,7 @@ class RRDReport:
         self.step_time   = 0      # seconds between each pair of samples
         self.obj_reports  = {}     # maps uuids to ObjectReports, built from xml
 
-class RRDColumn:
+class RRDColumn(object):
     "class used internally by RRDContentHandler"
     def __init__(self, paramname, obj_report):
         self.paramname = paramname
@@ -288,7 +298,7 @@ class RRDContentHandler(sax.ContentHandler):
         
 
 # An object of this class should persist the lifetime of the program
-class RRDUpdates:
+class RRDUpdates(object):
     """ Object used to get and parse the output the http://localhost/rrd_udpates?... 
     """
     def __init__(self):
@@ -314,7 +324,7 @@ class RRDUpdates:
 
         # this is better than urllib.urlopen() as it raises an Exception on http 401 'Unauthorised' error 
         # rather than drop into interactive mode
-        sock = urllib.URLopener().open("http://localhost/rrd_updates?%s" % paramstr)
+        sock = urllib.request.URLopener().open("http://localhost/rrd_updates?%s" % paramstr)
         xmlsource = sock.read()
         sock.close()
 
@@ -342,7 +352,7 @@ class RRDUpdates:
     def get_uuid_list_by_objtype(self, objtype):
         "Return a list of uuids corresonding to the objects of this type for which we have ObjectReports"
         return [ objrep.uuid 
-                   for objrep in self.report.obj_reports.values() 
+                   for objrep in list(self.report.obj_reports.values()) 
                      if objrep.objtype == objtype ]
 
 
@@ -354,8 +364,8 @@ def average(mylist):
 
 def get_percent_log_fs_usage(ignored):
     "Get the percent usage of the host filesystem for logs partition. Input list is ignored and should be empty"
-    fs_output = commands.getoutput('df /etc/passwd')
-    log_fs_output = commands.getoutput('df /var/log')
+    fs_output = subprocess.getoutput('df /etc/passwd')
+    log_fs_output = subprocess.getoutput('df /var/log')
     fs_output = ' '.join(fs_output.splitlines()[1:])
     log_fs_output = ' '.join(log_fs_output.splitlines()[1:])
     # Get the percent usage only when there is a separate logs partition
@@ -369,7 +379,7 @@ def get_percent_log_fs_usage(ignored):
 def get_percent_fs_usage(ignored):
     "Get the percent usage of the host filesystem.  Input list is ignored and should be empty"
     # this file is on the filesystem of interest in both OEM and Retail
-    output = commands.getoutput('df /etc/passwd')
+    output = subprocess.getoutput('df /etc/passwd')
     output = ' '.join(output.splitlines()[1:]) # remove header line and rewrap on single line
     percentage = output.split()[4]
     # remove % character and convert to float
@@ -407,7 +417,7 @@ def get_percent_sr_usage(mylist):
         log_err("Error %s in get_percent_sr_usage, return 0.0 instead" % e)
         return 0.0
 
-class VariableConfig:
+class VariableConfig(object):
     """Object storing the configuration of a Variable
     
     Initialisation parameters:
@@ -478,7 +488,7 @@ def variable_configs_differ(vc1, vc2):
     "Say whether configuration of one variable differs from that of another"
     return vc1.xmldoc.toxml() != vc2.xmldoc.toxml()
 
-class VariableState:
+class VariableState(object):
     """ Object storing the state of a Variable
     """
     def __init__(self):
@@ -540,7 +550,7 @@ class Variable(VariableConfig, VariableState):
             self.trigger_down_counter = self.alarm_trigger_period
         
 
-class ObjectMonitor:
+class ObjectMonitor(object):
     """Abstract class, used as base for VMMonitor and HOSTMonitor
     
     Public attributes are uuid, refresh_config()
@@ -639,10 +649,10 @@ class ObjectMonitor:
         
         for var in self.get_active_variables():
             # find the subset of the params returned for this object that we need to consolidate into var
-            params_to_consolidate = filter(var.rrd_regex.match, params_in_obj_report)
+            params_to_consolidate = list(filter(var.rrd_regex.match, params_in_obj_report))
             for row in range(num_rows):
                 # Get the values to consolidate
-                values_to_consolidate = map(lambda param: obj_report.get_value(param, row), params_to_consolidate)
+                values_to_consolidate = [obj_report.get_value(param, row) for param in params_to_consolidate]
                 # Consolidate them
                 value = var.consolidation_fn(values_to_consolidate)
                 # Pass result on to the variable object - this may result in an alarm being generated
@@ -938,20 +948,20 @@ def update_all_xmlconfigs(session):
     for recs in (all_host_recs, all_vm_recs, all_sr_recs):
         all_otherconfigs.update([
                 (recs[ref]['uuid'], recs[ref]['other_config'])
-                for ref in recs.keys()
+                for ref in list(recs.keys())
                 ])
 
     # rebuild dictionary mapping uuids to xmlconfigs
     all_xmlconfigs.clear()
     all_xmlconfigs.update([
             (uuid, other_config['perfmon'])
-            for (uuid, other_config) in all_otherconfigs.items()
+            for (uuid, other_config) in list(all_otherconfigs.items())
             if 'perfmon' in other_config
             ])
 
     # Rebuild another map
     sruuids_by_hostuuid.clear()
-    for (sr, rec) in all_sr_recs.items():
+    for (sr, rec) in list(all_sr_recs.items()):
         if 'perfmon' in rec['other_config']:
             sruuid = rec['uuid']
             # If we hadn't done SR.get_all_records we would now do SR.get_PBDs.
@@ -1066,13 +1076,13 @@ def main():
             vm_uuid_list = rrd_updates.get_uuid_list_by_objtype('vm')
 
             # Remove any monitors for VMs no longer listed in rrd_updates page
-            for uuid in vm_mon_lookup.keys():
+            for uuid in list(vm_mon_lookup.keys()):
                 if uuid not in vm_uuid_list:
                     vm_mon_lookup.pop(uuid)
                 
             # Create monitors for VMs that have just appeared in rrd_updates page
             for uuid in vm_uuid_list:
-                if uuid not in vm_mon_lookup.keys():
+                if uuid not in list(vm_mon_lookup.keys()):
                     vm_mon_lookup[uuid] = VMMonitor(uuid)
                 else:
                     # check if the config has changed, e.g. by XenCenter
@@ -1102,18 +1112,18 @@ def main():
             print_debug("sr_uuid_list = %s" % sr_uuid_list)
 
             # Remove monitors for SRs no longer listed in the rrd_updates page
-            for uuid in sr_mon_lookup.keys():
+            for uuid in list(sr_mon_lookup.keys()):
                 if uuid not in sr_uuid_list:
                     sr_mon_lookup.pop(uuid)
             # Create monitors for SRs that have just appeared in rrd_updates page
             for uuid in sr_uuid_list:
-                if uuid not in sr_mon_lookup.keys():
+                if uuid not in list(sr_mon_lookup.keys()):
                     sr_mon_lookup[uuid] = SRMonitor(uuid)
                 else:
                     sr_mon_lookup[uuid].refresh_config()
 
             # Go through each vm_mon and update it using the rrd_udpates - this may generate alarms
-            for vm_mon in vm_mon_lookup.values():
+            for vm_mon in list(vm_mon_lookup.values()):
                 vm_mon.process_rrd_updates(rrd_updates, session)
 
             # Ditto for the host_mon
@@ -1121,7 +1131,7 @@ def main():
                 host_mon.process_rrd_updates(rrd_updates, session)
 
             # And for the sr_mons
-            for sr_mon in sr_mon_lookup.values():
+            for sr_mon in list(sr_mon_lookup.values()):
                 sr_mon.process_rrd_updates(rrd_updates, session)
 
         except socket.error as e:

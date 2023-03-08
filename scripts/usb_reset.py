@@ -41,6 +41,15 @@
 # 1.remove the cgroup if one has been created.
 # 2.umount /dev, /sys from chroot directory if they are mounted.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import map
+from builtins import str
+from builtins import *
 import argparse
 import ctypes
 import ctypes.util
@@ -122,7 +131,7 @@ def load_device_ids(device):
     ids_path = get_ids_path(device)
     try:
         with open(ids_path) as f:
-            uid, gid = map(int, f.readline().split())
+            uid, gid = list(map(int, f.readline().split()))
     except (IOError, ValueError) as e:
         log.error("Failed to load device ids: {}".format(str(e)))
 

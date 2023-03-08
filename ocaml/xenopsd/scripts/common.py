@@ -12,6 +12,14 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from builtins import object
 import os
 import os.path
 import sys
@@ -129,7 +137,7 @@ try:
 except ImportError:
 	import simplejson as json
 
-class VIF:
+class VIF(object):
     def __init__(self, vif_name, vm_uuid, devid):
         self.vif_name = vif_name
         self.vm_uuid = vm_uuid
@@ -216,7 +224,7 @@ class VIF:
         send_to_syslog("Got locking config: %s" % (repr(results)))
         return results
 
-class Interface:
+class Interface(object):
     def __init__(self, vif_name, uuid, devid):
         self.uuid = uuid
         self.devid = int(devid)
