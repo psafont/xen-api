@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 
 # Drop this file into /usr/lib/yum-plugins/
 # Enable it by creating conf file /etc/yum/pluginconf.d/accesstoken.conf:

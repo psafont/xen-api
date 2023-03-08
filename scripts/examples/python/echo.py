@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # Simple XenAPI plugin
 import XenAPIPlugin, time

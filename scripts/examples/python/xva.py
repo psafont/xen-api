@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # Rewrite the VDI.sm_config:SCSIid fields in XVA metadata
 

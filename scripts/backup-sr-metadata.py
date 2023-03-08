@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 # Back up the SR metadata and VDI list into an XML file
 # (c) Anil Madhavapeddy, Citrix Systems Inc, 2008
 

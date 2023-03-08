@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # Send back-to-back 'Host.get_servertime' calls to simulate the GUI's heartbeat and record latency.
 

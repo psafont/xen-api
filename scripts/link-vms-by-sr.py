@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 # Populate a directory of symlinks partitioning VMs by SR
 # (c) Anil Madhavapeddy, Citrix Systems Inc, 2008
 

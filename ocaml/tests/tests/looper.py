@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 
 print "Program attempts to log into an XAPI server, fetch a list of VMs and"
 print "then calls VM.get_otherConfig on the first one in a loop"

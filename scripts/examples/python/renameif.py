@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # Copyright (c) 2008 XenSource, Inc.
 #
 # Permission to use, copy, modify, and distribute this software for any

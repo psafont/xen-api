@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 
 print "Program attempts to log into an XAPI server to fetch a list of VMs and"
 print "a list of debug objects. It then chooses the first debug object, "

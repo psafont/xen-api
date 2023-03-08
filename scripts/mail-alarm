@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 #
 # mail-alarm: uses ssmtp to send a mail message, to pool:other_config:mail-destination
 #

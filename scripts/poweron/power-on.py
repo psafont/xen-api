@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # Example script which shows how to use the XenAPI to find a particular Host's management interface
 # and send it a wake-on-LAN packet.

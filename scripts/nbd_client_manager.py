@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 
 """
 Provides functions and a CLI for safely connecting to and disconnecting from

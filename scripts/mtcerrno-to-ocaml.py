@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # Convert the MTC exit codes into a disjoint union type. Each line in the file looks like:
 

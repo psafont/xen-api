@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # Common functions for managing statically-attached (ie onboot, without xapi) VDIs
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 
 import xmlrpclib
 server = xmlrpclib.Server("http://melton:8086");

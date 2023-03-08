@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 #
 # perfmon - a daemon for monitoring performance of the host on which it is run 
 # and of all the local VMs, and for generating events based on configurable 
