@@ -24,8 +24,8 @@ except KeyError:
 
 basedir = os.path.join(tmpdir, "link_test")
 
-rpc_req = Message("hello", 1L, "reply_to")
-rpc_res = Message("hello", 1L)
+rpc_req = Message("hello", 1, "reply_to")
+rpc_res = Message("hello", 1)
 
 class Internal_invariants(unittest.TestCase):
     def test_Message_save_load(self):
@@ -83,8 +83,8 @@ class Ocaml_interop(unittest.TestCase):
     def test_transfer_reply(self):
         ocaml = Transfer_response.of_response(Http_response.of_string(load("transfer.reply")))
         m = {
-            1L: rpc_req,
-            2L: rpc_res,
+            1: rpc_req,
+            2: rpc_res,
             }
         py = Transfer_response(m)
         for k in py.messages:

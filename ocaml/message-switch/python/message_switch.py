@@ -14,6 +14,7 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+from __future__ import print_function
 import json
 
 class Http_request:
@@ -50,7 +51,7 @@ class Http_response:
     @classmethod
     def of_string(cls, txt):
         lines = txt.split("\r\n")
-        if lines[0] <> "HTTP/1.1 200 OK":
+        if lines[0] != "HTTP/1.1 200 OK":
             raise "Unexpected status line: %s" % lines[0]
         rest = "\r\n".join(lines[3:])
         return cls(rest)
@@ -210,7 +211,7 @@ def link_send(sock, m):
 def link_recv(reader):
     status = reader.readline()
     if not(status.startswith("HTTP/1.1 200 OK")):
-        raise (Bad_status(status))
+        raise Bad_status
     content_length = None
     eoh = False
     while not eoh:
@@ -273,7 +274,7 @@ class Receiver(Thread):
     def set_listen_callback(self, listen_callback):
         self.listen_callback = listen_callback
     def run(self):
-        ack_to = -1L
+        ack_to = -1
         timeout = 5.0
         while True:
             messages = transfer(self.sock, self.reader, ack_to, timeout)
@@ -287,7 +288,7 @@ class Receiver(Thread):
                     ack(self.sock, self.reader, id)
                 else:
                     if m.correlation_id not in self.events:
-                        print >>sys.stderr, "Unknown correlation_id: %d" % m.correlation_id
+                        print("Unknown correlation_id: %d" % m.correlation_id, file=sys.stderr)
                     else:
                         self.replies[m.correlation_id] = m.payload
                         event = self.events[m.correlation_id]
@@ -400,7 +401,7 @@ if __name__ == "__main__":
     if options.client_name:
         client_name = options.client_name
     if not options.service:
-        print >> sys.stderr, "Must provide a --service name"
+        print("Must provide a --service name", file=sys.stderr)
         sys.exit(1)
 
     if options.listen:
@@ -411,4 +412,4 @@ if __name__ == "__main__":
     else:
         s = Switch(client_name)
         c = s.connect(options.service)
-        print c.rpc("hello")
+        print(c.rpc("hello"))

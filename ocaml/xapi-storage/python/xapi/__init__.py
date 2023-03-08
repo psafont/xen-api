@@ -24,6 +24,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
+from __future__ import print_function
 
 import sys
 import traceback
@@ -58,7 +59,7 @@ def handle_exception(e, code=None, params=None):
         "params": params,
         "backtrace": backtrace,
     }
-    print >>sys.stdout, json.dumps(results)
+    print(json.dumps(results), file=sys.stdout)
     sys.exit(1)
 
 
@@ -67,9 +68,9 @@ class XenAPIException(Exception):
     def __init__(self, code, params):
         Exception.__init__(self)
         if not isinstance(code, str) and not isinstance(code, unicode):
-            raise (TypeError("string", repr(code)))
+            raise TypeError
         if not isinstance(params, list):
-            raise (TypeError("list", repr(params)))
+            raise TypeError
         self.code = code
         self.params = params
 

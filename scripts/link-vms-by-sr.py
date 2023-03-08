@@ -2,6 +2,7 @@
 # Populate a directory of symlinks partitioning VMs by SR
 # (c) Anil Madhavapeddy, Citrix Systems Inc, 2008
 
+from __future__ import print_function
 import atexit
 import XenAPI
 import os, sys
@@ -15,7 +16,7 @@ def logout():
 atexit.register(logout)
 
 def usage():
-    print >> sys.stderr, "%s [-d <directory>]" % sys.argv[0]
+    print("%s [-d <directory>]" % sys.argv[0], file=sys.stderr)
     sys.exit(1)
    
 def main(argv):
@@ -24,8 +25,8 @@ def main(argv):
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hd:", [])
-    except getopt.GetoptError, err:
-        print str(err)
+    except getopt.GetoptError as err:
+        print(str(err))
         usage()
 
     dir = None
@@ -46,7 +47,7 @@ def main(argv):
     for vm in vms:
         vmrec = vms[vm]
         # Ignore built-in templates
-        if vmrec['other_config'].has_key('default_template'):
+        if 'default_template' in vmrec['other_config']:
             if vmrec['other_config']['default_template'] == 'true':
                 continue
         # Ignore dom0
@@ -58,7 +59,7 @@ def main(argv):
 
         # for each VM, figure out the set of SRs it uses
         for vbd in vmrec['VBDs']:
-            if not vbds.has_key(vbd):
+            if vbd not in vbds:
                 continue
             vdi = vbds[vbd]['VDI']
 
@@ -66,37 +67,37 @@ def main(argv):
             if vdi == '':
                 continue
 
-            if not vdis.has_key(vdi):
+            if vdi not in vdis:
                 continue
 
             sr = vdis[vdi]['SR']
-            if not srs.has_key(sr):
+            if sr not in srs:
                 continue
 
             sruuid = srs[sr]['uuid']
             vmuuid = vmrec['uuid']
 
-            if not vms_in_sr.has_key(sruuid):
+            if sruuid not in vms_in_sr:
                 vms_in_sr[sruuid] = {}
             vms_in_sr[sruuid][vmuuid] = 1
     
     for sruuid in vms_in_sr.keys():
         linkdir = "%s/by-sr/%s" % (dir, sruuid)
         if os.path.isdir(linkdir):
-            print >> sys.stderr, "Directory %s already exists, skipping" % linkdir
+            print("Directory %s already exists, skipping" % linkdir, file=sys.stderr)
             continue
 
         try:
             os.makedirs(linkdir)
         except:
-            print >> sys.stderr, "Failed to create directory: %s" % linkdir
+            print("Failed to create directory: %s" % linkdir, file=sys.stderr)
         for vmuuid in vms_in_sr[sruuid].keys():
             try:
                 src = "../../all/%s.vmmeta" % vmuuid
                 targ = "%s/%s.vmmeta" % (linkdir, vmuuid)
                 os.symlink(src, targ)
             except:
-                print >> sys.stderr, "Failed to create symlink: %s -> %s" % (src, targ)
+                print("Failed to create symlink: %s -> %s" % (src, targ), file=sys.stderr)
 
     session.xenapi.logout()
 

@@ -2,6 +2,7 @@
 # Print out custom template UUIDs in CLI comma-separated minimal format
 # (c) Anil Madhavapeddy, Citrix Systems Inc, 2008
 
+from __future__ import print_function
 import atexit
 import XenAPI
 import os, sys, time
@@ -20,14 +21,14 @@ def main(argv):
 
         templates = session.xenapi.VM.get_all_records_where('field "is_a_template" = "true" and field "is_a_snapshot" = "false"' )
     except:
-        print >> sys.stderr, "Error retrieving template list"
+        print("Error retrieving template list", file=sys.stderr)
         sys.exit(1)
 
     output=[]
     for tmplref in templates.keys():
         tmplrec = templates[tmplref]
         try:
-            if not tmplrec['other_config'].has_key('default_template'):
+            if 'default_template' not in tmplrec['other_config']:
                 output.append(tmplrec['uuid'])
             elif tmplrec['other_config']['default_template'] != true:
                 output.append(tmplrec['uuid'])

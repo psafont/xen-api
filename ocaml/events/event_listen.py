@@ -1,9 +1,10 @@
 #!/usr/bin/env python2
 
+from __future__ import print_function
 import xmlrpclib, sys
 
 # Don't forget to include the port in the url (eg http://melton:8086/)
-if len(sys.argv) <> 4: 
+if len(sys.argv) != 4: 
     raise "Expected arguments: <url> <username> <password>"
 
 server = xmlrpclib.Server(sys.argv[1]);
@@ -13,8 +14,8 @@ server.event.register(session, ["*"])
 while True:
     events = server.event.next(session)['Value']
     for event in events:
-        print event['id'], " ", event['class'], " ", event['operation'], " ",event['ref'], " ",
+        print(event['id'], " ", event['class'], " ", event['operation'], " ",event['ref'], " ", end=' ')
 	if "snapshot" in event.keys():
-	   print "OK"
+	   print("OK")
 	else:
-	   print "(no snapshot)"
+	   print("(no snapshot)")

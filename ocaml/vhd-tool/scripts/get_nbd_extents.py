@@ -9,6 +9,7 @@ It uses the BLOCK_STATUS NBD extension, which relies on the structured replies
 functionality. These are documented in the NBD protocol docs:
 https://github.com/NetworkBlockDevice/nbd/blob/master/doc/proto.md
 """
+from __future__ import print_function
 
 import argparse
 import json
@@ -148,7 +149,7 @@ def _main():
                 exportname=args.exportname,
                 offset=args.offset,
                 length=args.length))
-        print json.dumps(extents)
+        print(json.dumps(extents))
     except Exception as exc:
         LOGGER.exception(exc)
         raise

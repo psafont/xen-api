@@ -4,6 +4,7 @@
 Provides functions and a CLI for safely connecting to and disconnecting from
 NBD devices.
 """
+from __future__ import print_function
 
 import argparse
 import logging
@@ -207,7 +208,7 @@ def disconnect_nbd_device(nbd_device):
 
 def _connect_cli(args):
     device = connect_nbd(path=args.path, exportname=args.exportname)
-    print device
+    print(device)
 
 
 def _disconnect_cli(args):

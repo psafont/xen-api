@@ -2,6 +2,7 @@
 # Back up the SR metadata and VDI list into an XML file
 # (c) Anil Madhavapeddy, Citrix Systems Inc, 2008
 
+from __future__ import print_function
 import atexit
 import XenAPI
 import sys
@@ -17,11 +18,11 @@ def logout():
 atexit.register(logout)
 
 def usage():
-    print >> sys.stderr, "%s [-f <output file>]" % sys.argv[0]
+    print("%s [-f <output file>]" % sys.argv[0], file=sys.stderr)
     sys.exit(1)
 
 def set_if_exists(xml, record, key):
-    if record.has_key(key):
+    if key in record:
         xml.setAttribute(key, record[key])
     else:
         xml.setAttribute(key, "")
@@ -32,8 +33,8 @@ def main(argv):
 
     try:
         opts, args = getopt.getopt(argv, "hf:", [])
-    except getopt.GetoptError, err:
-        print str(err)
+    except getopt.GetoptError as err:
+        print(str(err))
         usage()
 
     outfile = None
@@ -70,7 +71,7 @@ def main(argv):
                 set_if_exists(vdixml, vdirec, 'name_description')
                 srxml.appendChild(vdixml)
             except:
-                print >> sys.stderr, "Failed to get VDI record for: %s" % vdiref
+                print("Failed to get VDI record for: %s" % vdiref, file=sys.stderr)
  
         metaxml.appendChild(srxml)
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 
+from __future__ import print_function
 import getopt, sys, xmlrpclib
 
 url = "http://dhcp108:70000" #default
@@ -11,20 +12,20 @@ if len(parsed[0]) == 1:
 server = xmlrpclib.Server(url);
 
 # Call the server and get our result.
-print "Logging in... ",
+print("Logging in... ", end=' ')
 session = server.Session.do_login_with_password("user", "passwd", "1.0", "xen-api-test-client.py")
-print "OK"
-print "Session ID: \""+session+"\""
+print("OK")
+print("Session ID: \""+session+"\"")
 vm_list = server.VM.do_list(session)
 
-print "VM list = " + repr(vm_list)
+print("VM list = " + repr(vm_list))
 
 for vm in vm_list:
-    print "VM ", vm, " in state: ", server.VM.get_power_state(session, vm)
+    print("VM ", vm, " in state: ", server.VM.get_power_state(session, vm))
 
 first_vm = vm_list[0]
 other = server.VM.get_otherConfig(session, first_vm)
-print repr(other)
+print(repr(other))
 
 
 #state = server.VM.get_power_state(session, first_vm)
@@ -39,6 +40,6 @@ print repr(other)
 #	server.VM.do_hibernate(session, first_vm, 1==1)
 #print "OK"
 
-print "Logging out... ",
+print("Logging out... ", end=' ')
 server.Session.do_logout(session)
-print "OK"
+print("OK")
