@@ -17,7 +17,6 @@
 *)
 
 module Rrdd = Rrd_client.Client
-open Xapi_stdext_std.Xstringext
 module Unixext = Xapi_stdext_unix.Unixext
 module Date = Xapi_stdext_date.Date
 open Create_misc
@@ -68,11 +67,13 @@ let get_start_time () =
   try
     debug "Calculating boot time..." ;
     let now = Unix.time () in
-    let uptime = Unixext.string_of_file "/proc/uptime" in
-    let uptime = String.strip String.isspace uptime in
-    let uptime = String.split ' ' uptime in
-    let uptime = List.hd uptime in
-    let uptime = float_of_string uptime in
+    let uptime =
+      Unixext.string_of_file "/proc/uptime"
+      |> String.trim
+      |> String.split_on_char ' '
+      |> List.hd
+      |> float_of_string
+    in
     let boot_time = Date.of_float (now -. uptime) in
     debug " system booted at %s" (Date.to_string boot_time) ;
     boot_time
@@ -101,7 +102,7 @@ let refresh_localhost_info ~__context info =
     | None ->
         []
     | Some {capabilities; _} ->
-        String.split ' ' capabilities
+        String.split_on_char ' ' capabilities
   in
   Db.Host.set_capabilities ~__context ~self:host ~value:caps ;
   Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr ~__context) ;

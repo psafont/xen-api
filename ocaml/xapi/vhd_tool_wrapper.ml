@@ -18,7 +18,6 @@
 module D = Debug.Make (struct let name = "vhd_tool_wrapper" end)
 
 open D
-open Xapi_stdext_std.Xstringext
 
 (* .vhds on XenServer are sometimes found via /dev/mapper *)
 let vhd_search_path = "/dev/mapper:."
@@ -125,7 +124,7 @@ let find_backend_device path =
     let link =
       Unix.readlink (Printf.sprintf "/sys/dev/block/%d:%d/device" major minor)
     in
-    match List.rev (String.split '/' link) with
+    match List.rev (String.split_on_char '/' link) with
     | id :: "xen" :: "devices" :: _ when String.starts_with ~prefix:"vbd-" id ->
         let id = int_of_string (String.sub id 4 (String.length id - 4)) in
         with_xs (fun xs ->
@@ -134,7 +133,7 @@ let find_backend_device path =
               xs.Xs.read (Printf.sprintf "device/vbd/%d/backend" id)
             in
             let params = xs.Xs.read (Printf.sprintf "%s/params" backend) in
-            match String.split '/' backend with
+            match String.split_on_char '/' backend with
             | "local" :: "domain" :: bedomid :: _ ->
                 if not (self = bedomid) then
                   raise

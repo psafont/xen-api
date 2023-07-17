@@ -304,7 +304,7 @@ let get_system_display_device () =
     let line =
       with_vga_arbiter ~readonly:true (fun fd ->
           let data = Unixext.try_read_string ~limit:1024 fd in
-          List.hd (Xstringext.String.split ~limit:2 '\n' data)
+          List.hd (String.split_on_char '\n' data)
       )
     in
     (* Example contents of line:

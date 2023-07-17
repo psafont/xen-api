@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module Xstringext = Xapi_stdext_std.Xstringext
 module Listext = Xapi_stdext_std.Listext
 open Client
 open Event_types
@@ -131,7 +130,8 @@ let create_alert ~host_uuid_string ~host_name ~pbd_uuid_string key value
 (* create a list of alerts from a PBD event *)
 let create_pbd_alerts rpc session_id snapshot (_pbd_ref, pbd_rec, timestamp) =
   let aux (key, value) =
-    let scsi_id = Xstringext.String.sub_to_end key 6 in
+    let length = String.length key in
+    let scsi_id = String.sub key 6 (length - 6) in
     let host_uuid_string =
       Client.Host.get_uuid ~rpc ~session_id ~self:pbd_rec.API.pBD_host
     in

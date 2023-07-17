@@ -39,8 +39,7 @@ let compare_case_ins x y =
   compare (String.lowercase_ascii x) (String.lowercase_ascii y)
 
 let escape s =
-  let open Xapi_stdext_std.Xstringext in
-  let sl = String.explode s in
+  let buf = Buffer.create (String.length s) in
   let esc_char = function
     | '\\' ->
         "&#92;"
@@ -75,8 +74,8 @@ let escape s =
     | c ->
         String.make 1 c
   in
-  let escaped_list = List.map esc_char sl in
-  String.concat "" escaped_list
+  let add_escaped char = Buffer.add_string buf (esc_char char) in
+  String.iter add_escaped s ; Buffer.contents buf
 
 let is_prim_type = function
   | String | Int | Float | Bool | DateTime ->

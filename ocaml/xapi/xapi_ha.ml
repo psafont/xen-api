@@ -67,7 +67,7 @@ let i_have_statefile_access () =
 let propose_master () =
   try
     let result = call_script ha_propose_master [] in
-    Xapi_stdext_std.Xstringext.String.rtrim result = "TRUE"
+    String.(equal (trim result) "TRUE")
   with Xha_error e ->
     error "ha_propose_master threw unexpected exception: %s"
       (Xha_errno.to_string e) ;

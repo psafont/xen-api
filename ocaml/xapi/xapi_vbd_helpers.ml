@@ -15,7 +15,6 @@
  * @group Storage
 *)
 
-open Xapi_stdext_std.Xstringext
 module Listext = Xapi_stdext_std.Listext
 module Date = Xapi_stdext_date.Date
 
@@ -379,13 +378,13 @@ let valid_device dev ~_type =
       true
     else
       try
-        ignore (int_of_string (String.implode rest)) ;
+        ignore (int_of_string (Xapi_stdext_std.Xstringext.String.implode rest)) ;
         true
       with _ -> false
   in
-  dev = "autodetect"
+  String.equal dev "autodetect"
   ||
-  match String.explode dev with
+  match Xapi_stdext_std.Xstringext.String.explode dev with
   | 's' :: 'd' :: 'a' .. 'p' :: rest ->
       check_rest rest
   | 'x' :: 'v' :: 'd' :: 'a' .. 'p' :: rest ->

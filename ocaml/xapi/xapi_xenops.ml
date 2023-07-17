@@ -383,7 +383,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
     | Some x -> (
       try
         let l = String.split_on_char ',' x in
-        List.map Xapi_stdext_std.Xstringext.String.(strip isspace) l
+        List.map String.trim l
       with _ -> []
     )
   in

@@ -24,7 +24,7 @@ module Uds = struct
     finally (fun () -> func ic oc) (fun () -> Unix.close fd)
 
   let http_response_code d =
-    match Xapi_stdext_std.Xstringext.String.split ' ' d with
+    match String.split_on_char ' ' d with
     | _ :: code :: _ ->
         int_of_string code
     | _ ->

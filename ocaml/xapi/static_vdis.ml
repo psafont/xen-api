@@ -40,7 +40,7 @@ let permanent_vdi_attach ~__context ~vdi ~reason =
        ["add"; Db.VDI.get_uuid ~__context ~self:vdi; reason]
     ) ;
   (* VDI will be attached on next boot; attach it now too *)
-  Xapi_stdext_std.Xstringext.String.rtrim
+  String.trim
     (Helpers.call_script !Xapi_globs.static_vdis
        ["attach"; Db.VDI.get_uuid ~__context ~self:vdi]
     )

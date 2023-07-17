@@ -15,7 +15,6 @@
 module D = Debug.Make (struct let name = "config_file_sync" end)
 
 open D
-open Xapi_stdext_std.Xstringext
 
 let superuser = "root"
 
@@ -75,7 +74,8 @@ let config_file_sync_handler (req : Http.Request.t) s _ =
   Xapi_http.with_context "Syncing dom0 config files over HTTP" req s
     (fun __context ->
       let uri =
-        String.split '/' req.Http.Request.uri |> List.filter (fun x -> x <> "")
+        String.split_on_char '/' req.Http.Request.uri
+        |> List.filter (fun x -> not (String.equal x ""))
       in
       req.Http.Request.close <- true ;
       debug "sending headers" ;

@@ -13,7 +13,6 @@
  *)
 
 open Client
-open Xapi_stdext_std.Xstringext
 
 module D = Debug.Make (struct let name = "xapi_dr_task" end)
 
@@ -36,7 +35,7 @@ type sr_probe_sr = {
 (* Attempt to parse a key/value pair from XML. *)
 let parse_kv = function
   | Xml.Element (key, _, [Xml.PCData v]) ->
-      (key, String.strip String.isspace v) (* remove whitespace at both ends *)
+      (key, String.trim v) (* remove whitespace at both ends *)
   | Xml.Element (key, _, []) ->
       (key, "")
   | _ ->
