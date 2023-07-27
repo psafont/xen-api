@@ -107,6 +107,7 @@ module type S = sig
       -> Vif.t list
       -> Vgpu.t list
       -> Vusb.t list
+      -> Vm.tpm option
       -> bool
       -> unit
 

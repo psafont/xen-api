@@ -560,7 +560,7 @@ module VM = struct
   let build ?restore_fd:_ _ vm vbds vifs vgpus vusbs extras _force =
     with_lock m (build_nolock vm vbds vifs vgpus vusbs extras)
 
-  let create_device_model _ vm _vbds _vifs _vgpus _vusbs _ =
+  let create_device_model _ vm _vbds _vifs _vgpus _vusbs _vtpm _ =
     with_lock m (create_device_model_nolock vm)
 
   let destroy_device_model _ vm = with_lock m (destroy_device_model_nolock vm)

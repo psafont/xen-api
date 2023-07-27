@@ -2223,7 +2223,13 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       let vifs : Vif.t list = VIF_DB.vifs id in
       let vgpus : Vgpu.t list = VGPU_DB.vgpus id in
       let vusbs : Vusb.t list = VUSB_DB.vusbs id in
-      B.VM.create_device_model t (VM_DB.read_exn id) vbds vifs vgpus vusbs
+      let vtpm : Vm.tpm option =
+        (* The uuid changes when snapshots are restored *)
+        let id = try Some (VM_DB.read_exn id) with _ -> None in
+        Option.bind id @@ fun id ->
+        match id.Vm.ty with HVM {tpm; _} -> tpm | _ -> None
+      in
+      B.VM.create_device_model t (VM_DB.read_exn id) vbds vifs vgpus vusbs vtpm
         save_state ;
       List.iter VGPU_DB.signal (VGPU_DB.ids id) ;
       List.iter VUSB_DB.signal (VUSB_DB.ids id)

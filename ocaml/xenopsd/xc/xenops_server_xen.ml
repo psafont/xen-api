@@ -1906,7 +1906,7 @@ module VM = struct
 
   (* NB: the arguments which affect the qemu configuration must be saved and
      restored with the VM. *)
-  let create_device_model_config vm vmextra vbds vifs vgpus _vusbs =
+  let create_device_model_config vm vmextra vbds vifs vgpus _vusbs vtpm =
     match vmextra.VmExtra.persistent with
     | {VmExtra.build_info= None; _} | {VmExtra.ty= None; _} ->
         raise (Xenopsd_error Domain_not_built)
@@ -2036,6 +2036,7 @@ module VM = struct
                   Device.Dm.Disabled
             in
             let parallel = List.assoc_opt "parallel" vm.Vm.platformdata in
+            let tpm = Option.fold ~none:hvm_info.tpm ~some:Option.some vtpm in
             Some
               (make ~video_mib:hvm_info.video_mib ~firmware:hvm_info.firmware
                  ~video:hvm_info.video ~acpi:hvm_info.acpi
@@ -2043,8 +2044,7 @@ module VM = struct
                  ?vnc_ip:hvm_info.vnc_ip ~usb ~parallel
                  ~pci_emulations:hvm_info.pci_emulations
                  ~pci_passthrough:hvm_info.pci_passthrough
-                 ~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus
-                 ~tpm:hvm_info.tpm ()
+                 ~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus ~tpm ()
               )
       )
 
@@ -2340,8 +2340,8 @@ module VM = struct
   let build ?restore_fd:_ task vm vbds vifs vgpus vusbs extras force =
     on_domain (build_domain vm vbds vifs vgpus vusbs extras force) task vm
 
-  let create_device_model_exn vbds vifs vgpus vusbs saved_state vmextra xc xs
-      task vm di =
+  let create_device_model_exn vbds vifs vgpus vusbs vtpm saved_state vmextra xc
+      xs task vm di =
     let qemu_dm = dm_of ~vm in
     let xenguest = choose_xenguest vm.Vm.platformdata in
     debug "chosen qemu_dm = %s" (Device.Profile.wrapper_of qemu_dm) ;
@@ -2361,7 +2361,7 @@ module VM = struct
           | Vm.PV _ | Vm.PVinPVH _ | Vm.PVH _ ->
               assert false
         )
-        (create_device_model_config vm vmextra vbds vifs vgpus vusbs) ;
+        (create_device_model_config vm vmextra vbds vifs vgpus vusbs vtpm) ;
       match vm.Vm.ty with
       | Vm.PV {vncterm= true; vncterm_ip= ip; _}
       | Vm.PVinPVH {vncterm= true; vncterm_ip= ip; _} ->
@@ -2371,7 +2371,7 @@ module VM = struct
     with Device.Ioemu_failed (name, msg) ->
       raise (Xenopsd_error (Failed_to_start_emulator (vm.Vm.id, name, msg)))
 
-  let create_device_model task vm vbds vifs vgpus vusbs saved_state =
+  let create_device_model task vm vbds vifs vgpus vusbs vtpm saved_state =
     let _ =
       DB.update_exn vm.Vm.id (fun d ->
           let vmextra =
@@ -2391,7 +2391,9 @@ module VM = struct
           in
           let () =
             on_domain
-              (create_device_model_exn vbds vifs vgpus vusbs saved_state vmextra)
+              (create_device_model_exn vbds vifs vgpus vusbs vtpm saved_state
+                 vmextra
+              )
               task vm
           in
           (* Ensure that the updated vmextra is written back to the DB *)
