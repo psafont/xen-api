@@ -87,6 +87,8 @@ let compare (a : 'a t) (b : 'a t) =
   | Real _, Dummy _ ->
       1
 
+let equal x y = Int.equal (compare x y) 0
+
 let string_of = function
   | Real uuid ->
       ref_prefix ^ uuid
