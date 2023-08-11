@@ -1096,47 +1096,43 @@ let run_script ~__context ~vm ~args =
       ) ;
   Xapi_xenops.run_script ~__context ~self:vm script
 
-(* A temporal database holding the latest calling log for each VM. It's fine for it to be host local as a VM won't be resident on two hosts at the same time, nor does it migrate that frequently *)
+(* A timer database to know when was the last call for each VM. It's fine for
+   it to be host local as a VM won't be resident on two hosts at the same time,
+   nor does it migrate that frequently *)
 
-let call_plugin_latest = Hashtbl.create 37
+let last_call_timers = Hashtbl.create 37
 
-let call_plugin_latest_m = Mutex.create ()
+let last_call_timers_m = Mutex.create ()
 
 let record_call_plugin_latest vm =
-  let interval = Int64.of_float (!Xapi_globs.vm_call_plugin_interval *. 1e9) in
-  with_lock call_plugin_latest_m (fun () ->
-      let now = Mtime.to_uint64_ns (Mtime_clock.now ()) in
-      (* First do a round of GC *)
-      let to_gc = ref [] in
-      Hashtbl.iter
-        (fun v t ->
-          if Int64.sub now t > interval then
-            to_gc := v :: !to_gc
-        )
-        call_plugin_latest ;
-      List.iter (Hashtbl.remove call_plugin_latest) !to_gc ;
-      (* Then calculate the schedule *)
-      let to_wait =
-        match Hashtbl.find_opt call_plugin_latest vm with
-        | Some t ->
-            Int64.sub (Int64.add t interval) now
-        | None ->
-            0L
+  (* rate-limit plugin calls: only allow a call every [interval] seconds. *)
+  let interval = Mtime.Span.(!Xapi_globs.vm_call_plugin_interval * s) in
+  let rate_limited_for = ref None in
+  with_lock last_call_timers_m @@ fun () ->
+  Hashtbl.filter_map_inplace
+    (fun v t ->
+      match Clock.Timer.remaining t with
+      | Remaining to_wait ->
+          if Ref.equal v vm then
+            rate_limited_for := Some to_wait ;
+          Some t
+      | Expired _ ->
+          (* remove timers once they are past their due time *)
+          None
+    )
+    last_call_timers ;
+  match !rate_limited_for with
+  | Some to_wait ->
+      let err =
+        [
+          Ref.string_of vm
+        ; Fmt.to_to_string Mtime.Span.pp interval
+        ; Fmt.to_to_string Mtime.Span.pp to_wait
+        ]
       in
-      if to_wait > 0L then
-        raise
-          (Api_errors.Server_error
-             ( Api_errors.vm_call_plugin_rate_limit
-             , [
-                 Ref.string_of vm
-               ; string_of_float !Xapi_globs.vm_call_plugin_interval
-               ; string_of_float (Int64.to_float to_wait /. 1e9)
-               ]
-             )
-          )
-      else
-        Hashtbl.replace call_plugin_latest vm now
-  )
+      raise Api_errors.(Server_error (vm_call_plugin_rate_limit, err))
+  | None ->
+      Hashtbl.replace last_call_timers vm (Clock.Timer.start ~duration:interval)
 
 (* this is the generic plugin call available to xapi users *)
 let call_plugin ~__context ~vm ~plugin ~fn ~args =
@@ -1353,12 +1349,10 @@ let set_suspend_VDI ~__context ~self ~value =
   let src_vdi = Db.VM.get_suspend_VDI ~__context ~self in
   let dst_vdi = value in
   if src_vdi <> dst_vdi then (
-    (*
-	 * We don't care if the future host can see current suspend VDI or not, but
-	 * we want to make sure there's at least a host can see all the VDIs of the
-	 * VM + the new suspend VDI. We raise an exception if there's no suitable
-	 * host.
-	 *)
+    (* We don't care if the future host can see current suspend VDI or not, but
+       we want to make sure there's at least a host can see all the VDIs of the
+       VM + the new suspend VDI. We raise an exception if there's no suitable
+       host. *)
     let vbds = Db.VM.get_VBDs ~__context ~self in
     let vbds =
       List.filter (fun self -> not (Db.VBD.get_empty ~__context ~self)) vbds

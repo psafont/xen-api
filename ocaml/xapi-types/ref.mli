@@ -40,6 +40,9 @@ val compare : 'a t -> 'a t -> int
 (** [compare a b] returns [0] if [a] and [b] are equal, a negative integer if
     [a] is less than [b], and a positive integer if [a] is greater than [b]. *)
 
+val equal : 'a t -> 'a t -> bool
+(** [equal r r'] is [true] iff [r] and [r'] are equal. *)
+
 val string_of : 'a t -> string
 
 val to_option : 'a t -> 'a t option
