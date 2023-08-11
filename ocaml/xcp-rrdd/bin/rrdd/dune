@@ -5,7 +5,7 @@
   (modules (:standard \ xcp_rrdd))
   (libraries
     astring
-    
+
     ezxenstore
     gzip
     http_lib
@@ -13,6 +13,8 @@
     inotify
     mtime
     mtime.clock.os
+    ptime
+    ptime.clock.os
     rpclib.core
     rrd-transport
     rrd-transport.lib
@@ -23,6 +25,7 @@
     xapi-consts
     xapi-idl.network
     xapi-idl.rrd
+    xapi-idl.updates
     xapi-inventory
     xapi-log
     xapi-rrd
@@ -41,7 +44,7 @@
   (modules xcp_rrdd)
   (libraries
     astring
-    
+
     ezxenstore.core
     ezxenstore.watch
     forkexec
