@@ -180,17 +180,18 @@ let string_of_process_memory_info (x : process_memory_info) =
   Printf.sprintf "size: %d KiB; rss: %d KiB; data: %d KiB; stack: %d KiB" x.size
     x.rss x.data x.stack
 
-(* Log the initial offset between our monotonic clock and UTC *)
-let initial_offset =
-  Unix.gettimeofday () -. (Int64.to_float (Mtime_clock.now_ns ()) /. 1e9)
+let initial_clocks = (Ptime_clock.now (), Mtime_clock.counter ())
+
+let clock_diffs () =
+  let utc, local = initial_clocks in
+  (Ptime.diff (Ptime_clock.now ()) utc, Mtime_clock.count local)
 
 let print_system_stats () =
   let mi = string_of_meminfo (meminfo ()) in
   debug "system stats: %s" mi ;
-  let current_offset =
-    Unix.gettimeofday () -. (Int64.to_float (Mtime_clock.now_ns ()) /. 1e9)
-  in
-  debug "Clock drift: %.0f" (current_offset -. initial_offset)
+  let utc_d, local_d = clock_diffs () in
+  let drift = Ptime.Span.to_float_s utc_d -. Scheduler.span_to_s local_d in
+  debug "Clock drift: %.0f" drift
 
 (* Obtains process IDs for the specified program. This should probably be moved
    into xen-api-libs. *)

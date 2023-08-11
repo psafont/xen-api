@@ -12,6 +12,8 @@
     inotify
     clock
     mtime.clock
+    ptime
+    ptime.clock.os
     rpclib.core
     rrd-transport
     rrd-transport.lib
@@ -22,6 +24,7 @@
     xapi-consts
     xapi-idl.network
     xapi-idl.rrd
+    xapi-idl.updates
     xapi-inventory
     xapi-log
     xapi-rrd
