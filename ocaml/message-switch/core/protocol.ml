@@ -17,12 +17,29 @@ open Sexplib.Std
 
 exception Queue_deleted of string
 
+let timeout = Mtime.Span.(30 * s)
+
+(** Adapters  for rpclib *)
+module Mtime_ext = struct
+  module Span = struct
+    include Mtime.Span
+
+    let rpc_of_t s = Mtime.Span.to_uint64_ns s |> Rpc.rpc_of_int64
+
+    let t_of_rpc r = Rpc.int64_of_rpc r |> Mtime.Span.of_uint64_ns
+
+    let sexp_of_t m =
+      Mtime.Span.to_uint64_ns m |> Sexplib0.Sexp_conv.sexp_of_int64
+
+    let t_of_sexp s =
+      Sexplib0.Sexp_conv.int64_of_sexp s |> Mtime.Span.of_uint64_ns
+  end
+end
+
 (** uniquely identifier for this message *)
-type message_id = string * int64 [@@deriving rpc, sexp]
+type message_id = string * Mtime_ext.Span.t [@@deriving rpc, sexp]
 
 type message_id_opt = message_id option [@@deriving rpc, sexp]
-
-let timeout = 30.
 
 module Message = struct
   type kind = Request of string | Response of message_id
@@ -37,18 +54,22 @@ module Event = struct
   [@@deriving rpc]
 
   type t = {
-      time: float
+      created_at: Mtime_ext.Span.t
     ; input: string option
     ; queue: string
     ; output: string option
     ; message: message
-    ; processing_time: int64 option
+    ; processing_time: Mtime_ext.Span.t option
   }
   [@@deriving rpc]
 end
 
 module In = struct
-  type transfer = {from: string option; timeout: float; queues: string list}
+  type transfer = {
+      from: Mtime_ext.Span.t option
+    ; timeout: Mtime_ext.Span.t
+    ; queues: string list
+  }
   [@@deriving rpc]
 
   type t =
@@ -59,7 +80,7 @@ module In = struct
     | Destroy of string  (** Explicitly remove a named queue *)
     | Send of string * Message.t  (** Send a message to a queue *)
     | Transfer of transfer  (** blocking wait for new messages *)
-    | Trace of int64 * float  (** blocking wait for trace data *)
+    | Trace of int64 * Mtime_ext.Span.t  (** blocking wait for trace data *)
     | Ack of message_id  (** ACK this particular message *)
     | List of string * [`All | `Alive]
         (** return a list of queue names with a prefix *)
@@ -87,15 +108,23 @@ module In = struct
     | "", `GET, [""; "destroy"; name] ->
         Some (Destroy (Uri.pct_decode name))
     | "", `GET, [""; "ack"; name; id] ->
-        Some (Ack (Uri.pct_decode name, Int64.of_string id))
+        Some
+          (Ack
+             (Uri.pct_decode name, Int64.of_string id |> Mtime.Span.of_uint64_ns)
+          )
     | "", `GET, [""; "list"; prefix] ->
         Some (List (Uri.pct_decode prefix, `All))
     | "", `GET, [""; "list"; "alive"; prefix] ->
         Some (List (Uri.pct_decode prefix, `Alive))
     | "", `GET, [""; "trace"; ack_to; timeout] ->
-        Some (Trace (Int64.of_string ack_to, float_of_string timeout))
+        Some
+          (Trace
+             ( Int64.of_string ack_to
+             , Int64.of_string timeout |> Mtime.Span.of_uint64_ns
+             )
+          )
     | "", `GET, [""; "trace"] ->
-        Some (Trace (-1L, 5.))
+        Some (Trace (-1L, Mtime.Span.(5 * s)))
     | body, `POST, [""; "transfer"] ->
         Some (Transfer (transfer_of_rpc (Jsonrpc.of_string body)))
     | body, `POST, [""; "request"; name; reply_to] ->
@@ -109,13 +138,11 @@ module In = struct
              )
           )
     | body, `POST, [""; "response"; name; from_q; from_n] ->
+        let from_n = Int64.of_string from_n |> Mtime.Span.of_uint64_ns in
         Some
           (Send
              ( Uri.pct_decode name
-             , {
-                 Message.kind= Message.Response (from_q, Int64.of_string from_n)
-               ; payload= body
-               }
+             , {Message.kind= Message.Response (from_q, from_n); payload= body}
              )
           )
     | "", `POST, [""; "shutdown"] ->
@@ -141,6 +168,7 @@ module In = struct
     | Destroy name ->
         (None, `GET, Uri.make ~path:(Printf.sprintf "/destroy/%s" name) ())
     | Ack (name, x) ->
+        let x = Mtime.Span.to_uint64_ns x in
         (None, `GET, Uri.make ~path:(Printf.sprintf "/ack/%s/%Ld" name x) ())
     | List (x, `All) ->
         (None, `GET, Uri.make ~path:(Printf.sprintf "/list/%s" x) ())
@@ -152,7 +180,12 @@ module In = struct
     | Trace (ack_to, timeout) ->
         ( None
         , `GET
-        , Uri.make ~path:(Printf.sprintf "/trace/%Ld/%.16g" ack_to timeout) ()
+        , Uri.make
+            ~path:
+              (Printf.sprintf "/trace/%Ld/%Ld" ack_to
+                 (Mtime.Span.to_uint64_ns timeout)
+              )
+            ()
         )
     | Send (name, {Message.kind= Message.Request r; payload= p}) ->
         ( Some p
@@ -160,6 +193,7 @@ module In = struct
         , Uri.make ~path:(Printf.sprintf "/request/%s/%s" name r) ()
         )
     | Send (name, {Message.kind= Message.Response (q, i); payload= p}) ->
+        let i = Mtime.Span.to_uint64_ns i in
         ( Some p
         , `POST
         , Uri.make ~path:(Printf.sprintf "/response/%s/%s/%Ld" name q i) ()
@@ -184,7 +218,7 @@ type origin =
 
 module Entry = struct
   (** an enqueued message *)
-  type t = {origin: origin; time: int64; message: Message.t}
+  type t = {origin: origin; time: Mtime_ext.Span.t; message: Message.t}
   [@@deriving rpc, sexp]
 
   let make time origin message = {origin; time; message}
@@ -196,14 +230,14 @@ module Diagnostics = struct
   type queue_contents = (message_id * Entry.t) list [@@deriving rpc]
 
   type queue = {
-      next_transfer_expected: int64 option
+      next_transfer_expected: Mtime_ext.Span.t option
     ; queue_contents: queue_contents
   }
   [@@deriving rpc]
 
   type t = {
-      start_time: int64
-    ; current_time: int64
+      time_since_start: Mtime_ext.Span.t
+          (** Time that has elapsed from the start of message-switch *)
     ; permanent_queues: (string * queue) list
     ; transient_queues: (string * queue) list
   }
@@ -213,7 +247,10 @@ end
 module Out = struct
   [@@@warning "-33"]
 
-  type transfer = {messages: (message_id * Message.t) list; next: string}
+  type transfer = {
+      messages: (message_id * Message.t) list
+    ; next: Mtime_ext.Span.t option
+  }
   [@@deriving rpc]
 
   type trace = {events: (int64 * Event.t) list} [@@deriving rpc]

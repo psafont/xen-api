@@ -207,12 +207,13 @@ functor
                                 loop events_conn
                             | None ->
                                 Printf.printf "no wakener for id %s, %Ld\n%!"
-                                  (fst i) (snd i) ;
+                                  (fst i)
+                                  Mtime.Span.(snd i |> to_uint64_ns) ;
                                 Hashtbl.iter
                                   (fun k _v ->
                                     Printf.printf
                                       "  have wakener id %s, %Ld\n%!" (fst k)
-                                      (snd k)
+                                      Mtime.Span.(snd i |> to_uint64_ns)
                                   )
                                   wakener ;
                                 return (Ok ())
@@ -222,7 +223,7 @@ functor
                       )
                     )
                     transfer.Out.messages
-                  >>|= fun () -> loop (Some transfer.Out.next)
+                  >>|= fun () -> loop transfer.Out.next
             )
         in
         loop None
@@ -268,9 +269,10 @@ functor
         | Error _ ->
             (* we expect the event thread to reconnect for us *)
             let ivar' = M.Ivar.create () in
+            let timeout = Mtime.Span.(5 * s) in
             (* XXX: we don't respect the timeout value here *)
             let (_ : M.Clock.timer) =
-              M.Clock.run_after 5 (fun () -> M.Ivar.fill ivar' ())
+              M.Clock.run_after timeout (fun () -> M.Ivar.fill ivar' ())
             in
             M.Ivar.read ivar' >>= fun () -> loop ()
       in
@@ -289,7 +291,7 @@ functor
       Connection.rpc t.requests_conn In.Diagnostics >>|= fun result ->
       return (Ok (Diagnostics.t_of_rpc (Jsonrpc.of_string result)))
 
-    let trace ~t ?(from = 0L) ?(timeout = 0.) () =
+    let trace ~t ?(from = 0L) ?(timeout = Mtime.Span.zero) () =
       Connection.rpc t.requests_conn (In.Trace (from, timeout))
       >>|= fun result ->
       return (Ok (Out.trace_of_rpc (Jsonrpc.of_string result)))
@@ -405,7 +407,7 @@ functor
                       Connection.rpc c request >>= fun _ -> return ()
                     )
                     transfer.Out.messages
-                  >>= fun () -> loop c (Some transfer.Out.next)
+                  >>= fun () -> loop c transfer.Out.next
             )
       in
       let _ = loop c None in
@@ -493,7 +495,7 @@ functor
                       >>= print_error
                     )
                     transfer.Out.messages ;
-                  loop c (Some transfer.Out.next)
+                  loop c transfer.Out.next
             )
       in
       let _ = loop c None in

@@ -85,18 +85,22 @@ let day = 86400_000_000_000L
 
 (* Commands *)
 
+let int64_of_id = Mtime.Span.to_uint64_ns
+
+let is_longer s ~than = Mtime.Span.compare s than > 0
+
 let diagnostics common_opts =
   Client.connect ~switch:common_opts.Common.path () >>|= fun t ->
   Client.diagnostics ~t () >>|= fun d ->
   let open Message_switch_core.Protocol in
-  let in_the_past ts =
-    if d.Diagnostics.current_time < ts then
-      0L
-    else
-      Int64.sub d.Diagnostics.current_time ts
-  in
-  let time f x =
-    let timespan = f x in
+  let time_ago x =
+    let ts =
+      if is_longer ~than:d.Diagnostics.time_since_start x then
+        Mtime.Span.zero
+      else
+        Mtime.Span.(abs_diff d.Diagnostics.time_since_start x)
+    in
+    let timespan = Mtime.Span.to_uint64_ns ts in
     let ( // ) = Int64.div in
     let ( %% ) = Int64.rem in
     let secs = timespan %% minute // second in
@@ -177,8 +181,12 @@ let diagnostics common_opts =
     | None ->
         `Not_started
     | Some t ->
-        let assume_dead_after_ns = 30_000_000_000L in
-        if Int64.add t assume_dead_after_ns < d.Diagnostics.current_time then
+        let unresponsive_timeout = Mtime.Span.(30 * s) in
+        let deadline =
+          Mtime.Span.add d.Diagnostics.time_since_start unresponsive_timeout
+        in
+        let elapsed = Mtime_clock.elapsed () in
+        if is_longer ~than:deadline elapsed then
           `Crashed_or_deadlocked t
         else
           `Ok
@@ -187,16 +195,15 @@ let diagnostics common_opts =
     Printf.printf "- %s%s\n" (fst q)
       ( match classify q with
       | `Crashed_or_deadlocked t ->
-          Printf.sprintf ": service crashed or deadlocked %s"
-            (time in_the_past t)
+          Printf.sprintf ": service crashed or deadlocked %s" (time_ago t)
       | _ ->
           ""
       ) ;
     List.iter
-      (fun (id, entry) ->
-        Printf.printf "    %Ld: request from: %s sent %s\n" (snd id)
+      (fun ((_, id), entry) ->
+        Printf.printf "    %Ld: request from: %s sent %s\n" (int64_of_id id)
           (origin entry.Entry.origin)
-          (time in_the_past entry.Entry.time) ;
+          (time_ago entry.Entry.time) ;
         payload common_opts entry.Entry.message.Message.payload ;
         match entry.Entry.message.Message.kind with
         | Message.Response _ ->
@@ -209,7 +216,7 @@ let diagnostics common_opts =
                   Printf.printf "      - %s has not started\n" name
               | `Crashed_or_deadlocked t ->
                   Printf.printf "      - %s crashed or deadlocked %s\n" name
-                    (time in_the_past t)
+                    (time_ago t)
               | `Ok ->
                   Printf.printf "      - %s is waiting for a response\n" name
             else
@@ -228,7 +235,7 @@ let diagnostics common_opts =
       )
       [] q.Diagnostics.queue_contents
   in
-  Printf.printf "Switch started %s\n" (time in_the_past d.Diagnostics.start_time) ;
+  Printf.printf "Switch started %s\n" (time_ago d.Diagnostics.time_since_start) ;
   ( if d.Diagnostics.permanent_queues = [] then
       print_endline "There are no known services (yet)."
     else
@@ -295,6 +302,7 @@ let list common_opts prefix all =
 let ack common_opts name id =
   match (name, id) with
   | Some name, Some id ->
+      let id = Mtime.Span.of_uint64_ns id in
       Client.connect ~switch:common_opts.Common.path () >>|= fun t ->
       Client.ack ~t ~message:(name, id) () >>|= fun _ -> `Ok ()
   | _, _ ->
@@ -328,13 +336,13 @@ let summarise_payload m =
   )
 
 let message ?(concise = false) = function
-  | Event.Message (id, m) ->
+  | Event.Message ((k_id, v_id), m) ->
       if concise then
         summarise_payload m.Message.payload
       else
-        Printf.sprintf "%s.%Ld:%s" (fst id) (snd id) m.Message.payload
-  | Event.Ack id ->
-      Printf.sprintf "%s.%Ld:ack" (fst id) (snd id)
+        Printf.sprintf "%s.%Ld:%s" k_id (int64_of_id v_id) m.Message.payload
+  | Event.Ack (k_id, v_id) ->
+      Printf.sprintf "%s.%Ld:ack" k_id (int64_of_id v_id)
 
 let mscgen common_opts =
   Client.connect ~switch:common_opts.Common.path () >>|= fun t ->
@@ -406,7 +414,7 @@ let mscgen common_opts =
 let tail common_opts follow =
   Client.connect ~switch:common_opts.Common.path () >>|= fun c ->
   let from = ref 0L in
-  let timeout = 5. in
+  let timeout = Mtime.Span.(5 * s) in
   let start = ref None in
   let widths =
     [Some 5; Some 15; Some 4; Some 30; Some 4; Some 15; Some 5; None]
@@ -440,24 +448,25 @@ let tail common_opts follow =
         let relative_time event =
           match !start with
           | None ->
-              start := Some event.Event.time ;
-              0.
+              start := Some event.Event.created_at ;
+              Mtime.Span.zero
           | Some t ->
-              event.Event.time -. t
+              Mtime.Span.abs_diff event.Event.created_at t
         in
         let secs = function
           | None ->
               ""
           | Some x ->
+              let x = Mtime.Span.to_uint64_ns x in
               Printf.sprintf "%.1f"
-                (Int64.(to_float (div x 1_000_000_000L)) /. 1000.)
+                (Int64.(to_float (div x 100_000_000L)) /. 10.)
         in
         let rows =
           List.map
             (fun (_id, event) ->
-              let time = relative_time event in
+              let time = secs (Some (relative_time event)) in
               let m = event.Event.message in
-              [Printf.sprintf "%.1f" time]
+              [time]
               @ ( match m with
                 | Event.Message (_, {Message.kind= Message.Response _; _}) ->
                     [
@@ -644,6 +653,7 @@ let call common_options_t name body path timeout =
             let txt = string_of_ic ic in
             close_in ic ; txt
       in
+      let timeout = Option.map (fun t -> Mtime.Span.(t * s)) timeout in
       Client.connect ~switch:common_options_t.Common.path () >>|= fun t ->
       Client.rpc ~t ?timeout ~queue:name ~body:txt () >>|= fun result ->
       print_endline result ; `Ok ()

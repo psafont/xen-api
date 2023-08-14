@@ -11,9 +11,12 @@
     lock_test_lwt
   )
   (libraries
+    fmt
     message-switch-unix
     message-switch-core
     message-switch-lwt
+    mtime
+    mtime.clock.os
     threads.posix
   )
 )

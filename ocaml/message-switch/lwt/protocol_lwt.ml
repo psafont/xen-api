@@ -97,9 +97,8 @@ module M = struct
     type timer = unit Lwt.t
 
     let run_after timeout f =
-      let t =
-        Lwt_unix.sleep (float_of_int timeout) >>= fun () -> f () ; return ()
-      in
+      let timeout = Int64.to_float (Mtime.Span.to_uint64_ns timeout) /. 1e9 in
+      let t = Lwt_unix.sleep timeout >>= fun () -> f () ; return () in
       t
 
     let cancel = Lwt.cancel

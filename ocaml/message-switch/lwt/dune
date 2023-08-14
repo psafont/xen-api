@@ -4,6 +4,7 @@
   (libraries
     cohttp-lwt-unix
     message-switch-core
+    mtime
     (re_export lwt)
     (re_export lwt.unix)
   )

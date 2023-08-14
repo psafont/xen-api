@@ -14,12 +14,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 open Sexplib.Std
-open Clock
+module Protocol = Message_switch_core.Protocol
 
-module Int64Map = struct
-  include Map.Make (Int64)
+module MtimeSpanMap = struct
+  include Map.Make (Mtime.Span)
 
-  type 'a t' = (int64 * 'a) list [@@deriving sexp]
+  type 'a t' = (Protocol.Mtime_ext.Span.t * 'a) list [@@deriving sexp]
 
   let t_of_sexp a sexp =
     let t' = t'_of_sexp a sexp in
@@ -51,7 +51,7 @@ end
 type waiter = {mutable next_id: int64} [@@deriving sexp]
 
 type t = {
-    q: Message_switch_core.Protocol.Entry.t Int64Map.t
+    q: Protocol.Entry.t MtimeSpanMap.t
   ; name: string
   ; length: int
   ; owner: string option
@@ -63,7 +63,10 @@ type t = {
 let t_of_sexp sexp =
   let t = t_of_sexp sexp in
   (* compute a valid next_id *)
-  let highest_id = try fst (Int64Map.max_binding t.q) with Not_found -> -1L in
+  let highest_id =
+    try fst (MtimeSpanMap.max_binding t.q) |> Mtime.Span.to_uint64_ns
+    with Not_found -> -1L
+  in
   t.waiter.next_id <- Int64.succ highest_id ;
   t
 
@@ -71,7 +74,7 @@ let get_owner t = t.owner
 
 let make owner name =
   let waiter = {next_id= 0L} in
-  {q= Int64Map.empty; name; length= 0; owner; waiter}
+  {q= MtimeSpanMap.empty; name; length= 0; owner; waiter}
 
 module StringMap = struct
   include Map.Make (String)
@@ -103,14 +106,8 @@ type queues = {queues: t StringMap.t; by_owner: StringSet.t StringMap.t}
 let empty = {queues= StringMap.empty; by_owner= StringMap.empty}
 
 let owned_queues queues owner =
-  if StringMap.mem owner queues.by_owner then
-    StringMap.find owner queues.by_owner
-  else
-    StringSet.empty
-
-let startswith prefix x =
-  String.length x >= String.length prefix
-  && String.sub x 0 (String.length prefix) = prefix
+  StringMap.find_opt owner queues.by_owner
+  |> Option.value ~default:StringSet.empty
 
 module Lengths = struct
   open Message_switch_core.Measurable
@@ -121,15 +118,22 @@ module Lengths = struct
     StringMap.fold (fun name _ acc -> (name, d name) :: acc) queues.queues []
 
   let _measure queues name =
-    if StringMap.mem name queues.queues then
-      Some (Measurement.Int (StringMap.find name queues.queues).length)
-    else
-      None
+    StringMap.find_opt name queues.queues
+    |> Option.map (fun q -> Measurement.Int q.length)
 end
 
 module Internal = struct
   module Directory = struct
     let exists queues name = StringMap.mem name queues.queues
+
+    let find_opt queues name = StringMap.find_opt name queues.queues
+
+    let find queues name =
+      match find_opt queues name with
+      | Some queue ->
+          queue
+      | None ->
+          make None name
 
     let add queues ?owner name =
       if not (exists queues name) then
@@ -139,23 +143,12 @@ module Internal = struct
           | None ->
               queues.by_owner
           | Some owner ->
-              let existing =
-                if StringMap.mem owner queues.by_owner then
-                  StringMap.find owner queues.by_owner
-                else
-                  StringSet.empty
-              in
+              let existing = owned_queues queues owner in
               StringMap.add owner (StringSet.add name existing) queues.by_owner
         in
         {queues= queues'; by_owner}
       else
         queues
-
-    let find queues name =
-      if exists queues name then
-        StringMap.find name queues.queues
-      else
-        make None name
 
     let remove queues name =
       let by_owner =
@@ -167,9 +160,10 @@ module Internal = struct
           | None ->
               queues.by_owner
           | Some owner ->
-              let owned = StringMap.find owner queues.by_owner in
-              let owned = StringSet.remove name owned in
-              if owned = StringSet.empty then
+              let owned =
+                StringMap.find owner queues.by_owner |> StringSet.remove name
+              in
+              if StringSet.is_empty owned then
                 StringMap.remove owner queues.by_owner
               else
                 StringMap.add owner owned queues.by_owner
@@ -180,7 +174,7 @@ module Internal = struct
     let list queues prefix =
       StringMap.fold
         (fun name _ acc ->
-          if startswith prefix name then
+          if String.starts_with ~prefix name then
             name :: acc
           else
             acc
@@ -189,40 +183,37 @@ module Internal = struct
   end
 
   let ack queues (name, id) =
-    if Directory.exists queues name then
-      let q = Directory.find queues name in
-      if Int64Map.mem id q.q then
-        let q' = {q with length= q.length - 1; q= Int64Map.remove id q.q} in
+    match Directory.find_opt queues name with
+    | Some q when MtimeSpanMap.mem id q.q ->
+        let q' = {q with length= q.length - 1; q= MtimeSpanMap.remove id q.q} in
         {queues with queues= StringMap.add name q' queues.queues}
-      else
+    | _ ->
         queues
-    else
-      queues
 
   let send queues origin name id data =
     (* If a queue doesn't exist then drop the message *)
-    if Directory.exists queues name then
-      let q = Directory.find queues name in
-      let q' =
-        {
-          q with
-          length= q.length + 1
-        ; q=
-            Int64Map.add id
-              (Message_switch_core.Protocol.Entry.make (ns ()) origin data)
-              q.q
-        }
-      in
-      let queues = {queues with queues= StringMap.add name q' queues.queues} in
-      queues
-    else
-      queues
+    match Directory.find_opt queues name with
+    | Some q ->
+        let elapsed = Mtime.Span.of_uint64_ns (Clock.elapsed_ns ()) in
+        let q' =
+          {
+            q with
+            length= q.length + 1
+          ; q=
+              MtimeSpanMap.add id
+                (Message_switch_core.Protocol.Entry.make elapsed origin data)
+                q.q
+          }
+        in
+        {queues with queues= StringMap.add name q' queues.queues}
+    | None ->
+        queues
 
   let get_next_id queues name =
     let q = Directory.find queues name in
     let id = q.waiter.next_id in
     q.waiter.next_id <- Int64.succ id ;
-    id
+    Some (Mtime.Span.of_uint64_ns id)
 end
 
 (* operations which need to be persisted *)
@@ -236,7 +227,7 @@ module Op = struct
     | Send of
         Message_switch_core.Protocol.origin
         * string
-        * int64
+        * Message_switch_core.Protocol.Mtime_ext.Span.t
         * Message_switch_core.Protocol.Message.t
   (* origin * queue * id * body *)
   [@@deriving sexp]
@@ -257,12 +248,13 @@ let do_op queues = function
       Internal.Directory.add queues ?owner name
   | Op.Directory (Op.Remove name) ->
       Internal.Directory.remove queues name
-  | Op.Ack id ->
-      Internal.ack queues id
+  | Op.Ack (k, v) ->
+      Internal.ack queues (k, v)
   | Op.Send (origin, name, id, body) ->
       Internal.send queues origin name id body
 
-let contents q = Int64Map.fold (fun i e acc -> ((q.name, i), e) :: acc) q.q []
+let contents q =
+  MtimeSpanMap.fold (fun i e acc -> ((q.name, i), e) :: acc) q.q []
 
 module Directory = struct
   let add _queues ?owner name = Op.Directory (Op.Add (owner, name))
@@ -279,33 +271,29 @@ let queue_of_id = fst
 let ack _queues id = Op.Ack id
 
 let transfer queues from names =
-  let messages =
-    List.map
-      (fun name ->
-        let q = Internal.Directory.find queues name in
-        let _, _, not_seen = Int64Map.split from q.q in
-        Int64Map.fold
-          (fun id e acc ->
-            ((name, id), e.Message_switch_core.Protocol.Entry.message) :: acc
-          )
-          not_seen []
-      )
-      names
-  in
-  List.concat messages
+  List.concat_map
+    (fun name ->
+      let q = Internal.Directory.find queues name in
+      let not_seen =
+        match from with
+        | None ->
+            q.q
+        | Some from ->
+            let _, _, not_seen = MtimeSpanMap.split from q.q in
+            not_seen
+      in
+      MtimeSpanMap.fold
+        (fun id e acc ->
+          ((name, id), e.Message_switch_core.Protocol.Entry.message) :: acc
+        )
+        not_seen []
+    )
+    names
 
 let entry queues (name, id) =
   let q = Internal.Directory.find queues name in
-  if Int64Map.mem id q.q then
-    Some (Int64Map.find id q.q)
-  else
-    None
+  MtimeSpanMap.find_opt id q.q
 
 let send queues origin name body =
-  if Internal.Directory.exists queues name then
-    let id = Internal.get_next_id queues name in
-    Some ((name, id), Op.Send (origin, name, id, body))
-  else
-    None
-
-(* drop *)
+  Internal.get_next_id queues name
+  |> Option.map @@ fun id -> ((name, id), Op.Send (origin, name, id, body))

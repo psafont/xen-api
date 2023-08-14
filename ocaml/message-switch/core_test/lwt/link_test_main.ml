@@ -17,11 +17,19 @@
 open Lwt
 open Message_switch_core.Protocol
 
+let zero = Mtime.Span.zero
+
+let one = Mtime.Span.one
+
+let two = Mtime.Span.(2 * one)
+
+let three = Mtime.Span.(3 * one)
+
 let basedir = ref Filename.(concat (get_temp_dir_name ()) "link_test")
 
 let rpc_req = {Message.payload= "hello"; kind= Message.Request "reply to"}
 
-let rpc_res = {Message.payload= "hello"; kind= Message.Response ("q", 1L)}
+let rpc_res = {Message.payload= "hello"; kind= Message.Response ("q", one)}
 
 let in_frames =
   let open In in
@@ -31,8 +39,11 @@ let in_frames =
   ; ("transient", CreateTransient "client")
   ; ("request", Send ("service", rpc_req))
   ; ("reply", Send ("service", rpc_res))
-  ; ("transfer", Transfer {from= Some "3"; timeout= 5.; queues= ["one"; "two"]})
-  ; ("ack", Ack ("q", 3L))
+  ; ( "transfer"
+    , Transfer
+        {from= Some three; timeout= Mtime.Span.(5 * s); queues= ["one"; "two"]}
+    )
+  ; ("ack", Ack ("q", three))
   ]
 
 let out_frames =
@@ -41,7 +52,10 @@ let out_frames =
     ("create.reply", Create "service")
   ; ( "transfer.reply"
     , Transfer
-        {messages= [(("q", 1L), rpc_req); (("q2", 2L), rpc_res)]; next= "0"}
+        {
+          messages= [(("q", one), rpc_req); (("q2", two), rpc_res)]
+        ; next= Some zero
+        }
     )
   ]
 

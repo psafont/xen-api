@@ -14,6 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-include Mtime_clock
+let elapsed_ns = Mtime_clock.elapsed_ns
 
-let ns () = Mtime.Span.to_uint64_ns (Mtime_clock.elapsed ())
+let period_ns = Mtime_clock.period_ns

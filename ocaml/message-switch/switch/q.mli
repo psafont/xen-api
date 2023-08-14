@@ -70,7 +70,7 @@ val ack : queues -> Protocol.message_id -> Op.t
 
 val transfer :
      queues
-  -> int64
+  -> Mtime.Span.t option
   -> string list
   -> (Protocol.message_id * Protocol.Message.t) list
 (** [transfer from names] returns all messages which are newer
