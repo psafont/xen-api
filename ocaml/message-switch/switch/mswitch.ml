@@ -16,21 +16,10 @@
 
 open Lwt
 open Logging
-open Clock
+module StringSet = Set.Make (String)
+module StringStringRelation = Relation.Make (String) (String)
 
-module StringSet = Set.Make (struct
-  type t = string
-
-  let compare = String.compare
-end)
-
-module StringStringRelation =
-  Relation.Make (struct
-      type t = string
-
-      let compare = compare
-    end)
-    (String)
+let time_ref = Mtime_clock.counter ()
 
 module Connections = struct
   let t = ref StringStringRelation.empty
@@ -62,12 +51,14 @@ module Connections = struct
     StringStringRelation.get_as session !t <> StringStringRelation.A_Set.empty
 end
 
-let next_transfer_expected : (string, int64) Hashtbl.t = Hashtbl.create 128
+let next_transfer_expected : (string, Mtime.Span.t) Hashtbl.t =
+  Hashtbl.create 128
 
 let get_next_transfer_expected name =
   Hashtbl.find_opt next_transfer_expected name
 
-let record_transfer time name = Hashtbl.replace next_transfer_expected name time
+let record_transfer timeout name =
+  Hashtbl.replace next_transfer_expected name timeout
 
 let snapshot queues =
   let open Message_switch_core.Protocol.Diagnostics in
@@ -88,10 +79,8 @@ let snapshot queues =
   let transient_queues, permanent_queues =
     List.partition (fun (_, q) -> Q.get_owner q <> None) all_queues
   in
-  let current_time = ns () in
   {
-    start_time= 0L
-  ; current_time
+    time_since_start= Mtime_clock.elapsed ()
   ; permanent_queues= queues_of permanent_queues
   ; transient_queues= queues_of transient_queues
   }
@@ -138,7 +127,7 @@ let process_request conn_id queues session request trace =
       Traceext.add trace
         Event.
           {
-            time= Unix.gettimeofday ()
+            created_at= Mtime_clock.elapsed ()
           ; input= Some session
           ; queue= name
           ; output= None
@@ -147,18 +136,21 @@ let process_request conn_id queues session request trace =
           } ;
       return (Some (Q.ack queues (name, id)), Out.Ack)
   | Some session, In.Transfer {In.from; timeout; queues= names} ->
-      let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
-      List.iter (record_transfer time) names ;
-      let from = match from with None -> -1L | Some x -> Int64.of_string x in
+      let deadline = Mtime.Span.add (Mtime_clock.elapsed ()) timeout in
+      List.iter (record_transfer deadline) names ;
       let messages = Q.transfer queues from names in
       let next =
         match messages with
         | [] ->
             from
         | x :: xs ->
-            List.fold_left max (snd (fst x)) (List.map (fun x -> snd (fst x)) xs)
+            Some
+              (List.fold_left max
+                 (snd (fst x))
+                 (List.map (fun x -> snd (fst x)) xs)
+              )
       in
-      let transfer = {Out.messages; next= Int64.to_string next} in
+      let transfer = {Out.messages; next} in
       List.iter
         (fun (id, m) ->
           let name = Q.queue_of_id id in
@@ -169,7 +161,11 @@ let process_request conn_id queues session request trace =
             | Message.Response id' -> (
               match Q.entry queues id' with
               | Some request_entry ->
-                  Some (Int64.sub (ns ()) request_entry.Entry.time)
+                  Some
+                    (Mtime.Span.abs_diff
+                       (Mtime_clock.count time_ref)
+                       request_entry.Entry.time
+                    )
               | None ->
                   None
             )
@@ -177,7 +173,7 @@ let process_request conn_id queues session request trace =
           Traceext.add trace
             Event.
               {
-                time= Unix.gettimeofday ()
+                created_at= Mtime_clock.elapsed ()
               ; input= None
               ; queue= name
               ; output= Some session
@@ -196,7 +192,7 @@ let process_request conn_id queues session request trace =
           Traceext.add trace
             Event.
               {
-                time= Unix.gettimeofday ()
+                created_at= Mtime_clock.elapsed ()
               ; input= Some session
               ; queue= name
               ; output= None

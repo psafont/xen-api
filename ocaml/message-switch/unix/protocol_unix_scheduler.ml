@@ -16,12 +16,12 @@
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-module Int64Map = Map.Make (Int64)
+module WaitMap = Map.Make (Mtime.Span)
 module Delay = Xapi_stdext_threads.Threadext.Delay
 
 type item = {id: int; fn: unit -> unit}
 
-let schedule = ref Int64Map.empty
+let schedule = ref WaitMap.empty
 
 let delay = Delay.make ()
 
@@ -29,54 +29,63 @@ let next_id = ref 0
 
 let m = Mutex.create ()
 
-let now () = Unix.gettimeofday () |> ceil |> Int64.of_float
+type time = Delta of Mtime.Span.t
 
-let run_after ~seconds f =
-  let time = Int64.(add (of_int seconds) (now ())) in
+type t = Mtime.Span.t * int
+
+let elapsed = Mtime_clock.counter ()
+
+let nano = 1_000_000_000L
+
+let mtime_sub time now =
+  let floor span =
+    Int64.div (Mtime.Span.to_uint64_ns span) nano |> Int64.mul nano
+  in
+  Mtime.Span.(abs_diff time now |> floor |> of_uint64_ns)
+
+let one_shot (Delta dt) (name : string) f =
+  let deadline = Mtime.Span.add dt (Mtime_clock.count elapsed) in
   let id =
     with_lock m (fun () ->
         let existing =
-          if Int64Map.mem time !schedule then
-            Int64Map.find time !schedule
-          else
-            []
+          WaitMap.find_opt deadline !schedule |> Option.value ~default:[]
         in
         let id = !next_id in
         incr next_id ;
         let item = {id; fn= f} in
-        schedule := Int64Map.add time (item :: existing) !schedule ;
+        schedule := WaitMap.add deadline (item :: existing) !schedule ;
         Delay.signal delay ;
         id
     )
   in
-  (time, id)
+  (deadline, id)
 
 let cancel (time, id) =
   with_lock m (fun () ->
       let existing =
-        if Int64Map.mem time !schedule then
-          Int64Map.find time !schedule
-        else
-          []
+        WaitMap.find_opt time !schedule |> Option.value ~default:[]
       in
       schedule :=
-        Int64Map.add time (List.filter (fun i -> i.id <> id) existing) !schedule
+        WaitMap.add time (List.filter (fun i -> i.id <> id) existing) !schedule
   )
 
 let process_expired () =
-  let t = now () in
+  let t = Mtime_clock.count elapsed in
   let expired =
     with_lock m (fun () ->
-        let expired, unexpired =
-          Int64Map.partition (fun t' _ -> t' <= t) !schedule
-        in
-        schedule := unexpired ;
-        Int64Map.fold (fun _ stuff acc -> acc @ stuff) expired [] |> List.rev
+        let expired, eq, unexpired = WaitMap.split t !schedule in
+        schedule :=
+          Option.fold ~none:unexpired
+            ~some:(fun eq -> WaitMap.add t eq unexpired)
+            eq ;
+        WaitMap.to_seq expired |> Seq.map snd
     )
   in
   (* This might take a while *)
-  List.iter (fun i -> try i.fn () with _e -> ()) expired ;
-  expired <> []
+  Seq.iter
+    (fun li -> List.rev li |> List.iter (fun i -> try i.fn () with _e -> ()))
+    expired ;
+  expired () <> Seq.Nil
 
 (* true if work was done *)
 
@@ -86,12 +95,18 @@ let rec main_loop () =
   done ;
   let sleep_until =
     with_lock m (fun () ->
-        try Int64Map.min_binding !schedule |> fst
-        with Not_found -> Int64.add 3600L (now ())
+        try WaitMap.min_binding !schedule |> fst
+        with Not_found ->
+          Mtime.Span.(add (Mtime_clock.count elapsed) (1 * hour))
     )
   in
-  let seconds = Int64.sub sleep_until (now ()) in
-  let (_ : bool) = Delay.wait delay (Int64.to_float seconds) in
+  let seconds =
+    Mtime.Span.abs_diff sleep_until (Mtime_clock.count elapsed)
+    |> Mtime.Span.to_uint64_ns
+    |> Int64.div 1_000_000_000L
+    |> Int64.to_float
+  in
+  let (_ : bool) = Delay.wait delay seconds in
   main_loop ()
 
 let start =

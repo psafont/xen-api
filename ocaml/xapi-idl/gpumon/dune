@@ -3,6 +3,7 @@
  (public_name xapi-idl.gpumon)
  (modules (:standard \ gpumon_cli))
  (libraries
+   mtime
    result
    rpclib.core
    rresult

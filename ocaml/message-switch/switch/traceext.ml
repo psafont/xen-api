@@ -96,17 +96,17 @@ end = struct
         Ack id
 
   type t = {
-      time: float
+      time: Mtime.Span.t
     ; input: string option
     ; queue: string
     ; output: string option
     ; message: message
-    ; processing_time: int64 option
+    ; processing_time: Mtime.Span.t option
   }
 
   let to_event (t : t) =
     {
-      Event.time= t.time
+      Event.created_at= t.time
     ; input= t.input
     ; queue= t.queue
     ; output= t.output
@@ -116,7 +116,7 @@ end = struct
 
   let of_event t =
     {
-      time= t.Event.time
+      time= t.Event.created_at
     ; input= t.input
     ; queue= t.queue
     ; output= t.output
@@ -174,17 +174,18 @@ let fold buffer f acc =
 
 let get buffer from timeout :
     (int64 * Message_switch_core.Protocol.Event.t) list Lwt.t =
-  let sleep = Lwt_unix.sleep timeout in
+  (* Allows to wait for ~104 days at most *)
+  let timeout = Mtime.Span.(to_float_ns timeout) /. 1_000_000_000. in
   let rec wait_for_data () =
     if !next_id <= from then
       Lwt_condition.wait ?mutex:(Some Switch_main_helper.m) c >>= wait_for_data
     else
       return ()
   in
+  let sleep = Lwt_unix.sleep timeout in
   (* Wait until some data is available ie. when next_id > from (or timeout) *)
   Lwt.pick [sleep; wait_for_data ()] >>= fun () ->
-  (* start from next_slot, looking for non-None entries which
-     	   are > from *)
+  (* start from next_slot, looking for non-None entries which are > from *)
   let reversed_results =
     fold buffer
       (fun x acc ->

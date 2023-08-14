@@ -15,6 +15,3 @@
  *)
 
 include Shared_block.S.CLOCK
-
-val ns : unit -> int64
-(** [ns ()] time in ns since the program started *)

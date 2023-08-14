@@ -16,7 +16,6 @@
 open Sexplib.Std
 open Lwt
 open Logging
-open Clock
 open Mswitch
 
 module Config = struct
@@ -81,6 +80,10 @@ let exn_hook e =
   error "backtrace: %s" (Printexc.raw_backtrace_to_string bt)
 
 let () = Lwt.async_exception_hook := exn_hook
+
+let is_longer s ~than = Mtime.Span.compare s than > 0
+
+let elapsed () = Clock.elapsed_ns () |> Mtime.Span.of_uint64_ns
 
 let make_server config trace_config =
   let open Config in
@@ -236,19 +239,23 @@ let make_server config trace_config =
            with the new queue state post-blocking *)
         ( match (session, request) with
         | Some _session, In.Transfer {In.from; timeout; queues= names} ->
-            let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
-            List.iter (record_transfer time) names ;
-            let from =
-              match from with None -> -1L | Some x -> Int64.of_string x
-            in
+            let deadline = Mtime.Span.(add (elapsed ()) timeout) in
+            List.iter (record_transfer deadline) names ;
             let rec wait () =
               if Q.transfer !queues from names = [] then
                 let timeout =
-                  max 0. Int64.(to_float (sub time (ns ()))) /. 1e9
+                  let elapsed = elapsed () in
+                  if is_longer ~than:deadline elapsed then
+                    0.
+                  else
+                    Mtime.Span.abs_diff deadline elapsed
+                    |> Mtime.Span.to_uint64_ns
+                    |> Int64.to_float
+                    |> ( /. ) 1e9
                 in
                 Lwt.pick [Lwt_unix.sleep timeout; Lwt_condition.wait queues_c]
                 >>= fun () ->
-                if ns () > time then
+                if is_longer ~than:deadline (elapsed ()) then
                   return ()
                 else
                   wait ()

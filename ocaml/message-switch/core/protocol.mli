@@ -16,8 +16,22 @@
 
 exception Queue_deleted of string
 
+module Mtime_ext : sig
+  module Span : sig
+    type t = Mtime.Span.t
+
+    val rpc_of_t : t -> Rpc.t
+
+    val t_of_rpc : Rpc.t -> t
+
+    val sexp_of_t : t -> Sexplib0.Sexp.t
+
+    val t_of_sexp : Sexplib0.Sexp.t -> t
+  end
+end
+
 (** uniquely identifier for this message *)
-type message_id = string * int64 [@@deriving sexp]
+type message_id = string * Mtime_ext.Span.t [@@deriving sexp]
 
 val rpc_of_message_id : message_id -> Rpc.t
 
@@ -27,7 +41,7 @@ val rpc_of_message_id_opt : message_id option -> Rpc.t
 
 val message_id_opt_of_rpc : Rpc.t -> message_id option
 
-val timeout : float
+val timeout : Mtime.Span.t
 
 module Message : sig
   type kind = Request of string | Response of message_id [@@deriving sexp]
@@ -43,12 +57,12 @@ module Event : sig
   type message = Message of message_id * Message.t | Ack of message_id
 
   type t = {
-      time: float
+      created_at: Mtime.Span.t
     ; input: string option
     ; queue: string
     ; output: string option
     ; message: message
-    ; processing_time: int64 option
+    ; processing_time: Mtime.Span.t option
   }
 
   val t_of_rpc : Rpc.t -> t
@@ -57,7 +71,11 @@ module Event : sig
 end
 
 module In : sig
-  type transfer = {from: string option; timeout: float; queues: string list}
+  type transfer = {
+      from: Mtime.Span.t option
+    ; timeout: Mtime.Span.t
+    ; queues: string list
+  }
 
   type t =
     | Login of string
@@ -68,7 +86,8 @@ module In : sig
     | Destroy of string  (** Destroy a named queue *)
     | Send of string * Message.t  (** Send a message to a queue *)
     | Transfer of transfer  (** blocking wait for new messages *)
-    | Trace of int64 * float  (** blocking wait for trace data *)
+    | Trace of int64 * Mtime.Span.t
+        (** ack_to, timeout; blocking wait for trace data *)
     | Ack of message_id  (** ACK this particular message *)
     | List of string * [`All | `Alive]
         (** return a list of queue names with a prefix *)
@@ -98,23 +117,23 @@ type origin =
 
 module Entry : sig
   (** an enqueued message *)
-  type t = {origin: origin; time: int64  (** ns *); message: Message.t}
+  type t = {origin: origin; time: Mtime.Span.t; message: Message.t}
   [@@deriving sexp]
 
-  val make : int64 -> origin -> Message.t -> t
+  val make : Mtime.Span.t -> origin -> Message.t -> t
 end
 
 module Diagnostics : sig
   type queue_contents = (message_id * Entry.t) list
 
   type queue = {
-      next_transfer_expected: int64 option
+      (* deadline *)
+      next_transfer_expected: Mtime.Span.t option
     ; queue_contents: queue_contents
   }
 
   type t = {
-      start_time: int64
-    ; current_time: int64
+      time_since_start: Mtime.Span.t
     ; permanent_queues: (string * queue) list
     ; transient_queues: (string * queue) list
   }
@@ -125,7 +144,10 @@ module Diagnostics : sig
 end
 
 module Out : sig
-  type transfer = {messages: (message_id * Message.t) list; next: string}
+  type transfer = {
+      messages: (message_id * Message.t) list
+    ; next: Mtime.Span.t option
+  }
 
   val transfer_of_rpc : Rpc.t -> transfer
 
