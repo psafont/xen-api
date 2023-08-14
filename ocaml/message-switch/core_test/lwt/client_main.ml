@@ -40,6 +40,8 @@ let ( >>|= ) m f =
       Format.pp_print_flush fmt () ;
       fail (Failure (Buffer.contents b))
 
+let is_shorter ~than s = Mtime.Span.compare s than < 0
+
 let main () =
   Client.connect ~switch:!path () >>|= fun t ->
   let counter = ref 0 in
@@ -47,14 +49,15 @@ let main () =
     incr counter ;
     Client.rpc ~t ~queue:!name ~body:!payload () >>|= fun _ -> return ()
   in
-  let start = Unix.gettimeofday () in
+  let start = Mtime_clock.counter () in
   let rec ints = function 0 -> [] | n -> n :: ints (n - 1) in
   ( match !timeout with
   | None ->
       one ()
   | Some timeout ->
       let rec thread n =
-        if Unix.gettimeofday () -. start < timeout then
+        let elapsed = Mtime_clock.count start in
+        if is_shorter ~than:timeout elapsed then
           one () >>= fun () -> thread n
         else
           return ()
@@ -63,8 +66,9 @@ let main () =
       Lwt.join threads
   )
   >>= fun () ->
-  let time = Unix.gettimeofday () -. start in
-  Printf.printf "Finished %d RPCs in %.02f\n" !counter time ;
+  let time = Mtime_clock.count start in
+  Printf.printf "Finished %d RPCs in %s\n" !counter
+    (Fmt.to_to_string Mtime.Span.pp time) ;
   Client.rpc ~t ~queue:!name ~body:shutdown () >>|= fun _ -> return ()
 
 let _ =
@@ -83,10 +87,12 @@ let _ =
       , Printf.sprintf "payload of message to send (default %s)" !payload
       )
     ; ( "-secs"
-      , Arg.String (fun x -> timeout := Some (float_of_string x))
-      , Printf.sprintf
-          "number of seconds to repeat the same message for (default %s)"
-          (match !timeout with None -> "None" | Some x -> string_of_float x)
+      , Arg.String
+          (fun x ->
+            let t = 1000. *. float_of_string x |> Float.to_int in
+            timeout := Some Mtime.Span.(t * ms)
+          )
+      , "number of seconds to repeat the same message for"
       )
     ; ( "-threads"
       , Arg.Set_int nthreads

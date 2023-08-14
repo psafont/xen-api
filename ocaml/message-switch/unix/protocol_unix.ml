@@ -271,7 +271,7 @@ module Client = struct
     let reconnect () = disconnect ~t () ; reconnect () in
     let (_ : Thread.t) =
       let rec loop from =
-        let timeout = 30. in
+        let timeout = Mtime.Span.(30 * s) in
         let transfer = {In.from; timeout; queues= [reply_queue_name]} in
         match
           let frame = In.Transfer transfer in
@@ -302,7 +302,8 @@ module Client = struct
                                 IO.Ivar.fill x (Ok m) ; Ok ()
                             | None ->
                                 Printf.printf "no wakener for id %s,%Ld\n%!"
-                                  (fst i) (snd i) ;
+                                  (fst i)
+                                  Mtime.Span.(snd i |> to_uint64_ns) ;
                                 Ok ()
                           )
                           | Message.Request _ ->
@@ -312,7 +313,7 @@ module Client = struct
                 (Ok ()) transfer.Out.messages
             with
             | Ok () ->
-                Ok (Some transfer.Out.next)
+                Ok transfer.Out.next
             | Error _ ->
                 Ok from (* repeat *)
           )
@@ -344,7 +345,8 @@ module Client = struct
               Ok c'
       )
 
-  let rpc ~t:c ~queue:dest_queue_name ?timeout ~body:x () =
+  let rpc ~t:c ~queue:dest_queue_name ?(timeout : Mtime.Span.t option) ~body:x
+      () =
     let t = IO.Ivar.create () in
     let timer =
       Option.map
@@ -411,7 +413,7 @@ module Client = struct
         Ok (Diagnostics.t_of_rpc (Jsonrpc.of_string result))
     )
 
-  let trace ~t:c ?(from = 0L) ?(timeout = 0.) () =
+  let trace ~t:c ?(from = 0L) ?(timeout = Mtime.Span.zero) () =
     IO.Mutex.with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn (In.Trace (from, timeout))
         >>|= fun (result : string) ->
@@ -540,7 +542,7 @@ module Server = struct
                   ()
                 )
                 transfer.Out.messages ;
-              loop connections (Some transfer.Out.next)
+              loop connections transfer.Out.next
         )
     in
     let (_ : Thread.t) = thread_forever (loop connections) None in

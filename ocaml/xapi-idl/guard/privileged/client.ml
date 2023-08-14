@@ -13,6 +13,9 @@
  *)
 
 (* daemon only listens on message-switch *)
-let rpc call = Xcp_client.json_switch_rpc ~timeout:20 Interface.queue_name call
+let rpc call =
+  Xcp_client.json_switch_rpc
+    ~timeout:Mtime.Span.(20 * s)
+    Interface.queue_name call
 
 include Interface.RPC_API (Idl.Exn.GenClient (struct let rpc = rpc end))

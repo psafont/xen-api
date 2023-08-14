@@ -6,6 +6,7 @@
     message-switch-core
     message-switch-unix
     mtime
+    mtime.clock.os
     rpclib.core
     rpclib.json
     threads.posix

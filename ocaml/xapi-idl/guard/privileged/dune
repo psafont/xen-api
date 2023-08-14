@@ -3,6 +3,7 @@
  (public_name xapi-idl.guard.privileged)
  (modules (:standard \ xapiguard_cli))
  (libraries
+   mtime
    result
    rpclib.core
    rresult
@@ -18,7 +19,7 @@
  (package varstored-guard)
  (libraries
    cmdliner
-   
+
    rpclib.cmdliner
    rpclib.core
    rpclib.markdown

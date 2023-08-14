@@ -77,7 +77,7 @@ module type BACKEND = sig
   module Clock : sig
     type timer
 
-    val run_after : int -> (unit -> unit) -> timer
+    val run_after : Mtime.Span.t -> (unit -> unit) -> timer
 
     val cancel : timer -> unit
   end
@@ -146,7 +146,7 @@ module type CLIENT = sig
   val rpc :
        t:t
     -> queue:string
-    -> ?timeout:int
+    -> ?timeout:Mtime.Span.t
     -> body:string
     -> unit
     -> string result io
@@ -166,7 +166,11 @@ module type CLIENT = sig
   (** Download a diagnostics dump from the switch *)
 
   val trace :
-    t:t -> ?from:int64 -> ?timeout:float -> unit -> Protocol.Out.trace result io
+       t:t
+    -> ?from:int64
+    -> ?timeout:Mtime.Span.t
+    -> unit
+    -> Protocol.Out.trace result io
   (** Download event trace records from the server. The trace starts from
       the earliest recorded, unless overridden with a newer message id using
       the [from] parameter. If a [timeout] is given then the call will return
