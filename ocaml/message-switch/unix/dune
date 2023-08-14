@@ -8,6 +8,7 @@
   (libraries
     cohttp
     message-switch-core
+    mtime.clock.os
     rpclib.core
     rpclib.json
     threads.posix

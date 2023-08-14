@@ -12,6 +12,8 @@
     lwt.unix
     message-switch-core
     message-switch-lwt
+    mtime
+    mtime.clock.os
     uri
   )
 )

@@ -20,6 +20,7 @@
     mirage-time
     mtime
     mtime.clock.os
+    ptime.clock.os
     result
     rpclib.core
     rpclib.json

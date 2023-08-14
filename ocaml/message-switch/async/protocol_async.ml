@@ -122,7 +122,8 @@ module M = struct
     let run_after timeout f =
       let timer = {cancel= Ivar.create ()} in
       let cancelled = Ivar.read timer.cancel in
-      let sleep = Clock.after (Time.Span.of_sec (Float.of_int timeout)) in
+      let timeout = Int64.to_float (Mtime.Span.to_uint64_ns timeout) in
+      let sleep = Clock.after (Time.Span.of_us timeout) in
       let _ =
         Deferred.any [cancelled; sleep] >>= fun () ->
         if Deferred.is_determined cancelled then

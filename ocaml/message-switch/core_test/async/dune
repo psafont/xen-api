@@ -14,6 +14,8 @@
     core
     core_kernel
     message-switch-async
+    mtime
+    mtime.clock.os
   )
 )
 
