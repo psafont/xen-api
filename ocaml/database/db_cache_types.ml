@@ -600,25 +600,13 @@ let set_field tblname objref fldname newval db =
     db
     |> update_many_to_many g tblname objref remove_from_set
     |> update_one_to_many g tblname objref remove_from_set
-    |> Database.update
-         ((fun _ -> newval)
-         |> Row.update g fldname (Schema.Value.String "")
-         |> Table.update g objref Row.empty
-         |> TableSet.update g tblname Table.empty
-         )
+    |> unsafe_set_field g tblname objref fldname newval
     |> update_many_to_many g tblname objref add_to_set
     |> update_one_to_many g tblname objref add_to_set
     |> Database.increment
   else
     let g = Manifest.generation (Database.manifest db) in
-    db
-    |> ((fun _ -> newval)
-       |> Row.update g fldname (Schema.Value.String "")
-       |> Table.update g objref Row.empty
-       |> TableSet.update g tblname Table.empty
-       |> Database.update
-       )
-    |> Database.increment
+    db |> unsafe_set_field g tblname objref fldname newval |> Database.increment
 
 let touch tblname objref db =
   let g = Manifest.generation (Database.manifest db) in
