@@ -2250,8 +2250,6 @@ let () =
 
   Logs.set_reporter (lwt_reporter ()) ;
   Logs.set_level ~all:true (Some Logs.Info) ;
-  if !Xcp_service.daemon then
-    Xcp_service.maybe_daemonize () ;
   let main =
     let* observer_enabled = observer_is_component_enabled () in
     config.use_observer <- observer_enabled ;
