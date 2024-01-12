@@ -29,6 +29,7 @@ ocaml/xenopsd/scripts/xen-backend.rules
 ocaml/xenopsd/xentoollog_flags
 
 ocaml/idl/gen_lifecycle.exe
+ocaml/idl/datamodel_main.exe
 
 .hugo_build.lock
 go.sum

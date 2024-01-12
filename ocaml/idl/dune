@@ -31,21 +31,26 @@
   (libraries
     dune-build-info
     mustache
+    xapi-consts.xapi_version
     xapi-datamodel
     xapi-stdext-std
     xapi-stdext-pervasives
     xapi-stdext-unix
   )
+  (promote (until-clean))
 )
 
+; use the binary promoted file from the source dir (not the build dir) that has
+; the correct version number embedded
 (rule
   (alias markdowngen)
   (deps
-    (:x datamodel_main.exe)
+    datamodel_main.exe
     (source_tree templates)
+    (universe)
   )
   (package xapi-datamodel)
-  (action (run %{x} -closed -markdown))
+  (action (system "%{project_root}/../../ocaml/idl/datamodel_main.exe -closed -markdown"))
 )
 
 (test

@@ -533,6 +533,12 @@ let generate_errors () =
     ("api_errors.mustache", "api-ref-autogen-errors.md")
     error_json templatesdir destdir
 
+let generate_ref () =
+  let ref_json = `O [("version", `String Xapi_version.version)] in
+  render_file
+    ("api_ref.mustache", "api-ref-autogen.md")
+    ref_json templatesdir destdir
+
 let all api =
   (* Remove private messages that are only used internally (e.g. get_record_internal) *)
   let api =
@@ -549,6 +555,7 @@ let all api =
   in
 
   List.iter generate_class system ;
+  generate_ref () ;
   generate_classes system ;
   generate_relationships api ;
   generate_types system ;
