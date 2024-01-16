@@ -210,7 +210,7 @@ let listener rpc session_id queue =
       | `_mod, Some pbd_rec ->
           let alerts =
             create_pbd_alerts rpc session_id (get_snapshot pbd_ref)
-              (pbd_ref, pbd_rec, float_of_string event.ts)
+              (pbd_ref, pbd_rec, event.ts)
           in
           debug "Processing a MOD event" ;
           List.iter
@@ -232,7 +232,7 @@ let listener rpc session_id queue =
           debug "Processing a MOD event" ;
           let alerts =
             create_host_alerts rpc session_id (get_snapshot host_ref)
-              (host_ref, host_rec, float_of_string event.ts)
+              (host_ref, host_rec, event.ts)
           in
           List.iter
             (fun alert -> with_global_lock (fun () -> Queue.push alert queue))
