@@ -20,6 +20,7 @@ open Event_types
 module D = Debug.Make (struct let name = "xapi_event" end)
 
 open D
+module Date = Xapi_stdext_date.Date
 
 module Message = struct
   type t =
@@ -634,7 +635,7 @@ let from_inner __context session subs from from_t deadline =
   let event_of op ?snapshot (table, objref, time) =
     {
       id= Int64.to_string time
-    ; ts= "0.0"
+    ; ts= Date.(to_unix_time epoch)
     ; ty= String.lowercase_ascii table
     ; op
     ; reference= objref
@@ -768,7 +769,7 @@ let event_add ?snapshot ty op reference =
   in
   let objs = List.map (fun x -> x.Datamodel_types.name) objs in
   if List.mem ty objs then (
-    let ts = string_of_float (Unix.time ()) in
+    let ts = Date.(to_unix_time (now ())) in
     let op = op_of_string op in
     let ev =
       {
