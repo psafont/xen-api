@@ -21,7 +21,7 @@ let op_of_rpc = API.event_operation_of_rpc
 
 type event = {
     id: string [@key "id"]
-  ; ts: string [@key "timestamp"]
+  ; ts: float [@key "timestamp"]
   ; ty: string [@key "class"]
   ; op: op [@key "operation"]
   ; reference: string [@key "ref"]
