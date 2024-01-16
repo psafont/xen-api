@@ -20,6 +20,7 @@ open Event_types
 module D = Debug.Make (struct let name = "xapi_event" end)
 
 open D
+module Date = Xapi_stdext_date.Date
 
 module Message = struct
   type t =
@@ -646,7 +647,7 @@ let from_inner __context session subs from from_t timer batching =
   let event_of op ?snapshot {table; obj; time} =
     {
       id= Int64.to_string time
-    ; ts= "0.0"
+    ; ts= Date.(to_unix_time epoch)
     ; ty= String.lowercase_ascii table
     ; op
     ; reference= obj
@@ -792,7 +793,7 @@ let generate_events_for =
 let event_add ?snapshot ty op reference =
   let add () =
     let id = Int64.to_string !Next.id in
-    let ts = string_of_float (Unix.time ()) in
+    let ts = Unix.time () in
     let ty = String.lowercase_ascii ty in
     let op = op_of_string op in
     let ev = {id; ts; ty; op; reference; snapshot} in

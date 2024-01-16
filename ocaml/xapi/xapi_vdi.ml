@@ -864,8 +864,8 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
   let next_token_and_vbds ~token ~timeout =
     let most_recent_vbds_field events =
       events
-      (* We need to sort the timestamp strings in decreasing order *)
-      |> List.sort (fun e1 e2 -> -String.compare e1.Event_types.ts e2.ts)
+      (* We need to sort the timestamps in decreasing order *)
+      |> List.sort (fun e1 e2 -> -Float.compare e1.Event_types.ts e2.ts)
       |> List.find_map (fun event -> event.Event_types.snapshot)
       |> Option.map (fun snapshot -> (API.vDI_t_of_rpc snapshot).API.vDI_VBDs)
     in
