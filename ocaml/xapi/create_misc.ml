@@ -177,16 +177,24 @@ let rec ensure_domain_zero_records ~__context ~host (host_info : host_info) :
   ensure_domain_zero_metrics_record ~__context ~domain_zero_ref host_info
 
 and maybe_upgrade_domain_zero_record ~__context ~host (host_info : host_info) =
-  try
-    let control_domain =
-      Db.VM.get_by_uuid ~__context ~uuid:host_info.dom0_uuid
+  let __FUN = __FUNCTION__ in
+  let get_new_dom0 () =
+    try Some (Db.VM.get_by_uuid ~__context ~uuid:host_info.dom0_uuid)
+    with Db_exn.Read_missing_uuid _ -> None
+  in
+  let set_control_domain control_domain () =
+    debug "%s: Setting control domain for host %s to %s" __FUN
+      (Ref.string_of host)
+      (Ref.string_of control_domain) ;
+    Db.Host.set_control_domain ~__context ~self:host ~value:control_domain
+  in
+  let log_warn () = warn "%s: Cannot set control domain!" __FUN in
+
+  if Db.Host.get_control_domain ~__context ~self:host = Ref.null then
+    let set_domain_or_log =
+      get_new_dom0 () |> Option.fold ~some:set_control_domain ~none:log_warn
     in
-    if Db.Host.get_control_domain ~__context ~self:host = Ref.null then (
-      debug "Setting control domain for host %s to %s" (Ref.string_of host)
-        (Ref.string_of control_domain) ;
-      Db.Host.set_control_domain ~__context ~self:host ~value:control_domain
-    )
-  with Db_exn.Read_missing_uuid _ -> ()
+    set_domain_or_log ()
 
 and ensure_domain_zero_record ~__context (host_info : host_info) : [`VM] Ref.t =
   let ref_lookup () = Helpers.get_domain_zero ~__context in
