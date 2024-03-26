@@ -50,7 +50,7 @@ let args =
   ; flag "bindir" ~doc:"DIR binaries" ~default:"/usr/bin"
   ; flag "sbindir" ~doc:"DIR superuser binaries" ~default:"/usr/sbin"
   ; flag "xenopsd_libexecdir" ~doc:"DIR xenopsd helper executables"
-      ~default:"/usr/lib/xenopsd"
+      ~default:"/usr/libexec/xenopsd"
   ; flag "qemu_wrapper_dir" ~doc:"DIR xen helper executables"
       ~default:"/usr/lib/xenopsd"
   ; flag "etcdir" ~doc:"DIR configuration files" ~default:"/etc"
