@@ -535,6 +535,12 @@ let db_action api : O.Module.t =
               "let expr' = Db_filter.expr_of_string expr in"
             ; "get_records_where ~" ^ Gen_common.context ^ " ~expr:expr'"
             ]
+      | FromObject GetAllWhere ->
+          String.concat "\n"
+            [
+              "let expr' = Db_filter.expr_of_string expr in"
+            ; "get_refs_where ~" ^ Gen_common.context ^ " ~expr:expr'"
+            ]
       | _ ->
           assert false
     in
