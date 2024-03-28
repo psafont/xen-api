@@ -4488,16 +4488,9 @@ let vm_retrieve_wlb_recommendations printer rpc session_id params =
       ^ "' is not a field of the VM class. Failed to select VM for operation."
       )
 
-let vm_migrate_sxm_params =
-  [
-    "remote-master"
-  ; "remote-username"
-  ; "vif"
-  ; "remote-password"
-  ; "remote-network"
-  ; "vdi"
-  ; "vgpu"
-  ]
+let vm_migrate_optional_sxm_params = ["vif"; "remote-network"; "vdi"; "vgpu"]
+
+type sxm_login = {address: string; uname: string; pwd: string}
 
 let vm_migrate printer rpc session_id params =
   let comp2 f g a b = f (g a b) in
@@ -4530,339 +4523,357 @@ let vm_migrate printer rpc session_id params =
     let is_sxm_param k =
       List.exists
         (fun p -> Astring.String.is_prefix ~affix:p k)
-        vm_migrate_sxm_params
+        vm_migrate_optional_sxm_params
     in
-    List.exists (fun (k, _) -> is_sxm_param k) params
+    let some_fields = List.exists (fun (k, _) -> is_sxm_param k) params in
+    let address = List.assoc_opt "remote-master" params in
+    let username = List.assoc_opt "remote-username" params in
+    let password = List.assoc_opt "remote-password" params in
+    match (some_fields, address, username, password) with
+    | false, None, None, None ->
+        None
+    | _, Some address, Some uname, Some pwd ->
+        Some {address; uname; pwd}
+    | true, None, None, None
+    (* this case could ignore the optional params present instead of failing *)
+    | _ ->
+        failwith
+          "Storage live migration requires remote-master, remote-username, and \
+           remote-password to be specified. Please see 'xe help vm-migrate' \
+           for help."
   in
-  if use_sxm_migration then (
-    printer
-      (Cli_printer.PMsg
-         "Performing a storage live migration. Your VM's VDIs will be migrated \
-          with the VM."
-      ) ;
-    if
-      not
-        (List.mem_assoc "remote-master" params
-        && List.mem_assoc "remote-username" params
-        && List.mem_assoc "remote-password" params
-        )
-    then
-      failwith
-        "Storage live migration requires remote-master, remote-username, and \
-         remote-password to be specified. Please see 'xe help vm-migrate' for \
-         help." ;
-    let ip = List.assoc "remote-master" params in
-    let remote_rpc xml =
-      let open Xmlrpc_client in
-      let http = xmlrpc ~version:"1.0" "/" in
-      XMLRPC_protocol.rpc ~srcstr:"cli" ~dststr:"dst_xapi"
-        ~transport:
-          (SSL
-             (SSL.make ~verify_cert:None ~use_fork_exec_helper:false (), ip, 443)
-          )
-        ~http xml
-    in
-    let uname = List.assoc "remote-username" params in
-    let pwd = List.assoc "remote-password" params in
-    let remote_session =
-      Client.Session.login_with_password ~rpc:remote_rpc ~uname ~pwd
-        ~version:"1.3" ~originator:Constants.xapi_user_agent
-    in
-    finally
-      (fun () ->
-        let host, host_record =
-          let all =
-            Client.Host.get_all_records ~rpc:remote_rpc
-              ~session_id:remote_session
-          in
-          if List.mem_assoc "host" params then
-            let x = List.assoc "host" params in
-            try
-              List.find
-                (fun (_, h) ->
-                  h.API.host_hostname = x
-                  || h.API.host_name_label = x
-                  || h.API.host_uuid = x
-                )
-                all
-            with Not_found ->
-              failwith (Printf.sprintf "Failed to find host: %s" x)
-          else
-            List.hd all
-        in
-        let network, network_record =
-          let all =
-            Client.Network.get_all_records ~rpc:remote_rpc
-              ~session_id:remote_session
-          in
-          if List.mem_assoc "remote-network" params then
-            let x = List.assoc "remote-network" params in
-            try
-              List.find
-                (fun (_, net) ->
-                  net.API.network_bridge = x
-                  || net.API.network_name_label = x
-                  || net.API.network_uuid = x
-                )
-                all
-            with Not_found ->
-              failwith (Printf.sprintf "Failed to find network: %s" x)
-          else
-            let pifs = host_record.API.host_PIFs in
-            let management_pifs =
-              List.filter
-                (fun self ->
-                  Client.PIF.get_management ~rpc:remote_rpc
-                    ~session_id:remote_session ~self
-                )
-                pifs
-            in
-            if List.length management_pifs = 0 then
-              failwith
-                (Printf.sprintf "Could not find management PIF on host %s"
-                   host_record.API.host_uuid
-                ) ;
-            let pif = List.hd management_pifs in
-            let net =
-              Client.PIF.get_network ~rpc:remote_rpc ~session_id:remote_session
-                ~self:pif
-            in
-            ( net
-            , Client.Network.get_record ~rpc:remote_rpc
-                ~session_id:remote_session ~self:net
+  let host = List.assoc_opt "host" params in
+  match (use_sxm_migration, host) with
+  | Some {address; uname; pwd}, host ->
+      printer
+        (Cli_printer.PMsg
+           "Performing a storage live migration. Your VM's VDIs will be \
+            migrated with the VM."
+        ) ;
+      let remote_rpc xml =
+        let open Xmlrpc_client in
+        let http = xmlrpc "/" in
+        XMLRPC_protocol.rpc ~srcstr:"cli" ~dststr:"dst_xapi"
+          ~transport:
+            (SSL
+               ( SSL.make ~verify_cert:None ~use_fork_exec_helper:false ()
+               , address
+               , 443
+               )
             )
-        in
-        let vif_map =
-          List.map
-            (fun (vif_uuid, net_uuid) ->
-              let vif =
-                Client.VIF.get_by_uuid ~rpc ~session_id ~uuid:vif_uuid
-              in
-              let net =
-                Client.Network.get_by_uuid ~rpc:remote_rpc
-                  ~session_id:remote_session ~uuid:net_uuid
-              in
-              (vif, net)
-            )
-            (read_map_params "vif" params)
-        in
-        let vdi_map =
-          List.map
-            (fun (vdi_uuid, sr_uuid) ->
-              let vdi =
-                Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid
-              in
-              let sr =
-                Client.SR.get_by_uuid ~rpc:remote_rpc ~session_id:remote_session
-                  ~uuid:sr_uuid
-              in
-              (vdi, sr)
-            )
-            (read_map_params "vdi" params)
-        in
-        let vgpu_map =
-          List.map
-            (fun (vgpu_uuid, gpu_group_uuid) ->
-              let vgpu =
-                Client.VGPU.get_by_uuid ~rpc ~session_id ~uuid:vgpu_uuid
-              in
-              let gpu_group =
-                Client.GPU_group.get_by_uuid ~rpc:remote_rpc
-                  ~session_id:remote_session ~uuid:gpu_group_uuid
-              in
-              (vgpu, gpu_group)
-            )
-            (read_map_params "vgpu" params)
-        in
-        let preferred_sr =
-          (* The preferred SR is determined to be as the SR that the destine host has a PDB attached to it,
-             and among the choices of that the shared is preferred first(as it is recommended to have shared storage
-             in pool to host VMs), and then the one with the maximum available space *)
-          try
-            let expr =
+          ~http xml
+      in
+      let remote_session =
+        Client.Session.login_with_password ~rpc:remote_rpc ~uname ~pwd
+          ~version:"1.3" ~originator:Constants.xapi_user_agent
+      in
+      let remote_network = List.assoc_opt "remote-network" params in
+
+      finally
+        (fun () ->
+          let host =
+            let expr_match x =
               Printf.sprintf
-                {|(field "host"="%s") and (field "currently_attached"="true")|}
-                (Ref.string_of host)
+                {|(field "hostname"="%s") or (field "name__label"="%s") or (field "uuid"="%s")|}
+                x x x
             in
-            let host_pbds =
-              Client.PBD.get_all_records_where ~rpc:remote_rpc
+            let expr, fail_msg =
+              match host with
+              | Some x ->
+                  let fail_msg = Printf.sprintf "Failed to find host: %s" x in
+                  (expr_match x, fail_msg)
+              | None ->
+                  ("true", Printf.sprintf "Failed to find a suitable host")
+            in
+            match
+              Client.Host.get_all_where ~rpc:remote_rpc
                 ~session_id:remote_session ~expr
+            with
+            | [] ->
+                failwith fail_msg
+            | host :: _ ->
+                host
+          in
+
+          let network =
+            let expr x =
+              Printf.sprintf
+                {|(field "bridge"="%s") or (field "name__label"="%s") or (field "uuid"="%s")|}
+                x x x
             in
-            let srs =
-              List.map
-                (fun (_, pbd_rec) ->
-                  ( pbd_rec.API.pBD_SR
-                  , Client.SR.get_record ~rpc:remote_rpc
-                      ~session_id:remote_session ~self:pbd_rec.API.pBD_SR
-                  )
-                )
-                host_pbds
-            in
-            (* In the following loop, the current SR:sr' will be compared with previous checked ones,
-               first if it is an ISO type, then pass this one for selection, then the only shared one from this and
-               previous one will be valued, and if not that case (both shared or none shared), choose the one with
-               more space available *)
-            let sr, _ =
-              List.fold_left
-                (fun (sr, free_space) ((_, sr_rec') as sr') ->
-                  if sr_rec'.API.sR_content_type = "iso" then
-                    (sr, free_space)
-                  else
-                    let free_space' =
-                      Int64.sub sr_rec'.API.sR_physical_size
-                        sr_rec'.API.sR_physical_utilisation
+            match remote_network with
+            | Some x -> (
+              match
+                Client.Network.get_all_where ~rpc:remote_rpc
+                  ~session_id:remote_session ~expr:(expr x)
+              with
+              | [] ->
+                  failwith (Printf.sprintf "Failed to find network: %s" x)
+              | host :: _ ->
+                  host
+            )
+            | None -> (
+                let pifs =
+                  Client.Host.get_PIFs ~rpc:remote_rpc
+                    ~session_id:remote_session ~self:host
+                in
+                let management_pifs =
+                  List.filter
+                    (fun self ->
+                      Client.PIF.get_management ~rpc:remote_rpc
+                        ~session_id:remote_session ~self
+                    )
+                    pifs
+                in
+                match management_pifs with
+                | [] ->
+                    let host_uuid =
+                      Client.Host.get_uuid ~rpc:remote_rpc
+                        ~session_id:remote_session ~self:host
                     in
-                    match sr with
-                    | None ->
-                        (Some sr', free_space')
-                    | Some ((_, sr_rec) as sr) -> (
-                      match (sr_rec.API.sR_shared, sr_rec'.API.sR_shared) with
-                      | true, false ->
-                          (Some sr, free_space)
-                      | false, true ->
-                          (Some sr', free_space')
-                      | _ ->
-                          if free_space' > free_space then
-                            (Some sr', free_space')
-                          else
-                            (Some sr, free_space)
-                    )
-                )
-                (None, Int64.zero) srs
-            in
-            match sr with Some (sr_ref, _) -> Some sr_ref | _ -> None
-          with _ -> None
-        in
-        let vdi_map =
-          match preferred_sr with
-          | None ->
-              vdi_map
-          | Some preferred_sr ->
-              let vms =
-                select_vms ~include_template_vms:true rpc session_id params
-                  ("host"
-                  :: "host-uuid"
-                  :: "host-name"
-                  :: "live"
-                  :: "force"
-                  :: "copy"
-                  :: "compress"
-                  :: vm_migrate_sxm_params
-                  )
-              in
-              if vms = [] then failwith "No matching VMs found" ;
-              let vbds =
-                Client.VM.get_VBDs ~rpc ~session_id
-                  ~self:((List.hd vms).getref ())
-              in
-              let vbds =
-                List.filter
-                  (fun vbd ->
-                    not (Client.VBD.get_empty ~rpc ~session_id ~self:vbd)
-                  )
-                  vbds
-              in
-              let vdis =
-                List.map
-                  (fun vbd -> Client.VBD.get_VDI ~rpc ~session_id ~self:vbd)
-                  vbds
-              in
-              let overrides =
-                List.map
-                  (fun vdi ->
-                    if List.mem_assoc vdi vdi_map then
-                      (vdi, List.assoc vdi vdi_map)
-                    else
-                      (vdi, preferred_sr)
-                  )
-                  vdis
-              in
-              let filtered_orig_list =
-                List.filter
-                  (fun (vdi, _) -> not (List.mem_assoc vdi overrides))
-                  vdi_map
-              in
-              overrides @ filtered_orig_list
-        in
-        let params =
-          List.filter
-            (fun (s, _) ->
-              if String.length s < 5 then
-                true
-              else
-                let start = String.sub s 0 4 in
-                start <> "vif:" && start <> "vdi:"
-            )
-            params
-        in
-        printer
-          (Cli_printer.PMsg
-             (Printf.sprintf
-                "Will migrate to remote host: %s, using remote network: %s. \
-                 Here is the VDI mapping:"
-                host_record.API.host_name_label
-                network_record.API.network_name_label
-             )
-          ) ;
-        List.iter
-          (fun (vdi, sr) ->
-            printer
-              (Cli_printer.PMsg
-                 (Printf.sprintf "VDI %s -> SR %s"
-                    (Client.VDI.get_uuid ~rpc ~session_id ~self:vdi)
-                    (Client.SR.get_uuid ~rpc:remote_rpc
-                       ~session_id:remote_session ~self:sr
-                    )
-                 )
+                    failwith
+                      (Printf.sprintf "Could not find management PIF on host %s"
+                         host_uuid
+                      )
+                | pif :: _ ->
+                    Client.PIF.get_network ~rpc:remote_rpc
+                      ~session_id:remote_session ~self:pif
               )
-          )
-          vdi_map ;
-        let token =
-          Client.Host.migrate_receive ~rpc:remote_rpc ~session_id:remote_session
-            ~host ~network ~options
-        in
-        let new_vm =
-          do_vm_op ~include_control_vms:false ~include_template_vms:true printer
-            rpc session_id
-            (fun vm ->
-              Client.VM.migrate_send ~rpc ~session_id ~vm:(vm.getref ())
-                ~dest:token ~live:true ~vdi_map ~vif_map ~options ~vgpu_map
-            )
-            params
-            (["host"; "host-uuid"; "host-name"; "live"; "force"; "copy"]
-            @ vm_migrate_sxm_params
-            )
-          |> List.hd
-        in
-        if get_bool_param params "copy" then
+          in
+          let vif_map =
+            List.map
+              (fun (vif_uuid, net_uuid) ->
+                let vif =
+                  Client.VIF.get_by_uuid ~rpc ~session_id ~uuid:vif_uuid
+                in
+                let net =
+                  Client.Network.get_by_uuid ~rpc:remote_rpc
+                    ~session_id:remote_session ~uuid:net_uuid
+                in
+                (vif, net)
+              )
+              (read_map_params "vif" params)
+          in
+          let vdi_map =
+            List.map
+              (fun (vdi_uuid, sr_uuid) ->
+                let vdi =
+                  Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid
+                in
+                let sr =
+                  Client.SR.get_by_uuid ~rpc:remote_rpc
+                    ~session_id:remote_session ~uuid:sr_uuid
+                in
+                (vdi, sr)
+              )
+              (read_map_params "vdi" params)
+          in
+          let vgpu_map =
+            List.map
+              (fun (vgpu_uuid, gpu_group_uuid) ->
+                let vgpu =
+                  Client.VGPU.get_by_uuid ~rpc ~session_id ~uuid:vgpu_uuid
+                in
+                let gpu_group =
+                  Client.GPU_group.get_by_uuid ~rpc:remote_rpc
+                    ~session_id:remote_session ~uuid:gpu_group_uuid
+                in
+                (vgpu, gpu_group)
+              )
+              (read_map_params "vgpu" params)
+          in
+          let preferred_sr =
+            (* The preferred SR is determined to be as the SR that the destine host has a PDB attached to it,
+               and among the choices of that the shared is preferred first(as it is recommended to have shared storage
+               in pool to host VMs), and then the one with the maximum available space *)
+            try
+              let expr =
+                Printf.sprintf
+                  {|(field "host"="%s") and (field "currently_attached"="true")|}
+                  (Ref.string_of host)
+              in
+              let host_pbds =
+                Client.PBD.get_all_records_where ~rpc:remote_rpc
+                  ~session_id:remote_session ~expr
+              in
+              let srs =
+                List.map
+                  (fun (_, pbd_rec) ->
+                    ( pbd_rec.API.pBD_SR
+                    , Client.SR.get_record ~rpc:remote_rpc
+                        ~session_id:remote_session ~self:pbd_rec.API.pBD_SR
+                    )
+                  )
+                  host_pbds
+              in
+              (* In the following loop, the current SR:sr' will be compared with previous checked ones,
+                 first if it is an ISO type, then pass this one for selection, then the only shared one from this and
+                 previous one will be valued, and if not that case (both shared or none shared), choose the one with
+                 more space available *)
+              let sr, _ =
+                List.fold_left
+                  (fun (sr, free_space) ((_, sr_rec') as sr') ->
+                    if sr_rec'.API.sR_content_type = "iso" then
+                      (sr, free_space)
+                    else
+                      let free_space' =
+                        Int64.sub sr_rec'.API.sR_physical_size
+                          sr_rec'.API.sR_physical_utilisation
+                      in
+                      match sr with
+                      | None ->
+                          (Some sr', free_space')
+                      | Some ((_, sr_rec) as sr) -> (
+                        match (sr_rec.API.sR_shared, sr_rec'.API.sR_shared) with
+                        | true, false ->
+                            (Some sr, free_space)
+                        | false, true ->
+                            (Some sr', free_space')
+                        | _ ->
+                            if free_space' > free_space then
+                              (Some sr', free_space')
+                            else
+                              (Some sr, free_space)
+                      )
+                  )
+                  (None, Int64.zero) srs
+              in
+              match sr with Some (sr_ref, _) -> Some sr_ref | _ -> None
+            with _ -> None
+          in
+          let vdi_map =
+            match preferred_sr with
+            | None ->
+                vdi_map
+            | Some preferred_sr ->
+                let vms =
+                  select_vms ~include_template_vms:true rpc session_id params
+                    ("host"
+                    :: "host-uuid"
+                    :: "host-name"
+                    :: "live"
+                    :: "force"
+                    :: "copy"
+                    :: "compress"
+                    :: vm_migrate_optional_sxm_params
+                    )
+                in
+                if vms = [] then failwith "No matching VMs found" ;
+                let vbds =
+                  Client.VM.get_VBDs ~rpc ~session_id
+                    ~self:((List.hd vms).getref ())
+                in
+                let vbds =
+                  List.filter
+                    (fun vbd ->
+                      not (Client.VBD.get_empty ~rpc ~session_id ~self:vbd)
+                    )
+                    vbds
+                in
+                let vdis =
+                  List.map
+                    (fun vbd -> Client.VBD.get_VDI ~rpc ~session_id ~self:vbd)
+                    vbds
+                in
+                let overrides =
+                  List.map
+                    (fun vdi ->
+                      if List.mem_assoc vdi vdi_map then
+                        (vdi, List.assoc vdi vdi_map)
+                      else
+                        (vdi, preferred_sr)
+                    )
+                    vdis
+                in
+                let filtered_orig_list =
+                  List.filter
+                    (fun (vdi, _) -> not (List.mem_assoc vdi overrides))
+                    vdi_map
+                in
+                overrides @ filtered_orig_list
+          in
+          let params =
+            List.filter
+              (fun (s, _) ->
+                if String.length s < 5 then
+                  true
+                else
+                  let start = String.sub s 0 4 in
+                  start <> "vif:" && start <> "vdi:"
+              )
+              params
+          in
+          let host_name_label =
+            Client.Host.get_name_label ~rpc:remote_rpc
+              ~session_id:remote_session ~self:host
+          in
+          let network_name_label =
+            Client.Network.get_name_label ~rpc:remote_rpc
+              ~session_id:remote_session ~self:network
+          in
           printer
-            (Cli_printer.PList
-               [
-                 Client.VM.get_uuid ~rpc:remote_rpc ~session_id:remote_session
-                   ~self:new_vm
-               ]
+            (Cli_printer.PMsg
+               (Printf.sprintf
+                  "Will migrate to remote host: %s, using remote network: %s. \
+                   Here is the VDI mapping:"
+                  host_name_label network_name_label
+               )
+            ) ;
+          List.iter
+            (fun (vdi, sr) ->
+              printer
+                (Cli_printer.PMsg
+                   (Printf.sprintf "VDI %s -> SR %s"
+                      (Client.VDI.get_uuid ~rpc ~session_id ~self:vdi)
+                      (Client.SR.get_uuid ~rpc:remote_rpc
+                         ~session_id:remote_session ~self:sr
+                      )
+                   )
+                )
             )
-      )
-      (fun () ->
-        Client.Session.logout ~rpc:remote_rpc ~session_id:remote_session
-      )
-  ) else (
-    if not (List.mem_assoc "host" params) then
-      failwith "No destination host specified" ;
-    let host =
-      (get_host_by_name_or_id rpc session_id (List.assoc "host" params)).getref
-        ()
-    in
-    ignore
-      (do_vm_op ~include_control_vms:true printer rpc session_id
-         (fun vm ->
-           Client.VM.pool_migrate ~rpc ~session_id ~vm:(vm.getref ()) ~host
-             ~options
-         )
-         params
-         ["host"; "host-uuid"; "host-name"; "live"; "compress"]
-      )
-  )
+            vdi_map ;
+          let token =
+            Client.Host.migrate_receive ~rpc:remote_rpc
+              ~session_id:remote_session ~host ~network ~options
+          in
+          let new_vm =
+            do_vm_op ~include_control_vms:false ~include_template_vms:true
+              printer rpc session_id
+              (fun vm ->
+                Client.VM.migrate_send ~rpc ~session_id ~vm:(vm.getref ())
+                  ~dest:token ~live:true ~vdi_map ~vif_map ~options ~vgpu_map
+              )
+              params
+              (["host"; "host-uuid"; "host-name"; "live"; "force"; "copy"]
+              @ vm_migrate_optional_sxm_params
+              )
+            |> List.hd
+          in
+          if get_bool_param params "copy" then
+            printer
+              (Cli_printer.PList
+                 [
+                   Client.VM.get_uuid ~rpc:remote_rpc ~session_id:remote_session
+                     ~self:new_vm
+                 ]
+              )
+        )
+        (fun () ->
+          Client.Session.logout ~rpc:remote_rpc ~session_id:remote_session
+        )
+  | None, Some host ->
+      let host = get_host_by_name_or_id rpc session_id host in
+      ignore
+        (do_vm_op ~include_control_vms:true printer rpc session_id
+           (fun vm ->
+             Client.VM.pool_migrate ~rpc ~session_id ~vm:(vm.getref ())
+               ~host:(host.getref ()) ~options
+           )
+           params
+           ["host"; "host-uuid"; "host-name"; "live"; "compress"]
+        )
+  | None, None ->
+      failwith "No destination host specified"
 
 let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
   let vbds =
