@@ -4489,6 +4489,7 @@ module Observer = struct
   let set_export_interval ~__context ~interval =
     let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
     let dbg = Context.string_of_task __context in
+    let interval = Scheduler.span_to_s interval in
     Client.Observer.set_export_interval dbg interval
 
   let set_max_spans ~__context ~spans =

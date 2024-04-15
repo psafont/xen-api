@@ -4064,6 +4064,7 @@ module Observer = struct
 
   let set_export_interval _ dbg interval =
     debug "Observer.set_export_interval : dbg=%s" dbg ;
+    let interval = Scheduler.s_to_span interval in
     Debug.with_thread_associated dbg
       (fun () -> Tracing_export.set_export_interval interval)
       ()

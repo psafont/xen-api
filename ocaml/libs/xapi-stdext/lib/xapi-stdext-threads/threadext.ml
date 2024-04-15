@@ -61,7 +61,11 @@ module Delay = struct
 
   exception Pre_signalled
 
-  let wait (x : t) (seconds : float) =
+  let wait (x : t) (amount : Mtime.Span.t) =
+    let micro_s =
+      Int64.div (Mtime.Span.to_uint64_ns amount) 1000L |> Int64.to_float
+    in
+    let seconds = micro_s /. 1_000_000. in
     let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
     let to_close = ref [] in
     let close' fd =

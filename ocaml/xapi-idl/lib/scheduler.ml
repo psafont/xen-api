@@ -79,6 +79,10 @@ type t = {
 let span_to_s span =
   Mtime.Span.to_uint64_ns span |> Int64.to_float |> fun ns -> ns /. 1e9
 
+let s_to_span s =
+  let millis_of = Float.to_int (s *. 1000.) in
+  Mtime.Span.(millis_of * ms)
+
 let time_of_span span = span_to_s span |> ceil |> Int64.of_float
 
 let mtime_sub time now = Mtime.Span.abs_diff time now |> time_of_span

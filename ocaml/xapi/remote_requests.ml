@@ -204,7 +204,8 @@ let send_test_post ~__context ~host ~port ~body =
         ~headers:[("Host", host)]
         Http.Post "/"
     in
-    perform_request ~__context ~timeout:30.0 ~verify_cert ~host
+    let timeout = Mtime.Span.(30 * s) in
+    perform_request ~__context ~timeout ~verify_cert ~host
       ~port:(Int64.to_int port) ~request ~handler:(read_response result)
       ~enable_log:true ;
     !result

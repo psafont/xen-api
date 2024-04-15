@@ -66,3 +66,8 @@ val span_to_s : Mtime.Span.t -> float
     When the span is longer than ~54 years it becomes unprecise, avoid whenever
     possible, this is unavoidable when using Thread.wait functions and related.
     *)
+
+val s_to_span : float -> Mtime.Span.t
+(** [s_to_span] convert a float representing seconds to a timespan, retains
+    millisecond precision. Avoid whenever possible, some RPC function already
+    use this so it needs to be available. *)

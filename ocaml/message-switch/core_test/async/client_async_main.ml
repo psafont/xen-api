@@ -85,12 +85,12 @@ let _ =
       , Printf.sprintf "payload of message to send (default %s)" !payload
       )
     ; ( "-secs"
-      , Arg.String (fun x ->
-        let t = 1000. *. Float.of_string x |> Float.to_int in
-        timeout := Some Mtime.Span.(t * ms)
-        )
-      ,
-          "number of seconds to repeat the same message for"
+      , Arg.String
+          (fun x ->
+            let t = 1000. *. Float.of_string x |> Float.to_int in
+            timeout := Some Mtime.Span.(t * ms)
+          )
+      , "number of seconds to repeat the same message for"
       )
     ]
     (fun x -> P.fprintf stderr "Ignoring unexpected argument: %s" x)
