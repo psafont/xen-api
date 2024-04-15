@@ -29,7 +29,6 @@ module Mutex = struct
 end
 
 module WaitMap = Map.Make (Mtime.Span)
-
 module Delay = Xapi_stdext_threads.Threadext.Delay
 
 type item = {id: int; name: string; fn: unit -> unit}
@@ -133,13 +132,8 @@ let rec main_loop () =
           Mtime.Span.(add (Mtime_clock.count elapsed) (1 * hour))
     )
   in
-  let seconds =
-    Mtime.Span.abs_diff sleep_until (Mtime_clock.count elapsed)
-    |> Mtime.Span.to_uint64_ns
-    |> Int64.div 1_000_000_000L
-    |> Int64.to_float
-  in
-  let (_ : bool) = Delay.wait delay seconds in
+  let wait_for = Mtime.Span.abs_diff sleep_until (Mtime_clock.count elapsed) in
+  let (_ : bool) = Delay.wait delay wait_for in
   main_loop ()
 
 let start =

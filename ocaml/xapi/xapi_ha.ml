@@ -737,7 +737,8 @@ module Monitor = struct
                 with_lock m (fun () -> not !request_shutdown) && not !finished
               do
                 try
-                  ignore (Delay.wait delay !Xapi_globs.ha_monitor_interval) ;
+                  let timeout = !Xapi_globs.ha_monitor_interval in
+                  ignore (Delay.wait delay timeout) ;
                   if with_lock m (fun () -> not !request_shutdown) then (
                     let liveset = query_liveset_on_all_hosts () in
                     let uuids =
@@ -784,7 +785,8 @@ module Monitor = struct
                     "Exception in HA monitor thread while waiting for slaves: \
                      %s"
                     (ExnHelper.string_of_exn e) ;
-                  Thread.delay !Xapi_globs.ha_monitor_interval
+                  Thread.delay
+                    (Clock.Timer.span_to_s !Xapi_globs.ha_monitor_interval)
               done
             in
             (* If we're the master we must wait for our live slaves to turn up before we consider restarting VMs etc *)
@@ -835,7 +837,8 @@ module Monitor = struct
                 log_backtrace () ;
                 debug "Exception in HA monitor thread: %s"
                   (ExnHelper.string_of_exn e) ;
-                Thread.delay !Xapi_globs.ha_monitor_interval
+                Thread.delay
+                  (Clock.Timer.span_to_s !Xapi_globs.ha_monitor_interval)
             done ;
             debug "Re-enabling host heartbeat" ;
             with_lock Db_gc.use_host_heartbeat_for_liveness_m (fun () ->

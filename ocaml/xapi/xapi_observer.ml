@@ -46,7 +46,7 @@ module type ObserverInterface = sig
 
   val set_trace_log_dir : __context:Context.t -> dir:string -> unit
 
-  val set_export_interval : __context:Context.t -> interval:float -> unit
+  val set_export_interval : __context:Context.t -> interval:Mtime.Span.t -> unit
 
   val set_max_spans : __context:Context.t -> spans:int -> unit
 
@@ -187,6 +187,8 @@ module Xapi_cluster = struct
       debug "Observer.set_export_interval" ;
       let module S = (val local_client ~__context : XAPI_CLUSTER) in
       let dbg = Context.string_of_task __context in
+      let interval = Clock.Timer.span_to_s interval in
+
       S.Observer.set_export_interval dbg interval
 
     let set_max_spans ~__context ~spans =

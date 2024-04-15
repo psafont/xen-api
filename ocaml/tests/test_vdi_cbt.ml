@@ -577,7 +577,7 @@ let test_data_destroy =
                Delay.signal wait_hdl
            )
           ) ;
-        if Delay.wait wait_hdl Scheduler.(span_to_s timebox_timeout) then
+        if Delay.wait wait_hdl timebox_timeout then
           Alcotest.fail
             (Format.asprintf "data_destroy did not return in %a" Mtime.Span.pp
                timebox_timeout

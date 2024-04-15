@@ -566,9 +566,9 @@ let wlb_timeout = "wlb_timeout"
 
 let wlb_reports_timeout = "wlb_reports_timeout"
 
-let default_wlb_timeout = 30.0
+let default_wlb_timeout = Mtime.Span.(30 * s)
 
-let default_wlb_reports_timeout = 600.0
+let default_wlb_reports_timeout = Mtime.Span.(10 * min)
 
 let cert_expiration_days = ref (365 * 10)
 
@@ -729,7 +729,7 @@ let minimum_time_between_bounces = ref 120. (* 2 minutes *)
    started, then insert an artificial delay: *)
 let minimum_time_between_reboot_with_no_added_delay = ref 60. (* 1 minute *)
 
-let ha_monitor_interval = ref 20.
+let ha_monitor_interval = ref Mtime.Span.(20 * s)
 
 (* Unconditionally replan every once in a while just in case the overcommit
    protection is buggy and we don't notice *)
@@ -1020,7 +1020,7 @@ let conn_limit_clientcert = ref 800
 
 let trace_log_dir = ref "/var/log/dt/zipkinv2/json"
 
-let export_interval = ref 30.
+let export_interval = ref Mtime.Span.(30 * s)
 
 let max_spans = ref 10000
 
@@ -1100,7 +1100,7 @@ let xapi_globs_spec =
   ; ( "minimum_time_between_reboot_with_no_added_delay"
     , Float minimum_time_between_reboot_with_no_added_delay
     )
-  ; ("ha_monitor_interval", Float ha_monitor_interval)
+  ; ("ha_monitor_interval", ShortDurationFromSeconds ha_monitor_interval)
   ; ("ha_monitor_plan_interval", Float ha_monitor_plan_interval)
   ; ("ha_monitor_startup_timeout", Float ha_monitor_startup_timeout)
   ; ("ha_default_timeout_base", Float ha_default_timeout_base)
@@ -1143,7 +1143,6 @@ let xapi_globs_spec =
   ; ("conn_limit_tcp", Int conn_limit_tcp)
   ; ("conn_limit_unix", Int conn_limit_unix)
   ; ("conn_limit_clientcert", Int conn_limit_clientcert)
-  ; ("export_interval", Float export_interval)
   ; ("max_spans", Int max_spans)
   ; ("max_traces", Int max_traces)
   ; ("max_observer_file_size", Int max_observer_file_size)
@@ -1156,6 +1155,10 @@ let xapi_globs_spec_with_descriptions =
     ( "winbind_ldap_query_subject_timeout"
     , ShortDurationFromSeconds winbind_ldap_query_subject_timeout
     , "Timeout to perform ldap query for subject information"
+    )
+  ; ( "export-interval"
+    , ShortDurationFromSeconds export_interval
+    , "The interval for exports in Tracing"
     )
   ]
 
@@ -1547,11 +1550,6 @@ let other_options =
     , Arg.Set_int server_cert_group_id
     , (fun () -> string_of_int !server_cert_group_id)
     , "The group id of server ssl certificate file."
-    )
-  ; ( "export-interval"
-    , Arg.Set_float export_interval
-    , (fun () -> string_of_float !export_interval)
-    , "The interval for exports in Tracing"
     )
   ; ( "max-spans"
     , Arg.Set_int max_spans

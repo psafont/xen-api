@@ -190,7 +190,7 @@ let print_system_stats () =
   let mi = string_of_meminfo (meminfo ()) in
   debug "system stats: %s" mi ;
   let utc_d, local_d = clock_diffs () in
-  let drift = Ptime.Span.to_float_s utc_d -. Scheduler.span_to_s local_d in
+  let drift = Ptime.Span.to_float_s utc_d -. Clock.Timer.span_to_s local_d in
   debug "Clock drift: %.0f" drift
 
 (* Obtains process IDs for the specified program. This should probably be moved

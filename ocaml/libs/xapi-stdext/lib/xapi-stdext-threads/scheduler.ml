@@ -94,11 +94,7 @@ let loop () =
           add_periodic_pending ()
       | None -> (
           (* Sleep until next event. *)
-          let sleep =
-            Mtime.Span.abs_diff deadline now
-            |> Mtime.Span.(add ms)
-            |> Clock.Timer.span_to_s
-          in
+          let sleep = Mtime.Span.abs_diff deadline now |> Mtime.Span.(add ms) in
           try ignore (Delay.wait delay sleep)
           with e ->
             let detailed_msg =
@@ -112,7 +108,7 @@ let loop () =
               "Could not schedule interruptable delay (%s). Falling back to \
                normal delay. New events may be missed."
               detailed_msg ;
-            Thread.delay sleep
+            Thread.delay (Clock.Timer.span_to_s sleep)
         )
     done
   with _ ->

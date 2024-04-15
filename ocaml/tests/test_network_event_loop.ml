@@ -20,9 +20,9 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
   let localhost = Helpers.get_localhost ~__context in
   let other_host = Test_common.make_host ~__context () in
   (* We have to wait for a bit for the event loop to notice the changes, without a delay the test will fail. *)
-  let delay = 0.2 in
+  let delay = Mtime.Span.(200 * ms) in
   (* The max delay time just in case the system is extremely busy *)
-  let timeout = 10. in
+  let timeout = Mtime.Span.(10 * s) in
   (* handler used for delay and early notification *)
   let wait_hdl = Delay.make () in
   let wait_hdl_fail = Delay.make () in

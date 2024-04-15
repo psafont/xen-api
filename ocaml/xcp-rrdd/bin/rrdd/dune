@@ -5,7 +5,7 @@
   (modules (:standard \ xcp_rrdd))
   (libraries
     astring
-
+    clock
     ezxenstore
     gzip
     http_lib

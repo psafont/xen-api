@@ -887,7 +887,7 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
         most_recent_snapshot
     in
     let from =
-      let timeout = Scheduler.span_to_s timeout in
+      let timeout = Clock.Timer.span_to_s timeout in
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           Client.Event.from ~rpc ~session_id ~classes ~token ~timeout
           |> Event_types.event_from_of_rpc

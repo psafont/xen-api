@@ -14,24 +14,42 @@
 
 module Delay = Xapi_stdext_threads.Threadext.Delay
 
-let delay_wait_check ~min ~max delay timeout expected =
-  let cnt = Mtime_clock.counter () in
-  let res = Delay.wait delay timeout in
-  let elapsed = (Mtime_clock.count cnt |> Mtime.Span.to_float_ns) *. 1e-9 in
-  Alcotest.(check bool) "expected result" expected res ;
-  if elapsed < min || elapsed > max then
-    let msg = Printf.sprintf "%f not in range %f-%f" elapsed min max in
-    Alcotest.(check bool) msg true false
+let span_between ~at_least ~at_most actual =
+  Mtime.Span.is_longer actual ~than:at_least
+  && Mtime.Span.is_shorter actual ~than:at_most
+
+let delay_test delay wait_for ~at_least ~at_most ~times_out =
+  let c = Mtime_clock.counter () in
+  let timed_out = Delay.wait delay wait_for in
+  let waited = Mtime_clock.count c in
+
+  let msg =
+    Fmt.str "Value %a must be between %a and %a" Mtime.Span.pp waited
+      Mtime.Span.pp at_least Mtime.Span.pp at_most
+  in
+  let actual = span_between ~at_least ~at_most waited in
+  Alcotest.(check' bool) ~msg ~expected:true ~actual ;
+
+  let msg =
+    if timed_out then
+      "Must have been signaled"
+    else
+      "Must have timed\n  out"
+  in
+  Alcotest.(check' bool) ~msg ~expected:times_out ~actual:timed_out
 
 (*
 Single simple signal stored
 - signal
 - wait on same thread should succeed quickly
 *)
-let simple () =
+let signal () =
   let d = Delay.make () in
+  let wait_for = Mtime.Span.(1 * s) in
+  let at_least = Mtime.Span.zero in
+  let at_most = Mtime.Span.(5 * ms) in
   Delay.signal d ;
-  delay_wait_check ~min:0. ~max:0.05 d 1.0 false
+  delay_test d wait_for ~at_least ~at_most ~times_out:false
 
 (*
 No signal
@@ -39,7 +57,10 @@ No signal
 *)
 let no_signal () =
   let d = Delay.make () in
-  delay_wait_check ~min:0.2 ~max:0.25 d 0.2 true
+  let wait_for = Mtime.Span.(200 * ms) in
+  let at_least = wait_for in
+  let at_most = Mtime.Span.(250 * ms) in
+  delay_test d wait_for ~at_least ~at_most ~times_out:true
 
 (*
 Signal twice, collapsed
@@ -52,8 +73,15 @@ let collapsed () =
   let d = Delay.make () in
   Delay.signal d ;
   Delay.signal d ;
-  delay_wait_check ~min:0. ~max:0.05 d 0.2 false ;
-  delay_wait_check ~min:0.2 ~max:0.25 d 0.2 true
+
+  let wait_for = Mtime.Span.(200 * ms) in
+
+  let at_least = Mtime.Span.zero in
+  let at_most = Mtime.Span.(50 * ms) in
+  delay_test d wait_for ~at_least ~at_most ~times_out:false ;
+  let at_least = Mtime.Span.(200 * ms) in
+  let at_most = Mtime.Span.(250 * ms) in
+  delay_test d wait_for ~at_least ~at_most ~times_out:true
 
 (*
 Signal from another thread
@@ -62,13 +90,16 @@ Signal from another thread
 *)
 let other_thread () =
   let d = Delay.make () in
+  let wait_for = Mtime.Span.(1 * s) in
+  let at_least = Mtime.Span.(200 * ms) in
+  let at_most = Mtime.Span.(250 * ms) in
   let th = Thread.create (fun d -> Thread.delay 0.2 ; Delay.signal d) d in
-  delay_wait_check ~min:0.2 ~max:0.25 d 1.0 false ;
+  delay_test d wait_for ~at_least ~at_most ~times_out:false ;
   Thread.join th
 
 let tests =
   [
-    ("simple", `Quick, simple)
+    ("simple", `Quick, signal)
   ; ("no_signal", `Quick, no_signal)
   ; ("collapsed", `Quick, collapsed)
   ; ("other_thread", `Quick, other_thread)

@@ -29,7 +29,7 @@ module Timer = Clock.Timer
 
 let my_connection : Stunnel.t option ref = ref None
 
-let delay = Scheduler.PipeDelay.make ()
+let delay = Scheduler.Delay.make ()
 
 exception Uninitialised
 
@@ -301,8 +301,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
     ) ;
     debug "Sleeping %a before retrying master connection..." Debug.Pp.mtime_span
       !backoff_delay ;
-    let delay_s = Scheduler.span_to_s !backoff_delay in
-    let timed_out = Scheduler.PipeDelay.wait delay delay_s in
+    let timed_out = Scheduler.Delay.wait delay !backoff_delay in
     if not timed_out then
       debug "%s: Sleep interrupted, retrying master connection now" __FUNCTION__ ;
     update_backoff_delay () ;

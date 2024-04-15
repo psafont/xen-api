@@ -600,10 +600,7 @@ module Watcher = struct
             let cluster = Db.Cluster_host.get_cluster ~__context ~self:ch in
             if not wait then
               on_corosync_update ~__context ~cluster updates
-            else if
-              wait
-              && Clock.Timer.span_to_s stabilising_period |> Delay.wait delay
-            then
+            else if wait && Delay.wait delay stabilising_period then
               on_corosync_update ~__context ~cluster updates
         | None ->
             ()
@@ -624,15 +621,13 @@ module Watcher = struct
       | exception exn ->
           warn "%s: Got exception %s while query cluster host updates, retrying"
             __FUNCTION__ (Printexc.to_string exn) ;
-          let _ : bool =
-            Clock.Timer.span_to_s cluster_change_interval |> Delay.wait delay
-          in
+          let _ : bool = Delay.wait delay cluster_change_interval in
           ()
     done
 
   (** [create_as_necessary] will create cluster watchers on the coordinator if they are not
-      already created. 
-      There is no need to destroy them: once the clustering daemon is disabled, 
+      already created.
+      There is no need to destroy them: once the clustering daemon is disabled,
       these threads will exit as well. *)
   let create_as_necessary ~__context ~host =
     let is_master = Helpers.is_pool_master ~__context ~host in

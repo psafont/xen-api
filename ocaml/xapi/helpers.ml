@@ -1621,58 +1621,59 @@ end
 
 module Repeat_with_uniform_backoff : POLICY = struct
   type t = {
-      minimum_delay: float
-    ; (* seconds *)
-      maximum_delay: float
-    ; (* maximum backoff time *)
-      max_total_wait: float
-    ; (* max time to wait before failing *)
-      wait_so_far: float (* time waited so far *)
+      minimum_delay: Mtime.Span.t
+    ; maximum_delay: Mtime.Span.t  (** maximum backoff time *)
+    ; max_total_wait: Mtime.Span.t  (** max time to wait before failing *)
+    ; wait_so_far: Mtime.Span.t  (** time waited so far *)
   }
 
   let standard =
     {
-      minimum_delay= 1.0
-    ; maximum_delay= 20.0
-    ; max_total_wait= 3600.0 *. 2.0
-    ; (* 2 hours *)
-      wait_so_far= 0.0
+      minimum_delay= Mtime.Span.(1 * s)
+    ; maximum_delay= Mtime.Span.(20 * s)
+    ; max_total_wait= Mtime.Span.(2 * hour)
+    ; wait_so_far= Mtime.Span.zero
     }
 
   let fail_quickly =
     {
-      minimum_delay= 2.
-    ; maximum_delay= 2.
-    ; max_total_wait= 120.
-    ; wait_so_far= 0.
+      minimum_delay= Mtime.Span.(2 * s)
+    ; maximum_delay= Mtime.Span.(2 * s)
+    ; max_total_wait= Mtime.Span.(2 * min)
+    ; wait_so_far= Mtime.Span.zero
     }
 
   let fail_immediately =
     {
-      minimum_delay= 0.
-    ; maximum_delay= 3.
-    ; max_total_wait= min_float
-    ; wait_so_far= 0.
+      minimum_delay= Mtime.Span.zero
+    ; maximum_delay= Mtime.Span.(3 * s)
+    ; max_total_wait= Mtime.Span.one
+    ; wait_so_far= Mtime.Span.zero
     }
 
   let wait ~__context (state : t) (e : exn) =
-    if state.wait_so_far >= state.max_total_wait then raise e ;
-    let this_timeout =
-      state.minimum_delay
-      +. ((state.maximum_delay -. state.minimum_delay) *. Random.float 1.0)
+    if not (Mtime.Span.is_shorter ~than:state.wait_so_far state.max_total_wait)
+    then
+      raise e ;
+    let delay =
+      Mtime.Span.abs_diff state.maximum_delay state.minimum_delay
+      |> Mtime.Span.to_uint64_ns
+      |> Random.int64
+      |> Mtime.Span.of_uint64_ns
+      |> Mtime.Span.add state.minimum_delay
     in
-    debug "Waiting for up to %f seconds before retrying..." this_timeout ;
-    let start = Unix.gettimeofday () in
+    debug "Waiting for up to %a before retrying..." Debug.Pp.mtime_span delay ;
+    let start = Mtime_clock.counter () in
     ( match e with
     | Api_errors.Server_error (code, [cls; objref])
       when code = Api_errors.other_operation_in_progress ->
-        Early_wakeup.wait (cls, objref) this_timeout
+        Early_wakeup.wait (cls, objref) delay
     | _ ->
-        Thread.delay this_timeout
+        Thread.delay (Clock.Timer.span_to_s delay)
     ) ;
     {
       state with
-      wait_so_far= state.wait_so_far +. (Unix.gettimeofday () -. start)
+      wait_so_far= Mtime.Span.add state.wait_so_far (Mtime_clock.count start)
     }
 end
 

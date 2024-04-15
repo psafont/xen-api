@@ -6,6 +6,7 @@
   (modules utils reporter)
   (libraries
     astring
+    clock
     forkexec
     xapi-stdext-pervasives
     xapi-stdext-std

@@ -89,6 +89,7 @@ let wait_until_next_reading (module D : Debug.DEBUG) ~neg_shift ~uid ~protocol
   if wait_time > 0. then (
     ( match reporter with
     | Some reporter ->
+        let wait_time = wait_time |> Clock.Timer.s_to_span |> Option.get in
         let (_ : bool) = Delay.wait reporter.delay wait_time in
         ()
     | None ->
@@ -99,16 +100,20 @@ let wait_until_next_reading (module D : Debug.DEBUG) ~neg_shift ~uid ~protocol
     if overdue_count > 1 then (
       (* if register returns negative more than once in a succession,
          				the thread should get delayed till things are normal back again *)
-      let backoff_time = 2. ** (float_of_int overdue_count -. 1.) in
+      let backoff_time_secs = 2. ** (float_of_int overdue_count -. 1.) in
+      let backoff_time =
+        backoff_time_secs |> Clock.Timer.s_to_span |> Option.get
+      in
       D.debug
-        "rrdd says next reading is overdue, seems like rrdd is busy;\n\
-         \t\t\t\tBacking off for %.1f seconds" backoff_time ;
+        "rrdd says next reading is overdue, seems like rrdd is busy; Backing \
+         off for %a"
+        Debug.Pp.mtime_span backoff_time ;
       match reporter with
       | Some reporter ->
           let (_ : bool) = Delay.wait reporter.delay backoff_time in
           ()
       | None ->
-          Thread.delay backoff_time
+          Thread.delay backoff_time_secs
     ) else
       D.debug "rrdd says next reading is overdue by %.1f seconds; not sleeping"
         (-.wait_time) ;

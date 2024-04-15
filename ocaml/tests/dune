@@ -91,6 +91,7 @@
   (libraries
     alcotest
     bos
+    clock
     fmt
     mtime
     pam

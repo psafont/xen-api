@@ -310,12 +310,13 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log
   in
   let pool_other_config = Db.Pool.get_other_config ~__context ~self:pool in
   let timeout =
-    try
-      if List.mem_assoc timeout_key pool_other_config then
-        float_of_string (List.assoc timeout_key pool_other_config)
-      else
-        timeout_default
-    with _ -> timeout_default
+    let maybe : Mtime.Span.t option =
+      let ( let* ) = Option.bind in
+      let* timeout = List.assoc_opt timeout_key pool_other_config in
+      let* timeout = Float.of_string_opt timeout in
+      Clock.Timer.s_to_span timeout
+    in
+    Option.value ~default:timeout_default maybe
   in
   if enable_log then
     debug "%s\n%s"
@@ -328,7 +329,7 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log
       ~request ~handler ~enable_log
   with
   | Remote_requests.Timed_out ->
-      raise_timeout timeout
+      raise_timeout (Clock.Timer.span_to_s timeout)
   | Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
       raise_authentication_failed ()
   | Xmlrpc_client.Connection_reset ->

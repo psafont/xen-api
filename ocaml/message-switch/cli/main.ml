@@ -87,15 +87,13 @@ let day = 86400_000_000_000L
 
 let int64_of_id = Mtime.Span.to_uint64_ns
 
-let is_longer s ~than = Mtime.Span.compare s than > 0
-
 let diagnostics common_opts =
   Client.connect ~switch:common_opts.Common.path () >>|= fun t ->
   Client.diagnostics ~t () >>|= fun d ->
   let open Message_switch_core.Protocol in
   let time_ago x =
     let ts =
-      if is_longer ~than:d.Diagnostics.time_since_start x then
+      if Mtime.Span.is_longer ~than:d.Diagnostics.time_since_start x then
         Mtime.Span.zero
       else
         Mtime.Span.(abs_diff d.Diagnostics.time_since_start x)
@@ -186,7 +184,7 @@ let diagnostics common_opts =
           Mtime.Span.add d.Diagnostics.time_since_start unresponsive_timeout
         in
         let elapsed = Mtime_clock.elapsed () in
-        if is_longer ~than:deadline elapsed then
+        if Mtime.Span.is_longer ~than:deadline elapsed then
           `Crashed_or_deadlocked t
         else
           `Ok

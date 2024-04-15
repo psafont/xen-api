@@ -28,7 +28,7 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
     Mtime.Span.(
       add (90 * s) !Xapi_database.Db_globs.master_connection_reset_timeout
     )
-    |> Scheduler.span_to_s
+    |> Clock.Timer.span_to_s
   in
   let wait_for_network_change ~token =
     let from =

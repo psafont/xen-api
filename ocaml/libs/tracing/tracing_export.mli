@@ -12,36 +12,36 @@
 * GNU Lesser General Public License for more details.
 *)
 
-(** [Tracing_export] is a module dedicated for the creation and management of 
+(** [Tracing_export] is a module dedicated for the creation and management of
     threads that export the tracing data.
   *)
 
-val set_export_interval : float -> unit
-(** [set_export_interval seconds] sets the time interval between consecutive 
-    exports of the finished spans to [seconds]. 
+val set_export_interval : Mtime.Span.t -> unit
+(** [set_export_interval period] sets the time interval between consecutive
+    exports of the finished spans to [period].
 
     Default is every [30.] seconds.
   *)
 
 val set_host_id : string -> unit
-(** [set_host_id id] sets the id of the host to [id]. 
+(** [set_host_id id] sets the id of the host to [id].
 
     Default is ["localhost"].
   *)
 
 val set_service_name : string -> unit
-(** [set_service_name name] sets the name of the service to [name]. 
-    All spans will be exported under this service's name. 
-    
+(** [set_service_name name] sets the name of the service to [name].
+    All spans will be exported under this service's name.
+
     Default name is ["unknown"].
   *)
 
-(** [Destination] is a module for managing the export of tracing data to 
-    different types of endpoints, whether is exporting it to a [File] or an 
-    [Http] endpoint. 
+(** [Destination] is a module for managing the export of tracing data to
+    different types of endpoints, whether is exporting it to a [File] or an
+    [Http] endpoint.
     *)
 module Destination : sig
-  (** [File] is a module for managing the files in which the tracing data is 
+  (** [File] is a module for managing the files in which the tracing data is
        exported.
     *)
   module File : sig
@@ -70,11 +70,11 @@ module Destination : sig
   end
 
   val flush_spans : unit -> unit
-  (** [flush_spans ()] forcefully flushes the spans to the current enabled 
+  (** [flush_spans ()] forcefully flushes the spans to the current enabled
         endpoints.
       *)
 
-  (** [Http] is a module for managing exporting tracing data to an http 
+  (** [Http] is a module for managing exporting tracing data to an http
        endpoint.
     *)
   module Http : sig

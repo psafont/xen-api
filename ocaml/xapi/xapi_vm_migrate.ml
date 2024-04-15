@@ -1432,9 +1432,12 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
           (* Make sure HA replaning cycle won't occur right during the import process or immediately after *)
           let () =
             if ha_always_run_reset then
+              let seconds =
+                Clock.Timer.span_to_s !Xapi_globs.ha_monitor_interval
+                |> Int64.of_float
+              in
               XenAPI.Pool.ha_prevent_restarts_for ~rpc:remote.rpc
-                ~session_id:remote.session
-                ~seconds:(Int64.of_float !Xapi_globs.ha_monitor_interval)
+                ~session_id:remote.session ~seconds
           in
           (* Move the xapi VM metadata to the remote pool. *)
           let vms =

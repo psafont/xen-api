@@ -20,7 +20,7 @@ open Tracing
 
 let ( let@ ) f x = f x
 
-let export_interval = ref 30.
+let export_interval = ref Mtime.Span.(30 * s)
 
 let set_export_interval t = export_interval := t
 
@@ -315,8 +315,8 @@ module Destination = struct
       (fun () ->
         let signaled = ref false in
         while not !signaled do
-          debug "Tracing: Waiting %d seconds before exporting spans"
-            (int_of_float !export_interval) ;
+          debug "Tracing: Waiting %a before exporting spans" Debug.Pp.mtime_span
+            !export_interval ;
           if not (Delay.wait delay !export_interval) then (
             debug "Tracing: we are signaled, export spans now and exit" ;
             signaled := true

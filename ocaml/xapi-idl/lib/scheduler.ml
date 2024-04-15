@@ -18,7 +18,7 @@ open D
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-module PipeDelay = Xapi_stdext_threads.Threadext.Delay
+module Delay = Xapi_stdext_threads.Threadext.Delay
 
 type handle = Mtime.span * int
 
@@ -45,7 +45,7 @@ type item = {name: string; fn: unit -> unit}
 
 type t = {
     mutable schedule: item HandleMap.t
-  ; delay: PipeDelay.t
+  ; delay: Delay.t
   ; mutable next_id: int
   ; m: Mutex.t
 }
@@ -83,7 +83,7 @@ let one_shot s dt name f =
       let item = {name; fn= f} in
       let handle = (time, id) in
       s.schedule <- HandleMap.add handle item s.schedule ;
-      PipeDelay.signal s.delay ;
+      Delay.signal s.delay ;
       handle
   )
 
@@ -133,14 +133,14 @@ let rec main_loop s =
     else
       Mtime.Span.zero
   in
-  let (_ : bool) = PipeDelay.wait s.delay (span_to_s period) in
+  let (_ : bool) = Delay.wait s.delay period in
   main_loop s
 
 let make_scheduler () =
   let s =
     {
       schedule= HandleMap.empty
-    ; delay= PipeDelay.make ()
+    ; delay= Delay.make ()
     ; next_id= 0
     ; m= Mutex.create ()
     }
@@ -149,46 +149,3 @@ let make_scheduler () =
   s
 
 let make = make_scheduler
-
-module Delay = struct
-  type state = Signalled | Timedout
-
-  let s = make_scheduler ()
-
-  type t = {c: Condition.t; m: Mutex.t; mutable state: state option}
-
-  let make () = {c= Condition.create (); m= Mutex.create (); state= None}
-
-  let wait t lapse =
-    with_lock t.m (fun () ->
-        let handle =
-          one_shot s lapse "Delay.wait" (fun () ->
-              if t.state = None then
-                t.state <- Some Timedout ;
-              Condition.broadcast t.c
-          )
-        in
-        let rec loop () =
-          match t.state with
-          | Some Timedout ->
-              (* return true if we waited the full length of time *)
-              true
-          | Some Signalled ->
-              (* return false if we were woken, or pre-signalled *)
-              false
-          | None ->
-              (* initial wait or spurious wakeup *)
-              Condition.wait t.c t.m ; loop ()
-        in
-        let result = loop () in
-        cancel s handle ;
-        t.state <- None ;
-        result
-    )
-
-  let signal t =
-    with_lock t.m (fun () ->
-        t.state <- Some Signalled ;
-        Condition.broadcast t.c
-    )
-end

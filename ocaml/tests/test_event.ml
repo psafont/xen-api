@@ -105,12 +105,14 @@ let event_next_unblock () =
   in
   (* Background thread is started but it cannot simultaneously block and signal us to
      logout so a little pause in here is probably the best we can do *)
-  Thread.delay 0.5 ;
+  let wait_time = Mtime.Span.(500 * ms) in
+  Thread.delay (Clock.Timer.span_to_s wait_time) ;
   (* Logout which should cause the background thread to unblock *)
   Xapi_session.destroy_db_session ~__context ~self:session_id ;
   (* Again we can't tell the difference between a slow and a totally blocked thread
-     so set the max wait time 10 times more, but it will ublock as early as possible *)
-  let unblocked = not (Delay.wait wait_hdl (0.5 *. 10.)) in
+     so set a large timeout, but it will ublock as early as possible *)
+  let timeout = Mtime.Span.(10 * wait_time) in
+  let unblocked = not (Delay.wait wait_hdl timeout) in
   Alcotest.(check bool) "Unblocked" true unblocked
 
 let event_next_test () =
@@ -138,9 +140,11 @@ let event_next_test () =
       )
       ()
   in
-  Thread.delay 1. ;
+  let wait_time = Mtime.Span.(1 * s) in
+  Thread.delay (Clock.Timer.span_to_s wait_time) ;
   Db.Pool.add_to_other_config ~__context ~self:pool ~key ~value:"1" ;
-  let unblocked = not (Delay.wait wait_hdl (1.0 *. 10.)) in
+  let timeout = Mtime.Span.(10 * wait_time) in
+  let unblocked = not (Delay.wait wait_hdl timeout) in
   Alcotest.(check bool) "checking other_config" true unblocked
 
 let wait_for_pool_key __context key =
@@ -173,9 +177,11 @@ let event_from_test () =
       )
       ()
   in
-  Thread.delay 0.5 ;
+  let wait_time = Mtime.Span.(500 * ms) in
+  Thread.delay (Clock.Timer.span_to_s wait_time) ;
   Db.Pool.add_to_other_config ~__context ~self:pool ~key ~value:"1" ;
-  let unblocked = not (Delay.wait wait_hdl (0.5 *. 10.)) in
+  let timeout = Mtime.Span.(10 * wait_time) in
+  let unblocked = not (Delay.wait wait_hdl timeout) in
   Alcotest.(check bool) "event_from_test" true unblocked
 
 let event_from_parallel_test () =
@@ -269,7 +275,7 @@ let object_level_event_test _session_id =
   Db.VM.remove_from_other_config ~__context ~self:vm_b ~key ;
   Printf.printf "Adding to vm_a. This ought to wake up the event thread\n%!" ;
   Db.VM.add_to_other_config ~__context ~self:vm_a ~key ~value:"1" ;
-  let blocked = Delay.wait wait_hdl (1.0 *. 10.) in
+  let blocked = Delay.wait wait_hdl Mtime.Span.(10 * s) in
   if blocked then (
     Printf.printf "FAILURE: Didn't get expected change in event thread\n%!" ;
     failure := true

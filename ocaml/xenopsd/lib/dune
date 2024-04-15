@@ -3,6 +3,7 @@
  (wrapped false)
  (libraries
    astring
+   clock
    xapi_xenopsd_c_stubs
    cohttp
    cohttp_posix
