@@ -38,8 +38,6 @@ let ( >>|= ) m f =
       Format.pp_print_flush fmt () ;
       raise (Failure (Buffer.contents b))
 
-let is_shorter ~than s = Mtime.Span.compare s than < 0
-
 let main () =
   Client.connect ~switch:!path () >>|= fun c ->
   let counter = ref 0 in
@@ -52,7 +50,7 @@ let main () =
   | None ->
       one ()
   | Some t ->
-      while is_shorter ~than:t (Mtime_clock.count start) do
+      while Mtime.Span.is_shorter ~than:t (Mtime_clock.count start) do
         one ()
       done
   ) ;

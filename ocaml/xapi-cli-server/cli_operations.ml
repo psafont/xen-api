@@ -1578,9 +1578,9 @@ let pool_join printer rpc session_id params =
     printer
       (Cli_printer.PList
          [
-           "Host agent will restart and attempt to join pool in "
-           ^ string_of_float !Constants.fuse_time
-           ^ " seconds..."
+           Printf.sprintf
+             "Host agent will restart and attempt to join pool in %a..."
+             Debug.Pp.mtime_span !Constants.fuse_time
          ]
       )
   with
@@ -1605,9 +1605,10 @@ let pool_eject fd printer rpc session_id params =
     printer
       (Cli_printer.PList
          [
-           "Specified host will attempt to restart as a master of a new pool in "
-           ^ string_of_float !Constants.fuse_time
-           ^ " seconds..."
+           Printf.sprintf
+             "Specified host will attempt to restart as a master of a new pool \
+              in %a..."
+             Debug.Pp.mtime_span !Constants.fuse_time
          ]
       )
   in
@@ -1689,11 +1690,9 @@ let pool_emergency_reset_master printer rpc session_id params =
   printer
     (Cli_printer.PList
        [
-         "Host agent will restart and become slave of "
-         ^ master_address
-         ^ " in "
-         ^ string_of_float !Constants.fuse_time
-         ^ " seconds..."
+         Printf.sprintf
+           "Host agent will restart and become slave of %s in %a..."
+           master_address Debug.Pp.mtime_span !Constants.fuse_time
        ]
     )
 
@@ -1704,9 +1703,9 @@ let pool_emergency_transition_to_master printer rpc session_id params =
     printer
       (Cli_printer.PList
          [
-           "Host agent will restart and transition to master in "
-           ^ string_of_float !Constants.fuse_time
-           ^ " seconds..."
+           Printf.sprintf
+             "Host agent will restart and transition to master in %a..."
+             Debug.Pp.mtime_span !Constants.fuse_time
          ]
       )
   ) else
@@ -6797,9 +6796,9 @@ let pool_restore_db fd printer rpc session_id params =
     printer
       (Cli_printer.PList
          [
-           "Host will reboot with restored database in "
-           ^ string_of_float !Constants.db_restore_fuse_time
-           ^ " seconds..."
+           Printf.sprintf "Host will reboot with restored database in %a..."
+             Debug.Pp.mtime_span
+             !Constants.db_restore_fuse_time
          ]
       )
 

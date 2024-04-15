@@ -296,7 +296,7 @@ let owner_key = "owner"
 let use_event_next = ref true
 
 (* the time taken to wait before restarting in a different mode for pool eject/join operations *)
-let fuse_time = ref 10.
+let fuse_time = ref Mtime.Span.(10 * s)
 
 (* Names of storage parameters *)
 let _sm_vm_hint = "vmhint"
@@ -393,7 +393,7 @@ let old_hp_bios_strings =
   ]
 
 (* the time taken to wait before restarting after restoring db backup *)
-let db_restore_fuse_time = ref 30.
+let db_restore_fuse_time = ref Mtime.Span.(30 * s)
 
 (* Note the following constant has an equivalent in the db layer *)
 let http_limit_max_rpc_size = 300 * 1024 (* 300K *)

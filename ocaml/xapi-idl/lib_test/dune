@@ -43,6 +43,7 @@
  (modules (:standard \ idl_test_common guard_interfaces_test device_number_test))
  (libraries
    alcotest
+   clock
    cohttp_posix
    fmt
    mtime

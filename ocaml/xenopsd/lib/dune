@@ -3,6 +3,7 @@
  (wrapped false)
  (libraries
    astring
+   clock
    xapi_xenopsd_c_stubs
    cohttp
    cohttp_posix
@@ -38,7 +39,6 @@
    xapi-idl.xen.interface.types
    xapi-log
    xapi-open-uri
-   clock
    xapi-stdext-pervasives
    xapi-stdext-threads
    xapi-stdext-unix

@@ -64,18 +64,16 @@ module Delay = struct
   external wait : t -> int64 -> bool = "caml_xapi_delay_wait"
 
   let wait d t =
-    if t <= 0. then
+    if t = Mtime.Span.zero then
       true
     else
-      match Mtime.Span.of_float_ns (t *. 1e9) with
-      | Some span ->
-          let now = Mtime_clock.now () in
-          let deadline =
-            Mtime.add_span now span |> Option.value ~default:Mtime.max_stamp
-          in
-          wait d (Mtime.to_uint64_ns deadline)
-      | None ->
-          invalid_arg "Time specified too big"
+      (* Against Mtime docs, we use the absolute value of the monotonic clock,
+         because that's what pthread_cond_timedwait has been set up to use *)
+      let now = Mtime_clock.now () in
+      let deadline =
+        Mtime.add_span now t |> Option.value ~default:Mtime.max_stamp
+      in
+      wait d (Mtime.to_uint64_ns deadline)
 end
 
 let wait_timed_read fd timeout =

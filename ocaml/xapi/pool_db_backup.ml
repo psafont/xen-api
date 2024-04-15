@@ -249,7 +249,8 @@ let push_database_restore_handler (req : Http.Request.t) s _ =
             debug
               "xapi has received new database via xml; will reboot and use \
                that db..." ;
-            info "Rebooting to use restored database after delay of: %f"
+            info "Rebooting to use restored database after delay of: %a"
+              Debug.Pp.mtime_span
               !Constants.db_restore_fuse_time ;
             Xapi_fuse.light_fuse_and_reboot
               ~fuse_length:!Constants.db_restore_fuse_time

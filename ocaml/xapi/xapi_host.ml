@@ -793,11 +793,13 @@ let restart_agent ~__context ~host:_ =
     )
 
 let shutdown_agent ~__context =
-  debug "Host.restart_agent: Host agent will shutdown in 1s!!!!" ;
+  let after = Mtime.Span.s in
+  debug "%s: Host agent will shutdown in %a!!!!" __FUNCTION__
+    Debug.Pp.mtime_span after ;
   let localhost = Helpers.get_localhost ~__context in
   Xapi_hooks.xapi_pre_shutdown ~__context ~host:localhost
     ~reason:Xapi_hooks.reason__clean_shutdown ;
-  Xapi_fuse.light_fuse_and_dont_restart ~fuse_length:1. ()
+  Xapi_fuse.light_fuse_and_dont_restart ~fuse_length:after ()
 
 let disable ~__context ~host =
   if Db.Host.get_enabled ~__context ~self:host then (

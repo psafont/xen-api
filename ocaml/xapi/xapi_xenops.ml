@@ -3372,7 +3372,7 @@ let events_from_xapi () =
                   try
                     XenAPI.Event.from ~rpc:timebox_rpc ~session_id ~classes
                       ~token:!token
-                      ~timeout:Scheduler.(span_to_s api_timeout)
+                      ~timeout:Clock.Timer.(span_to_s api_timeout)
                     |> event_from_of_rpc
                   with e ->
                     Debug.log_backtrace e (Backtrace.get e) ;
@@ -4493,6 +4493,7 @@ module Observer = struct
   let set_export_interval ~__context ~interval =
     let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
     let dbg = Context.string_of_task __context in
+    let interval = Clock.Timer.span_to_s interval in
     Client.Observer.set_export_interval dbg interval
 
   let set_max_spans ~__context ~spans =

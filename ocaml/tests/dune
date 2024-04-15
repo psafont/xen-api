@@ -94,6 +94,7 @@
   (libraries
     alcotest
     bos
+    clock
     fmt
     mtime
     pam
@@ -113,7 +114,6 @@
     xapi-idl.storage.interface
     xapi-idl.updates
     xapi-idl.xen
-    clock
     xapi-stdext-threads
     xapi-stdext-threads.scheduler
     xapi-stdext-unix

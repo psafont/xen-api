@@ -40,8 +40,6 @@ let ( >>|= ) m f =
       Format.pp_print_flush fmt () ;
       fail (Failure (Buffer.contents b))
 
-let is_shorter ~than s = Mtime.Span.compare s than < 0
-
 let main () =
   Client.connect ~switch:!path () >>|= fun t ->
   let counter = ref 0 in
@@ -57,7 +55,7 @@ let main () =
   | Some timeout ->
       let rec thread n =
         let elapsed = Mtime_clock.count start in
-        if is_shorter ~than:timeout elapsed then
+        if Mtime.Span.is_shorter ~than:timeout elapsed then
           one () >>= fun () -> thread n
         else
           return ()

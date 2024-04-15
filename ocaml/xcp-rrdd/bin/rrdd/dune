@@ -5,12 +5,12 @@
   (modules (:standard \ xcp_rrdd))
   (libraries
     astring
+    clock
     ezxenstore
     gzip
     http_lib
     httpsvr
     inotify
-    clock
     mtime.clock
     ptime
     ptime.clock.os

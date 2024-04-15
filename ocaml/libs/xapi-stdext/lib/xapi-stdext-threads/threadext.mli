@@ -28,7 +28,7 @@ module Delay : sig
 
   val make : unit -> t
 
-  val wait : t -> float -> bool
+  val wait : t -> Mtime.Span.t -> bool
   (** Blocks the calling thread for a given period of time with the option of
       returning early if someone calls 'signal'. Returns true if the full time
       period elapsed and false if signalled. Note that multiple 'signals' are

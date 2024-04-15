@@ -1,18 +1,3 @@
-(** The Delay module here implements simple cancellable delays. *)
-module Delay : sig
-  type t
-
-  val make : unit -> t
-  (** Makes a Delay.t *)
-
-  val wait : t -> Mtime.Span.t -> bool
-  (** Wait for the specified amount of time. Returns true if we waited the full
-      length of time, false if we were woken *)
-
-  val signal : t -> unit
-  (** Signal anyone currently waiting with the Delay.t *)
-end
-
 (** The type of a scheduler *)
 type t
 
@@ -45,14 +30,13 @@ val one_shot : t -> Mtime.Span.t -> string -> (unit -> unit) -> handle
 val cancel : t -> handle -> unit
 (** Cancel an item *)
 
-(** The PipeDelay module here implements simple cancellable delays. *)
-module PipeDelay : sig
+module Delay : sig
   type t
 
   val make : unit -> t
   (** Makes a PipeDelay.t *)
 
-  val wait : t -> float -> bool
+  val wait : t -> Mtime.Span.t -> bool
   (** Wait for the specified amount of seconds. Returns true if we waited the full
       length of time, false if we were woken. Uses float to be able to be used
       along Thread.wait *)
@@ -60,9 +44,3 @@ module PipeDelay : sig
   val signal : t -> unit
   (** Signal anyone currently waiting with the PipeDelay.t *)
 end
-
-val span_to_s : Mtime.Span.t -> float
-(** [span_to_s span] converts a time span into seconds, represented by a float.
-    When the span is longer than ~54 years it becomes unprecise, avoid whenever
-    possible, this is unavoidable when using Thread.wait functions and related.
-    *)

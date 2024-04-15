@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val delay : Scheduler.PipeDelay.t
+val delay : Scheduler.Delay.t
 
 exception Uninitialised
 

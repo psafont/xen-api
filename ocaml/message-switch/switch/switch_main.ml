@@ -81,8 +81,6 @@ let exn_hook e =
 
 let () = Lwt.async_exception_hook := exn_hook
 
-let is_longer s ~than = Mtime.Span.compare s than > 0
-
 let elapsed () = Clock.elapsed_ns () |> Mtime.Span.of_uint64_ns
 
 let make_server config trace_config =
@@ -245,7 +243,7 @@ let make_server config trace_config =
               if Q.transfer !queues from names = [] then
                 let timeout =
                   let elapsed = elapsed () in
-                  if is_longer ~than:deadline elapsed then
+                  if Mtime.Span.is_longer ~than:deadline elapsed then
                     0.
                   else
                     Mtime.Span.abs_diff deadline elapsed
@@ -255,7 +253,7 @@ let make_server config trace_config =
                 in
                 Lwt.pick [Lwt_unix.sleep timeout; Lwt_condition.wait queues_c]
                 >>= fun () ->
-                if is_longer ~than:deadline (elapsed ()) then
+                if Mtime.Span.is_longer ~than:deadline (elapsed ()) then
                   return ()
                 else
                   wait ()

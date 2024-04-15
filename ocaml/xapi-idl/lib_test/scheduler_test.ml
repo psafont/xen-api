@@ -51,7 +51,7 @@ let timed_wait_callback ~msg ?(not_before = Mtime.Span.zero)
         ()
       in
       f callback ;
-      let for_seconds = Scheduler.span_to_s not_after in
+      let for_seconds = Clock.Timer.span_to_s not_after in
       let ready =
         Xapi_stdext_threads.Threadext.wait_timed_read rd for_seconds
       in
