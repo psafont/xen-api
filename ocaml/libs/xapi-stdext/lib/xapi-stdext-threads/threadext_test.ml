@@ -24,10 +24,9 @@ let span_approx ~max_error =
 let test_wait () =
   let m = Delay.make () in
   let c = Mtime_clock.counter () in
-  let time = 1 in
-  let expected = Mtime.Span.(time * s) in
+  let expected = Mtime.Span.(1 * s) in
   let max_error = Mtime.Span.(10 * ms) in
-  let _ = Delay.wait m (float_of_int time) in
+  let _ = Delay.wait m expected in
   let wait_time = Mtime_clock.count c in
   Alcotest.check' (span_approx ~max_error) ~msg:"diff is smaller than max error"
     ~expected ~actual:wait_time

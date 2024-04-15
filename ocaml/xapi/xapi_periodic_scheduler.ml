@@ -65,11 +65,7 @@ let loop () =
           | Periodic timer ->
               add_to_queue ~signal:false todo.name todo.ty timer todo.func
         ) else (* Sleep until next event. *)
-          let sleep =
-            Mtime.Span.abs_diff next.Ipq.time now
-            |> Mtime.Span.(add (1 * ms))
-            |> Scheduler.span_to_s
-          in
+          let sleep = Mtime.Span.(abs_diff next.Ipq.time now |> add (1 * ms)) in
           try ignore (Delay.wait delay sleep)
           with e ->
             let detailed_msg =
@@ -83,7 +79,7 @@ let loop () =
               "Could not schedule interruptable delay (%s). Falling back to \
                normal delay. New events may be missed."
               detailed_msg ;
-            Thread.delay sleep
+            Thread.delay Scheduler.(span_to_s sleep)
     done
   with _ ->
     error

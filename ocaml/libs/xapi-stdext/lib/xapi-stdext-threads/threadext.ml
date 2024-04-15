@@ -59,7 +59,7 @@ module Delay = struct
 
   exception Pre_signalled
 
-  let wait (x : t) (seconds : float) =
+  let wait t amount =
     let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
     let to_close = ref [] in
     let close' fd =
@@ -70,16 +70,16 @@ module Delay = struct
       (fun () ->
         try
           let pipe_out =
-            Mutex.execute x.m (fun () ->
-                if x.signalled then (
-                  x.signalled <- false ;
+            Mutex.execute t.m (fun () ->
+                if t.signalled then (
+                  t.signalled <- false ;
                   raise Pre_signalled
                 ) ;
                 let pipe_out, pipe_in = Unix.pipe () in
                 (* these will be unconditionally closed on exit *)
                 to_close := [pipe_out; pipe_in] ;
-                x.pipe_in <- Some pipe_in ;
-                x.signalled <- false ;
+                t.pipe_in <- Some pipe_in ;
+                t.signalled <- false ;
                 pipe_out
             )
           in
@@ -93,8 +93,8 @@ module Delay = struct
         with Pre_signalled -> false
       )
       (fun () ->
-        Mutex.execute x.m (fun () ->
-            x.pipe_in <- None ;
+        Mutex.execute t.m (fun () ->
+            t.pipe_in <- None ;
             List.iter close' !to_close
         )
       )
