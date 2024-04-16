@@ -365,9 +365,9 @@ let compute_evacuation_plan_no_wlb ~__context ~host ?(ignore_ha = false) () =
           Xapi_vm_lifecycle.get_operation_error ~__context ~self:vm
             ~op:`pool_migrate ~strict:true
         with
-        | None ->
+        | Ok () ->
             ()
-        | Some (a, b) ->
+        | Error (a, b) ->
             Hashtbl.replace plans vm (Error (a, b))
       )
       all_user_vms ;

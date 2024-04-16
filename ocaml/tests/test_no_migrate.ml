@@ -57,16 +57,16 @@ let run_test (nv, nm, force, permitted) op =
   Db.VM_metrics.set_nomigrate ~__context ~self:metrics ~value:nm ;
   Xapi_vm_lifecycle.get_operation_error ~__context ~self:vm ~op ~strict
   |> function
-  | None when permitted ->
+  | Ok () when permitted ->
       ()
-  | None ->
+  | Ok () ->
       Alcotest.fail
         (Printf.sprintf "nv=%b nm=%b force=%b permitted=%b op=%s" nv nm force
            permitted (op_string op)
         )
-  | Some _ when not permitted ->
+  | Error _ when not permitted ->
       ()
-  | Some (x, _) ->
+  | Error (x, _) ->
       Alcotest.fail
         (Printf.sprintf "nv=%b nm=%b force=%b permitted=%b op=%s error was=%s"
            nv nm force permitted (op_string op) x

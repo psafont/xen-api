@@ -59,7 +59,7 @@ let test_vm_set_nvram_running () =
   )
 
 let compare_errors =
-  Alcotest.(check (option (pair string (list string)))) "same error codes"
+  Alcotest.(check (result unit (pair string (list string)))) "same error codes"
 
 (* Operations that check the validity of other VM operations should
    always be allowed *)
@@ -67,7 +67,7 @@ let test_operation_checks_allowed () =
   with_test_vm (fun __context vm_ref ->
       [`assert_operation_valid; `update_allowed_operations]
       |> List.iter (fun op ->
-             compare_errors None
+             compare_errors (Ok ())
                (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref
                   ~op ~strict:true
                )
@@ -84,7 +84,7 @@ let test_migration_allowed_when_cbt_enabled_vdis_are_not_moved () =
   with_test_vm (fun __context vM ->
       let vDI = Test_common.make_vdi ~__context ~cbt_enabled:true () in
       let (_ : _ API.Ref.t) = Test_common.make_vbd ~__context ~vM ~vDI () in
-      compare_errors None
+      compare_errors (Ok ())
         (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vM
            ~op:`migrate_send ~strict:true
         )
@@ -96,13 +96,13 @@ let test_sxm_allowed_when_rum () =
       let pool = Test_common.make_pool ~__context ~master () in
       Db.Pool.add_to_other_config ~__context ~self:pool
         ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"x" ;
-      compare_errors None
+      compare_errors (Ok ())
         (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref
            ~op:`migrate_send ~strict:false
         ) ;
       Db.Pool.remove_from_other_config ~__context ~self:pool
         ~key:Xapi_globs.rolling_upgrade_in_progress ;
-      compare_errors None
+      compare_errors (Ok ())
         (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref
            ~op:`migrate_send ~strict:false
         )
