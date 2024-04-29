@@ -85,3 +85,19 @@ let get_management_ip_addr ~dbg =
   let preferred, _ = get_management_ip_addrs ~dbg in
   List.nth_opt preferred 0
   |> Option.map (fun addr -> (Ipaddr.to_string addr, ipaddr_to_cstruct addr))
+
+let get_host_certificate_subjects ~dbg =
+  let ( let* ) = Result.bind in
+  let* ips, preferred_ip =
+    match get_management_ip_addrs ~dbg with
+    | [], [] ->
+        Error "Could not get the management IP address"
+    | preferred, others ->
+        let ips = List.(rev_append (rev preferred) others) in
+        Ok (List.map ipaddr_to_cstruct ips, List.nth ips 0)
+  in
+  let dns_names = dns_names () in
+  let name =
+    match dns_names with [] -> Ipaddr.to_string preferred_ip | dns :: _ -> dns
+  in
+  Ok (name, dns_names, ips)

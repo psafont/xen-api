@@ -31,3 +31,8 @@ val get_management_ip_addrs : dbg:string -> Ipaddr.t list * Ipaddr.t list
 val get_management_ip_addr : dbg:string -> (string * Cstruct.t) option
 (** [get_management_ip_addr ~dbg] returns the preferred IP of the management
     network, or None. *)
+
+val get_host_certificate_subjects :
+  dbg:string -> (string * string list * Cstruct.t list, string) Result.t
+(** [get_host_certificate_subjects ~dbg] returns the main, dns names and ip
+    addresses that identify the host in secure connections. *)
