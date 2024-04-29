@@ -16,6 +16,9 @@ val get_hostname : unit -> string
 
 exception Unexpected_address_type of string
 
+val ipaddr_to_cstruct : Ipaddr.t -> Cstruct.t
+(** [ipaddr_to_cstruct ip] returns the binary representation of [ip] *)
+
 val dns_names : unit -> string list
 (** [dns_names ()] returns a list of the hostnames that the host may have.
     Ignores empty names as well as "localhost" *)
