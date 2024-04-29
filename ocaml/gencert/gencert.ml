@@ -47,29 +47,19 @@ let main ~dbg ~path ~cert_gid ~sni () =
   init_inventory () ;
   let generator path =
     match sni with
-    | SNI.Default ->
-        let ips, preferred_ip =
-          match Networking_info.get_management_ip_addrs ~dbg with
-          | [], [] ->
-              D.error "gencert.ml: cannot get management ip address!" ;
-              exit 1
-          | preferred, others ->
-              let ips = List.(rev_append (rev preferred) others) in
-              (List.map Networking_info.ipaddr_to_cstruct ips, List.nth ips 0)
-        in
-        let dns_names = Networking_info.dns_names () in
-        let name =
-          match dns_names with
-          | [] ->
-              Ipaddr.to_string preferred_ip
-          | dns :: _ ->
-              dns
-        in
-        let (_ : X509.Certificate.t) =
-          Gencertlib.Selfcert.host ~name ~dns_names ~ips ~valid_for_days path
-            cert_gid
-        in
-        ()
+    | SNI.Default -> (
+      match Networking_info.get_host_certificate_subjects ~dbg with
+      | Error msg ->
+          D.error
+            "gencert.ml: failed to generate certificate subjects because %s" msg ;
+          exit 1
+      | Ok (name, dns_names, ips) ->
+          let _ : X509.Certificate.t =
+            Gencertlib.Selfcert.host ~name ~dns_names ~ips ~valid_for_days path
+              cert_gid
+          in
+          ()
+    )
     | SNI.Xapi_pool ->
         let uuid = Inventory.lookup Inventory._installation_uuid in
         let (_ : X509.Certificate.t) =
