@@ -46,32 +46,42 @@ let ipaddr_to_cstruct = function
   | Ipaddr.V6 addr ->
       Cstruct.of_string (Ipaddr.V6.to_octets addr)
 
-let list_head lst = List.nth_opt lst 0
-
-let get_management_ip_addr ~dbg =
+let get_management_ip_addrs ~dbg =
   let iface = Inventory.lookup Inventory._management_interface in
   try
     if iface = "" || (not @@ Net.Interface.exists dbg iface) then
-      None
+      ([], [])
     else
       let addrs =
+        let ipv4 = Net.Interface.get_ipv4_addr dbg iface in
+        let ipv6 = Net.Interface.get_ipv6_addr dbg iface in
         match
           String.lowercase_ascii
             (Inventory.lookup Inventory._management_address_type ~default:"ipv4")
         with
         | "ipv4" ->
-            Net.Interface.get_ipv4_addr dbg iface
+            (ipv4, ipv6)
         | "ipv6" ->
-            Net.Interface.get_ipv6_addr dbg iface
+            (ipv6, ipv4)
         | s ->
             let msg = Printf.sprintf "Expected 'ipv4' or 'ipv6', got %s" s in
             L.error "%s: %s" __FUNCTION__ msg ;
             raise (Unexpected_address_type msg)
       in
-      addrs
-      |> List.map (fun (addr, _) -> Ipaddr_unix.of_inet_addr addr)
       (* Filter out link-local addresses *)
-      |> List.filter (fun addr -> Ipaddr.scope addr <> Ipaddr.Link)
-      |> List.map (fun ip -> (Ipaddr.to_string ip, ipaddr_to_cstruct ip))
-      |> list_head
-  with _ -> None
+      let no_local (addr, _) =
+        let addr = Ipaddr_unix.of_inet_addr addr in
+        if Ipaddr.scope addr <> Ipaddr.Link then
+          Some addr
+        else
+          None
+      in
+      ( List.filter_map no_local (fst addrs)
+      , List.filter_map no_local (snd addrs)
+      )
+  with _ -> ([], [])
+
+let get_management_ip_addr ~dbg =
+  let preferred, _ = get_management_ip_addrs ~dbg in
+  List.nth_opt preferred 0
+  |> Option.map (fun addr -> (Ipaddr.to_string addr, ipaddr_to_cstruct addr))

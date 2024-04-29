@@ -20,9 +20,11 @@ val dns_names : unit -> string list
 (** [dns_names ()] returns a list of the hostnames that the host may have.
     Ignores empty names as well as "localhost" *)
 
+val get_management_ip_addrs : dbg:string -> Ipaddr.t list * Ipaddr.t list
+(** [get_management_ip_addr ~dbg] returns IPs of the management network.
+    The addresses are returned in order of preference, the left-mostr ones are
+    preferred *)
+
 val get_management_ip_addr : dbg:string -> (string * Cstruct.t) option
-(** [get_management_ip_addr ~dbg] returns the IP of the management network.
-    If the system does not have management address None is return.
-    [Unexpected_address_type] is raised if there is an unexpected address is
-    stored. The address is return in two formats: human-readable string and
-    its bytes representation. *)
+(** [get_management_ip_addr ~dbg] returns the preferred IP of the management
+    network, or None. *)
