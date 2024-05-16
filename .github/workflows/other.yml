@@ -81,7 +81,7 @@ jobs:
           PYTHONDEVMODE: yes
 
       - name: Upload Python ${{matrix.python-version}} coverage report to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           directory: .git
           files: coverage${{matrix.python-version}}.xml
