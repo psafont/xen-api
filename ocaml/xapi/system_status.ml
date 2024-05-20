@@ -14,7 +14,6 @@
 open Http
 open Printf
 open Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_std.Xstringext
 open Forkhelpers
 
 let content_type = "application/data"
@@ -91,7 +90,9 @@ let send_via_cp __context s entries output =
   in
   let () = debug "running %s" cmd in
   try
-    let filename = String.rtrim (Helpers.get_process_output cmd) in
+    let filename =
+      Xapi_stdext_std.Xstringext.String.rtrim (Helpers.get_process_output cmd)
+    in
     let hsts_time = !Xapi_globs.hsts_max_age in
     finally
       (fun () ->
