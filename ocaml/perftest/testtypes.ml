@@ -38,9 +38,8 @@ let to_string (results : result list) =
     (Marshal.to_string results [Marshal.No_sharing])
 
 let from_string s : result list option =
-  let open Xapi_stdext_std.Xstringext.String in
-  if startswith header s then
-    match split ~limit:2 sep s with
+  if String.starts_with ~prefix:header s then
+    match Xapi_stdext_std.Xstringext.String.split ~limit:2 sep s with
     | [_; r] ->
         Some (Marshal.from_string r 0)
     | _ ->
