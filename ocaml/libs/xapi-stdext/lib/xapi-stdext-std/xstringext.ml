@@ -11,26 +11,27 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module String = struct
-  let of_char c = String.make 1 c
+module Char = struct module Map = Map.Make (Char) end
 
-  (** Returns true for whitespace characters, false otherwise *)
+module String = struct
   let isspace = function ' ' | '\n' | '\r' | '\t' -> true | _ -> false
 
-  let escaped ?rules string =
-    match rules with
-    | None ->
-        String.escaped string
-    | Some rules ->
-        let aux h t =
-          ( if List.mem_assoc h rules then
-              List.assoc h rules
-            else
-              of_char h
-          )
-          :: t
-        in
-        String.concat "" (String.fold_right aux string [])
+  let escaped ~rules string =
+    let is_escape_char ch = Char.Map.mem ch rules in
+    if String.exists is_escape_char string then (
+      let escaped = Buffer.create (String.length string + 10) in
+      String.iter
+        (fun c ->
+          match Char.Map.find_opt c rules with
+          | Some str ->
+              Buffer.add_string escaped str
+          | None ->
+              Buffer.add_char escaped c
+        )
+        string ;
+      Buffer.contents escaped
+    ) else
+      string
 
   let split_f p str =
     let split_one seq =

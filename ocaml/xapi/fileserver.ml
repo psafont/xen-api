@@ -16,23 +16,24 @@
  *)
 
 open Http
-module Xstringext = Xapi_stdext_std.Xstringext.String
+module Xstringext = Xapi_stdext_std.Xstringext
 
 module D = Debug.Make (struct let name = "fileserver" end)
 
 open D
 
-let escape uri =
-  Xstringext.escaped
-    ~rules:
-      [
-        ('<', "&lt;")
-      ; ('>', "&gt;")
-      ; ('\'', "&apos;")
-      ; ('"', "&quot;")
-      ; ('&', "&amp;")
-      ]
-    uri
+let escape_html =
+  [
+    ('<', "&lt;")
+  ; ('>', "&gt;")
+  ; ('\'', "&apos;")
+  ; ('"', "&quot;")
+  ; ('&', "&amp;")
+  ]
+  |> List.to_seq
+  |> Xstringext.Char.Map.of_seq
+
+let escape = Xstringext.String.escaped ~rules:escape_html
 
 let missing uri =
   "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\"> <html><head> \
