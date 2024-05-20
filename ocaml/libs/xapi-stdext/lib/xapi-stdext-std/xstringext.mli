@@ -11,14 +11,19 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+module Char : sig
+  module Map : sig
+    include Map.S with type key := Char.t
+  end
+end
+
 module String : sig
   val isspace : char -> bool
   (** True if the character is whitespace *)
 
-  val escaped : ?rules:(char * string) list -> string -> string
-  (** Backward-compatible string escaping, defaulting to the built-in
-      	OCaml string escaping but allowing an arbitrary mapping from characters
-      	to strings. *)
+  val escaped : rules:string Char.Map.t -> string -> string
+  (** Escapes using an arbitrary mapping from characters to
+      strings. *)
 
   val split_f : (char -> bool) -> string -> string list
   (** Take a predicate and a string, return a list of strings separated by
