@@ -14,29 +14,6 @@
 module String = struct
   let of_char c = String.make 1 c
 
-  let rev_map f string =
-    let n = String.length string in
-    String.init n (fun i -> f string.[n - i - 1])
-
-  let rev_iter f string =
-    for i = String.length string - 1 downto 0 do
-      f string.[i]
-    done
-
-  let fold_left f accu string =
-    let accu = ref accu in
-    for i = 0 to String.length string - 1 do
-      accu := f !accu string.[i]
-    done ;
-    !accu
-
-  let fold_right f string accu =
-    let accu = ref accu in
-    for i = String.length string - 1 downto 0 do
-      accu := f string.[i] !accu
-    done ;
-    !accu
-
   (** Returns true for whitespace characters, false otherwise *)
   let isspace = function ' ' | '\n' | '\r' | '\t' -> true | _ -> false
 
@@ -53,7 +30,7 @@ module String = struct
           )
           :: t
         in
-        String.concat "" (fold_right aux string [])
+        String.concat "" (String.fold_right aux string [])
 
   let split_f p str =
     let split_one seq =
@@ -78,19 +55,8 @@ module String = struct
     |> List.of_seq
     |> List.rev
 
-  let index_opt s c =
-    let rec loop i =
-      if String.length s = i then
-        None
-      else if s.[i] = c then
-        Some i
-      else
-        loop (i + 1)
-    in
-    loop 0
-
   let rec split ?(limit = -1) c s =
-    let i = match index_opt s c with Some x -> x | None -> -1 in
+    let i = match String.index_opt s c with Some x -> x | None -> -1 in
     let nlimit = if limit = -1 || limit = 0 then limit else limit - 1 in
     if i = -1 || nlimit = 0 then
       [s]
@@ -194,8 +160,4 @@ module String = struct
   let sub_to_end s start =
     let length = String.length s in
     String.sub s start (length - start)
-
-  let sub_before c s = String.sub s 0 (String.index s c)
-
-  let sub_after c s = sub_to_end s (String.index s c + 1)
 end
