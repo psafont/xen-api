@@ -149,7 +149,7 @@ module Ds_selector = struct
 
   let of_string str =
     let open Rrd in
-    let splitted = Xstringext.String.split_on_char ':' str in
+    let splitted = String.split_on_char ':' str in
     match splitted with
     | [cf; owner; uuid; metric] ->
         {
@@ -276,7 +276,7 @@ module Ds_selector = struct
      match the non-null fields of f *)
   let filter11 f d =
     true
-    && (Xstringext.String.starts_with ~prefix:f.metric d.metric || f.metric = "")
+    && (String.starts_with ~prefix:f.metric d.metric || f.metric = "")
     && (f.cf = d.cf || f.cf = None)
     && ( match (f.owner, d.owner) with
        | None, _ ->
@@ -595,7 +595,7 @@ let print_last session_id data_sources =
 let filter_ds_that_starts_with_name dss name =
   List.fold_left
     (fun acc ds ->
-      if Xstringext.String.starts_with ~prefix:name ds.Ds_selector.metric then
+      if String.starts_with ~prefix:name ds.Ds_selector.metric then
         ds :: acc
       else
         acc

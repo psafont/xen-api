@@ -20,7 +20,6 @@ module D = Debug.Make (struct
 end)
 
 open D
-open Xapi_stdext_std.Xstringext
 open Auth_signature
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
