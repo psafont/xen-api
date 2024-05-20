@@ -15,6 +15,7 @@
  * @group Command-Line Interface (CLI)
 *)
 
+module Xstringext = Xapi_stdext_std.Xstringext
 open Cli_protocol
 
 type record = (string * string) list
@@ -46,10 +47,11 @@ let rec multi_line_record r =
   String.concat "\n" (List.map (fun (f, v) -> f ^ ": " ^ v) r) ^ "\n"
 
 (* Used to escape commas in --minimal mode *)
-let escape_commas x =
-  (* Escaping rules: *)
-  let rules = [(',', "\\,"); (* , -> \, *) ('\\', "\\\\") (* \ -> \\ *)] in
-  Xapi_stdext_std.Xstringext.String.escaped ~rules x
+let escape_commas =
+  let rules = [(',', "\\,"); ('\\', "\\\\")] in
+  Xstringext.Char.Map.of_seq (List.to_seq rules)
+
+let escaped_commas x = Xstringext.String.escaped ~rules:escape_commas x
 
 let make_printer sock minimal =
   let buffer = ref [] in
@@ -59,10 +61,10 @@ let make_printer sock minimal =
         (* Check that all the sublists aren't empty before calling List.hd *)
         if rs <> [] && List.for_all (fun r -> r <> []) rs then
           let names = List.map (fun r -> snd (List.hd r)) rs in
-          let escaped_names = List.map escape_commas names in
+          let escaped_names = List.map escaped_commas names in
           buffer := String.concat "," escaped_names :: !buffer
     | PList ss ->
-        let escaped_ss = List.map escape_commas ss in
+        let escaped_ss = List.map escaped_commas ss in
         buffer := String.concat "," escaped_ss :: !buffer
     | _ ->
         ()
