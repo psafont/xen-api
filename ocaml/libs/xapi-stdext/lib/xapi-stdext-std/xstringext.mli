@@ -12,21 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 module String : sig
-  val of_char : char -> string
-
-  val rev_map : (char -> char) -> string -> string
-  (** Map a string to a string, applying the given function in reverse
-      order. *)
-
-  val rev_iter : (char -> unit) -> string -> unit
-  (** Iterate over the characters in a string in reverse order. *)
-
-  val fold_left : ('a -> char -> 'a) -> 'a -> string -> 'a
-  (** Fold over the characters in a string. *)
-
-  val fold_right : (char -> 'a -> 'a) -> string -> 'a -> 'a
-  (** Iterate over the characters in a string in reverse order. *)
-
   val explode : string -> char list
   (** Split a string into a list of characters. *)
 
@@ -35,9 +20,6 @@ module String : sig
 
   val isspace : char -> bool
   (** True if the character is whitespace *)
-
-  val strip : (char -> bool) -> string -> string
-  (** Removes all the characters from the ends of a string for which the predicate is true *)
 
   val escaped : ?rules:(char * string) list -> string -> string
   (** Backward-compatible string escaping, defaulting to the built-in
@@ -71,10 +53,4 @@ module String : sig
 
   val sub_to_end : string -> int -> string
   (** a substring from the specified position to the end of the string *)
-
-  val sub_before : char -> string -> string
-  (** a substring from the start of the string to the first occurrence of a given character, excluding the character *)
-
-  val sub_after : char -> string -> string
-  (** a substring from  the first occurrence of a given character to the end of the string, excluding the character *)
 end
