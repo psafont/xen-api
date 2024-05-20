@@ -116,7 +116,9 @@ let rec read_rest_of_headers ic =
       debug "read '%s'\n" r ;
       let hdr =
         List.find
-          (fun s -> String.startswith (s ^ ": ") (String.lowercase_ascii r))
+          (fun s ->
+            String.starts_with ~prefix:(s ^ ": ") (String.lowercase_ascii r)
+          )
           hdrs
       in
       let value = end_of_string r (String.length hdr + 2) in
@@ -129,10 +131,10 @@ let rec read_rest_of_headers ic =
       []
 
 let parse_url url =
-  if String.startswith "https://" url then
+  if String.starts_with ~prefix:"https://" url then
     let stripped = end_of_string url (String.length "https://") in
     let host, rest =
-      let l = String.split '/' stripped in
+      let l = String.split_on_char '/' stripped in
       (List.hd l, List.tl l)
     in
     (host, "/" ^ String.concat "/" rest)
@@ -356,7 +358,7 @@ let with_open_channels f =
   match result with Ok r -> r | Error e -> raise e
 
 let http_response_code x =
-  match String.split ' ' x with
+  match String.split_on_char ' ' x with
   | _ :: code :: _ ->
       int_of_string code
   | _ ->

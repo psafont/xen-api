@@ -381,7 +381,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
         []
     | Some x -> (
       try
-        let l = String.split ',' x in
+        let l = String.split_on_char ',' x in
         List.map (String.strip String.isspace) l
       with _ -> []
     )
@@ -1131,8 +1131,8 @@ module MD = struct
       let affinity =
         try
           List.map
-            (fun x -> List.map int_of_string (String.split ',' x))
-            (String.split ';' (List.assoc "mask" vm.API.vM_VCPUs_params))
+            (fun x -> List.map int_of_string (String.split_on_char ',' x))
+            (String.split_on_char ';' (List.assoc "mask" vm.API.vM_VCPUs_params))
         with _ -> []
       in
       let localhost = Helpers.get_localhost ~__context in
@@ -1142,7 +1142,9 @@ module MD = struct
       let host_cpu_mask =
         try
           List.map int_of_string
-            (String.split ',' (List.assoc "mask" host_guest_VCPUs_params))
+            (String.split_on_char ','
+               (List.assoc "mask" host_guest_VCPUs_params)
+            )
         with _ -> []
       in
       let affinity =
@@ -1644,7 +1646,11 @@ module Xenopsd_metadata = struct
           (List.assoc Xapi_globs.persist_xenopsd_md oc)
         |> Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot
       in
-      if not (String.startswith Xapi_globs.persist_xenopsd_md_root file_path)
+      if
+        not
+          (String.starts_with ~prefix:Xapi_globs.persist_xenopsd_md_root
+             file_path
+          )
       then
         warn "Not persisting xenopsd metadata to bad location: '%s'" file_path
       else (
@@ -1900,13 +1906,15 @@ let update_vm ~__context id =
             let results =
               List.filter_map
                 (fun (path, _) ->
-                  if String.startswith dir path then
+                  if String.starts_with ~prefix:dir path then
                     let rest =
                       String.sub path (String.length dir)
                         (String.length path - String.length dir)
                     in
                     match
-                      List.filter (fun x -> x <> "") (String.split '/' rest)
+                      List.filter
+                        (fun x -> x <> "")
+                        (String.split_on_char '/' rest)
                     with
                     | x :: _ ->
                         Some x

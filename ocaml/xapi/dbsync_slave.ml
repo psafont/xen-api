@@ -70,7 +70,7 @@ let get_start_time () =
     let now = Unix.time () in
     let uptime = Unixext.string_of_file "/proc/uptime" in
     let uptime = String.strip String.isspace uptime in
-    let uptime = String.split ' ' uptime in
+    let uptime = String.split_on_char ' ' uptime in
     let uptime = List.hd uptime in
     let uptime = float_of_string uptime in
     let boot_time = Date.of_float (now -. uptime) in
@@ -101,7 +101,7 @@ let refresh_localhost_info ~__context info =
     | None ->
         []
     | Some {capabilities; _} ->
-        String.split ' ' capabilities
+        String.split_on_char ' ' capabilities
   in
   Db.Host.set_capabilities ~__context ~self:host ~value:caps ;
   Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr ~__context) ;

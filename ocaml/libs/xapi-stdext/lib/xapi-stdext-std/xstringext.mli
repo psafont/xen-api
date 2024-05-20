@@ -35,12 +35,6 @@ module String : sig
   val implode : char list -> string
   (** Concatenate a list of characters into a string. *)
 
-  val endswith : string -> string -> bool
-  (** True if string 'x' ends with suffix 'suffix' *)
-
-  val startswith : string -> string -> bool
-  (** True if string 'x' starts with prefix 'prefix' *)
-
   val isspace : char -> bool
   (** True if the character is whitespace *)
 

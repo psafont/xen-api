@@ -179,7 +179,7 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
   let get_vm_uuid_of_snap s =
     let snapshot_of = Ref.string_of s.API.vM_snapshot_of in
     try
-      if Xstringext.String.startswith "Ref:" snapshot_of then
+      if Xstringext.String.starts_with ~prefix:"Ref:" snapshot_of then
         (* This should be a snapshot in the archive *)
         let v =
           List.find
@@ -188,8 +188,8 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
         in
         let v = get_vm_record v.snapshot in
         Some v.API.vM_uuid
-      else if Xstringext.String.startswith Ref.ref_prefix snapshot_of then
-        (* This should be a snapshot in a live system *)
+      else if Xstringext.String.starts_with ~prefix:Ref.ref_prefix snapshot_of
+      then (* This should be a snapshot in a live system *)
         if Db.is_valid_ref __context s.API.vM_snapshot_of then
           Some (Db.VM.get_uuid ~__context ~self:s.API.vM_snapshot_of)
         else
@@ -2185,7 +2185,7 @@ let read_map_params name params =
   let filter_params =
     List.filter
       (fun (p, _) ->
-        Xstringext.String.startswith name p && String.length p > len
+        Xstringext.String.starts_with ~prefix:name p && String.length p > len
       )
       params
   in
