@@ -118,7 +118,9 @@ let rec read_rest_of_headers ic =
       debug "read '%s'\n" r ;
       let hdr =
         List.find
-          (fun s -> String.startswith (s ^ ": ") (String.lowercase_ascii r))
+          (fun s ->
+            String.starts_with ~prefix:(s ^ ": ") (String.lowercase_ascii r)
+          )
           hdrs
       in
       let value = end_of_string r (String.length hdr + 2) in
@@ -376,7 +378,7 @@ let with_open_channels f =
   match result with Ok r -> r | Error e -> raise e
 
 let http_response_code x =
-  match String.split ' ' x with
+  match String.split_on_char ' ' x with
   | _ :: code :: _ ->
       int_of_string code
   | _ ->
