@@ -504,7 +504,7 @@ let get_host_updates_in_json ~__context ~installed =
  *)
 let get_repository_handler (req : Http.Request.t) s _ =
   let open Http in
-  let open Xapi_stdext_std.Xstringext in
+  let sub_to_end = Xapi_stdext_std.Xstringext.String.sub_to_end in
   debug "Repository.get_repository_handler URL %s" req.Request.uri ;
   req.Request.close <- true ;
   if Fileserver.access_forbidden req s then
@@ -531,7 +531,7 @@ let get_repository_handler (req : Http.Request.t) s _ =
     | _ -> (
       try
         let len = String.length Constants.get_repository_uri in
-        match String.sub_to_end req.Request.uri len with
+        match sub_to_end req.Request.uri len with
         | uri_path ->
             let root = !Xapi_globs.local_pool_repo_dir in
             Fileserver.response_file s (Helpers.resolve_uri_path ~root ~uri_path)
