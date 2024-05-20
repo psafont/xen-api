@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open API
-open Xapi_stdext_std.Xstringext
+module Stringext = Xapi_stdext_std.Xstringext.String
 
 let hashtbl_of_list xs =
   let tbl = Hashtbl.create (List.length xs) in
@@ -40,9 +40,9 @@ let first_xml_element_with_name elements name =
     are stripped of leading and trailing whitespace. *)
 let hash_table_entry_of_leaf_xml_element = function
   | Xml.Element (name, _, Xml.PCData value :: _) ->
-      Some (String.strip String.isspace name, String.strip String.isspace value)
+      Some (String.trim name, String.trim value)
   | Xml.Element (name, _, []) ->
-      Some (String.strip String.isspace name, "")
+      Some (String.trim name, "")
   | _ ->
       None
 
@@ -351,7 +351,7 @@ module LiveSetInformation = struct
             | Some u ->
                 u
           in
-          let set f x = List.map f (String.split_f String.isspace x) in
+          let set f x = List.map f Stringext.(split_f isspace x) in
           Some
             {
               id= uuid (find "HostID")

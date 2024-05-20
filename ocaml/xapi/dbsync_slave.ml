@@ -17,7 +17,6 @@
 *)
 
 module Rrdd = Rrd_client.Client
-open Xapi_stdext_std.Xstringext
 module Unixext = Xapi_stdext_unix.Unixext
 module Date = Xapi_stdext_date.Date
 open Create_misc
@@ -69,7 +68,7 @@ let get_start_time () =
     debug "Calculating boot time..." ;
     let now = Unix.time () in
     let uptime = Unixext.string_of_file "/proc/uptime" in
-    let uptime = String.strip String.isspace uptime in
+    let uptime = String.trim uptime in
     let uptime = String.split_on_char ' ' uptime in
     let uptime = List.hd uptime in
     let uptime = float_of_string uptime in

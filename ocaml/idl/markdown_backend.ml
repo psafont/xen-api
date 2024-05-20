@@ -43,8 +43,6 @@ let compare_case_ins x y =
   compare (String.lowercase_ascii x) (String.lowercase_ascii y)
 
 let escape s =
-  let open Xapi_stdext_std.Xstringext in
-  let sl = String.explode s in
   let esc_char = function
     | '\\' ->
         "&#92;"
@@ -79,8 +77,11 @@ let escape s =
     | c ->
         String.make 1 c
   in
-  let escaped_list = List.map esc_char sl in
-  String.concat "" escaped_list
+  let buffer = Buffer.create (String.length s) in
+  String.to_seq s
+  |> Seq.map esc_char
+  |> Seq.iter (fun cur -> Buffer.add_string buffer cur) ;
+  Buffer.contents buffer
 
 let rec of_ty_verbatim = function
   | SecretString | String ->

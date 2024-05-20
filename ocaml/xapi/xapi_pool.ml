@@ -16,7 +16,6 @@ open Client
 module Date = Xapi_stdext_date.Date
 module Listext = Xapi_stdext_std.Listext
 module Unixext = Xapi_stdext_unix.Unixext
-module Xstringext = Xapi_stdext_std.Xstringext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -2809,9 +2808,7 @@ let disable_external_auth ~__context ~pool:_ ~config =
             debug
               "Failed to disable the external authentication of at least one \
                host in the pool" ;
-            if
-              Xstringext.String.starts_with
-                ~prefix:Api_errors.auth_disable_failed err
+            if String.starts_with ~prefix:Api_errors.auth_disable_failed err
             then (* tagged exception *)
               raise
                 (Api_errors.Server_error

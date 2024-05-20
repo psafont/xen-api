@@ -118,7 +118,7 @@ module VM = struct
       match
         List.filter
           (fun self ->
-            Xapi_stdext_std.Xstringext.String.starts_with ~prefix:startswith
+            String.starts_with ~prefix:startswith
               (Client.Client.VM.get_name_label ~rpc ~session_id ~self)
             && Client.Client.VM.get_is_a_template ~rpc ~session_id ~self
           )

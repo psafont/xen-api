@@ -186,7 +186,7 @@ let find_self_parameter (msg : message) =
         )
 
 let plural name =
-  if Xstringext.String.ends_with ~suffix:"metrics" name then
+  if String.ends_with ~suffix:"metrics" name then
     name ^ " instances"
   else
     name ^ "s"

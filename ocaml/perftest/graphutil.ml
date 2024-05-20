@@ -130,7 +130,7 @@ let string_of_result = function
       "parallel VM.stop"
   | "clone" ->
       "parallel VM.clone"
-  | s when Xstringext.String.starts_with ~prefix:"clone-" s ->
+  | s when String.starts_with ~prefix:"clone-" s ->
       "parallel VM.clone"
   | _ ->
       "???"

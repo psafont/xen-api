@@ -14,8 +14,7 @@
 
 (** A central location for settings related to xapi *)
 
-module String_plain = String (* For when we don't want the Xstringext version *)
-open Xapi_stdext_std.Xstringext
+module Stringext = Xapi_stdext_std.Xstringext.String
 module StringSet = Set.Make (String)
 
 module D = Debug.Make (struct let name = "xapi_globs" end)
@@ -1153,7 +1152,7 @@ let gen_list_option name desc of_string string_of opt =
   let parse s =
     opt := [] ;
     try
-      String.split_f String.isspace s
+      Stringext.split_f Stringext.isspace s
       |> List.iter (fun x -> opt := of_string x :: !opt)
     with e ->
       D.error "Unable to parse %s=%s (expected space-separated list) error: %s"

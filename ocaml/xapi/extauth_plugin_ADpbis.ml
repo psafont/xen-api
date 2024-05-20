@@ -18,7 +18,7 @@
 module D = Debug.Make (struct let name = "extauth_plugin_ADpbis" end)
 
 open D
-open Xapi_stdext_std.Xstringext
+module Stringext = Xapi_stdext_std.Xstringext.String
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -104,7 +104,7 @@ let match_error_tag (lines : string list) =
   in
   let split_to_words str =
     let seps = ['('; ')'; ' '; '\t'; '.'] in
-    String.split_f (fun s -> List.exists (fun sep -> sep = s) seps) str
+    Stringext.split_f (fun s -> List.exists (fun sep -> sep = s) seps) str
   in
   let rec has_err lines err_pattern =
     match lines with
@@ -129,9 +129,9 @@ let match_error_tag (lines : string list) =
 let extract_sid_from_group_list group_list =
   List.map
     (fun (_, v) ->
-      let v = String.replace ")" "" v in
-      let v = String.replace "sid =" "|" v in
-      let vs = String.split_f (fun c -> c = '|') v in
+      let v = Stringext.replace ")" "" v in
+      let v = Stringext.replace "sid =" "|" v in
+      let vs = Stringext.split_f (fun c -> c = '|') v in
       let sid = String.trim (List.nth vs 1) in
       debug "extract_sid_from_group_list get sid=[%s]" sid ;
       sid
@@ -164,7 +164,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
     Locking_helpers.Named_mutex.create "IS_SERVER_AVAILABLE"
 
   let splitlines s =
-    String.split_f (fun c -> c = '\n') (String.replace "#012" "\n" s)
+    Stringext.split_f (fun c -> c = '\n') (Stringext.replace "#012" "\n" s)
 
   let pbis_common_with_password (password : string) (pbis_cmd : string)
       (pbis_args : string list) =
@@ -236,7 +236,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       pbis_cmd ^ " " ^ List.fold_left (fun p pp -> p ^ " " ^ pp) " " pbis_args
     in
     let debug_cmd =
-      if String.has_substr debug_cmd "--password" then
+      if Stringext.has_substr debug_cmd "--password" then
         "(omitted for security)"
       else
         debug_cmd
@@ -346,9 +346,11 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
         if !exited_code <> 0 then (
           error "execute '%s': exit_code=[%d] output=[%s]" debug_cmd
             !exited_code
-            (String.replace "\n" ";" !output) ;
+            (Stringext.replace "\n" ";" !output) ;
           let split_to_words s =
-            String.split_f (fun c -> c = '(' || c = ')' || c = '.' || c = ' ') s
+            Stringext.split_f
+              (fun c -> c = '(' || c = ')' || c = '.' || c = ' ')
+              s
           in
           let revlines =
             List.rev
@@ -414,7 +416,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           List.filter (fun l -> String.length l > 0) (splitlines !output)
         in
         let parse_line (acc, currkey) line =
-          let slices = String.split ~limit:2 ':' line in
+          let slices = Stringext.split ~limit:2 ':' line in
           debug "parse %s: currkey=[%s] line=[%s]" debug_cmd currkey line ;
           if List.length slices > 1 then (
             let key = String.trim (List.hd slices) in
@@ -614,7 +616,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
     (* first, we try to authenticated user against our external user database *)
     (* pbis_common will raise an Auth_failure if external authentication fails *)
     let domain, user =
-      match String.split_f (fun c -> c = '\\') username with
+      match Stringext.split_f (fun c -> c = '\\') username with
       | [domain; user] ->
           (domain, user)
       | [user] ->
@@ -964,7 +966,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
             | "" ->
                 []
             | disabled_modules_string ->
-                String.split_f (fun c -> c = ',') disabled_modules_string
+                Stringext.split_f (fun c -> c = ',') disabled_modules_string
           with Not_found -> []
         in
         let disabled_module_params =
@@ -1102,8 +1104,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
         in
         debug "execute %s: stdout=[%s],stderr=[%s]"
           pbis_force_domain_leave_script
-          (String.replace "\n" ";" output)
-          (String.replace "\n" ";" stderr)
+          (Stringext.replace "\n" ";" output)
+          (Stringext.replace "\n" ";" stderr)
       with e ->
         debug "exception executing %s: %s" pbis_force_domain_leave_script
           (ExnHelper.string_of_exn e)

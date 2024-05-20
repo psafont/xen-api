@@ -17,9 +17,9 @@ module D = Debug.Make (struct let name = "xenops" end)
 open D
 module StringSet = Set.Make (String)
 open Network
-open Xapi_stdext_std.Xstringext
 module Date = Xapi_stdext_date.Date
 module Listext = Xapi_stdext_std.Listext.List
+module Stringext = Xapi_stdext_std.Xstringext.String
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
@@ -117,7 +117,7 @@ let disk_of_vdi ~__context ~self =
   try Some (VDI (xenops_vdi_locator ~__context ~self)) with _ -> None
 
 let vdi_of_disk ~__context x =
-  match String.split ~limit:2 '/' x with
+  match Stringext.split ~limit:2 '/' x with
   | [sr_uuid; location] -> (
       let open Xapi_database.Db_filter_types in
       let sr = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
@@ -343,7 +343,7 @@ let allowed_dom0_directories_for_boot_files =
   ["/boot/guest/"; "/var/lib/xcp/guest"]
 
 let is_boot_file_whitelisted filename =
-  let safe_str str = not (String.has_substr str "..") in
+  let safe_str str = not (Stringext.has_substr str "..") in
   (* make sure the script prefix is the allowed dom0 directory *)
   List.exists
     (fun allowed -> String.starts_with ~prefix:allowed filename)
@@ -382,7 +382,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
     | Some x -> (
       try
         let l = String.split_on_char ',' x in
-        List.map (String.strip String.isspace) l
+        List.map String.trim l
       with _ -> []
     )
   in

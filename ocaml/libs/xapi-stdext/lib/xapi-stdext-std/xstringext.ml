@@ -12,36 +12,34 @@
  * GNU Lesser General Public License for more details.
  *)
 module String = struct
-  include String
-
   let of_char c = String.make 1 c
 
   let rev_map f string =
-    let n = length string in
+    let n = String.length string in
     String.init n (fun i -> f string.[n - i - 1])
 
   let rev_iter f string =
-    for i = length string - 1 downto 0 do
+    for i = String.length string - 1 downto 0 do
       f string.[i]
     done
 
   let fold_left f accu string =
     let accu = ref accu in
-    for i = 0 to length string - 1 do
+    for i = 0 to String.length string - 1 do
       accu := f !accu string.[i]
     done ;
     !accu
 
   let fold_right f string accu =
     let accu = ref accu in
-    for i = length string - 1 downto 0 do
+    for i = String.length string - 1 downto 0 do
       accu := f string.[i] !accu
     done ;
     !accu
 
   let explode string = fold_right (fun h t -> h :: t) string []
 
-  let implode list = concat "" (List.map of_char list)
+  let implode list = String.concat "" (List.map of_char list)
 
   (** Returns true for whitespace characters, false otherwise *)
   let isspace = function ' ' | '\n' | '\r' | '\t' -> true | _ -> false
@@ -69,7 +67,7 @@ module String = struct
           )
           :: t
         in
-        concat "" (fold_right aux string [])
+        String.concat "" (fold_right aux string [])
 
   (** Take a predicate and a string, return a list of strings separated by
       runs of characters where the predicate was true (excluding those characters from the result) *)
