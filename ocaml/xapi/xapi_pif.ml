@@ -138,7 +138,9 @@ let bridge_naming_convention (device : string) =
     "br" ^ device
 
 let read_bridges_from_inventory () =
-  try String.split ' ' (Xapi_inventory.lookup Xapi_inventory._current_interfaces)
+  try
+    String.split_on_char ' '
+      (Xapi_inventory.lookup Xapi_inventory._current_interfaces)
   with _ -> []
 
 (* Ensure the PIF is not a bond slave. *)
@@ -660,7 +662,7 @@ let scan ~__context ~host =
         let output, _ =
           Forkhelpers.execute_command_get_output !Xapi_globs.non_managed_pifs []
         in
-        let dsplit = String.split '\n' output in
+        let dsplit = String.split_on_char '\n' output in
         match dsplit with
         | [] | [""] | "" :: "" :: _ ->
             debug "No boot from SAN interface found" ;
