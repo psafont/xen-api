@@ -32,7 +32,7 @@ let is_escape_char = function '\\' | '"' | '\'' -> true | _ -> false
 (* XXX: This escapes "'c'" and "\'c\'" to "\\'c\\'".
  * They are both unescaped as "'c'". They have been ported
  * to make sure that this corner case is left unchanged.
- * It is worth investigating the use of 
+ * It is worth investigating the use of
  * - Astring.String.Ascii.escape_string
  * - Astring.String.Ascii.unescape
  * that have guaranteed invariants and optimised performances *)
@@ -96,16 +96,11 @@ let weird_of_string x =
   let randchar () =
     String.sub random_chars (Random.int (String.length random_chars)) 1
   in
-  (* true if the parent string contains child as a substring, starting the
-     search forward from offset *)
-  let rec has_substring parent offset child =
-    String.length parent - offset >= String.length child
-    && (String.sub parent offset (String.length child) = child
-       || has_substring parent (offset + 1) child
-       )
-  in
   let rec find delim =
-    if has_substring x 0 delim then find (delim ^ randchar ()) else delim
+    if Astring.String.is_infix ~affix:delim x then
+      find (delim ^ randchar ())
+    else
+      delim
   in
   WeirdString (find "xxx", x)
 
