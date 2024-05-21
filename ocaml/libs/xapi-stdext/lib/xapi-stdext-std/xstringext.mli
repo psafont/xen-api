@@ -18,17 +18,9 @@ module Char : sig
 end
 
 module String : sig
-  val isspace : char -> bool
-  (** True if the character is whitespace *)
-
   val escaped : rules:string Char.Map.t -> string -> string
   (** Escapes using an arbitrary mapping from characters to
       strings. *)
-
-  val split_f : (char -> bool) -> string -> string list
-  (** Take a predicate and a string, return a list of strings separated by
-      runs of characters where the predicate was true. Avoid if possible, it's
-      very costly to execute. *)
 
   val split : limit:int -> char -> string -> string list
   (** split a string on a single char *)
