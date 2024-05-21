@@ -57,15 +57,17 @@ module String = struct
     in
     List.rev (List.map implode (alternate [] true (explode str)))
 
-  let rec split ?(limit = -1) c s =
-    let i = match String.index_opt s c with Some x -> x | None -> -1 in
-    let nlimit = if limit = -1 || limit = 0 then limit else limit - 1 in
-    if i = -1 || nlimit = 0 then
-      [s]
-    else
-      let a = String.sub s 0 i
-      and b = String.sub s (i + 1) (String.length s - i - 1) in
-      a :: split ~limit:nlimit c b
+  let rec split ~limit c s =
+    match (String.index_opt s c, limit) with
+    | None, _ ->
+        [s]
+    | _, l when l < 1 ->
+        [s]
+    | Some i, l ->
+        let limit = l - 1 in
+        let a = String.sub s 0 i in
+        let b = String.sub s (i + 1) (String.length s - i - 1) in
+        a :: split ~limit c b
 
   let rtrim s =
     let n = String.length s in

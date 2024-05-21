@@ -35,7 +35,7 @@ module String : sig
   (** Take a predicate and a string, return a list of strings separated by
       	runs of characters where the predicate was true *)
 
-  val split : ?limit:int -> char -> string -> string list
+  val split : limit:int -> char -> string -> string list
   (** split a string on a single char *)
 
   val rtrim : string -> string
