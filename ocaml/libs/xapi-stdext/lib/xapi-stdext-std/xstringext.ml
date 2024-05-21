@@ -14,6 +14,10 @@
 module Char = struct module Map = Map.Make (Char) end
 
 module String = struct
+  let sub_to_end s start =
+    let length = String.length s in
+    String.sub s start (length - start)
+
   let isspace = function ' ' | '\n' | '\r' | '\t' -> true | _ -> false
 
   let escaped ~rules string =
@@ -56,15 +60,14 @@ module String = struct
     |> List.of_seq
     |> List.rev
 
-  let rec split ?(limit = -1) c s =
-    let i = match String.index_opt s c with Some x -> x | None -> -1 in
-    let nlimit = if limit = -1 || limit = 0 then limit else limit - 1 in
-    if i = -1 || nlimit = 0 then
-      [s]
-    else
-      let a = String.sub s 0 i
-      and b = String.sub s (i + 1) (String.length s - i - 1) in
-      a :: split ~limit:nlimit c b
+  let rec split ~limit sep s =
+    match (String.index_opt s sep, limit < 2) with
+    | None, _ | _, true ->
+        [s]
+    | Some pos, false ->
+        let first = String.sub s 0 pos in
+        let rest = sub_to_end s (pos + 1) in
+        first :: split ~limit:(limit - 1) sep rest
 
   let rtrim s =
     let n = String.length s in
@@ -157,8 +160,4 @@ module String = struct
       Buffer.contents buf
     ) else
       s
-
-  let sub_to_end s start =
-    let length = String.length s in
-    String.sub s start (length - start)
 end

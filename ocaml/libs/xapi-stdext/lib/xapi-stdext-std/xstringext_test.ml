@@ -28,30 +28,13 @@ let test_list tested_f (name, case, expected) =
   (name, `Quick, check)
 
 let test_split =
-  let test ?limit (splitter, splitted, expected) =
-    let split, name =
-      match limit with
-      | None ->
-          let name = Printf.sprintf {|'%c' splits "%s"|} splitter splitted in
-          (* limit being set to -1 is the same as not using the parameter *)
-          let split = XString.split ~limit:(-1) in
-          (split, name)
-      | Some limit ->
-          let name =
-            Printf.sprintf {|'%c' splits "%s" with limit %i|} splitter splitted
-              limit
-          in
-          let split = XString.split ~limit in
-          (split, name)
+  let test limit (splitter, splitted, expected) =
+    let split = XString.split ~limit in
+    let name =
+      Printf.sprintf {|'%c' splits "%s" with limit %i|} splitter splitted limit
     in
     test_list (split splitter) (name, splitted, expected)
   in
-  let specs_no_limit =
-    [
-      ('.', "...", [""; ""; ""; ""]); ('.', "foo.bar.baz", ["foo"; "bar"; "baz"])
-    ]
-  in
-  let tests_no_limit = List.map test specs_no_limit in
   let specs_limit =
     [
       (0, [('.', "...", ["..."]); ('.', "foo.bar.baz", ["foo.bar.baz"])])
@@ -66,11 +49,12 @@ let test_split =
     ; (4, [('.', "...", [""; ""; ""; ""])])
     ]
   in
-  let tests_limit =
-    List.map (fun (limit, spec) -> List.map (test ~limit) spec) specs_limit
-    |> List.concat
+  let tests =
+    List.concat_map
+      (fun (limit, spec) -> List.map (test limit) spec)
+      specs_limit
   in
-  ("split", List.concat [tests_no_limit; tests_limit])
+  ("split", tests)
 
 let test_split_f =
   let specs =
