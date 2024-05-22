@@ -7,4 +7,4 @@
  (name sexpr)
  (public_name sexpr)
  (wrapped false)
- (libraries astring))
+ (libraries astring xapi-stdext-std))

@@ -15,6 +15,7 @@ depends: [
   "rresult" {with-test}
   "qcheck-core" {with-test}
   "xapi-stdext-threads"
+  "xapi-stdext-std"
 ]
 synopsis: "Library required by xapi"
 description: """
