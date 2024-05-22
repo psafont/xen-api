@@ -18,22 +18,26 @@ module String = struct
     let length = String.length s in
     String.sub s start (length - start)
 
-  let escaped ~rules string =
-    let is_escape_char ch = Char.Map.mem ch rules in
-    if String.exists is_escape_char string then (
-      let escaped = Buffer.create (String.length string + 10) in
+  let replaced ~replaceable ~get_replacement string =
+    if String.exists replaceable string then (
+      let replaced = Buffer.create (String.length string + 10) in
       String.iter
         (fun c ->
-          match Char.Map.find_opt c rules with
+          match get_replacement c with
           | Some str ->
-              Buffer.add_string escaped str
+              Buffer.add_string replaced str
           | None ->
-              Buffer.add_char escaped c
+              Buffer.add_char replaced c
         )
         string ;
-      Buffer.contents escaped
+      Buffer.contents replaced
     ) else
       string
+
+  let escaped ~rules string =
+    let replaceable ch = Char.Map.mem ch rules in
+    let get_replacement ch = Char.Map.find_opt ch rules in
+    replaced ~replaceable ~get_replacement string
 
   let rec split ~limit sep s =
     match (String.index_opt s sep, limit < 2) with

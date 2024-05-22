@@ -19,8 +19,8 @@ end
 
 module String : sig
   val escaped : rules:string Char.Map.t -> string -> string
-  (** Escapes using an arbitrary mapping from characters to
-      strings. *)
+  (** [escaped ~rules str] replaces characters by strings in [str], as dictated
+      by [~rules]. *)
 
   val split : limit:int -> char -> string -> string list
   (** split a string on a single char *)
