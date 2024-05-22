@@ -22,14 +22,15 @@ module String : sig
   (** [escaped ~rules str] replaces characters by strings in [str], as dictated
       by [~rules]. *)
 
+  val replace : char -> by:string -> string -> string
+  (** [replace ch ~by s] replaces all the occurrences of [ch] in [s] by [~by]
+    *)
+
   val split : limit:int -> char -> string -> string list
   (** split a string on a single char *)
 
   val rtrim : string -> string
   (** FIXME document me|remove me if similar to strip *)
-
-  val replace : string -> string -> string -> string
-  (** replace all [f] substring in [s] by [t] *)
 
   val map_unlikely : string -> (char -> string option) -> string
   (** map a string trying to fill the buffer by chunk *)
