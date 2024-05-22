@@ -64,7 +64,10 @@ let escape_html =
   |> List.to_seq
   |> Xstringext.Char.Map.of_seq
 
-let escape = Xstringext.String.escaped ~rules:escape_html
+let escape =
+  let replaceable c = Xstringext.Char.Map.mem c escape_html in
+  let get_replacement c = Xstringext.Char.Map.find_opt c escape_html in
+  Xstringext.String.replaced ~replaceable ~get_replacement
 
 let rec of_ty_verbatim = function
   | SecretString | String ->

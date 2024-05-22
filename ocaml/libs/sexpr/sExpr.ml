@@ -33,25 +33,18 @@ let is_escape_char = function '\\' | '"' | '\'' -> true | _ -> false
  * - Astring.String.Ascii.unescape
  * that have guaranteed invariants and optimised performances *)
 let escape s =
-  let open Astring in
-  if String.exists is_escape_char s then (
-    let escaped = Buffer.create (String.length s + 10) in
-    String.iter
-      (fun c ->
-        match c with
-        | '\\' ->
-            Buffer.add_string escaped "\\\\"
-        | '"' ->
-            Buffer.add_string escaped "\\\""
-        | '\'' ->
-            Buffer.add_string escaped "\\\'"
-        | _ ->
-            Buffer.add_char escaped c
-      )
-      s ;
-    Buffer.contents escaped
-  ) else
-    s
+  let replaceable = is_escape_char in
+  let get_replacement = function
+    | '\\' ->
+        Some "\\\\"
+    | '"' ->
+        Some "\\\""
+    | '\'' ->
+        Some "\\\'"
+    | _ ->
+        None
+  in
+  Xapi_stdext_std.Xstringext.String.replaced ~replaceable ~get_replacement s
 
 let unescape s =
   if String.contains s '\\' then (

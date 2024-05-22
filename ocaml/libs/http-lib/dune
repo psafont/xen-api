@@ -51,6 +51,7 @@
     xapi-log
     xapi-stdext-pervasives
     xapi-stdext-threads
+    xapi-stdext-std
     xapi-stdext-unix
   )
 )

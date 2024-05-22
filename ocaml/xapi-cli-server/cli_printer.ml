@@ -51,7 +51,10 @@ let escape_commas =
   let rules = [(',', "\\,"); ('\\', "\\\\")] in
   Xstringext.Char.Map.of_seq (List.to_seq rules)
 
-let escaped_commas x = Xstringext.String.escaped ~rules:escape_commas x
+let escaped_commas =
+  let replaceable c = Xstringext.Char.Map.mem c escape_commas in
+  let get_replacement c = Xstringext.Char.Map.find_opt c escape_commas in
+  Xstringext.String.replaced ~replaceable ~get_replacement
 
 let make_printer sock minimal =
   let buffer = ref [] in

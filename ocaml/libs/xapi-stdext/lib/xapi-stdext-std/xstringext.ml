@@ -34,11 +34,6 @@ module String = struct
     ) else
       string
 
-  let escaped ~rules string =
-    let replaceable ch = Char.Map.mem ch rules in
-    let get_replacement ch = Char.Map.find_opt ch rules in
-    replaced ~replaceable ~get_replacement string
-
   let replace char ~by s =
     let replaceable = Stdlib.Char.equal char in
     let get_replacement c = if replaceable c then Some by else None in
