@@ -18,9 +18,14 @@ module Char : sig
 end
 
 module String : sig
-  val escaped : rules:string Char.Map.t -> string -> string
-  (** [escaped ~rules str] replaces characters by strings in [str], as dictated
-      by [~rules]. *)
+  val replaced :
+       replaceable:(char -> bool)
+    -> get_replacement:(char -> string option)
+    -> string
+    -> string
+  (** [replaced ~replaceable ~get_replacement str] applies [get_replacement] to
+      [str] to replace the characted with a string when it returns [Some st] or
+      blablabla *)
 
   val replace : char -> by:string -> string -> string
   (** [replace ch ~by s] replaces all the occurrences of [ch] in [s] by [~by]

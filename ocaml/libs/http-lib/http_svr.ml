@@ -30,6 +30,7 @@
  *)
 
 open Http
+module Xstringext = Xapi_stdext_std.Xstringext
 module Unixext = Xapi_stdext_unix.Unixext
 
 (* This resolves the lowercase deprecation for all compiler versions *)
@@ -317,29 +318,22 @@ module Server = struct
       x.handlers []
 end
 
-let escape uri =
-  (* from xapi-stdext-std xstringext *)
-  let escaped ~rules string =
-    let aux h t =
-      ( if List.mem_assoc h rules then
-          List.assoc h rules
-        else
-          Astring.String.of_char h
-      )
-      :: t
-    in
-    String.concat "" (Astring.String.fold_right aux string [])
+let escape_html =
+  let rules =
+    [
+      ('<', "&lt;")
+    ; ('>', "&gt;")
+    ; ('\'', "&apos;")
+    ; ('"', "&quot;")
+    ; ('&', "&amp;")
+    ]
   in
-  escaped
-    ~rules:
-      [
-        ('<', "&lt;")
-      ; ('>', "&gt;")
-      ; ('\'', "&apos;")
-      ; ('"', "&quot;")
-      ; ('&', "&amp;")
-      ]
-    uri
+  Xstringext.Char.Map.of_seq (List.to_seq rules)
+
+let escape_html str =
+  let replaceable c = Xstringext.Char.Map.mem c escape_html in
+  let get_replacement c = Xstringext.Char.Map.find_opt c escape_html in
+  Xstringext.String.replaced ~replaceable ~get_replacement str
 
 exception Generic_error of string
 
@@ -480,7 +474,7 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
                 )
         | exc ->
             response_internal_error exc ss
-              ~extra:(escape (Printexc.to_string exc)) ;
+              ~extra:(escape_html (Printexc.to_string exc)) ;
             log_backtrace ()
     ) ;
     (None, None)
@@ -535,7 +529,7 @@ let handle_one (x : 'a Server.t) ss context req =
                 )
         | exc ->
             response_internal_error ~req exc ss
-              ~extra:(escape (Printexc.to_string exc))
+              ~extra:(escape_html (Printexc.to_string exc))
     ) ;
     !finished
 
