@@ -46,12 +46,14 @@ let equivalent =
   ; ("d536p37", "xvdtq37")
   ]
 
+let invalid = ["d0p0q"]
+
 let test_examples =
   let tests =
     List.map
       (fun ((bus, disk, partition), linux, xenstore) ->
-        let of_spec = make bus ~disk ~partition in
-        let of_linux = of_linux_device linux in
+        let of_spec = make bus ~disk ~partition |> Option.get in
+        let of_linux = of_linux_device linux |> Option.get in
         let of_xenstore = of_xenstore_key xenstore in
         ( Printf.sprintf "%s = %s = %d" (to_debug_string of_spec) linux xenstore
         , `Quick
@@ -75,7 +77,7 @@ let test_deprecated =
         ( linux
         , `Quick
         , fun () ->
-            let of_linux = of_linux_device linux in
+            let of_linux = of_linux_device linux |> Option.get in
             let of_xenstore = of_xenstore_key xenstore in
             Alcotest.check device_number "must be equal" of_linux of_xenstore
         )
@@ -92,14 +94,22 @@ let test_equivalent =
         ( test_name
         , `Quick
         , fun () ->
-            let x' = of_string ~hvm:false x in
-            let y' = of_string ~hvm:false y in
+            let x' = of_string ~hvm:false x |> Option.get in
+            let y' = of_string ~hvm:false y |> Option.get in
             Alcotest.check device_number "must be equal" x' y'
         )
       )
       equivalent
   in
   ("Equivalent devices", tests)
+
+let test_invalid =
+  let test x () =
+    if Option.is_some (of_string ~hvm:false x) then
+      Alcotest.failf "%s was not rejected" x
+  in
+  let tests = List.map (fun x -> (x, `Quick, test x)) invalid in
+  ("Reject invalid devices", tests)
 
 let test_2_way_convert =
   (* We now always convert Ide specs into xvd* linux devices, so they become Xen
@@ -120,8 +130,8 @@ let test_2_way_convert =
       equal_linux
   in
   let test disk_number hvm =
-    let original = of_disk_number hvm disk_number in
-    let of_linux = of_linux_device (to_linux_device original) in
+    let original = of_disk_number hvm disk_number |> Option.get in
+    let of_linux = of_linux_device (to_linux_device original) |> Option.get in
     let of_xenstore = of_xenstore_key (to_xenstore_key original) in
     Alcotest.check device_number_equal_linux
       "of_linux must be equal to original" original of_linux ;
@@ -143,6 +153,12 @@ let test_2_way_convert =
   )
 
 let tests =
-  [test_examples; test_deprecated; test_equivalent; test_2_way_convert]
+  [
+    test_examples
+  ; test_deprecated
+  ; test_equivalent
+  ; test_invalid
+  ; test_2_way_convert
+  ]
 
 let () = Alcotest.run "Device_number" tests

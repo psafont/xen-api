@@ -560,31 +560,39 @@ module MD = struct
       | `pv_in_pvh | `pv | `pvh | `unspecified ->
           false
     in
-    let device_number = Device_number.of_string ~hvm vbd.API.vBD_userdevice in
+    let device_number =
+      match Device_number.of_string ~hvm vbd.API.vBD_userdevice with
+      | Some dev ->
+          dev
+      | None ->
+          let msg =
+            Printf.sprintf "invalid device for vbd: '%s'" vbd.API.vBD_userdevice
+          in
+          raise Api_errors.(Server_error (internal_error, [msg]))
+    in
     let open Vbd in
     let ty = vbd.API.vBD_qos_algorithm_type in
     let params = vbd.API.vBD_qos_algorithm_params in
     let qos_class params =
-      if List.mem_assoc "class" params then
-        match List.assoc "class" params with
-        | "highest" ->
-            Highest
-        | "high" ->
-            High
-        | "normal" ->
-            Normal
-        | "low" ->
-            Low
-        | "lowest" ->
-            Lowest
-        | s -> (
-          try Other (int_of_string s)
-          with _ ->
-            warn "Unknown VBD QoS scheduler class (try 'high' 'low' 'normal')" ;
-            Normal
-        )
-      else
-        Normal
+      match List.assoc_opt "class" params with
+      | Some "highest" ->
+          Highest
+      | Some "high" ->
+          High
+      | Some "normal" ->
+          Normal
+      | Some "low" ->
+          Low
+      | Some "lowest" ->
+          Lowest
+      | Some s -> (
+        try Other (int_of_string s)
+        with _ ->
+          warn "Unknown VBD QoS scheduler class (try 'high' 'low' 'normal')" ;
+          Normal
+      )
+      | None ->
+          Normal
     in
     let qos_scheduler params =
       try
@@ -2462,14 +2470,16 @@ let update_vbd ~__context (id : string * string) =
           in
           let linux_device = snd id in
           let device_number = Device_number.of_linux_device linux_device in
-          (* only try matching against disk number if the device is not a floppy (as "0" shouldn't match "fda") *)
-          let disk_number =
-            match (device_number :> Device_number.bus_type * int * int) with
-            | Ide, disk, _ | Xen, disk, _ ->
-                Some (string_of_int disk)
+          let disk_of dev =
+            (* only try matching against disk number if the device is not a
+               floppy (as "0" shouldn't match "fda") *)
+            match Device_number.bus dev with
+            | Ide | Xen ->
+                Some (string_of_int Device_number.(disk dev))
             | _ ->
                 None
           in
+          let disk_number = Option.bind device_number disk_of in
           debug "VM %s VBD userdevices = [ %s ]" (fst id)
             (String.concat "; "
                (List.map (fun (_, r) -> r.API.vBD_userdevice) vbdrs)

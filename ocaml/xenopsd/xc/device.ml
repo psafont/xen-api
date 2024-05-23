@@ -592,7 +592,11 @@ module Vbd_Common = struct
     let next = List.fold_left max 0 disks + 1 in
     let open Device_number in
     let bus_type = if hvm && next < 4 then Ide else Xen in
-    make bus_type ~disk:next ~partition:0
+    match make bus_type ~disk:next ~partition:0 with
+    | Some x ->
+        x
+    | None ->
+        raise (Xenopsd_error (Internal_error "Unable to decide slot for vbd"))
 
   type t = {
       mode: mode

@@ -25,14 +25,14 @@ module L = Debug.Make (struct let name = "license" end)
 exception Only_CD_VBDs_may_be_empty
 
 let translate_vbd_device vbd_ref name hvm =
-  try
-    let i = Device_number.of_string ~hvm name in
-    debug "VBD device name %s interpreted as %s (hvm = %b)" name
-      (Device_number.to_debug_string i)
-      hvm ;
-    i
-  with _ ->
-    raise
-      (Api_errors.Server_error
-         (Api_errors.illegal_vbd_device, [Ref.string_of vbd_ref; name])
-      )
+  match Device_number.of_string ~hvm name with
+  | Some i ->
+      debug "VBD device name %s interpreted as %s (hvm = %b)" name
+        (Device_number.to_debug_string i)
+        hvm ;
+      i
+  | None ->
+      raise
+        (Api_errors.Server_error
+           (Api_errors.illegal_vbd_device, [Ref.string_of vbd_ref; name])
+        )

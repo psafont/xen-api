@@ -244,6 +244,16 @@ let add_vbd (vm : Vm.id) (vbd : Vbd.t) () =
   let indices = List.map Device_number.disk dns in
   let next_index = List.fold_left max (-1) indices + 1 in
   let next_dn = Device_number.of_disk_number d.Domain.hvm next_index in
+  let next_dn =
+    match next_dn with
+    | None ->
+        raise
+          (Xenopsd_error
+             (Internal_error "Ran out of available device numbers for the vbd")
+          )
+    | Some dn ->
+        dn
+  in
   let this_dn = Option.value ~default:next_dn vbd.Vbd.position in
   if List.mem this_dn dns then (
     debug "VBD.plug %s.%s: Already exists" (fst vbd.Vbd.id) (snd vbd.Vbd.id) ;
