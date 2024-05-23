@@ -560,7 +560,7 @@ module MD = struct
       | `pv_in_pvh | `pv | `pvh | `unspecified ->
           false
     in
-    let device_number = Device_number.of_string hvm vbd.API.vBD_userdevice in
+    let device_number = Device_number.of_string ~hvm vbd.API.vBD_userdevice in
     let open Vbd in
     let ty = vbd.API.vBD_qos_algorithm_type in
     let params = vbd.API.vBD_qos_algorithm_params in
@@ -2464,13 +2464,9 @@ let update_vbd ~__context (id : string * string) =
           let device_number = Device_number.of_linux_device linux_device in
           (* only try matching against disk number if the device is not a floppy (as "0" shouldn't match "fda") *)
           let disk_number =
-            match Device_number.spec device_number with
-            | Device_number.Ide, _, _ | Device_number.Xen, _, _ ->
-                Some
-                  (device_number
-                  |> Device_number.to_disk_number
-                  |> string_of_int
-                  )
+            match (device_number :> Device_number.bus_type * int * int) with
+            | Ide, disk, _ | Xen, disk, _ ->
+                Some (string_of_int disk)
             | _ ->
                 None
           in

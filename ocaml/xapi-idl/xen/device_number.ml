@@ -1,18 +1,19 @@
 type bus_type = Xen | Scsi | Floppy | Ide [@@deriving rpcty]
 
-type spec = bus_type * int * int [@@deriving rpcty]
+type t = bus_type * int * int [@@deriving rpcty]
 
-type t = spec [@@deriving rpcty]
+let bus_type_to_string = function
+  | Xen ->
+      "Xen"
+  | Scsi ->
+      "Scsi"
+  | Floppy ->
+      "Floppy"
+  | Ide ->
+      "Ide"
 
-let to_debug_string = function
-  | Xen, disk, partition ->
-      Printf.sprintf "Xen(%d, %d)" disk partition
-  | Scsi, disk, partition ->
-      Printf.sprintf "Scsi(%d, %d)" disk partition
-  | Floppy, disk, partition ->
-      Printf.sprintf "Floppy(%d, %d)" disk partition
-  | Ide, disk, partition ->
-      Printf.sprintf "Ide(%d, %d)" disk partition
+let to_debug_string (bus, disk, partition) =
+  Printf.sprintf "%s(%d, %d)" (bus_type_to_string bus) disk partition
 
 (* ocamlp4-friendly operators *)
 let ( <| ) = ( lsl )
@@ -27,7 +28,7 @@ let int_of_string x =
    encodings for disks > 3 *)
 let use_deprecated_ide_encoding = true
 
-let make (x : spec) : t =
+let make bus ~disk ~partition =
   let max_xen = ((1 <| 20) - 1, 15) in
   let max_scsi = (15, 15) in
   let max_ide = if use_deprecated_ide_encoding then (19, 63) else (3, 63) in
@@ -45,19 +46,17 @@ let make (x : spec) : t =
            description partition partition_limit
         )
   in
-  ( match x with
-  | Xen, disk, partition ->
+  ( match bus with
+  | Xen ->
       assert_in_range "xen" max_xen (disk, partition)
-  | Scsi, disk, partition ->
+  | Scsi ->
       assert_in_range "scsi" max_scsi (disk, partition)
-  | Floppy, disk, partition ->
+  | Floppy ->
       assert_in_range "floppy" max_floppy (disk, partition)
-  | Ide, disk, partition ->
+  | Ide ->
       assert_in_range "ide" max_ide (disk, partition)
   ) ;
-  x
-
-let spec (x : t) : spec = x
+  (bus, disk, partition)
 
 let ( || ) = ( lor )
 
@@ -103,8 +102,6 @@ let of_xenstore_int x =
         if idx < 0 then failwith (Printf.sprintf "Unknown device number: %d" x) ;
         (Ide, (x >| 6 && ((1 <| 2) - 1)) + (idx * 2), x && ((1 <| 6) - 1))
 
-type xenstore_key = int
-
 let to_xenstore_key x = to_xenstore_int x
 
 let of_xenstore_key x = of_xenstore_int x
@@ -119,112 +116,103 @@ let rec string_of_int26 x =
   let low' = String.make 1 (char_of_int (low + int_of_char 'a' - 1)) in
   high' ^ low'
 
-module String = struct
-  include String
-
-  let fold_right f string accu =
-    let accu = ref accu in
-    for i = length string - 1 downto 0 do
-      accu := f string.[i] !accu
-    done ;
-    !accu
-
-  let explode string = fold_right (fun h t -> h :: t) string []
-
-  let implode list = concat "" (List.map (String.make 1) list)
-end
-
-(** Convert a linux device string back into an integer *)
-let int26_of_string x =
-  let ints =
-    List.map (fun c -> int_of_char c - int_of_char 'a' + 1) (String.explode x)
-  in
-  List.fold_left (fun acc x -> (acc * 26) + x) 0 ints - 1
-
-let to_linux_device =
+let to_linux_device (bus, disk, part) =
   let p x = if x = 0 then "" else string_of_int x in
-  function
-  | Xen, disk, part ->
-      Printf.sprintf "xvd%s%s" (string_of_int26 disk) (p part)
-  | Scsi, disk, part ->
-      Printf.sprintf "sd%s%s" (string_of_int26 disk) (p part)
-  | Floppy, disk, part ->
-      Printf.sprintf "fd%s%s" (string_of_int26 disk) (p part)
-  | Ide, disk, part ->
-      Printf.sprintf "xvd%s%s" (string_of_int26 disk) (p part)
+  let bus =
+    match bus with Xen -> "xvd" | Scsi -> "sd" | Floppy -> "fd" | Ide -> "xvd"
+  in
+  Printf.sprintf "%s%s%s" bus (string_of_int26 disk) (p part)
 
 let of_linux_device x =
-  let letter c = 'a' <= c && c <= 'z' in
-  let digit c = '0' <= c && c <= '9' in
-  let take f x =
-    let rec inner f acc = function
-      | x :: xs ->
-          if f x then inner f (x :: acc) xs else (List.rev acc, x :: xs)
-      | [] ->
-          (List.rev acc, [])
+  let fail () = failwith (Printf.sprintf "Failed to parse device name: %s" x) in
+  let open Astring in
+  let b26_to_int x =
+    (* Convert a linux device string back into an integer *)
+    (* Assumes all characters are in range *)
+    let b26 =
+      String.Sub.to_string x
+      |> Stdlib.String.to_seq
+      |> Seq.map (fun c -> int_of_char c - int_of_char 'a' + 1)
+      |> Seq.fold_left (fun acc x -> (acc * 26) + x) 0
     in
-    inner f [] x
+    b26 - 1
+  in
+
+  let parse_int x =
+    match String.Sub.span ~min:1 ~sat:Char.Ascii.is_digit x with
+    | i, s -> (
+      match String.Sub.to_int i with None -> fail () | Some i -> (i, s)
+    )
+  in
+  let parse_b26 x =
+    match String.Sub.span ~min:1 ~sat:Char.Ascii.is_lower x with
+    | b, s ->
+        (b26_to_int b, s)
   in
   (* Parse a string "abc123" into x, y where x is "abc" interpreted as base-26
      and y is 123 *)
   let parse_b26_int x =
-    let d, p = take letter x in
-    let d' = int26_of_string (String.implode d) in
-    let p' = if p = [] then 0 else int_of_string (String.implode p) in
-    (d', p')
+    let pre, x = parse_b26 x in
+    if String.Sub.is_empty x then
+      (pre, 0)
+    else
+      let post, x = parse_int x in
+      if not (String.Sub.is_empty x) then fail () ;
+      (pre, post)
   in
   (* Parse a string "123p456" into x, y where x = 123 and y = 456 *)
   let parse_int_p_int x =
-    let d, rest = take digit x in
-    match rest with
-    | 'p' :: rest ->
-        let p, _ = take digit rest in
-        (int_of_string (String.implode d), int_of_string (String.implode p))
-    | [] ->
-        (int_of_string (String.implode d), 0)
-    | _ ->
-        failwith
-          (Printf.sprintf "expected digit+ p digit+ got: %s" (String.implode x))
+    let parse_p x =
+      match String.Sub.head x with
+      | Some 'p' ->
+          String.Sub.tail x
+      | Some _ | None ->
+          fail ()
+    in
+
+    let pre, x = parse_int x in
+
+    if String.Sub.is_empty x then
+      (pre, 0)
+    else
+      let post, x = parse_int (parse_p x) in
+      if not (String.Sub.is_empty x) then fail () ;
+      (* previous parser also allowed garbade at the end *)
+      (pre, post)
   in
-  match String.explode x with
-  | 'x' :: 'v' :: 'd' :: rest ->
-      let disk, partition = parse_b26_int rest in
-      (Xen, disk, partition)
-  | 's' :: 'd' :: rest ->
-      let disk, partition = parse_b26_int rest in
-      (Scsi, disk, partition)
-  | 'f' :: 'd' :: rest ->
-      let disk, partition = parse_b26_int rest in
-      (Floppy, disk, partition)
-  | 'h' :: 'd' :: rest ->
-      let disk, partition = parse_b26_int rest in
-      (Ide, disk, partition)
-  | 'd' :: rest ->
-      let disk, partition = parse_int_p_int rest in
-      (Xen, disk, partition)
-  | _ ->
-      failwith (Printf.sprintf "Failed to parse device name: %s" x)
+  if String.is_prefix ~affix:"xvd" x then
+    let rest = String.sub_with_range ~first:3 x in
+    let disk, partition = parse_b26_int rest in
+    (Xen, disk, partition)
+  else if String.is_prefix ~affix:"sd" x then
+    let rest = String.sub_with_range ~first:2 x in
+    let disk, partition = parse_b26_int rest in
+    (Scsi, disk, partition)
+  else if String.is_prefix ~affix:"fd" x then
+    let rest = String.sub_with_range ~first:2 x in
+    let disk, partition = parse_b26_int rest in
+    (Floppy, disk, partition)
+  else if String.is_prefix ~affix:"hd" x then
+    let rest = String.sub_with_range ~first:2 x in
+    let disk, partition = parse_b26_int rest in
+    (Ide, disk, partition)
+  else if String.is_prefix ~affix:"d" x then
+    let rest = String.sub_with_range ~first:1 x in
+    let disk, partition = parse_int_p_int rest in
+    (Xen, disk, partition)
+  else
+    fail ()
 
 let upgrade_linux_device x =
-  match String.explode x with
-  | 'h' :: 'd' :: rest ->
-      "xvd" ^ String.implode rest
-  | _ ->
-      x
+  if Astring.String.is_prefix ~affix:"hd" x then
+    let rest = Astring.String.with_range ~first:2 x in
+    "xvd" ^ rest
+  else
+    x
 
-type disk_number = int
-
-let to_disk_number = function
-  | Xen, disk, _ ->
-      disk
-  | Scsi, disk, _ ->
-      disk
-  | Floppy, disk, _ ->
-      disk
-  | Ide, disk, _ ->
-      disk
+let disk (_, disk, _) = disk
 
 let of_disk_number hvm n = if hvm && n < 4 then (Ide, n, 0) else (Xen, n, 0)
 
-let of_string hvm name =
+let of_string ~hvm name =
   try of_disk_number hvm (int_of_string name) with _ -> of_linux_device name

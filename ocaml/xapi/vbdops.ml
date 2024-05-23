@@ -24,12 +24,12 @@ module L = Debug.Make (struct let name = "license" end)
 (** Thrown if an empty VBD which isn't a CDROM is attached to an HVM guest *)
 exception Only_CD_VBDs_may_be_empty
 
-let translate_vbd_device vbd_ref name is_hvm =
+let translate_vbd_device vbd_ref name hvm =
   try
-    let i = Device_number.of_string is_hvm name in
+    let i = Device_number.of_string ~hvm name in
     debug "VBD device name %s interpreted as %s (hvm = %b)" name
       (Device_number.to_debug_string i)
-      is_hvm ;
+      hvm ;
     i
   with _ ->
     raise

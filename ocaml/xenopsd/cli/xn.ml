@@ -226,11 +226,11 @@ let parse_disk_info x =
       let ty, device_number, device_number' =
         match Re.Str.split_delim (Re.Str.regexp "[:]") device_number with
         | [x] ->
-            (Vbd.Disk, x, Device_number.of_string false x)
+            (Vbd.Disk, x, Device_number.of_string ~hvm:false x)
         | [x; "floppy"] ->
-            (Vbd.Floppy, x, Device_number.of_string false x)
+            (Vbd.Floppy, x, Device_number.of_string ~hvm:false x)
         | [x; "cdrom"] ->
-            (Vbd.CDROM, x, Device_number.of_string false x)
+            (Vbd.CDROM, x, Device_number.of_string ~hvm:false x)
         | _ ->
             Printf.fprintf stderr
               "Failed to understand disk name '%s'. It should be 'xvda' or \

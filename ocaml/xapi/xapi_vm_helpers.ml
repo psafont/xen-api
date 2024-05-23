@@ -1179,7 +1179,7 @@ let allowed_VBD_devices_control_domain = vbd_inclusive_range false 0 255
 
 let allowed_VBD_devices_HVM_floppy =
   List.map
-    (fun x -> Device_number.make (Device_number.Floppy, x, 0))
+    (fun x -> Device_number.(make Floppy ~disk:x ~partition:0))
     (inclusive_range 0 1)
 
 let allowed_VIF_devices_HVM = vif_inclusive_range 0 6
@@ -1190,7 +1190,9 @@ let allowed_VIF_devices_PV = vif_inclusive_range 0 6
     	represent possible interpretations of [s]. *)
 let possible_VBD_devices_of_string s =
   (* NB userdevice fields are arbitrary strings and device fields may be "" *)
-  let parse hvm x = try Some (Device_number.of_string hvm x) with _ -> None in
+  let parse hvm x =
+    try Some (Device_number.of_string ~hvm x) with _ -> None
+  in
   Listext.List.unbox_list [parse true s; parse false s]
 
 (** [all_used_VBD_devices __context self] returns a list of Device_number.t
