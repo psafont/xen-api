@@ -99,25 +99,24 @@ let tests =
     let minus_2_hrs = -7200 in
     let plus_3_hrs = 10800 in
     let zero_hrs = 0 in
-    check_string "can subtract 2 hours"
-      (_localtime_string (Some minus_2_hrs) t)
-      "20200407T07:01:28" ;
-    check_string "can add 3 hours"
-      (_localtime_string (Some plus_3_hrs) t)
-      "20200407T12:01:28" ;
-    check_string "can add None" (_localtime_string None t) "20200407T09:01:28" ;
-    check_string "can add zero"
+    check_string "can subtract 2 hours" "20200407T07:01:28"
+      (_localtime_string (Some minus_2_hrs) t) ;
+    check_string "can add 3 hours" "20200407T12:01:28"
+      (_localtime_string (Some plus_3_hrs) t) ;
+    check_string "can add None" "20200407T09:01:28" (_localtime_string None t) ;
+    check_string "can add zero" "20200407T09:01:28"
       (_localtime_string (Some zero_hrs) t)
-      "20200407T09:01:28"
   in
   (* sanity check (on top of test_localtime_string) that localtime produces valid looking output *)
   let test_ca342171 () =
     (* no exception is thrown + backward compatible formatting *)
     let localtime_string = localtime () |> to_rfc3339 in
     Alcotest.(check int)
-      "localtime string has correct number of chars"
-      (String.length localtime_string)
-      (String.length no_dash_utc_time_str - 1) ;
+      (Printf.sprintf "localtime string: %s has correct number of chars"
+         localtime_string
+      )
+      (String.length no_dash_utc_time_str - 1)
+      (String.length localtime_string) ;
     Alcotest.(check bool)
       "localtime string does not contain a Z" false
       (String.contains localtime_string 'Z')
