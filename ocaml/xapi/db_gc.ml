@@ -106,7 +106,7 @@ let check_host_liveness ~__context =
             debug
               "Host %s considering using metrics last update time as heartbeat"
               (Ref.string_of host) ;
-            Date.to_float
+            Date.to_unix_time
               (Db.Host_metrics.get_last_updated ~__context ~self:hmetric)
           ) else
             0.0

@@ -55,7 +55,7 @@ let check ~intra_pool_only ~session_id ~action =
           if Pool_role.is_master () then
             Db_actions.DB_Action.Session.set_last_active ~__context
               ~self:session_id
-              ~value:(Xapi_stdext_date.Date.of_float (Unix.time ()))
+              ~value:(Xapi_stdext_date.Date.now ())
         with
         | Db_exn.DBCache_NotFound (_, _, reference) ->
             info
