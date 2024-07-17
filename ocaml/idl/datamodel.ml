@@ -3889,7 +3889,9 @@ module VDI = struct
     ; {
         param_type= DateTime
       ; param_name= "snapshot_time"
-      ; param_doc= "Storage-specific config"
+      ; param_doc=
+          "Storage-specific config. When the timezone is missing, UTC is \
+           assumed"
       ; param_release= tampa_release
       ; param_default= Some (VDateTime Date.epoch)
       }
@@ -4083,7 +4085,11 @@ module VDI = struct
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
-        ; (DateTime, "value", "The snapshot time of this VDI.")
+        ; ( DateTime
+          , "value"
+          , "The snapshot time of this VDI. When the timezone is missing, UTC \
+             is assumed"
+          )
         ]
       ~flags:[`Session] ~doc:"Sets the snapshot time of this VDI."
       ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
@@ -5501,7 +5507,11 @@ module VMPP = struct
       ~params:
         [
           (Ref _vmpp, "self", "The protection policy")
-        ; (DateTime, "value", "the value to set")
+        ; ( DateTime
+          , "value"
+          , "When was the last backup was done. When the timezone is missing, \
+             UTC is assumed"
+          )
         ]
       ()
 
@@ -5511,7 +5521,11 @@ module VMPP = struct
       ~params:
         [
           (Ref _vmpp, "self", "The protection policy")
-        ; (DateTime, "value", "the value to set")
+        ; ( DateTime
+          , "value"
+          , "When was the last archive was done. When the timezone is missing, \
+             UTC is assumed"
+          )
         ]
       ()
 
@@ -5772,7 +5786,11 @@ module VMSS = struct
       ~params:
         [
           (Ref _vmss, "self", "The snapshot schedule")
-        ; (DateTime, "value", "the value to set")
+        ; ( DateTime
+          , "value"
+          , "When was the schedule was last run. When a timezone is missing, \
+             UTC is assumed"
+          )
         ]
       ()
 
@@ -6301,7 +6319,10 @@ module Message = struct
         [
           (cls, "cls", "The class of object")
         ; (String, "obj_uuid", "The uuid of the object")
-        ; (DateTime, "since", "The cutoff time")
+        ; ( DateTime
+          , "since"
+          , "The cutoff time. When the timezone is missing, UTC is assumed"
+          )
         ]
       ~flags:[`Session]
       ~result:(Map (Ref _message, Record _message), "The relevant messages")
@@ -6309,7 +6330,13 @@ module Message = struct
 
   let get_since =
     call ~name:"get_since" ~in_product_since:rel_orlando
-      ~params:[(DateTime, "since", "The cutoff time")]
+      ~params:
+        [
+          ( DateTime
+          , "since"
+          , "The cutoff time. When the timezone is missing, UTC is assumed"
+          )
+        ]
       ~flags:[`Session]
       ~result:(Map (Ref _message, Record _message), "The relevant messages")
       ~allowed_roles:_R_READ_ONLY ()
