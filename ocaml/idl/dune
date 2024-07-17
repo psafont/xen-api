@@ -48,11 +48,12 @@
   (action (run %{x} -closed -markdown))
 )
 
-(test
-  (name schematest)
+(tests
+  (names schematest test_datetimes)
   (modes exe)
-  (modules schematest)
+  (modules schematest test_datetimes)
   (libraries
+    astring
     dune-build-info
     rpclib.core
     rpclib.json
