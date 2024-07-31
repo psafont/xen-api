@@ -54,24 +54,4 @@ module String = struct
       String.sub s 0 (n - 1)
     else
       s
-
-  let map_unlikely s f =
-    let changed = ref false in
-    let m = ref 0 in
-    let buf = Buffer.create 0 in
-    for i = 0 to String.length s - 1 do
-      match f s.[i] with
-      | None ->
-          ()
-      | Some n ->
-          changed := true ;
-          Buffer.add_substring buf s !m (i - !m) ;
-          Buffer.add_string buf n ;
-          m := i + 1
-    done ;
-    if !changed then (
-      Buffer.add_substring buf s !m (String.length s - !m) ;
-      Buffer.contents buf
-    ) else
-      s
 end
