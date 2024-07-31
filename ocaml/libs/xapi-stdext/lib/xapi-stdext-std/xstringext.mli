@@ -37,9 +37,6 @@ module String : sig
   val rtrim : string -> string
   (** FIXME document me|remove me if similar to strip *)
 
-  val map_unlikely : string -> (char -> string option) -> string
-  (** map a string trying to fill the buffer by chunk *)
-
   val sub_to_end : string -> int -> string
   (** a substring from the specified position to the end of the string *)
 end
