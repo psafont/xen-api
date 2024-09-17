@@ -57,32 +57,6 @@ val log_to_stdout : unit -> unit
 val log_backtrace : exn -> Backtrace.t -> unit
 (** Write the backtrace associated with [exn] to the log *)
 
-module type DEBUG = sig
-  val debug : ('a, unit, string, unit) format4 -> 'a
-  (** Debug function *)
-
-  val warn : ('a, unit, string, unit) format4 -> 'a
-  (** Warn function *)
-
-  val info : ('a, unit, string, unit) format4 -> 'a
-  (** Info function *)
-
-  val error : ('a, unit, string, unit) format4 -> 'a
-  (** Error function *)
-
-  val critical : ('a, unit, string, unit) format4 -> 'a
-  (** Critical function *)
-
-  val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
-  (** Audit function *)
-
-  val log_backtrace : unit -> unit
-
-  val log_and_ignore_exn : (unit -> unit) -> unit
-end
-
-module Make : functor (_ : BRAND) -> DEBUG
-
 (** {3 Utility functions for the test code} *)
 
 val is_disabled : string -> Syslog.level -> bool
@@ -92,3 +66,38 @@ val is_disabled : string -> Syslog.level -> bool
 module Pp : sig
   val mtime_span : unit -> Mtime.Span.t -> string
 end
+
+(** {4 Versioned interfaces}
+    Interfaces used for transitioning from old code to new, better-behaved
+    code.
+  *)
+
+module V1 : sig
+  module type DEBUG = sig
+    val debug : ('a, unit, string, unit) format4 -> 'a
+    (** Debug function *)
+
+    val warn : ('a, unit, string, unit) format4 -> 'a
+    (** Warn function *)
+
+    val info : ('a, unit, string, unit) format4 -> 'a
+    (** Info function *)
+
+    val error : ('a, unit, string, unit) format4 -> 'a
+    (** Error function *)
+
+    val critical : ('a, unit, string, unit) format4 -> 'a
+    (** Critical function *)
+
+    val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
+    (** Audit function *)
+
+    val log_backtrace : unit -> unit
+
+    val log_and_ignore_exn : (unit -> unit) -> unit
+  end
+
+  module Make : functor (_ : BRAND) -> DEBUG
+end
+
+include module type of V1

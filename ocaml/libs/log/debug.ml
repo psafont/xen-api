@@ -294,63 +294,67 @@ let disable ?level brand =
 
 let set_level level = Mutex.execute loglevel_m (fun () -> loglevel := level)
 
-module type DEBUG = sig
-  val debug : ('a, unit, string, unit) format4 -> 'a
+module V1 = struct
+  module type DEBUG = sig
+    val debug : ('a, unit, string, unit) format4 -> 'a
 
-  val warn : ('a, unit, string, unit) format4 -> 'a
+    val warn : ('a, unit, string, unit) format4 -> 'a
 
-  val info : ('a, unit, string, unit) format4 -> 'a
+    val info : ('a, unit, string, unit) format4 -> 'a
 
-  val error : ('a, unit, string, unit) format4 -> 'a
+    val error : ('a, unit, string, unit) format4 -> 'a
 
-  val critical : ('a, unit, string, unit) format4 -> 'a
+    val critical : ('a, unit, string, unit) format4 -> 'a
 
-  val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
+    val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
 
-  val log_backtrace : unit -> unit
+    val log_backtrace : unit -> unit
 
-  val log_and_ignore_exn : (unit -> unit) -> unit
+    val log_and_ignore_exn : (unit -> unit) -> unit
+  end
+
+  module Make =
+  functor
+    (Brand : BRAND)
+    ->
+    struct
+      let output level priority (fmt : ('a, unit, string, 'b) format4) =
+        Printf.ksprintf
+          (fun s ->
+            if not (is_disabled Brand.name level) then
+              output_log Brand.name level priority s
+          )
+          fmt
+
+      let debug fmt = output Syslog.Debug "debug" fmt
+
+      let warn fmt = output Syslog.Warning "warn" fmt
+
+      let info fmt = output Syslog.Info "info" fmt
+
+      let error fmt = output Syslog.Err "error" fmt
+
+      let critical fmt = output Syslog.Crit "critical" fmt
+
+      let audit ?(raw = false) (fmt : ('a, unit, string, 'b) format4) =
+        Printf.ksprintf
+          (fun s ->
+            let msg = if raw then s else format true Brand.name "audit" s in
+            Syslog.log Syslog.Local6 Syslog.Info (escape msg) ;
+            msg
+          )
+          fmt
+
+      let log_backtrace () =
+        let backtrace = Printexc.get_backtrace () in
+        debug "%s" (String.escaped backtrace)
+
+      let log_and_ignore_exn f =
+        try f ()
+        with e -> log_backtrace_internal ~level:Syslog.Debug ~msg:"debug" e ()
+    end
 end
 
-module Make =
-functor
-  (Brand : BRAND)
-  ->
-  struct
-    let output level priority (fmt : ('a, unit, string, 'b) format4) =
-      Printf.ksprintf
-        (fun s ->
-          if not (is_disabled Brand.name level) then
-            output_log Brand.name level priority s
-        )
-        fmt
-
-    let debug fmt = output Syslog.Debug "debug" fmt
-
-    let warn fmt = output Syslog.Warning "warn" fmt
-
-    let info fmt = output Syslog.Info "info" fmt
-
-    let error fmt = output Syslog.Err "error" fmt
-
-    let critical fmt = output Syslog.Crit "critical" fmt
-
-    let audit ?(raw = false) (fmt : ('a, unit, string, 'b) format4) =
-      Printf.ksprintf
-        (fun s ->
-          let msg = if raw then s else format true Brand.name "audit" s in
-          Syslog.log Syslog.Local6 Syslog.Info (escape msg) ;
-          msg
-        )
-        fmt
-
-    let log_backtrace () =
-      let backtrace = Printexc.get_backtrace () in
-      debug "%s" (String.escaped backtrace)
-
-    let log_and_ignore_exn f =
-      try f ()
-      with e -> log_backtrace_internal ~level:Syslog.Debug ~msg:"debug" e ()
-  end
+include V1
 
 module Pp = struct let mtime_span () = Fmt.str "%a" Mtime.Span.pp end
