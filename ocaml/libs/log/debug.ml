@@ -318,6 +318,20 @@ module V1 = struct
     (Brand : BRAND)
     ->
     struct
+      let src = Logs.Src.create Brand.name ~doc:Brand.name
+
+      let debug fmt =
+        Format.ksprintf (fun str -> Logs.debug ~src (fun m -> m "%s" str)) fmt
+
+      let info fmt =
+        Format.ksprintf (fun str -> Logs.info ~src (fun m -> m "%s" str)) fmt
+
+      let warn fmt =
+        Format.ksprintf (fun str -> Logs.warn ~src (fun m -> m "%s" str)) fmt
+
+      let error fmt =
+        Format.ksprintf (fun str -> Logs.err ~src (fun m -> m "%s" str)) fmt
+
       let output level priority (fmt : ('a, unit, string, 'b) format4) =
         Printf.ksprintf
           (fun s ->
@@ -325,14 +339,6 @@ module V1 = struct
               output_log Brand.name level priority s
           )
           fmt
-
-      let debug fmt = output Syslog.Debug "debug" fmt
-
-      let warn fmt = output Syslog.Warning "warn" fmt
-
-      let info fmt = output Syslog.Info "info" fmt
-
-      let error fmt = output Syslog.Err "error" fmt
 
       let critical fmt = output Syslog.Crit "critical" fmt
 
