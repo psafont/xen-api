@@ -12,15 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Mutex = struct
-  include Mutex
-
-  (** execute the function f with the mutex hold *)
-  let execute lock f =
-    Mutex.lock lock ;
-    let r = try f () with exn -> Mutex.unlock lock ; raise exn in
-    Mutex.unlock lock ; r
-end
+(** execute the function f with the mutex held *)
+let with_lock lock f =
+  Mutex.lock lock ;
+  Fun.protect ~finally:(fun () -> Mutex.unlock lock) f
 
 let get_thread_id () = try Thread.id (Thread.self ()) with _ -> -1
 
@@ -38,7 +33,7 @@ module ThreadLocalTable = struct
 
   let add t v =
     let id = get_thread_id () in
-    Mutex.execute t.m (fun () ->
+    with_lock t.m (fun () ->
         t.tbl <-
           IntMap.update id
             (function Some v' -> Some (v :: v') | None -> Some [v])
@@ -47,7 +42,7 @@ module ThreadLocalTable = struct
 
   let remove t =
     let id = get_thread_id () in
-    Mutex.execute t.m (fun () ->
+    with_lock t.m (fun () ->
         t.tbl <-
           IntMap.update id
             (function
@@ -182,9 +177,7 @@ let logs_reporter =
         "app"
   in
   let report src level ~over k msgf =
-    let formatter ?header ?tags fmt =
-      ignore header ;
-      ignore tags ;
+    let formatter ?header:_ ?tags:_ fmt =
       let buf = Buffer.create 80 in
       let buf_fmt = Format.formatter_of_buffer buf in
       let k _ =
@@ -213,13 +206,6 @@ let init_logs () =
      calling [output_log] too often. *)
   Logs.set_level (Some Logs.Warning)
 
-let rec split_c c str =
-  try
-    let i = String.index str c in
-    String.sub str 0 i
-    :: split_c c (String.sub str (i + 1) (String.length str - i - 1))
-  with Not_found -> [str]
-
 let log_backtrace_exn ?(level = Syslog.Err) ?(msg = "error") exn bt =
   (* We already got the backtrace in the `bt` argument when called from with_thread_associated.
      Log that, and remove `exn` from the backtraces table.
@@ -231,7 +217,7 @@ let log_backtrace_exn ?(level = Syslog.Err) ?(msg = "error") exn bt =
   let bt' = Backtrace.remove exn in
   (* bt could be empty, but bt' would contain a non-empty warning, so compare 'bt' here *)
   let bt = if bt = Backtrace.empty then bt' else bt in
-  let all = split_c '\n' Backtrace.(to_string_hum bt) in
+  let all = String.split_on_char '\n' Backtrace.(to_string_hum bt) in
   (* Write to the log line at a time *)
   output_log "backtrace" level msg
     (Printf.sprintf "Raised %s" (Printexc.to_string exn)) ;
@@ -290,9 +276,9 @@ let add_to_stoplist brand level =
 
 let disable ?level brand =
   let levels = match level with None -> all_levels | Some l -> [l] in
-  Mutex.execute loglevel_m (fun () -> List.iter (add_to_stoplist brand) levels)
+  with_lock loglevel_m (fun () -> List.iter (add_to_stoplist brand) levels)
 
-let set_level level = Mutex.execute loglevel_m (fun () -> loglevel := level)
+let set_level level = with_lock loglevel_m (fun () -> loglevel := level)
 
 module V1 = struct
   module type DEBUG = sig
