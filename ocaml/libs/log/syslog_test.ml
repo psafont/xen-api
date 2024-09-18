@@ -18,3 +18,5 @@ let test_is_masked () =
   assert_masked ~threshold:Err (false, true, true, true)
 
 let tests = [("Test Syslog.is_masked", `Quick, test_is_masked)]
+
+let () = Alcotest.run "Logging" [("Syslog", tests)]

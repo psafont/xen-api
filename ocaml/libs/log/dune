@@ -1,6 +1,7 @@
 (library
  (name log)
  (public_name xapi-log)
+ (modules :standard \ debug_test syslog_test)
  (foreign_stubs
    (language c)
    (names syslog_stubs))
@@ -13,4 +14,11 @@
    xapi-backtrace
  )
  (wrapped false)
+)
+
+(tests
+ (names debug_test syslog_test)
+ (package xapi-log)
+ (modules debug_test syslog_test)
+ (libraries alcotest log)
 )

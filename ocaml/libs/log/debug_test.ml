@@ -73,3 +73,5 @@ let tests =
   ; test_case "Test Debug.set_level (multiple loggers)" `Quick
       test_debug_set_level_multiple_loggers
   ]
+
+let () = Alcotest.run "Logging" [("Debug", tests)]
