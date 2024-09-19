@@ -12,11 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Helpers
-
 module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
+module Unixext = Xapi_stdext_unix.Unixext
 
 let dir_perm = 0o755
 

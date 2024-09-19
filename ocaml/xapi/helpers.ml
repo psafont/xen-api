@@ -32,8 +32,6 @@ module D = Debug.Make (struct let name = "helpers" end)
 open D
 module StringSet = Set.Make (String)
 
-let ( let* ) = Result.bind
-
 let log_exn_continue msg f x =
   try f x
   with e ->
@@ -803,11 +801,6 @@ let has_qemu ~__context ~self =
 
 let is_running ~__context ~self = Db.VM.get_domid ~__context ~self <> -1L
 
-let devid_of_vif ~__context ~self =
-  int_of_string (Db.VIF.get_device ~__context ~self)
-
-exception Device_has_no_VIF
-
 let get_special_network other_config_key ~__context =
   let nets = Db.Network.get_all ~__context in
   let findfn net =
@@ -823,9 +816,9 @@ let get_guest_installer_network = get_special_network is_guest_installer_network
 let get_host_internal_management_network =
   get_special_network is_host_internal_management_network
 
-(* -------------------------------------------------------------------------------------------------
+(* -----------------------------------------------------------------------------
     Storage related helpers
-   ------------------------------------------------------------------------------------------------- *)
+   -------------------------------------------------------------------------- *)
 
 let get_my_pbds __context =
   let localhost = get_localhost ~__context in
@@ -2125,15 +2118,6 @@ let external_certificate_thumbprint_of_master ~hash_type =
     )
   else
     None
-
-let unit_test ~__context : bool =
-  Pool_role.is_unit_test ()
-  ||
-  match Context.get_test_clusterd_rpc __context with
-  | Some _ ->
-      true
-  | None ->
-      false
 
 let get_active_uefi_certificates ~__context ~self =
   let custom_uefi_certs =

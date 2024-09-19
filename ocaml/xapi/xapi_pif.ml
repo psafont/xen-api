@@ -17,6 +17,7 @@ open D
 
 module L = Debug.Make (struct let name = "license" end)
 
+module StringSet = Set.Make (String)
 open Xapi_database.Db_filter_types
 module Listext = Xapi_stdext_std.Listext.List
 module Date = Xapi_stdext_date.Date
