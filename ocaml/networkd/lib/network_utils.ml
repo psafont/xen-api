@@ -20,6 +20,8 @@ module D = Debug.Make (struct let name = "network_utils" end)
 
 open D
 
+let ( let* ) = Option.bind
+
 type util_error =
   | Bus_out_of_range
   | Not_enough_mmio_resources
@@ -217,10 +219,15 @@ module Sysfs = struct
       raise (Network_error (Interface_does_not_exist dev))
 
   let get_carrier name =
-    try
-      let i = int_of_string (read_one_line (getpath name "carrier")) in
-      match i with 1 -> true | 0 -> false | _ -> false
-    with _ -> false
+    match int_of_string (read_one_line (getpath name "carrier")) with
+    | 1 ->
+        true
+    | 0 ->
+        false
+    | _ ->
+        false
+    | exception _ ->
+        false
 
   let get_pcibuspath name =
     try
@@ -509,7 +516,19 @@ module Ip = struct
     let output = call ~log:false (v @ ["addr"; "show"; "dev"; dev]) in
     find output attr
 
-  let get_mtu dev = int_of_string (List.hd (link dev "mtu"))
+  let get_mtu dev =
+    let maybe_mtu =
+      link dev "mtu"
+      |> Fun.flip List.nth_opt 0
+      |> Fun.flip Option.bind int_of_string_opt
+    in
+    match maybe_mtu with
+    | None ->
+        let msg = Printf.sprintf "can't find mtu for %s (%s)" dev __LOC__ in
+        error "%s" msg ;
+        raise (Network_error (Internal_error msg))
+    | Some mtu ->
+        mtu
 
   let get_mac dev =
     match link dev "link/ether" with
@@ -534,7 +553,7 @@ module Ip = struct
     match Astring.String.cut ~sep:"/" addr with
     | Some (ipstr, prefixlenstr) ->
         let ip = Unix.inet_addr_of_string ipstr in
-        let prefixlen = int_of_string prefixlenstr in
+        let* prefixlen = int_of_string_opt prefixlenstr in
         Some (ip, prefixlen)
     | None ->
         None
@@ -601,8 +620,12 @@ module Ip = struct
     with _ -> ()
 
   let set_ipv6_link_local_addr dev =
-    let addr = get_ipv6_link_local_addr dev in
-    try ignore (call ["addr"; "add"; addr; "dev"; dev; "scope"; "link"])
+    try
+      let addr = get_ipv6_link_local_addr dev in
+      let _ : bridge =
+        call ["addr"; "add"; addr; "dev"; dev; "scope"; "link"]
+      in
+      ()
     with _ -> ()
 
   let flush_ip_addr ?(ipv6 = false) dev =
