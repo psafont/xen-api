@@ -41,6 +41,8 @@
    }
 *)
 
+module StringSet : Set.S with type elt = string
+
 (** {2 API functions} *)
 
 val refresh :
@@ -85,7 +87,7 @@ val introduce :
      __context:Context.t
   -> host:[`host] Ref.t
   -> mAC:string
-  -> device:Helpers.StringSet.elt
+  -> device:StringSet.elt
   -> managed:bool
   -> API.ref_PIF
 (** Create a new PIF record for a new NIC *)
@@ -221,9 +223,9 @@ val introduce_internal :
   -> t:tables
   -> __context:Context.t
   -> host:[`host] Ref.t
-  -> mAC:Helpers.StringSet.elt
+  -> mAC:StringSet.elt
   -> mTU:int64
-  -> device:Helpers.StringSet.elt
+  -> device:StringSet.elt
   -> vLAN:int64
   -> vLAN_master_of:[`VLAN] Ref.t
   -> ?metrics:[`PIF_metrics] Ref.t

@@ -15,10 +15,11 @@
 module Stringext = Xapi_stdext_std.Xstringext.String
 module Unixext = Xapi_stdext_unix.Unixext
 open Http
-open Helpers
 open Client
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 module D = Debug.Make (struct let name = "xapi_pool_update" end)
 

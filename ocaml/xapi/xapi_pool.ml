@@ -256,7 +256,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     )
   in
   let assert_homogeneous_updates () =
-    let module S = Helpers.StringSet in
+    let module S = Set.Make (String) in
     let local_host = Helpers.get_localhost ~__context in
     let local_uuid = Db.Host.get_uuid ~__context ~self:local_host in
     let updates_on ~rpc ~session_id host =

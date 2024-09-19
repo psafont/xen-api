@@ -12,9 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Helpers
 open Tar_ext
 open Bos
+module Unixext = Xapi_stdext_unix.Unixext
 
 let ( // ) = Filename.concat
 
