@@ -17,11 +17,13 @@
 
 open Http
 open Forkhelpers
-open Helpers
+module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "xapi_host_backup" end)
 
 open D
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let host_backup_handler_core ~__context s =
   match
