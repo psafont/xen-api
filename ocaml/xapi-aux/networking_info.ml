@@ -40,12 +40,6 @@ let dns_names () =
      )
   |> Astring.String.uniquify
 
-let ipaddr_to_cstruct = function
-  | Ipaddr.V4 addr ->
-      Cstruct.of_string (Ipaddr.V4.to_octets addr)
-  | Ipaddr.V6 addr ->
-      Cstruct.of_string (Ipaddr.V6.to_octets addr)
-
 let list_head lst = List.nth_opt lst 0
 
 let get_management_ip_addr ~dbg =
@@ -72,6 +66,6 @@ let get_management_ip_addr ~dbg =
       |> List.map (fun (addr, _) -> Ipaddr_unix.of_inet_addr addr)
       (* Filter out link-local addresses *)
       |> List.filter (fun addr -> Ipaddr.scope addr <> Ipaddr.Link)
-      |> List.map (fun ip -> (Ipaddr.to_string ip, ipaddr_to_cstruct ip))
+      |> List.map Ipaddr.to_string
       |> list_head
   with _ -> None

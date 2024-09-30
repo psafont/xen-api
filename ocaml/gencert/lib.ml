@@ -36,8 +36,7 @@ let validate_private_key pkcs8_private_key =
         let key_type = X509.(Key_type.to_string (Private_key.key_type key)) in
         Error (`Msg (server_certificate_key_algorithm_not_supported, [key_type]))
   in
-  let raw_pem = Cstruct.of_string pkcs8_private_key in
-  X509.Private_key.decode_pem raw_pem
+  X509.Private_key.decode_pem pkcs8_private_key
   |> R.reword_error (fun (`Msg err_msg) ->
          let unknown_algorithm = "Unknown algorithm " in
          if Astring.String.is_prefix ~affix:"multi-prime RSA" err_msg then
@@ -59,8 +58,7 @@ let validate_private_key pkcs8_private_key =
   >>= ensure_rsa_key_length
 
 let pem_of_string x ~error_invalid =
-  let raw_pem = Cstruct.of_string x in
-  X509.Certificate.decode_pem raw_pem
+  X509.Certificate.decode_pem x
   |> R.reword_error (fun (`Msg err_msg) ->
          D.info {|Failed to validate certificate because "%s"|} err_msg ;
          `Msg (error_invalid, [])
@@ -110,8 +108,7 @@ let validate_certificate kind pem now private_key =
       >>= ensure_keys_match private_key
       >>= ensure_sha256_signature_algorithm
   | Chain -> (
-      let raw_pem = Cstruct.of_string pem in
-      X509.Certificate.decode_pem_multiple raw_pem |> function
+      X509.Certificate.decode_pem_multiple pem |> function
       | Ok (cert :: _) ->
           Ok cert
       | Ok [] ->

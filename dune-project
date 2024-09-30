@@ -334,6 +334,8 @@
     cstruct
     ctypes
     ctypes-foreign
+    cstruct
+    digestif
     domain-name
     (ezxenstore (= :version))
     fmt

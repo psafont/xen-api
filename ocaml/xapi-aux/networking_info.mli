@@ -20,7 +20,7 @@ val dns_names : unit -> string list
 (** [dns_names ()] returns a list of the hostnames that the host may have.
     Ignores empty names as well as "localhost" *)
 
-val get_management_ip_addr : dbg:string -> (string * Cstruct.t) option
+val get_management_ip_addr : dbg:string -> string option
 (** [get_management_ip_addr ~dbg] returns the IP of the management network.
     If the system does not have management address None is return.
     [Unexpected_address_type] is raised if there is an unexpected address is

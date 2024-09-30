@@ -182,7 +182,7 @@ let test_invalid_cert ~kind cert time pkey error reason =
         "Error must match" (error, reason) msg
 
 let load_pkcs8 name =
-  X509.Private_key.decode_pem (Cstruct.of_string (load_test_data name))
+  X509.Private_key.decode_pem (load_test_data name)
   |> Rresult.R.reword_error (fun (`Msg msg) ->
          `Msg
            (Printf.sprintf "Could not load private key with name '%s': %s" name
@@ -200,7 +200,6 @@ let sign_leaf_cert host_name digest pkey_leaf =
   load_pkcs8 "pkey_rsa_4096" >>= fun pkey_sign ->
   sign_cert host_name ~pkey_sign digest pkey_leaf
   >>| X509.Certificate.encode_pem
-  >>| Cstruct.to_string
 
 let valid_leaf_cert_tests =
   let test_valid_leaf_cert cert time pkey () =
@@ -267,8 +266,8 @@ let valid_chain_cert_tests =
         )
         (pkey_root, Ok []) key_chain
     in
-    chain >>| X509.Certificate.encode_pem_multiple >>| Cstruct.to_string
-    >>| fun chain -> test_valid_cert_chain chain time pkey
+    chain >>| X509.Certificate.encode_pem_multiple >>| fun chain ->
+    test_valid_cert_chain chain time pkey
   in
   [("Validation of a supported certificate chain", `Quick, test_cert)]
 

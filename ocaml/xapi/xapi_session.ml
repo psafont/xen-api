@@ -797,12 +797,11 @@ module Caching = struct
   let create_salt () =
     (* Creates a Cstruct of length 8. *)
     let data = Mirage_crypto_rng.generate 8 in
-    let bytes = Cstruct.to_bytes data in
     (* Encode the salt as a hex string. Each byte becomes 2
        hexadecimal digits, so the length is 16 (the maximum for
        crypt_r). *)
     let hexify char acc = Printf.sprintf "%s%02x" acc (Char.code char) in
-    Bytes.fold_right hexify bytes ""
+    String.fold_right hexify data ""
 
   module AuthenticatedResult = struct
     type key = string

@@ -48,7 +48,7 @@ let main ~dbg ~path ~cert_gid ~sni () =
   let generator path =
     match sni with
     | SNI.Default ->
-        let name, ip =
+        let ip =
           match Networking_info.get_management_ip_addr ~dbg with
           | None ->
               D.error "gencert.ml: cannot get management ip address!" ;
@@ -59,7 +59,7 @@ let main ~dbg ~path ~cert_gid ~sni () =
         let dns_names = Networking_info.dns_names () in
         let ips = [ip] in
         let (_ : X509.Certificate.t) =
-          Gencertlib.Selfcert.host ~name ~dns_names ~ips ~valid_for_days path
+          Gencertlib.Selfcert.host ~name:ip ~dns_names ~ips ~valid_for_days path
             cert_gid
         in
         ()
