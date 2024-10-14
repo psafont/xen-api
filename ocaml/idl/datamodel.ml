@@ -7540,6 +7540,16 @@ module VMPP = struct
     ; (Removed, rel_clearwater, "The VMPR feature was removed")
     ]
 
+  (* Removing all fields is quite problematic because ocaml doesn't allow empty
+     records, and changing the type is more complicated than necessary. It would
+     be more preferrable to remove the whole class from the api, although that
+     has its own issues as well. *)
+  let deprecated =
+    [
+      (Published, rel_cowley, "")
+    ; (Deprecated, rel_clearwater, "The VMPR feature was removed")
+    ]
+
   let protect_now =
     call ~flags:[`Session] ~name:"protect_now" ~lifecycle:removed
       ~params:[(Ref _vmpp, "vmpp", "The protection policy to execute")]
@@ -7903,7 +7913,9 @@ module VMPP = struct
       ~contents:
         [
           uid ~lifecycle:removed _vmpp
-        ; namespace ~name:"name" ~contents:(names None RW ~lifecycle:removed) ()
+        ; namespace ~name:"name"
+            ~contents:(names None RW ~lifecycle:deprecated)
+            ()
         ; field ~lifecycle:removed ~qualifier:RW ~ty:Bool "is_policy_enabled"
             "enable or disable this policy" ~default_value:(Some (VBool true))
         ; field ~lifecycle:removed ~qualifier:RW ~ty:backup_type "backup_type"

@@ -11,14 +11,6 @@ let vmpp_removed =
   ; (Removed, rel_clearwater, "The VMPR feature was removed")
   ]
 
-(* Removing a one-to-many field is quite difficult, leave vmpp reference
-   deprecated only *)
-let vmpp_deprecated =
-  [
-    (Lifecycle.Published, rel_cowley, "")
-  ; (Deprecated, rel_clearwater, "The VMPR feature was removed")
-  ]
-
 let pv =
   [
     field
@@ -2959,7 +2951,7 @@ let t =
             ~ty:(Map (String, String))
             "bios_strings" "BIOS strings"
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
-            ~lifecycle:vmpp_deprecated ~default_value:(Some (VRef null_ref))
+            ~lifecycle:vmpp_removed ~default_value:(Some (VRef null_ref))
             ~ty:(Ref _vmpp) "protection_policy"
             "Ref pointing to a protection policy for this VM"
         ; field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO
