@@ -127,6 +127,7 @@ jobs:
     environment: pypi
     permissions:
       id-token: write
+    if: ${{ github.repository == 'xapi-project/xen-api' }}
     steps:
       - name: Retrieve python distribution artifacts
         uses: actions/download-artifact@v4
