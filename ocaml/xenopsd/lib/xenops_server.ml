@@ -162,7 +162,9 @@ type atomic =
   | VM_rename of (Vm.id * Vm.id * rename_when)
   | VM_import_metadata of (Vm.id * Metadata.t)
   | Parallel of Vm.id * string * atomic list
+  | Serial of Vm.id * string * atomic list
   | Best_effort of atomic
+  | Nop
 [@@deriving rpcty]
 
 let string_of_atomic x = x |> rpc_of atomic |> Jsonrpc.to_string
@@ -271,8 +273,13 @@ let rec name_of_atomic = function
   | Parallel (_, _, atomics) ->
       Printf.sprintf "Parallel (%s)"
         (String.concat " | " (List.map name_of_atomic atomics))
+  | Serial (_, _, atomics) ->
+      Printf.sprintf "Serial (%s)"
+        (String.concat " & " (List.map name_of_atomic atomics))
   | Best_effort atomic ->
       Printf.sprintf "Best_effort (%s)" (name_of_atomic atomic)
+  | Nop ->
+      "Nop"
 
 type vm_migrate_op = {
     vmm_id: Vm.id
@@ -1550,6 +1557,27 @@ let dequarantine_ops vgpus =
          fun vgpu -> PCI_dequarantine vgpu.physical_pci_address
        )
 
+let collect_into lst apply =
+  match List.filter (( <> ) Nop) lst with
+  | [] ->
+      Nop
+  | [op] ->
+      op
+  | lst ->
+      apply lst
+
+let parallel name ~id lst =
+  collect_into lst (fun ls ->
+      Parallel (id, Printf.sprintf "%s VM=%s" name id, ls)
+  )
+
+let serial name ~id lst =
+  collect_into lst (fun ls -> Serial (id, Printf.sprintf "%s VM=%s" name id, ls))
+
+let parallel_map name ~id lst f = parallel name ~id (List.map f lst)
+
+let map_or_nop f x = Option.value ~default:Nop (Option.map f x)
+
 let rec atomics_of_operation = function
   | VM_start (id, force) ->
       let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
@@ -1561,6 +1589,21 @@ let rec atomics_of_operation = function
         List.partition (is_nvidia_sriov vgpus) pcis
       in
       let no_sharept = List.exists is_no_sharept vgpus in
+      let plug_vbds typ vbds =
+        let pf = Printf.sprintf in
+        let name_multi = pf "VBDs.activate_epoch_and_plug %s" typ in
+        let name_one = pf "VBD.activate_epoch_and_plug %s" typ in
+        parallel_map name_multi ~id vbds (fun vbd ->
+            serial name_one ~id
+              [
+                VBD_set_active (vbd.Vbd.id, true)
+              ; map_or_nop
+                  (fun x -> VBD_epoch_begin (vbd.Vbd.id, x, vbd.Vbd.persistent))
+                  vbd.Vbd.backend
+              ; VBD_plug vbd.Vbd.id
+              ]
+        )
+      in
       [
         dequarantine_ops vgpus
       ; [
@@ -1568,53 +1611,40 @@ let rec atomics_of_operation = function
             (id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none)
         ; VM_create (id, None, None, no_sharept)
         ; VM_build (id, force)
-        ]
-      ; List.map
-          (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
-          (vbds_rw @ vbds_ro)
-        (* keeping behaviour of vbd_plug_order: rw vbds must be plugged before
-           ro vbds, see vbd_plug_sets *)
-      ; List.map
-          (fun (ty, vbds) ->
-            Parallel
-              ( id
-              , Printf.sprintf "VBD.epoch_begin %s vm=%s" ty id
-              , List.filter_map
-                  (fun vbd ->
-                    Option.map
-                      (fun x ->
-                        VBD_epoch_begin (vbd.Vbd.id, x, vbd.Vbd.persistent)
-                      )
-                      vbd.Vbd.backend
-                  )
-                  vbds
+        ; parallel "Devices.plug (no qemu)" ~id
+            [
+              (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
+              serial "VBDs.acticate_epoch_and_plug RW+RO" ~id
+                [plug_vbds "RW" vbds_rw; plug_vbds "RO" vbds_ro]
+            ; parallel_map "VIFs.activate_and_plug" ~id vifs (fun vif ->
+                  serial "VIF.activate_and_plug" ~id
+                    [VIF_set_active (vif.Vif.id, true); VIF_plug vif.Vif.id]
               )
-          )
-          [("RW", vbds_rw); ("RO", vbds_ro)]
-      ; [
-          (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
-          Parallel
-            ( id
-            , Printf.sprintf "VBD.plug RW vm=%s" id
-            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_rw
-            )
-        ; Parallel
-            ( id
-            , Printf.sprintf "VBD.plug RO vm=%s" id
-            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_ro
-            )
+            ; serial "VGPUs.activate & PCI.plug (SRIOV)" ~id
+                [
+                  parallel_map "VGPUs.activate" ~id vgpus (fun vgpu ->
+                      VGPU_set_active (vgpu.Vgpu.id, true)
+                  )
+                ; parallel_map "PCIs.plug (SRIOV)" ~id pcis_sriov (fun pci ->
+                      PCI_plug (pci.Pci.id, false)
+                  )
+                ]
+            ]
+        ; VM_create_device_model (id, false)
+          (* PCI and USB devices are hot-plugged into HVM guests via QEMU, so the
+             following operations occur after creating the device models *)
+        ; parallel "Devices.plug (qemu)" ~id
+            [
+              parallel_map "PCIs.plug (non-SRIOV)" ~id pcis_other (fun pci ->
+                  PCI_plug (pci.Pci.id, true)
+              )
+            ; parallel_map "VUSBs.plug" ~id vusbs (fun vusb ->
+                  VUSB_plug vusb.Vusb.id
+              )
+            ]
+          (* At this point the domain is considered survivable. *)
+        ; VM_set_domain_action_request (id, None)
         ]
-      ; List.map (fun vif -> VIF_set_active (vif.Vif.id, true)) vifs
-      ; List.map (fun vif -> VIF_plug vif.Vif.id) vifs
-      ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true)) vgpus
-      ; List.map (fun pci -> PCI_plug (pci.Pci.id, false)) pcis_sriov
-      ; [VM_create_device_model (id, false)]
-        (* PCI and USB devices are hot-plugged into HVM guests via QEMU, so the
-           following operations occur after creating the device models *)
-      ; List.map (fun pci -> PCI_plug (pci.Pci.id, true)) pcis_other
-      ; List.map (fun vusb -> VUSB_plug vusb.Vusb.id) vusbs
-        (* At this point the domain is considered survivable. *)
-      ; [VM_set_domain_action_request (id, None)]
       ]
       |> List.concat
   | VM_shutdown (id, timeout) ->
@@ -1626,62 +1656,72 @@ let rec atomics_of_operation = function
         Option.value ~default:[]
           (Option.map (fun x -> [VM_shutdown_domain (id, PowerOff, x)]) timeout)
         (* Before shutting down a VM, we need to unplug its VUSBs. *)
-      ; List.map (fun vusb -> VUSB_unplug vusb.Vusb.id) vusbs
       ; [
-          (* CA-315450: in a hard shutdown or snapshot revert, timeout=None and
+          parallel_map "VUSBs.unplug" ~id vusbs (fun vusb ->
+              VUSB_unplug vusb.Vusb.id
+          )
+        ; (* CA-315450: in a hard shutdown or snapshot revert, timeout=None and
              VM_shutdown_domain is not called. To avoid any interference, we
              pause the domain before destroying the device model. *)
           Best_effort (VM_pause id)
         ; VM_destroy_device_model id
-        ; Parallel
-            ( id
-            , Printf.sprintf "VBD.unplug vm=%s" id
-            , List.map (fun vbd -> VBD_unplug (vbd.Vbd.id, true)) vbds
-            )
+        ; parallel "Devices.unplug" ~id
+            [
+              parallel_map "VBDs.unplug" ~id vbds (fun vbd ->
+                  VBD_unplug (vbd.Vbd.id, true)
+              )
+            ; parallel_map "VIFs.unplug" ~id vifs (fun vif ->
+                  VIF_unplug (vif.Vif.id, true)
+              )
+            ; parallel_map "PCIs.unplug" ~id pcis (fun pci ->
+                  PCI_unplug pci.Pci.id
+              )
+            ]
+        ; VM_destroy id
         ]
-      ; List.map (fun vif -> VIF_unplug (vif.Vif.id, true)) vifs
-      ; List.map (fun pci -> PCI_unplug pci.Pci.id) pcis
-      ; [VM_destroy id]
       ]
       |> List.concat
   | VM_restore_vifs id ->
       let vifs = VIF_DB.vifs id in
       [
-        List.map (fun vif -> VIF_set_active (vif.Vif.id, true)) vifs
-      ; List.map (fun vif -> VIF_plug vif.Vif.id) vifs
+        parallel_map "VIFs.activate_and_plug" ~id vifs (fun vif ->
+            serial "VIF.activate_and_plug" ~id
+              [VIF_set_active (vif.Vif.id, true); VIF_plug vif.Vif.id]
+        )
       ]
-      |> List.concat
   | VM_restore_devices (id, restore_vifs) ->
       let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
       let vgpus = VGPU_DB.vgpus id in
       let pcis = PCI_DB.pcis id |> pci_plug_order in
       let pcis_other = List.filter (is_not_nvidia_sriov vgpus) pcis in
+      let plug_vbds typ vbds =
+        let pf = Printf.sprintf in
+        let name_multi = pf "VBDs.activate_and_plug %s" typ in
+        let name_one = pf "VBD.activate_and_plug %s" typ in
+        parallel_map name_multi ~id vbds (fun vbd ->
+            serial name_one ~id
+              [VBD_set_active (vbd.Vbd.id, true); VBD_plug vbd.Vbd.id]
+        )
+      in
       [
-        List.map
-          (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
-          (vbds_rw @ vbds_ro)
+        (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
+        [plug_vbds "RW" vbds_rw; plug_vbds "RO" vbds_ro]
+      ; ( if restore_vifs then
+            atomics_of_operation (VM_restore_vifs id)
+          else
+            [] (* Nvidia SRIOV PCI devices have been already been plugged *)
+        )
       ; [
-          (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
-          Parallel
-            ( id
-            , Printf.sprintf "VBD.plug RW vm=%s" id
-            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_rw
-            )
-        ; Parallel
-            ( id
-            , Printf.sprintf "VBD.plug RO vm=%s" id
-            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_ro
-            )
-        ]
-      ; (if restore_vifs then atomics_of_operation (VM_restore_vifs id) else [])
-      ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true)) vgpus
-        (* Nvidia SRIOV PCI devices have been already been plugged *)
-      ; [
-          VM_create_device_model (id, true)
+          parallel_map "VGPUs.activate" ~id vgpus (fun vgpu ->
+              VGPU_set_active (vgpu.Vgpu.id, true)
+          )
+        ; VM_create_device_model (id, true)
           (* PCI and USB devices are hot-plugged into HVM guests via QEMU, so
              the following operations occur after creating the device models *)
+        ; parallel_map "PCIs.plug" ~id pcis_other (fun pci ->
+              PCI_plug (pci.Pci.id, true)
+          )
         ]
-      ; List.map (fun pci -> PCI_plug (pci.Pci.id, true)) pcis_other
       ]
       |> List.concat
   | VM_poweroff (id, timeout) ->
@@ -1698,22 +1738,23 @@ let rec atomics_of_operation = function
         [VM_hook_script (id, Xenops_hooks.VM_pre_destroy, reason)]
       ; atomics_of_operation (VM_shutdown (id, timeout))
       ; [
-          Parallel
-            ( id
-            , Printf.sprintf "VBD.epoch_end vm=%s" id
-            , List.filter_map
-                (fun vbd ->
-                  Option.map
+          parallel_map "VBDs.epoch_and_deactivate" ~id vbds (fun vbd ->
+              serial "VBD.epoch_and_deactivate" ~id
+                [
+                  map_or_nop
                     (fun x -> VBD_epoch_end (vbd.Vbd.id, x))
                     vbd.Vbd.backend
-                )
-                vbds
-            )
+                ; VBD_set_active (vbd.Vbd.id, false)
+                ]
+          )
+        ; parallel_map "VIFs.deactivate" ~id vifs (fun vif ->
+              VIF_set_active (vif.Vif.id, false)
+          )
+        ; parallel_map "VGPUs.deactivate" ~id vgpus (fun vgpu ->
+              VGPU_set_active (vgpu.Vgpu.id, false)
+          )
+        ; VM_hook_script (id, Xenops_hooks.VM_post_destroy, reason)
         ]
-      ; List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, false)) vbds
-      ; List.map (fun vif -> VIF_set_active (vif.Vif.id, false)) vifs
-      ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, false)) vgpus
-      ; [VM_hook_script (id, Xenops_hooks.VM_post_destroy, reason)]
       ]
       |> List.concat
   | VM_reboot (id, timeout) ->
@@ -1725,25 +1766,18 @@ let rec atomics_of_operation = function
           Xenops_hooks.reason__clean_reboot
       in
       [
-        Option.value ~default:[]
-          (Option.map (fun x -> [VM_shutdown_domain (id, Reboot, x)]) timeout)
-      ; [VM_hook_script (id, Xenops_hooks.VM_pre_destroy, reason)]
+        [
+          map_or_nop (fun x -> VM_shutdown_domain (id, Reboot, x)) timeout
+        ; VM_hook_script (id, Xenops_hooks.VM_pre_destroy, reason)
+        ]
       ; atomics_of_operation (VM_shutdown (id, None))
       ; [
-          Parallel
-            ( id
-            , Printf.sprintf "VBD.epoch_end vm=%s" id
-            , List.filter_map
-                (fun vbd ->
-                  Option.map
-                    (fun x -> VBD_epoch_end (vbd.Vbd.id, x))
-                    vbd.Vbd.backend
-                )
-                vbds
-            )
-        ]
-      ; [
-          VM_hook_script (id, Xenops_hooks.VM_post_destroy, reason)
+          parallel_map "VBDs.epoch_end" ~id vbds (fun vbd ->
+              map_or_nop
+                (fun x -> VBD_epoch_end (vbd.Vbd.id, x))
+                vbd.Vbd.backend
+          )
+        ; VM_hook_script (id, Xenops_hooks.VM_post_destroy, reason)
         ; VM_hook_script
             (id, Xenops_hooks.VM_pre_reboot, Xenops_hooks.reason__none)
         ]
@@ -1845,6 +1879,8 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
   with_tracing ~name:(name_of_atomic op) ~task:t @@ fun () ->
   Xenops_task.check_cancelling t ;
   match op with
+  | Nop ->
+      ()
   | Best_effort atom -> (
     try perform_atomic ~progress_callback ?result atom t
     with e ->
@@ -1858,7 +1894,7 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
           (Xenops_task.id_of_handle t)
           (List.length atoms) description
       in
-      let with_tracing = parallel_id_with_tracing parallel_id t in
+      let with_tracing = id_with_tracing parallel_id t in
       debug "begin_%s" parallel_id ;
       let task_list =
         queue_atomics_and_wait ~progress_callback ~max_parallel_atoms:10
@@ -1902,6 +1938,8 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       List.iter
         (fun err -> match err with None -> () | Some e -> raise e)
         errors
+  | Serial (_, _, atoms) ->
+      List.iter (Fun.flip (perform_atomic ~progress_callback) t) atoms
   | VIF_plug id ->
       debug "VIF.plug %s" (VIF_DB.string_of_id id) ;
       B.VIF.plug t (VIF_DB.vm_of id) (VIF_DB.read_exn id) ;
@@ -2501,12 +2539,12 @@ and trigger_cleanup_after_failure_atom op t =
       immediate_operation dbg id (VM_check_state id)
   | Best_effort op ->
       trigger_cleanup_after_failure_atom op t
-  | Parallel (_id, _description, ops) ->
+  | Parallel (_id, _description, ops) | Serial (_id, _description, ops) ->
       List.iter (fun op -> trigger_cleanup_after_failure_atom op t) ops
   | VM_rename (id1, id2, _) ->
       immediate_operation dbg id1 (VM_check_state id1) ;
       immediate_operation dbg id2 (VM_check_state id2)
-  | VM_import_metadata _ ->
+  | VM_import_metadata _ | Nop ->
       ()
 
 and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
