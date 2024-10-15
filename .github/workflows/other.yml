@@ -20,6 +20,8 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11"]
+    if: ${{ github.event_name != schedule || github.repository == 'xapi-project/xen-api' }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -81,6 +83,8 @@ jobs:
     name: Finish coverage upload
     needs: python-test  # run after the python-test has completed uploading coverages
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != "schedule" || github.repository == 'xapi-project/xen-api' }}
+
     steps:
       - name: Finish the parallel coverage upload to Coveralls
         uses: coverallsapp/github-action@v2
@@ -91,6 +95,7 @@ jobs:
   deprecation-test:
     name: Deprecation tests
     runs-on: ubuntu-22.04
+    if: ${{ github.event_name != "schedule" || github.repository == 'xapi-project/xen-api' }}
 
     steps:
       - name: Checkout code

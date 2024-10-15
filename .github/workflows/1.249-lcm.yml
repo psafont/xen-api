@@ -13,6 +13,8 @@ jobs:
       fail-fast: false
       matrix:
         test: ["", "-3"]
+    if: ${{ github.event_name != "schedule" || github.repository == 'xapi-project/xen-api' }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,6 +27,7 @@ jobs:
   ocaml-test:
     name: Ocaml tests
     runs-on: ubuntu-20.04
+    if: ${{ github.event_name != "schedule" || github.repository == 'xapi-project/xen-api' }}
 
     steps:
       - name: Checkout code

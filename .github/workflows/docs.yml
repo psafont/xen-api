@@ -44,6 +44,7 @@ jobs:
 
       - name: Deploy xapi-storage docs
         uses: peaceiris/actions-gh-pages@v4
+        if: ${{ github.repository == 'xapi-project/xen-api' }}
         with:
           deploy_key: ${{ secrets.ACTIONS_STORAGE_DEPLOY_KEY }}
           publish_dir: ${{ env.STORAGE_DOCDIR }}
