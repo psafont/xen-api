@@ -108,6 +108,8 @@ module Feature = struct
 
   let known_features = List.map fst string_to_capability_table
 
+  let string_to_capability c = List.assoc_opt c string_to_capability_table
+
   let capability_to_string c = List.assoc c capability_to_string_table
 
   let to_string (c, v) = Printf.sprintf "%s/%Ld" (capability_to_string c) v
@@ -220,25 +222,4 @@ type attach_info = {
 
 exception Backend_missing_field of string
 
-exception Backend_report_error of (int * string)
-
-exception Command_failed of (int * string * string (*stdout*) * string)
-
-(*stderr*)
-
-exception Command_killed of (int * string * string (*stdout*) * string)
-
-(*stderr*)
-
-exception Missing_field of string
-
 exception Not_implemented_in_backend (* Raised by clone at least *)
-
-exception Sr_not_empty
-
-exception Vdi_in_use
-
-exception Device_in_use
-
-(** Identifies where a request should go to (i.e. a URI) or None if unknown *)
-type request = string option

@@ -105,8 +105,8 @@ let features_of_sr_internal ~__context ~_type =
   | (_, sm) :: _ ->
       List.filter_map
         (fun (name, v) ->
-          try Some (List.assoc name Smint.Feature.string_to_capability_table, v)
-          with Not_found -> None
+          Smint.Feature.string_to_capability name
+          |> Option.map (fun feat -> (feat, v))
         )
         sm.Db_actions.sM_features
 
