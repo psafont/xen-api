@@ -1232,7 +1232,7 @@ let _ =
        which the VM is running"
     () ;
 
-  error Api_errors.sr_operation_not_supported ["sr"]
+  error Api_errors.sr_operation_not_supported ["sr"; "operations"]
     ~doc:
       "The SR backend does not support the operation (check the SR's allowed \
        operations)"

@@ -93,7 +93,8 @@ let valid_operations ~__context ?op record _ref' : table =
   let current_ops = record.Db_actions.sR_current_operations in
   let table : table = Hashtbl.create 10 in
   List.iter (fun x -> Hashtbl.replace table x None) all_ops ;
-  let set_errors (code : string) (params : string list)
+  let set_errors (code : string)
+      (params : API.storage_operations -> string list)
       (ops : API.storage_operations_set) =
     List.iter
       (fun op ->
@@ -101,12 +102,14 @@ let valid_operations ~__context ?op record _ref' : table =
            pre-filled for all_ops, and set_errors is applied
            to a subset of all_ops (disallowed_during_rpu) *)
         if Hashtbl.find table op = None then
-          Hashtbl.replace table op (Some (code, params))
+          Hashtbl.replace table op (Some (code, params op))
       )
       ops
   in
   if Helpers.rolling_upgrade_in_progress ~__context then
-    set_errors Api_errors.not_supported_during_upgrade [] disallowed_during_rpu ;
+    set_errors Api_errors.not_supported_during_upgrade
+      (fun _ -> [])
+      disallowed_during_rpu ;
   (* Policy:
      Anyone may attach and detach VDIs in parallel but we serialise
      vdi_create, vdi_destroy, vdi_resize operations.
@@ -135,7 +138,9 @@ let valid_operations ~__context ?op record _ref' : table =
         )
         all_ops
     in
-    set_errors Api_errors.sr_operation_not_supported [_ref] forbidden_by_backend
+    set_errors Api_errors.sr_operation_not_supported
+      (fun op -> [_ref; Record_util.storage_operations_to_string op])
+      forbidden_by_backend
   in
   let check_any_attached_pbds ~__context _record =
     (* CA-70294: if the SR has any attached PBDs, destroy and forget operations are not allowed.*)
@@ -151,12 +156,12 @@ let valid_operations ~__context ?op record _ref' : table =
     if all_pbds_attached_to_this_sr = [] then
       ()
     else
-      set_errors Api_errors.sr_has_pbd [_ref] [`destroy; `forget]
+      set_errors Api_errors.sr_has_pbd (fun _ -> [_ref]) [`destroy; `forget]
   in
   let check_no_pbds ~__context _record =
     (* If the SR has no PBDs, destroy is not allowed. *)
     if Db.SR.get_PBDs ~__context ~self:_ref' = [] then
-      set_errors Api_errors.sr_no_pbds [_ref] [`destroy]
+      set_errors Api_errors.sr_no_pbds (fun _ -> [_ref]) [`destroy]
   in
   let check_any_managed_vdis ~__context _record =
     (* If the SR contains any managed VDIs, destroy is not allowed. *)
@@ -170,7 +175,7 @@ let valid_operations ~__context ?op record _ref' : table =
         )
         vdis
     then
-      set_errors Api_errors.sr_not_empty [] [`destroy]
+      set_errors Api_errors.sr_not_empty (fun _ -> []) [`destroy]
   in
   let check_parallel_ops ~__context _record =
     let safe_to_parallelise = [`plug] in
@@ -181,7 +186,7 @@ let valid_operations ~__context ?op record _ref' : table =
        must definitely be stopped *)
     if current_ops <> [] then
       set_errors Api_errors.other_operation_in_progress
-        ["SR"; _ref; sr_operation_to_string (List.hd current_ops)]
+        (fun _ -> ["SR"; _ref; sr_operation_to_string (List.hd current_ops)])
         (Xapi_stdext_std.Listext.List.set_difference all_ops safe_to_parallelise) ;
     let all_are_parallelisable =
       List.fold_left ( && ) true
@@ -191,7 +196,7 @@ let valid_operations ~__context ?op record _ref' : table =
        parallelisable operations too *)
     if not all_are_parallelisable then
       set_errors Api_errors.other_operation_in_progress
-        ["SR"; _ref; sr_operation_to_string (List.hd current_ops)]
+        (fun _ -> ["SR"; _ref; sr_operation_to_string (List.hd current_ops)])
         safe_to_parallelise
   in
   let check_cluster_stack_compatible ~__context _record =
@@ -199,7 +204,8 @@ let valid_operations ~__context ?op record _ref' : table =
      * plugging a PBD for this SR *)
     try
       Cluster_stack_constraints.assert_cluster_stack_compatible ~__context _ref'
-    with Api_errors.Server_error (e, args) -> set_errors e args [`plug]
+    with Api_errors.Server_error (e, args) ->
+      set_errors e (fun _ -> args) [`plug]
   in
   (* List of (operations * function which checks for errors relevant to those operations) *)
   let relevant_functions =

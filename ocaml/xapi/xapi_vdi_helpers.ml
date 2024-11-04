@@ -81,8 +81,7 @@ let enable_database_replication ~__context ~get_vdi_callback =
       if
         Hashtbl.length metadata_replication >= Xapi_globs.redo_log_max_instances
       then
-        raise
-          (Api_errors.Server_error (Api_errors.no_more_redo_logs_allowed, [])) ;
+        raise Api_errors.(Server_error (no_more_redo_logs_allowed, [])) ;
       let vdi = get_vdi_callback () in
       let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
       if Hashtbl.mem metadata_replication vdi then

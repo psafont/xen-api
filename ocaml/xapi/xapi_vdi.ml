@@ -56,7 +56,11 @@ let check_sm_feature_error (op : API.vdi_operations) sm_features sr =
       if Smint.(has_capability feature sm_features) then
         Ok ()
       else
-        Error (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+        let sr_op = Record_util.vdi_operation_to_sr_operation op in
+        let params =
+          [Ref.string_of sr; Record_util.storage_operations_to_string sr_op]
+        in
+        Error (Api_errors.sr_operation_not_supported, params)
 
 (** Checks to see if an operation is valid in this state. Returns [Error exception]
     if not and [Ok ()] if everything is ok. If the [vbd_records] parameter is
@@ -336,7 +340,12 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
     if sr_type = "udev" then
       Error (Api_errors.vdi_is_a_physical_device, [_ref])
     else if is_tools_sr then
-      Error (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+      let params =
+        [
+          Ref.string_of sr; Record_util.storage_operations_to_string `vdi_destroy
+        ]
+      in
+      Error (Api_errors.sr_operation_not_supported, params)
     else if List.mem record.Db_actions.vDI_type [`rrd] then
       Error (Api_errors.vdi_has_rrds, [_ref])
     else if

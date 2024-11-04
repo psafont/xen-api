@@ -348,6 +348,6 @@ let eject ~__context ~vbd =
 let pause ~__context ~self =
   let vdi = Db.VBD.get_VDI ~__context ~self in
   let sr = Db.VDI.get_SR ~__context ~self:vdi |> Ref.string_of in
-  raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, [sr]))
+  raise Api_errors.(Server_error (sr_operation_not_supported, [sr; "VDI.pause"]))
 
 let unpause = pause

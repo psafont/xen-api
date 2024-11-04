@@ -80,42 +80,35 @@ let checkpoint ~__context ~vm ~new_name =
         (* Save the state of the vm *)
         snapshot_info :=
           Xapi_vm_clone.snapshot_info ~power_state ~is_a_snapshot:true ;
-        (* Get all the VM's VDI's except CD's *)
-        let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-        let vbds =
-          List.filter (fun x -> Db.VBD.get_type ~__context ~self:x <> `CD) vbds
-        in
-        let vdis =
-          List.map (fun self -> Db.VBD.get_VDI ~__context ~self) vbds
-        in
-        (* Get SR of each VDI *)
-        let vdi_sr =
-          List.filter_map
-            (fun vdi ->
-              try Some (Db.VDI.get_SR ~__context ~self:vdi) with _ -> None
-            )
-            vdis
-        in
-        let vdi_sr = Listext.setify vdi_sr in
-        let sr_records =
-          List.map
-            (fun self -> Db.SR.get_record_internal ~__context ~self)
-            vdi_sr
-        in
         (* Check if SR has snapshot feature *)
         let sr_has_snapshot_feature sr =
           Smint.has_capability Vdi_snapshot
             (Xapi_sr_operations.features_of_sr ~__context sr)
         in
-        List.iter
-          (fun sr ->
-            if not (sr_has_snapshot_feature sr) then
-              raise
-                Api_errors.(
-                  Server_error (sr_operation_not_supported, [Ref.string_of vm])
-                )
-          )
-          sr_records ;
+        Db.VM.get_VBDs ~__context ~self:vm
+        (* Get all the VM's SRs except CDs *)
+        |> List.filter_map (fun x ->
+               if Db.VBD.get_type ~__context ~self:x <> `CD then
+                 try
+                   let vdi = Db.VBD.get_VDI ~__context ~self:x in
+                   Some (Db.VDI.get_SR ~__context ~self:vdi)
+                 with _ -> None
+               else
+                 None
+           )
+        |> Listext.setify
+        |> List.iter (fun ref ->
+               let sr = Db.SR.get_record_internal ~__context ~self:ref in
+               if not (sr_has_snapshot_feature sr) then
+                 let params =
+                   [
+                     Ref.string_of ref
+                   ; Record_util.storage_operations_to_string `vdi_snapshot
+                   ]
+                 in
+                 raise
+                   Api_errors.(Server_error (sr_operation_not_supported, params))
+           ) ;
         (* suspend the VM *)
         Xapi_gpumon.update_vgpu_metadata ~__context ~vm ;
         Xapi_xenops.suspend ~__context ~self:vm

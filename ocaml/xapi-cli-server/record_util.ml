@@ -77,6 +77,44 @@ let vm_operation_table =
   ; (`create_vtpm, "create_vtpm")
   ]
 
+let vdi_operation_to_sr_operation (op : API.vdi_operations) :
+    API.storage_operations =
+  match op with
+  | `blocked ->
+      `vdi_blocked
+  | `destroy ->
+      `vdi_destroy
+  | `mirror ->
+      `vdi_mirror
+  | `forget ->
+      `vdi_forget
+  | `enable_cbt ->
+      `vdi_enable_cbt
+  | `disable_cbt ->
+      `vdi_disable_cbt
+  | `generate_config ->
+      `vdi_generate_config
+  | `copy ->
+      `vdi_copy
+  | `list_changed_blocks ->
+      `vdi_list_changed_blocks
+  | `force_unlock ->
+      `vdi_force_unlock
+  | `clone ->
+      `vdi_clone
+  | `data_destroy ->
+      `vdi_data_destroy
+  | `resize ->
+      `vdi_resize
+  | `resize_online ->
+      `vdi_resize_online
+  | `set_on_boot ->
+      `vdi_set_on_boot
+  | `snapshot ->
+      `vdi_snapshot
+  | `update ->
+      `vdi_update
+
 (* Intentional shadowing - data_souces_op, assertoperationinvalid,
    changing_vcpus, changing_memory_limits, query_services, create_template
    are inconsistent *)
