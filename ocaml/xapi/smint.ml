@@ -60,57 +60,23 @@ module Feature = struct
     | Large_vdi  (** Supports >2TB VDIs *)
     | Thin_provisioning
     | Vdi_read_caching
+    | Import
+    | Probe_ext
+  [@@deriving show, enum]
 
   type t = capability * int64
 
+  let known_capabilities =
+    let length = max_capability - min_capability + 1 in
+    let start = min_capability in
+    List.init length (fun i -> capability_of_enum (i + start) |> Option.get)
+
+  let capability_to_string c = show_capability c |> String.capitalize_ascii
+
   let string_to_capability_table =
-    [
-      ("SR_CREATE", Sr_create)
-    ; ("SR_DELETE", Sr_delete)
-    ; ("SR_ATTACH", Sr_attach)
-    ; ("SR_DETACH", Sr_detach)
-    ; ("SR_SCAN", Sr_scan)
-    ; ("SR_PROBE", Sr_probe)
-    ; ("SR_UPDATE", Sr_update)
-    ; ("SR_SUPPORTS_LOCAL_CACHING", Sr_supports_local_caching)
-    ; ("SR_METADATA", Sr_metadata)
-    ; ("SR_TRIM", Sr_trim)
-    ; ("SR_MULTIPATH", Sr_multipath)
-    ; ("SR_CACHING", Sr_caching)
-    ; ("SR_STATS", Sr_stats)
-    ; ("VDI_CREATE", Vdi_create)
-    ; ("VDI_DELETE", Vdi_delete)
-    ; ("VDI_ATTACH", Vdi_attach)
-    ; ("VDI_DETACH", Vdi_detach)
-    ; ("VDI_MIRROR", Vdi_mirror)
-    ; ("VDI_MIRROR_IN", Vdi_mirror_in)
-    ; ("VDI_RESIZE", Vdi_resize)
-    ; ("VDI_RESIZE_ONLINE", Vdi_resize_online)
-    ; ("VDI_CLONE", Vdi_clone)
-    ; ("VDI_SNAPSHOT", Vdi_snapshot)
-    ; ("VDI_ACTIVATE", Vdi_activate)
-    ; ("VDI_ACTIVATE_READONLY", Vdi_activate_readonly)
-    ; ("VDI_DEACTIVATE", Vdi_deactivate)
-    ; ("VDI_UPDATE", Vdi_update)
-    ; ("VDI_INTRODUCE", Vdi_introduce)
-    ; ("VDI_GENERATE_CONFIG", Vdi_generate_config)
-    ; ("VDI_ATTACH_OFFLINE", Vdi_attach_offline)
-    ; ("VDI_RESET_ON_BOOT", Vdi_reset_on_boot)
-    ; ("VDI_CONFIG_CBT", Vdi_configure_cbt)
-    ; ("VDI_COMPOSE", Vdi_compose)
-    ; ("LARGE_VDI", Large_vdi)
-    ; ("THIN_PROVISIONING", Thin_provisioning)
-    ; ("VDI_READ_CACHING", Vdi_read_caching)
-    ]
-
-  let capability_to_string_table =
-    List.map (fun (k, v) -> (v, k)) string_to_capability_table
-
-  let known_features = List.map fst string_to_capability_table
+    List.map (fun c -> (capability_to_string c, c)) known_capabilities
 
   let string_to_capability c = List.assoc_opt c string_to_capability_table
-
-  let capability_to_string c = List.assoc c capability_to_string_table
 
   let to_string (c, v) = Printf.sprintf "%s/%Ld" (capability_to_string c) v
 
@@ -122,9 +88,10 @@ module Feature = struct
     match String.split_on_char '/' feature with
     | [] ->
         None
-    | [feature] when List.mem feature known_features ->
+    | [feature] when string_to_capability feature |> Option.is_some ->
         Some (feature, 1L)
-    | feature :: version :: _ when List.mem feature known_features -> (
+    | feature :: version :: _
+      when string_to_capability feature |> Option.is_some -> (
       try
         let v = Int64.(max 1L (of_string version)) in
         Some (feature, v)
@@ -155,7 +122,7 @@ module Feature = struct
   let of_string_int64_opt (c, v) =
     List.assoc_opt c string_to_capability_table |> Option.map (fun c -> (c, v))
 
-  (** [has_capability c fl] will test weather the required capability [c] is present 
+  (** [has_capability c fl] will test weather the required capability [c] is present
   in the feature list [fl]. Callers should use this function to test if a feature
   is available rather than directly using membership functions on a feature list
   as this function might have special logic for some features. *)

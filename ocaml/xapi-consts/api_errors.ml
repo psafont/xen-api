@@ -595,6 +595,8 @@ let sr_not_sharable = add_error "SR_NOT_SHARABLE"
 
 let sr_indestructible = add_error "SR_INDESTRUCTIBLE"
 
+let sr_feature_not_supported = add_error "SR_FEATURE_NOT_SUPPORTED"
+
 let clustered_sr_degraded = add_error "CLUSTERED_SR_DEGRADED"
 
 let sm_plugin_communication_failure =

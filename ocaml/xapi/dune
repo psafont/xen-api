@@ -243,6 +243,8 @@
   (per_module
    ((pps ppx_sexp_conv)
     Cert_distrib)
+   ((pps ppx_deriving.show ppx_deriving.enum)
+    Smint)
    ((pps ppx_deriving.ord)
     Xapi_observer_components)
    ((pps ppx_deriving_rpc)

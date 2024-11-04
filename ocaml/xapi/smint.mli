@@ -38,10 +38,14 @@ module Feature : sig
     | Large_vdi
     | Thin_provisioning
     | Vdi_read_caching
+    | Import
+    | Probe_ext
 
   type t = capability * int64
 
   val string_to_capability : string -> capability option
+
+  val capability_to_string : capability -> string
 
   val to_string : capability * int64 -> string
 

@@ -83,6 +83,7 @@ let enable_ha =
         }
       ]
     ~doc:"Turn on High Availability mode"
+    ~errs:[Api_errors.sr_feature_not_supported]
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
