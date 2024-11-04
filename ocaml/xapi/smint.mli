@@ -34,6 +34,8 @@ type capability =
   | Large_vdi
   | Thin_provisioning
   | Vdi_read_caching
+  | Import
+  | Probe_ext
 
 type feature = capability * int64
 

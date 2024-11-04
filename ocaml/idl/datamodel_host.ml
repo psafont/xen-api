@@ -1947,6 +1947,7 @@ let enable_local_storage_caching =
         )
       ]
     ~doc:"Enable the use of a local SR for caching purposes"
+    ~errs:[Api_errors.sr_feature_not_supported]
     ~params:
       [
         (Ref _host, "host", "The host")

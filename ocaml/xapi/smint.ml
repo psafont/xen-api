@@ -56,6 +56,8 @@ type capability =
   | Large_vdi  (** Supports >2TB VDIs *)
   | Thin_provisioning
   | Vdi_read_caching
+  | Import
+  | Probe_ext
 
 type feature = capability * int64
 
@@ -94,6 +96,8 @@ let string_to_capability_table =
   ; ("LARGE_VDI", Large_vdi)
   ; ("THIN_PROVISIONING", Thin_provisioning)
   ; ("VDI_READ_CACHING", Vdi_read_caching)
+  ; ("IMPORT", Import)
+  ; ("PROBE_EXT", Probe_ext)
   ]
 
 let capability_to_string_table =

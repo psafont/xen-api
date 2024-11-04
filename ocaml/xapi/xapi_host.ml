@@ -2245,31 +2245,34 @@ let enable_local_storage_caching ~__context ~host ~sr =
   let ty = Db.SR.get_type ~__context ~self:sr in
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
   let shared = Db.SR.get_shared ~__context ~self:sr in
+  let capability = Smint.Sr_supports_local_caching in
   let has_required_capability =
     let caps = Sm.features_of_driver ty in
-    List.mem_assoc Smint.Sr_supports_local_caching caps
+    List.mem_assoc capability caps
   in
   debug "shared: %b. List.length pbds: %d. has_required_capability: %b" shared
     (List.length pbds) has_required_capability ;
-  if shared = false && List.length pbds = 1 && has_required_capability then (
-    let pbd_host = Db.PBD.get_host ~__context ~self:(List.hd pbds) in
-    if pbd_host <> host then
-      raise
-        (Api_errors.Server_error
-           ( Api_errors.host_cannot_see_SR
-           , [Ref.string_of host; Ref.string_of sr]
-           )
-        ) ;
-    let old_sr = Db.Host.get_local_cache_sr ~__context ~self:host in
-    if old_sr <> Ref.null then
-      Db.SR.set_local_cache_enabled ~__context ~self:old_sr ~value:false ;
-    Db.Host.set_local_cache_sr ~__context ~self:host ~value:sr ;
-    Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true ;
-    log_and_ignore_exn (fun () ->
-        Rrdd.set_cache_sr (Db.SR.get_uuid ~__context ~self:sr)
-    )
-  ) else
-    raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, []))
+  match pbds with
+  | [pbd] when (not shared) && has_required_capability ->
+      let pbd_host = Db.PBD.get_host ~__context ~self:pbd in
+      if pbd_host <> host then
+        raise
+          (Api_errors.Server_error
+             ( Api_errors.host_cannot_see_SR
+             , [Ref.string_of host; Ref.string_of sr]
+             )
+          ) ;
+      let old_sr = Db.Host.get_local_cache_sr ~__context ~self:host in
+      if old_sr <> Ref.null then
+        Db.SR.set_local_cache_enabled ~__context ~self:old_sr ~value:false ;
+      Db.Host.set_local_cache_sr ~__context ~self:host ~value:sr ;
+      Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true ;
+      log_and_ignore_exn (fun () ->
+          Rrdd.set_cache_sr (Db.SR.get_uuid ~__context ~self:sr)
+      )
+  | _ ->
+      let params = [Ref.string_of sr; Smint.string_of_capability capability] in
+      raise Api_errors.(Server_error (sr_feature_not_supported, params))
 
 let disable_local_storage_caching ~__context ~host =
   assert_bacon_mode ~__context ~host ;

@@ -344,7 +344,8 @@ let probe_ext =
 
   call_probe ~f:(function
     | Storage_interface.Raw _ ->
-        raise Api_errors.(Server_error (sr_operation_not_supported, []))
+        let params = [""; Smint.(string_of_capability Probe_ext)] in
+        raise Api_errors.(Server_error (sr_feature_not_supported, params))
     | Storage_interface.Probe results ->
         List.map to_xenapi_probe_result results
     )
@@ -921,11 +922,10 @@ let assert_supports_database_replication ~__context ~sr =
            )
         )
   | (_, sm) :: _ ->
-      if not (List.mem_assoc "SR_METADATA" sm.Db_actions.sM_features) then
-        raise
-          (Api_errors.Server_error
-             (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-          )
+      let feature = Smint.(string_of_capability Sr_metadata) in
+      if not (List.mem_assoc feature sm.Db_actions.sM_features) then
+        let params = [Ref.string_of sr; feature] in
+        raise Api_errors.(Server_error (sr_feature_not_supported, params))
 
 (* Metadata replication to SRs *)
 let find_or_create_metadata_vdi ~__context ~sr =

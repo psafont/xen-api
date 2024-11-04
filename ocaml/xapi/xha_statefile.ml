@@ -116,25 +116,27 @@ let check_sr_can_host_statefile ~__context ~sr ~cluster_stack =
   with
   | [] ->
       (* This should never happen because the PBDs are plugged in *)
-      raise
-        (Api_errors.Server_error
-           ( Api_errors.internal_error
-           , [
-               "SR does not have corresponding SM record"
-             ; Ref.string_of sr
-             ; srtype
-             ]
-           )
-        )
+      let params =
+        ["SR does not have corresponding SM record"; Ref.string_of sr; srtype]
+      in
+      raise Api_errors.(Server_error (internal_error, params))
   | (_, sm) :: _ ->
-      if
-        (not (List.mem_assoc "VDI_GENERATE_CONFIG" sm.Db_actions.sM_features))
-        && not (List.mem_assoc "VDI_ATTACH_OFFLINE" sm.Db_actions.sM_features)
-      then
-        raise
-          (Api_errors.Server_error
-             (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-          ) ;
+      let missing_features =
+        Smint.[Vdi_generate_config; Vdi_attach_offline]
+        |> List.filter_map (fun feat ->
+               let feat = Smint.string_of_capability feat in
+               if not (List.mem_assoc feat sm.Db_actions.sM_features) then
+                 Some feat
+               else
+                 None
+           )
+      in
+      ( if missing_features <> [] then
+          let params =
+            [Ref.string_of sr; String.concat "; " missing_features]
+          in
+          raise Api_errors.(Server_error (sr_feature_not_supported, params))
+      ) ;
       ha_fits_sr ~__context ~what:"statefile" ~sr
         ~minimum_size:minimum_statefile_size ~typ:`ha_statefile
 

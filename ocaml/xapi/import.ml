@@ -2505,10 +2505,11 @@ let handler (req : Request.t) s _ =
                 (* Let's check that we're not trying to import into an iso library! *)
                 if Db.SR.get_content_type ~__context ~self:sr = "iso" then (
                   Http_svr.headers s (Http.http_400_badrequest ()) ;
+                  let params =
+                    [Ref.string_of sr; Smint.(string_of_capability Import)]
+                  in
                   raise
-                    (Api_errors.Server_error
-                       (Api_errors.sr_operation_not_supported, [])
-                    )
+                    Api_errors.(Server_error (sr_feature_not_supported, params))
                 ) ;
                 with_error_handling (fun () ->
                     let refresh_external =

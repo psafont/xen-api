@@ -4422,6 +4422,7 @@ module SR = struct
          SRs present of this type on the device, if any.  If the device_config \
          is partial, then a backend-specific scan will be performed, returning \
          results that will guide the user in improving the device_config."
+      ~errs:[Api_errors.sr_feature_not_supported]
       ~result:
         ( Set (Record _probe_result)
         , "A set of records containing the scan results."
@@ -4692,6 +4693,7 @@ module SR = struct
     call ~name:"enable_database_replication" ~in_oss_since:None
       ~lifecycle:[(Published, rel_boston, "")]
       ~params:[(Ref _sr, "sr", "The SR to which metadata should be replicated")]
+      ~errs:[Api_errors.sr_feature_not_supported]
       ~allowed_roles:_R_POOL_OP ()
 
   let disable_database_replication =
