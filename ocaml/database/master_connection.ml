@@ -244,8 +244,6 @@ end
 
 exception Content_length_required
 
-let shortest a b = if Mtime.Span.is_longer a ~than:b then b else a
-
 let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
     Db_interface.response =
   let call_started = Time.start () in
@@ -257,7 +255,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
   let backoff_delay = ref min_backoff_delay in
   let update_backoff_delay () =
     let doubled_delay = Mtime.Span.(2 * !backoff_delay) in
-    backoff_delay := shortest doubled_delay max_backoff_delay
+    backoff_delay := Clock.Timer.span_shortest doubled_delay max_backoff_delay
   in
   let reconnect () =
     (* RPC failed - there's no way we can recover from this so try reopening connection every 2s + backoff delay *)

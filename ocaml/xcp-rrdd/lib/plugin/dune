@@ -8,6 +8,7 @@
     astring
     clock
     forkexec
+    mtime
     xapi-stdext-pervasives
     xapi-stdext-std
     xapi-stdext-threads

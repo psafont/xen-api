@@ -2351,7 +2351,7 @@ module AuthenticationCache = struct
       match Q.find_opt user t.cache with
       | Some {data= secret; expires} ->
           let elapsed = Mtime_clock.count t.elapsed in
-          if Clock.Timer.span_is_longer elapsed ~than:expires then (
+          if Mtime.Span.is_longer elapsed ~than:expires then (
             (* Remove expired entry - regardless of whether
                authentication would succeed. *)
             Q.remove t.cache user ;

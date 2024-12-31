@@ -40,11 +40,13 @@ val pp : t Fmt.t
 
 (** Mtime.Span helpers *)
 
-val span_is_shorter : Mtime.Span.t -> than:Mtime.Span.t -> bool
-(** [is_shorter dur ~than] returns whether [dur] lasts less than [than]. *)
+val span_shortest : Mtime.Span.t -> Mtime.Span.t -> Mtime.Span.t
+(** [span_shortest a b] returns the shortest span of [a] and [b],
+    functionally equivalent to [min a b]. *)
 
-val span_is_longer : Mtime.Span.t -> than:Mtime.Span.t -> bool
-(** [is_longer dur ~than] returns whether [dur] lasts more than [than]. *)
+val span_longest : Mtime.Span.t -> Mtime.Span.t -> Mtime.Span.t
+(** [span_longest a b] returns the longest span of [a] and [b],
+    functionally equivalent to [max a b]. *)
 
 val span_to_s : Mtime.Span.t -> float
 (** [span_to_s span] converts a time span into seconds, represented by a float.

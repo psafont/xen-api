@@ -20,9 +20,8 @@ let test_timer_remaining =
      The following equation must hold:
      [duration / 2 <= actual < duration]
   *)
-  QCheck2.assume (Timer.span_is_shorter actual ~than:duration) ;
-  QCheck2.assume
-    (not (Timer.span_is_shorter Mtime.Span.(2 * actual) ~than:duration)) ;
+  QCheck2.assume (Mtime.Span.is_shorter actual ~than:duration) ;
+  QCheck2.assume (not Mtime.Span.(is_shorter (2 * actual) ~than:duration)) ;
   let () =
     match Timer.remaining timer with
     | Expired _ when half < 0.05 ->
@@ -38,7 +37,7 @@ let test_timer_remaining =
           Mtime.Span.pp t Mtime.Span.pp duration Mtime.Span.pp actual Timer.pp
           timer
     | Remaining t ->
-        if Timer.span_is_longer Mtime.Span.(2 * t) ~than:duration then
+        if Mtime.Span.is_longer Mtime.Span.(2 * t) ~than:duration then
           Test.fail_reportf
             "Expected to have less than half spare time, but got: %a. \
              Duration: %a, actual: %a, timer: %a"
@@ -49,7 +48,7 @@ let test_timer_remaining =
   (* 3 * half > duration, so we expect Excess to be reported now *)
   Unix.sleepf (2. *. half) ;
   let actual = Mtime_clock.count elapsed in
-  QCheck2.assume (Timer.span_is_longer actual ~than:duration) ;
+  QCheck2.assume (Mtime.Span.is_longer actual ~than:duration) ;
   let () =
     match Timer.remaining timer with
     | Expired _ ->
@@ -87,7 +86,7 @@ let test_span_compare =
     let ( < ) a b = Mtime.Span.compare a b < 0 in
     Alcotest.(check bool)
       "is_shorter doesn't match compare" (a < b)
-      (Timer.span_is_shorter a ~than:b)
+      (Mtime.Span.is_shorter a ~than:b)
   in
   let tests_shorter =
     List.map
@@ -100,7 +99,7 @@ let test_span_compare =
     let ( > ) a b = Mtime.Span.compare a b > 0 in
     Alcotest.(check bool)
       "is_longer doesn't match compare" (a > b)
-      (Timer.span_is_longer a ~than:b)
+      (Mtime.Span.is_longer a ~than:b)
   in
   let tests_longer =
     List.map

@@ -212,9 +212,7 @@ let extra_timeout = Mtime.Span.(250 * ms)
 
 let check_timeout elapsed timeout =
   let timeout_span = Clock.Timer.s_to_span timeout |> Option.get in
-  if
-    Clock.Timer.span_is_longer elapsed
-      ~than:(Mtime.Span.add Mtime.Span.(2 * timeout_span) extra_timeout)
+  if Mtime.Span.(is_longer elapsed ~than:(add (2 * timeout_span) extra_timeout))
   then
     Test.fail_reportf "Timed out too late: %a > %f" Mtime.Span.pp elapsed
       timeout ;
@@ -268,7 +266,7 @@ let test_select =
   let () =
     match ready with
     | [], [], [] ->
-        if Clock.Timer.span_is_shorter elapsed ~than:timeout_span then
+        if Mtime.Span.is_shorter elapsed ~than:timeout_span then
           Test.fail_reportf "Timed out too early: %a < %f" Mtime.Span.pp elapsed
             timeout
     | _ ->

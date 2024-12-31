@@ -127,9 +127,9 @@ type in_range = In_range | Longer | Shorter
 
 let in_range ~e:leeway ~around span =
   let upper = Mtime.Span.add around leeway in
-  if Clock.Timer.span_is_shorter ~than:around span then
+  if Mtime.Span.is_shorter ~than:around span then
     Shorter
-  else if Clock.Timer.span_is_longer ~than:upper span then
+  else if Mtime.Span.is_longer ~than:upper span then
     Longer
   else
     In_range

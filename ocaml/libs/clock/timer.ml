@@ -2,9 +2,9 @@ type t = {elapsed: Mtime_clock.counter; duration: Mtime.Span.t}
 
 type countdown = Remaining of Mtime.Span.t | Expired of Mtime.Span.t
 
-let span_is_shorter a ~than:b = Mtime.Span.compare a b < 0
+let span_shortest a b = if Mtime.Span.is_shorter b ~than:a then b else a
 
-let span_is_longer a ~than:b = Mtime.Span.compare a b > 0
+let span_longest a b = if Mtime.Span.is_longer b ~than:a then b else a
 
 let start ~duration = {elapsed= Mtime_clock.counter (); duration}
 
@@ -15,18 +15,18 @@ let elapsed t = Mtime_clock.count t.elapsed
 let remaining t =
   let elapsed = Mtime_clock.count t.elapsed in
   let difference = Mtime.Span.abs_diff elapsed t.duration in
-  if span_is_shorter elapsed ~than:t.duration then
+  if Mtime.Span.is_shorter elapsed ~than:t.duration then
     Remaining difference
   else
     Expired difference
 
 let has_expired t =
   let elapsed = Mtime_clock.count t.elapsed in
-  not (span_is_shorter elapsed ~than:t.duration)
+  not (Mtime.Span.is_shorter elapsed ~than:t.duration)
 
 let shorten_by dur t =
   let duration =
-    if span_is_longer dur ~than:t.duration then
+    if Mtime.Span.is_longer dur ~than:t.duration then
       Mtime.Span.zero
     else
       Mtime.Span.abs_diff dur t.duration
