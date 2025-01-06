@@ -307,9 +307,9 @@ functor
             ) ;
             raise e
       ) ;
-      finally
-        (fun () -> check_cancelling t ; f ())
-        (fun () -> with_lock t.tm (fun () -> t.cancel <- List.tl t.cancel))
+      finally f (fun () ->
+          with_lock t.tm (fun () -> t.cancel <- List.tl t.cancel)
+      )
 
     let prohibit_cancellation task =
       with_lock task.tm (fun () ->
