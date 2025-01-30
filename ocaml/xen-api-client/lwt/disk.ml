@@ -95,8 +95,10 @@ let start_upload ~chunked ~uri =
       Data_channel.of_fd ~seekable:false sock
   )
   >>= fun c ->
-  let module Request = Request.Make (Cohttp_io_with_channel) in
-  let module Response = Response.Make (Cohttp_io_with_channel) in
+  let module Request = Request.Make (Cohttp_io_with_channel)
+  [@alert "-deprecated"] in
+  let module Response = Response.Make (Cohttp_io_with_channel)
+  [@alert "-deprecated"] in
   let headers = Header.init () in
   let k, v = Cookie.Cookie_hdr.serialize [("chunked", "true")] in
   let headers = if chunked then Header.add headers k v else headers in
@@ -121,7 +123,7 @@ let start_upload ~chunked ~uri =
   let request =
     Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers uri
   in
-  Request.write (fun _ -> return ()) request c >>= fun () ->
+  Request.write ~flush:false (fun _ -> return ()) request c >>= fun () ->
   Response.read (Cohttp_io_with_channel.make_input c) >>= fun r ->
   match r with
   | `Eof | `Invalid _ ->

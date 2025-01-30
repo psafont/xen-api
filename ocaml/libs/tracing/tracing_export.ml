@@ -200,7 +200,9 @@ module Destination = struct
 
   module Http = struct
     module Request = Cohttp.Request.Make (Cohttp_posix_io.Buffered_IO)
+    [@alert "-deprecated"]
     module Response = Cohttp.Response.Make (Cohttp_posix_io.Buffered_IO)
+    [@alert "-deprecated"]
 
     let export ~url json =
       try

@@ -1029,7 +1029,8 @@ let write_stream common s destination destination_protocol prezeroed progress
           Channels.of_raw_fd sock
       )
       >>= fun c ->
-      let module Request = Request.Make (Cohttp_io_with_channels) in
+      let module Request = Request.Make (Cohttp_io_with_channels)
+      [@alert "-deprecated"] in
       let module Response = Response.Make (Cohttp_io_with_channels) in
       let headers = Header.init () in
       let k, v = Cookie.Cookie_hdr.serialize [("chunked", "true")] in

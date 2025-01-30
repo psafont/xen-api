@@ -21,7 +21,7 @@ module M = struct
     Printf.sprintf "%s:%d" (Filename.basename Sys.argv.(0)) (Unix.getpid ())
 
   module IO = struct
-    include Cohttp_lwt_unix.IO
+    include Cohttp_lwt_unix.IO [@alert "-deprecated"]
 
     let map = Lwt.map
 

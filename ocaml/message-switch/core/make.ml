@@ -26,15 +26,15 @@ functor
   ->
   struct
     open IO
-    module Request = Cohttp.Request.Make (IO)
-    module Response = Cohttp.Response.Make (IO)
+    module Request = Cohttp.Request.Make (IO) [@alert "-deprecated"]
+    module Response = Cohttp.Response.Make (IO) [@alert "-deprecated"]
 
     let rpc (ic, oc) frame =
       let b, meth, uri = In.to_request frame in
       let body = match b with None -> "" | Some x -> x in
       let headers = In.headers body in
       let req = Cohttp.Request.make ~meth ~headers uri in
-      Request.write
+      Request.write ~flush:false
         (fun writer ->
           match b with
           | Some body ->

@@ -15,7 +15,9 @@
 (* Generic RPC marshalling functions for XCP services *)
 
 module Request = Cohttp.Request.Make (Cohttp_posix_io.Buffered_IO)
+[@alert "-deprecated"]
 module Response = Cohttp.Response.Make (Cohttp_posix_io.Buffered_IO)
+[@alert "-deprecated"]
 
 let get_user_agent () = Sys.argv.(0)
 
@@ -88,7 +90,9 @@ let http_rpc string_of_call response_of_string ?(srcstr = "unset")
   Open_uri.with_open_uri ?verify_cert uri (fun fd ->
       let ic = Unix.in_channel_of_descr fd in
       let oc = Unix.out_channel_of_descr fd in
-      Request.write (fun writer -> Request.write_body writer req) http_req oc ;
+      Request.write ~flush:false
+        (fun writer -> Request.write_body writer req)
+        http_req oc ;
       match Response.read ic with
       | `Eof ->
           failwith

@@ -72,6 +72,18 @@ module Fake_IO = struct
     incr num_sleeps ;
     timeofday := !timeofday +. x ;
     return ()
+
+  let[@warning "-unused-value-declaration"] refill _ = T `Eof
+
+  let[@warning "-unused-value-declaration"] with_input_buffer (oc : oc) ~f =
+    let chunk =
+      if Queue.is_empty oc then
+        ""
+      else
+        Queue.pop oc
+    in
+    let res, _read = f chunk ~pos:0 ~len:(String.length chunk) in
+    res
 end
 
 module C = Client.Client

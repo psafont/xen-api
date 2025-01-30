@@ -52,8 +52,8 @@ module Make (IO : IO) = struct
 
   type oc = IO.oc
 
-  module Request = Cohttp.Request.Make (IO)
-  module Response = Cohttp.Response.Make (IO)
+  module Request = Cohttp.Request.Make (IO) [@alert "-deprecated"]
+  module Response = Cohttp.Response.Make (IO) [@alert "-deprecated"]
 
   type t = {uri: Uri.t; mutable io: (ic * oc) option}
 
@@ -96,7 +96,9 @@ module Make (IO : IO) = struct
     let request =
       Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers t.uri
     in
-    Request.write (fun writer -> Request.write_body writer body) request oc
+    Request.write ~flush:false
+      (fun writer -> Request.write_body writer body)
+      request oc
     >>= fun () ->
     Response.read ic >>= function
     | `Eof ->

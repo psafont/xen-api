@@ -218,7 +218,9 @@ let make_server config trace_config =
   let callback (_, conn_id) req body =
     (* Make sure we replay the log before processing requests *)
     redo_log >>= fun _ ->
-    let conn_id_s = Cohttp.Connection.to_string conn_id in
+    let conn_id_s =
+      (Cohttp.Connection.to_string conn_id [@alert "-deprecated"])
+    in
     let open Message_switch_core.Protocol in
     Cohttp_lwt.Body.to_string body >>= fun body ->
     let uri = Cohttp.Request.uri req in
@@ -272,7 +274,9 @@ let make_server config trace_config =
         Cohttp_lwt_unix.Server.respond_string ~status ~body ()
   in
   let conn_closed (_, conn_id) =
-    let conn_id_s = Cohttp.Connection.to_string conn_id in
+    let conn_id_s =
+      (Cohttp.Connection.to_string conn_id [@alert "-deprecated"])
+    in
     let session = Connections.get_session conn_id_s in
     Connections.remove conn_id_s ;
     match session with

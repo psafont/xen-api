@@ -2859,7 +2859,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
               perform_atomics
                 ([VM_create (id, Some memory_limit, Some final_id, no_sharept)]
                 @ (* Perform as many operations as possible on the destination
-                     domain before pausing the original domain *)
+                       domain before pausing the original domain *)
                 atomics_of_operation (VM_restore_vifs id)
                 )
                 t ;

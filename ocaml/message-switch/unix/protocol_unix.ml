@@ -87,6 +87,98 @@ module IO = struct
   let whoami () =
     Printf.sprintf "%s:%d" (Filename.basename Sys.argv.(0)) (Unix.getpid ())
 
+  module Input_channel = struct
+    type t = {
+        mutable buf: Bytes.t
+      ; mutable start: int
+      ; mutable stop: int
+      ; ic: In_channel.t
+    }
+
+    let size = 0x4000
+
+    let of_fd fd =
+      let ic = Unix.in_channel_of_descr fd in
+      let buf = Bytes.create size in
+      {buf; start= 0; stop= 0; ic}
+
+    let rec refill t =
+      if
+        Bytes.length t.buf > size && Bytes.length t.buf > (t.stop - t.start) * 4
+      then (
+        let buf = Bytes.create (Bytes.length t.buf lsr 1) in
+        Bytes.blit t.buf t.start buf 0 (t.stop - t.start) ;
+        t.buf <- buf ;
+        t.stop <- t.stop - t.start ;
+        t.start <- 0
+      ) ;
+      if t.stop < Bytes.length t.buf then
+        let n_read =
+          In_channel.input t.ic t.buf t.stop (Bytes.length t.buf - t.stop)
+        in
+        if n_read > 0 then (
+          t.stop <- t.stop + n_read ;
+          `Ok
+        ) else
+          `Eof
+      else if t.start > 0 then (
+        let stop = t.stop - t.start in
+        Bytes.blit t.buf t.start t.buf 0 stop ;
+        t.start <- 0 ;
+        t.stop <- stop ;
+        refill t
+      ) else
+        let buf = Bytes.create (Bytes.length t.buf * 2) in
+        Bytes.blit t.buf 0 buf 0 t.stop ;
+        t.buf <- buf ;
+        refill t
+
+    let rec read (t : t) n =
+      let available = t.stop - t.start in
+      if available > 0 then (
+        let n = Int.min n available in
+        let res = Bytes.sub_string t.buf t.start n in
+        t.start <- t.start + n ;
+        res
+      ) else
+        match refill t with `Ok -> read t n | `Eof -> ""
+
+    let read_line (t : t) =
+      let finish pos =
+        if pos = 0 && t.start = t.stop then
+          None
+        else
+          let pos =
+            pos
+            - Bool.to_int (pos > 0 && Bytes.get t.buf (t.start + pos - 1) = '\r')
+          in
+          let res = Some (Bytes.sub_string t.buf t.start pos) in
+          t.start <- t.start + pos + Bool.to_int (t.start + pos < t.stop) ;
+          res
+      in
+      let rec loop pos =
+        if t.start + pos < t.stop then
+          let pos =
+            if Bytes.get t.buf (t.start + 1) <> '\n' then
+              pos + 1
+            else
+              pos
+          in
+          loop pos
+        else
+          match refill t with `Ok -> loop pos | `Eof -> finish pos
+      in
+      loop 0
+
+    let with_input_buffer t ~f =
+      let str = Bytes.unsafe_to_string t.buf in
+      let result, n = f str ~pos:t.start ~len:(t.stop - t.start) in
+      t.start <- t.start + n ;
+      result
+
+    let close t = close_in t.ic
+  end
+
   module IO = struct
     type 'a t = 'a
 
@@ -94,45 +186,22 @@ module IO = struct
 
     let return a = a
 
-    type ic = in_channel
+    type ic = Input_channel.t
 
     type oc = out_channel
 
     type conn = unit
 
-    let read_line ic =
-      try
-        let line = input_line ic in
-        let last = String.length line - 1 in
-        let line =
-          if line.[last] = '\r' then String.sub line 0 last else line
-        in
-        Some line
-      with _ -> None
+    let read ic n = Input_channel.read ic n
 
-    let read_into_exactly ic buf ofs len =
-      try
-        really_input ic buf ofs len ;
-        true
-      with _ -> false
-
-    let _read_exactly ic len =
-      let buf = Bytes.create len in
-      read_into_exactly ic buf 0 len >>= function
-      | true ->
-          return (Some buf)
-      | false ->
-          return None
-
-    let read ic n =
-      let buf = Bytes.make n '\000' in
-      let actually_read = input ic buf 0 n in
-      if actually_read = n then
-        Bytes.unsafe_to_string buf
-      else
-        Bytes.sub_string buf 0 actually_read
+    let read_line ic = Input_channel.read_line ic
 
     let write oc x = output_string oc x ; flush oc
+
+    let[@warning "-unused-value-declaration"] refill t = Input_channel.refill t
+
+    let[@warning "-unused-value-declaration"] with_input_buffer ic ~f =
+      Input_channel.with_input_buffer ic ~f
 
     let connect path =
       let sockaddr = Unix.ADDR_UNIX path in
@@ -143,7 +212,7 @@ module IO = struct
         let fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
         try
           let () = Unix.connect fd sockaddr in
-          let ic = Unix.in_channel_of_descr fd in
+          let ic = Input_channel.of_fd fd in
           let oc = Unix.out_channel_of_descr fd in
           result := Some (ic, oc)
         with
@@ -156,7 +225,7 @@ module IO = struct
       done ;
       match !result with None -> assert false | Some x -> x
 
-    let disconnect (ic, oc) = close_in ic ; close_out oc
+    let disconnect ((ic : ic), oc) = Input_channel.close ic ; close_out oc
 
     let flush _oc = ()
   end
