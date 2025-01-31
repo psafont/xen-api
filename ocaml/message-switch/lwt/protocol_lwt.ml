@@ -55,11 +55,12 @@ module M = struct
     connect' () >>= fun () ->
     let ic =
       Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.input fd
+      |> Cohttp_lwt_unix.Private.Input_channel.create
     in
     let oc = Lwt_io.of_fd ~close:(fun () -> return ()) ~mode:Lwt_io.output fd in
     return (ic, oc)
 
-  let disconnect (ic, _oc) = Lwt_io.close ic
+  let disconnect (ic, _oc) = Cohttp_lwt_unix.Private.Input_channel.close ic
 
   module Ivar = struct
     type 'a t = {t: 'a Lwt.t; u: 'a Lwt.u}
