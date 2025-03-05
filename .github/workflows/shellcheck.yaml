@@ -20,7 +20,7 @@ jobs:
     permissions:
       actions: read
       contents: read
-      pull-requests: write # allow commenting on the PR
+      issues: write # allow commenting on the PR
       security-events: write
 
     steps:
