@@ -3,6 +3,8 @@
    memory by userspace *)
 open! Xenctrlext
 
+let ( let@ ) f x = f x
+
 let stamp_tag : Mtime.span Logs.Tag.def =
   Logs.Tag.def "stamp" ~doc:"Relative monotonic time stamp" Mtime.Span.pp
 
@@ -91,8 +93,39 @@ let memory_changes () =
   in
   loop c c memory
 
+module DomainSet = Set.Make (Int)
+
+let get_domains xc =
+  Xenctrl.domain_getinfolist xc 0
+  |> List.to_seq
+  |> Seq.map (function Xenctrl.{domid; _} -> domid)
+  |> DomainSet.of_seq
+
+let diff_domains c previous current =
+  let added = DomainSet.diff current previous in
+  let removed = DomainSet.diff previous current in
+  DomainSet.iter
+    (fun id -> Logs.app (fun m -> m "domain %d added" id ~tags:(stamp c)))
+    added ;
+  DomainSet.iter
+    (fun id -> Logs.app (fun m -> m "domain %d removed" id ~tags:(stamp c)))
+    removed
+
+let domain_changes xc =
+  let domains = get_domains xc in
+  let c = Mtime_clock.counter () in
+  let rec loop previous =
+    let current = get_domains xc in
+    diff_domains c previous current ;
+    Unix.sleepf 0.01 ;
+    loop current
+  in
+  loop domains
+
 let () =
   Logs.set_reporter (reporter Format.std_formatter) ;
   Logs.set_level (Some Logs.Info) ;
 
-  ignore (Thread.create memory_changes () : Thread.t)
+  ignore (Thread.create memory_changes () : Thread.t) ;
+  let@ xc = Xenctrl.with_intf in
+  domain_changes xc

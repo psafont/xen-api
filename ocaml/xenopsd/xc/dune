@@ -73,7 +73,7 @@
 (executable
  (name numa)
  (modules numa)
- (libraries fmt logs logs.fmt mtime mtime.clock xenctrl xenopsd_xc)
+ (libraries fmt logs logs.fmt mtime mtime.clock threads.posix xenctrl xenopsd_xc)
 )
 
 (executable
