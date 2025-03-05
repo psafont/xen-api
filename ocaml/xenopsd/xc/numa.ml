@@ -12,6 +12,27 @@ let stamp c = Logs.Tag.(empty |> add stamp_tag (Mtime_clock.count c))
 
 let xc = get_handle ()
 
+let binary_prefixes = [""; "Ki"; "Mi"; "Gi"; "Ti"; "Pi"]
+
+let human_readable_bytes quantity =
+  let unit = "Bs" in
+  let print prefix q = Printf.sprintf "%Ld %s%s" q prefix unit in
+  let rec loop acc q = function
+    | [] ->
+        acc
+    | pre :: prefs ->
+        let quotient = Int64.div q 1024L in
+        let modulus = Int64.rem q 1024L in
+        let acc =
+          if Int64.equal modulus 0L then acc else print pre modulus :: acc
+        in
+        loop acc quotient prefs
+  in
+  if quantity = 0L then
+    print "" 0L
+  else
+    loop [] quantity binary_prefixes |> String.concat ", "
+
 let get_memory () =
   let {memory; _} = numainfo xc in
   memory
@@ -19,10 +40,18 @@ let get_memory () =
 let print_mem c mem =
   for i = 0 to Array.length mem - 1 do
     let {memfree; memsize} = mem.(i) in
+    let memfree = human_readable_bytes memfree in
+    let memsize = human_readable_bytes memsize in
     Logs.app (fun m ->
-        m "\t%d: %Ld free out of %Ld" i memfree memsize ~tags:(stamp c)
+        m "\t%d: %s free out of %s" i memfree memsize ~tags:(stamp c)
     )
   done
+
+let print_diff_mem before after =
+  if before > after then
+    Printf.sprintf "%s 🢆 " (Int64.sub before after |> human_readable_bytes)
+  else
+    Printf.sprintf "%s 🢅 " (Int64.sub after before |> human_readable_bytes)
 
 let diff c old cur =
   let changed_yet = ref false in
@@ -31,8 +60,11 @@ let diff c old cur =
     if a_free <> b_free then (
       if not !changed_yet then
         changed_yet := true ;
-      let updown = if a_free > b_free then "🢆" else "🢅" in
-      Logs.app (fun m -> m "\t%d: %Ld %s" i b_free updown ~tags:(stamp (c ())))
+      let free = human_readable_bytes b_free in
+      let updown = print_diff_mem a_free b_free in
+      Logs.app (fun m ->
+          m "\t%d: %s free (%s)" i free updown ~tags:(stamp (c ()))
+      )
     )
   done ;
   !changed_yet
