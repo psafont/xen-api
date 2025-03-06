@@ -691,8 +691,3 @@ CAMLprim value stub_xenctrlext_domain_claim_pages(value xch_val, value domid_val
         }
         CAMLreturn(Val_unit);
 }
-
-/*
-* Local variables:
-* indent-tabs-mode: t
-*/
