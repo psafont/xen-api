@@ -264,44 +264,28 @@ let with_conversion_script task name hvm fd f =
   debug "Spawned threads for conversion script and %s" name ;
   let rec handle_threads () =
     match (!conv_st, !f_st) with
-    | Thread_failure e, _ -> (
-      match e with
-      | Forkhelpers.Spawn_internal_error (_, _, status) -> (
-        match status with
-        | Unix.WEXITED n ->
-            Error
-              (Failure (Printf.sprintf "Conversion script exited with code %d" n)
-              )
-        | Unix.WSIGNALED n ->
-            Error
-              (Failure
-                 (Printf.sprintf "Conversion script exited with signal %a"
-                    Debug.Pp.signal n
-                 )
-              )
-        | Unix.WSTOPPED n ->
-            Error
-              (Failure
-                 (Printf.sprintf "Conversion script stopped with signal %a"
-                    Debug.Pp.signal n
-                 )
-              )
-      )
-      | _ ->
-          Error
-            (Failure
-               (Printf.sprintf "Conversion script thread caught exception: %s"
-                  (Printexc.to_string e)
-               )
-            )
-    )
-    | _, Thread_failure e ->
-        Error
-          (Failure
-             (Printf.sprintf "Thread executing %s caught exception: %s" name
+    | Thread_failure e, _ ->
+        let msg =
+          match e with
+          | Forkhelpers.Spawn_internal_error (_, _, Unix.WEXITED n) ->
+              Printf.sprintf "Conversion script exited with code %d" n
+          | Forkhelpers.Spawn_internal_error (_, _, Unix.WSIGNALED n) ->
+              Printf.sprintf "Conversion script exited with signal %a"
+                Debug.Pp.signal n
+          | Forkhelpers.Spawn_internal_error (_, _, Unix.WSTOPPED n) ->
+              Printf.sprintf "Conversion script stopped with signal %a"
+                Debug.Pp.signal n
+          | _ ->
+              Printf.sprintf "Conversion script thread caught exception: %s"
                 (Printexc.to_string e)
-             )
-          )
+        in
+        Error (Failure msg)
+    | _, Thread_failure e ->
+        let msg =
+          Printf.sprintf "Thread executing %s caught exception: %s" name
+            (Printexc.to_string e)
+        in
+        Error (Failure msg)
     | Running, _ | _, Running ->
         Condition.wait c m ; handle_threads ()
     | Success _, Success res ->
