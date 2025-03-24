@@ -1363,6 +1363,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
       in
       with_emu_manager_restore task ~domain_type ~dm ~store_port ~console_port
         ~extras manager_path domid uuid main_fd vgpu_fd (fun cnx ->
+          debug "Restoring with emu-manager %s" manager_path ;
           (* Maintain a list of results returned by emu-manager that are
              expected by the reader threads. Contains the emu for which a result
              is wanted plus an event channel for waking up the reader once the

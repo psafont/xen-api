@@ -66,7 +66,7 @@ type header_type =
   | Swtpm
   | End_of_image
 
-exception Invalid_header_type
+exception Invalid_header_type of int64
 
 let header_type_of_int64 = function
   | 0x000fL ->
@@ -91,8 +91,8 @@ let header_type_of_int64 = function
       Ok Swtpm
   | 0xffffL ->
       Ok End_of_image
-  | _ ->
-      Error Invalid_header_type
+  | k ->
+      Error (Invalid_header_type k)
 
 let int64_of_header_type = function
   | Xenops ->
