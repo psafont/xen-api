@@ -89,6 +89,12 @@ let choose_xenguest x = choose_alternative _xenguest !Xc_resources.xenguest x
 let choose_emu_manager x =
   choose_alternative _emu_manager !Xc_resources.emu_manager x
 
+let choose_restorer x = function
+  | Some _ ->
+      choose_emu_manager x
+  | None ->
+      choose_xenguest x
+
 type xendisk = Storage_interface.xendisk = {
     params: string  (** Put into the "params" key in xenstore *)
   ; extra: (string * string) list
@@ -2662,7 +2668,7 @@ module VM = struct
             | None ->
                 None
           in
-          let manager_path = choose_emu_manager vm.Vm.platformdata in
+          let manager_path = choose_restorer vm.Vm.platformdata vgpu_fd in
           Domain.restore task ~xc ~xs ~dm:(dm_of ~vm) ~store_domid
             ~console_domid ~no_incr_generationid (* XXX progress_callback *)
             ~timeoffset ~extras build_info ~manager_path ~vtpm domid fd vgpu_fd

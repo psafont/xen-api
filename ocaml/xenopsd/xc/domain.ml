@@ -1253,7 +1253,7 @@ let with_emu_manager_restore (task : Xenops_task.task_handle) ~domain_type
     ; "-console_port"
     ; string_of_int console_port
     ]
-    @ dm_flags dm
+    @ (match vgpu_fd with Some _ -> dm_flags dm | None -> [])
     @ extras
     @ vgpu_cmdline
   in
