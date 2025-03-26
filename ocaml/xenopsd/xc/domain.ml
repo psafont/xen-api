@@ -897,7 +897,6 @@ let numa_placement domid ~vcpus ~memory =
         done ;
         mem_plan
   in
-  (* Xen only allows a single node when using memory claims, or none at all. *)
   let numa_node =
     match memory_planning with
     | [Node node] ->
@@ -906,10 +905,9 @@ let numa_placement domid ~vcpus ~memory =
         None
   in
   let nr_pages = Int64.div memory 4096L |> Int64.to_int in
+  (* Currently Xen does not allow to make claims with NUMA nodes. *)
   match numa_node with
-  | Some (numa_node, node) ->
-      Xenctrlext.domain_claim_pages xcext domid ~numa_node nr_pages ;
-      Some (node, memory)
+  | Some _
   | None ->
       Xenctrlext.domain_claim_pages xcext domid nr_pages ;
       None
