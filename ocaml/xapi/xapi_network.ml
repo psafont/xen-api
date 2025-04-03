@@ -297,14 +297,12 @@ let destroy ~__context ~self =
       ) ;
   (* CA-43250: don't let people remove the internal management network *)
   let oc = Db.Network.get_other_config ~__context ~self in
-  if
-    List.mem_assoc Xapi_globs.is_host_internal_management_network oc
-    &&
-    try
-      bool_of_string
-        (List.assoc Xapi_globs.is_host_internal_management_network oc)
-    with _ -> false
-  then
+  let is_internal_management_network =
+    List.assoc_opt Xapi_globs.is_host_internal_management_network oc
+    |> Fun.flip Option.bind bool_of_string_opt
+    |> Option.value ~default:false
+  in
+  if is_internal_management_network then
     raise
       (Api_errors.Server_error
          (Api_errors.cannot_destroy_system_network, [Ref.string_of self])

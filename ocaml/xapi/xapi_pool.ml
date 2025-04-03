@@ -1221,11 +1221,9 @@ let create_or_get_network_on_master __context rpc session_id
         Db.PIF.get_physical ~__context ~self:hd
   in
   let is_himn =
-    List.mem_assoc Xapi_globs.is_host_internal_management_network
+    List.assoc_opt Xapi_globs.is_host_internal_management_network
       network.API.network_other_config
-    && List.assoc Xapi_globs.is_host_internal_management_network
-         network.API.network_other_config
-       = "true"
+    = Some "true"
   in
   let new_network_ref =
     if is_physical || is_himn then (
