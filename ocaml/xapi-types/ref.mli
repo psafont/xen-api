@@ -63,3 +63,13 @@ val name_of_dummy : 'a t -> string
 val really_pretty_and_small : [< not_secret] t -> string
 
 val pp : Format.formatter -> 'a t -> unit
+
+type cls
+
+val into_set : 'a t -> cls
+
+val from_set : cls -> 'a t
+
+module Set : sig
+  include Set.S with type elt := cls
+end

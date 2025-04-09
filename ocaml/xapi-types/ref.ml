@@ -22,7 +22,7 @@ type secret = Uuidx.secret
 
 type all = Uuidx.all
 
-type 'a t =
+type _t =
   | Real of string
   (* ref to an object in the database *)
   | Dummy of string * string
@@ -30,7 +30,8 @@ type 'a t =
   | Other of string
   (* ref used for other purposes (it doesn't have one of the official prefixes) *)
   | Null
-  constraint 'a = [< all]
+
+type 'a t = _t constraint 'a = [< all]
 
 (* ref to nothing at all *)
 
@@ -159,3 +160,18 @@ let pp ppf x = Format.fprintf ppf "%s" (string_of x)
 let rpc_of_t _ x = Rpc.rpc_of_string (string_of x)
 
 let t_of_rpc _ x = of_string (Rpc.string_of_rpc x)
+
+type cls = Comparable : {v: 'a t; get: 'a t -> _t} -> cls
+
+let into_set v = Comparable {v; get= Fun.id}
+
+let from_set c : 'a t = match c with Comparable {v; _} -> v
+
+module Set = Set.Make (struct
+  type t = cls
+
+  let compare a b =
+    match (a, b) with
+    | Comparable {v= a; get= get_a}, Comparable {v= b; get= get_b} ->
+        compare (get_a a) (get_b b)
+end)

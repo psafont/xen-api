@@ -783,15 +783,13 @@ let scan ~__context ~sr =
             in
             (* It is sufficient to just compare the refs in two db_vdis, as this
                is what update_vdis uses to determine what to delete *)
-            let vdis_ref_equal db_vdi1 db_vdi2 =
-              let refs1 = List.map fst db_vdi1 in
-              let refs2 = List.map fst db_vdi2 in
-
-              (* VDIs that are in db_vdi1 but not in db_vdi2 *)
-              let vdis_removed = Listext.List.set_difference refs1 refs2 in
-              (* VDIs that are in not in db_vdi1 but db_vdi2 *)
-              let vdis_added = Listext.List.set_difference refs2 refs1 in
-              vdis_removed = [] && vdis_added = []
+            let vdis_ref_equal vdis_a vdis_b =
+              let to_refset a =
+                List.to_seq a
+                |> Seq.map (fun (x, _) -> Ref.into_set x)
+                |> Ref.Set.of_seq
+              in
+              Ref.Set.equal (to_refset vdis_a) (to_refset vdis_b)
             in
             let db_vdis_before = find_vdis () in
             let vs, sr_info =
