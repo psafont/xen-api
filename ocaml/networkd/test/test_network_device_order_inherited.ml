@@ -61,7 +61,7 @@ let test_newhw_2srule_2eth () =
   let mac_addr0 = Macaddr.of_string "12:34:56:78:90:12" |> Result.get_ok in
   let mac_addr1 = Macaddr.of_string "ab:cd:ef:12:34:56" |> Result.get_ok in
   let rules =
-    Rule.
+    Seen.
       [
         {position= 0; index= Mac_addr mac_addr1}
       ; {position= 1; index= Mac_addr mac_addr0}
@@ -133,7 +133,7 @@ let test_1srule_1eth_1last_correct_udev () =
       }
     ]
   in
-  let rules = Rule.[{position= 0; index= Mac_addr mac_addr}] in
+  let rules = Seen.[{position= 0; index= Mac_addr mac_addr}] in
   let last_order =
     [{name= "eth1"; pci= pci_addr; mac= mac_addr; position= 1; present= true}]
   in
@@ -159,7 +159,7 @@ let test_1srule_1eth_already_complete () =
       }
     ]
   in
-  let rules = Rule.[{position= 0; index= Mac_addr mac_addr}] in
+  let rules = Seen.[{position= 0; index= Mac_addr mac_addr}] in
   let order = sort' ~currents ~rules ~last_order:[] in
   Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
   let order = Result.get_ok order in

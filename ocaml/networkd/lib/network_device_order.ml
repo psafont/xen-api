@@ -39,14 +39,13 @@ module Pciaddr = struct
     <?> compare t1.bus t2.bus
     <?> compare t1.dev t2.dev
     <?> compare t1.fn t2.fn
-    <?> 0
 end
 
 module Macaddr = struct
   include Macaddr
 
   let of_string s =
-    try Ok (of_string_exn s) with _ -> Error (Mac_addr_parse_error s)
+    of_string s |> Result.map_error (fun _ -> Mac_addr_parse_error s)
 end
 
 module PciaddrMap = Map.Make (Pciaddr)
@@ -109,7 +108,7 @@ let fold_results (l : ('a, 'e) result list) : ('a list, 'e) result =
     )
     (Ok []) l
 
-module Rule = struct
+module Seen = struct
   type index = Mac_addr of Macaddr.t | Pci_addr of Pciaddr.t | Label of string
 
   type t = {position: int; index: index}
@@ -142,20 +141,18 @@ module Rule = struct
       )
     with _ -> Error (Rule_parse_error line)
 
-  let validate_rules (l : (t, error) result list) =
-    let* rules = fold_results l in
+  let validate (l : (t, error) result list) =
+    let* positions = fold_results l in
     try
-      IntUniqueMap.of_unique_list (fun dev -> dev.position) rules |> ignore ;
-      Ok rules
+      IntUniqueMap.of_unique_list (fun dev -> dev.position) positions |> ignore ;
+      Ok positions
     with IntUniqueMap.Duplicate_key -> Error Duplicate_position
 
   let read ~(path : string) : (t list, error) result =
     if not (Sys.file_exists path) then
       Ok []
     else
-      Xapi_stdext_unix.Unixext.read_lines ~path
-      |> List.map parse
-      |> validate_rules
+      Xapi_stdext_unix.Unixext.read_lines ~path |> List.map parse |> validate
 end
 
 module Dev = struct
@@ -305,15 +302,11 @@ end
 
 type ordering = OrderedDev.t list * Dev.t list
 
-let assign_position_by_rules ~(rules : Rule.t list)
+let assign_position_by_seen ~(rules : Seen.t list)
     ((ordered, unordered) : ordering) : ordering =
   List.fold_left
-    (fun (acc_ordered, acc_unordered) (dev : Dev.t) ->
-      match
-        List.find_opt
-          (Rule.matches ~mac:dev.mac ~pci:dev.pci ~label:dev.name)
-          rules
-      with
+    (fun (acc_ordered, acc_unordered) ({mac; pci; name; _} as dev : Dev.t) ->
+      match List.find_opt (Seen.matches ~mac ~pci ~label:name) rules with
       | Some {position; _} ->
           debug "%s: assign position: %d <- %s" __FUNCTION__ position
             (Dev.to_string dev) ;
@@ -348,7 +341,7 @@ let assign_position_by_pci ~(last_pcis : OrderedDev.t list PciaddrMap.t)
     (fun (acc_ordered, acc_unordered) (dev : Dev.t) ->
       match (dev, PciaddrMap.find_opt dev.pci last_pcis) with
       | Dev.{multi_nic= false; _}, Some [{position; mac; _}] -> (
-        (* Not a multi-nic funciton.
+        (* Not a multi-nic function.
            And found a ever-seen device which had located at the same PCI address. *)
         match MacaddrSet.find_opt mac curr_macs with
         | None ->
@@ -442,7 +435,7 @@ let assign_position_for_remaining ~(max_position : int) (devs : Dev.t list) :
     (max_position, []) devs
   |> snd
 
-let sort' ~(currents : Dev.t list) ~(rules : Rule.t list)
+let sort' ~(currents : Dev.t list) ~(rules : Seen.t list)
     ~(last_order : OrderedDev.t list) : (OrderedDev.t list, error) result =
   let open Dev in
   let curr_macs =
@@ -451,7 +444,7 @@ let sort' ~(currents : Dev.t list) ~(rules : Rule.t list)
   let last_pcis = OrderedDev.map_by_pci last_order in
   let ordered, unordered =
     ([], currents)
-    |> assign_position_by_rules ~rules
+    |> assign_position_by_seen ~rules
     |> assign_position_by_mac ~last_order
     |> assign_position_by_pci ~last_pcis ~curr_macs
   in
@@ -496,7 +489,7 @@ let sort' ~(currents : Dev.t list) ~(rules : Rule.t list)
   OrderedDev.validate_order new_order
 
 let sort last_order =
-  let* rules = Rule.read ~path:initial_rules_file_path in
+  let* rules = Seen.read ~path:initial_rules_file_path in
   let rules, last_order =
     if last_order = [] then
       (rules, [])

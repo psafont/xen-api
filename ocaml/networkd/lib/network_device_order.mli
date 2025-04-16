@@ -32,7 +32,7 @@ end
 
 (** A rule specifies a position for a network device which can be identified by
     MAC address, PCI address, or name label. *)
-module Rule : sig
+module Seen : sig
   type index =
     | Mac_addr of Macaddr.t
     | Pci_addr of Pciaddr.t
@@ -117,6 +117,6 @@ val sort :
 
 val sort' :
      currents:Dev.t list
-  -> rules:Rule.t list
+  -> rules:Seen.t list
   -> last_order:OrderedDev.t list
   -> (OrderedDev.t list, error) result
