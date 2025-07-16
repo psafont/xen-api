@@ -163,7 +163,26 @@
   "This library export traces is able to push traces to http endpoints or generate compressed tarballs in the filesystem."))
 
 (package
- (name xapi-storage-script))
+ (name xapi-storage-script)
+ (synopsis "The daemon that interacts with SMAPIv3-based SM backends")
+ (description "This daemon watches a directory for subdirectories, and when a subdir is created, a storage service is registered.")
+ (depends
+  (conf-python-3 :with-test)
+  base
+  (clock (= :version))
+  inotify
+  lwt
+  message-switch-lwt
+  message-switch-unix
+  ppx_deriving_rpc
+  ppx_sexp_conv
+  rpclib
+  rpclib-lwt
+  sexplib0
+  (xapi-idl (= :version))
+  (xapi-storage (= :version))
+ )
+)
 
 (package
  (name xapi-storage-cli)
@@ -257,7 +276,14 @@
  (name xapi-datamodel))
 
 (package
- (name xapi-consts))
+ (name xapi-consts)
+ (synopsis "Data needed across the xapi toolstack")
+ (description "This library contains constants needed across all daemons in the toolstack.")
+ (depends
+  dune-build-info
+  xapi-inventory
+ )
+)
 
 (package
  (name xapi-compression))
