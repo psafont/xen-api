@@ -895,8 +895,6 @@ let default_auth_dir = ref "/usr/share/varstored"
 
 let allow_custom_uefi_certs = ref false
 
-let disable_logging_for = ref []
-
 let nvidia_whitelist = ref "/usr/share/nvidia/vgpu/vgpuConfig.xml"
 
 let nvidia_sriov_manage_script = ref "/usr/lib/nvidia/sriov-manage"
@@ -1417,11 +1415,6 @@ let other_options =
     , (fun () -> !trusted_patch_key)
     , "Fingerprint of the key used for signed hotfixes"
     )
-  ; ( "logconfig"
-    , Arg.Set_string log_config_file
-    , (fun () -> !log_config_file)
-    , "Log config file to use"
-    )
   ; ( "writereadyfile"
     , Arg.Set_string ready_file
     , (fun () -> !ready_file)
@@ -1453,11 +1446,6 @@ let other_options =
     , "allow storage migration when SRs have been mirrored out-of-band (and \
        have matching SR uuids)"
     )
-  ; gen_list_option "disable-logging-for"
-      "space-separated list of modules to suppress logging from"
-      (fun s -> s)
-      (fun s -> s)
-      disable_logging_for
   ; gen_list_option "disable-dbsync-for"
       "space-separated list of database synchronisation actions to skip"
       (fun s -> s)
@@ -2082,7 +2070,7 @@ module Resources = struct
       , remote_db_conf_fragment_path
       , "Where to store information about remote databases"
       )
-    ; ("logconfig", log_config_file, "Configure the logging policy")
+    ; ("logconfig", log_config_file, "File location for logging policy")
     ; ("cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info")
     ; ("server-cert-path", server_cert_path, "Path to server ssl certificate")
     ; ( "server-cert-internal-path"
