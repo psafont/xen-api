@@ -147,13 +147,6 @@ module Config_file = struct
       spec
 end
 
-let rec split_c c str =
-  try
-    let i = String.index str c in
-    String.sub str 0 i
-    :: split_c c (String.sub str (i + 1) (String.length str - i - 1))
-  with Not_found -> [str]
-
 let setify =
   let rec loop acc = function
     | [] ->
@@ -198,7 +191,9 @@ let common_options =
     )
   ; ( "search-path"
     , Arg.String
-        (fun s -> extra_search_path := split_c ':' s @ !extra_search_path)
+        (fun s ->
+          extra_search_path := String.split_on_char ':' s @ !extra_search_path
+        )
     , (fun () -> String.concat ":" !extra_search_path)
     , "Search path for resources"
     )
@@ -217,7 +212,9 @@ let common_options =
         (fun x ->
           debug "Parsing [%s]" x ;
           try
-            let modules = List.filter (fun x -> x <> "") (split_c ' ' x) in
+            let modules =
+              List.filter (fun x -> x <> "") (String.split_on_char ' ' x)
+            in
             List.iter Debug.disable modules
           with e ->
             error "Processing disabled-logging-for = %s: %s" x
@@ -381,10 +378,7 @@ let canonicalise x =
     x
   else (* Search the PATH and XCP_PATH for the executable *)
     let paths =
-      (* Might be worth eliminating split_c function (used in a few
-         more places in this module and replacing it with
-         Astring.String.cuts since it's already imported in this module *)
-      split_c ':' (Option.value (Sys.getenv_opt "PATH") ~default:"")
+      String.split_on_char ':' (Option.value (Sys.getenv_opt "PATH") ~default:"")
     in
     let first_hit =
       List.find_map
