@@ -22,13 +22,6 @@ let _ =
   Debug.set_facility Syslog.Local5 ;
   Sys.enable_runtime_warnings true ;
   init_args () ;
-  (* Disable logging for the module requested in the config *)
-  List.iter
-    (fun m ->
-      D.debug "Disabling logging for: %s" m ;
-      Debug.disable m
-    )
-    !Xapi_globs.disable_logging_for ;
   Unixext.pidfile_write "/var/run/xapi.pid" ;
   (* chdir to /var/lib/xcp/debug so that's where xapi coredumps go
      (in the unlikely event that there are any ;) *)
