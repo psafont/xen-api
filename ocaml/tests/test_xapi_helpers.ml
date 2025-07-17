@@ -41,12 +41,13 @@ let filtering_test =
     strings
 
 let test_xapi_configure () =
-  Xcp_service.configure
-    ~argv:[|Sys.argv.(0)|]
-    ~options:Xapi_globs.all_options ()
+  try
+    Xcp_service.configure
+      ~argv:[|Sys.argv.(0)|]
+      ~options:Xapi_globs.all_options ()
+  with e -> Alcotest.failf "Failed to run configure: %s" (Printexc.to_string e)
 
 let () =
-  Suite_init.harness_init () ;
   Alcotest.run "Test XAPI Helpers suite"
     [
       ("Test_xapi_helpers", filtering_test)

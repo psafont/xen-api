@@ -442,12 +442,15 @@ let configure_common ~options ~resources arg_parse_fn =
   let rec check_for_duplicates seen_already = function
     | [] ->
         ()
-    | x :: xs ->
-        if List.mem x seen_already then
-          warn
+    | x :: _ when List.mem x seen_already ->
+        let msg =
+          Printf.sprintf
             "Duplicate configuration keys in Xcp_service.configure: %s in [ %s \
              ]"
-            x (String.concat "; " keys) ;
+            x (String.concat "; " keys)
+        in
+        invalid_arg msg
+    | x :: xs ->
         check_for_duplicates (x :: seen_already) xs
   in
   check_for_duplicates [] keys ;
