@@ -1298,13 +1298,20 @@ let option_of_xapi_globs_spec ?(description = None) (name, ty) =
         Arg.Int (fun y -> x := Mtime.Span.(y * s))
   in
   let read_default () =
+    (* The string produced must be able to be converted back to the original
+       Arg type (Int, Float, etc) *)
     match ty with
     | Float x ->
         string_of_float !x
     | Int x ->
         string_of_int !x
-    | ShortDurationFromSeconds x | LongDurationFromSeconds x ->
-        Fmt.str "%Luns (%a)" (Mtime.Span.to_uint64_ns !x) Mtime.Span.pp !x
+    | ShortDurationFromSeconds x ->
+        !x |> Clock.Timer.span_to_s |> Float.to_string
+    | LongDurationFromSeconds x ->
+        !x
+        |> Mtime.Span.to_uint64_ns
+        |> Fun.flip Int64.div 1_000_000_000L
+        |> Int64.to_string
   in
   let description =
     let default = Printf.sprintf "Set the value of '%s'" name in
