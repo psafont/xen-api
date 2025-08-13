@@ -629,6 +629,7 @@ module Ip = struct
                ; Unix.string_of_inet_addr gateway
                ; "dev"
                ; dev
+               ; "onlink"
                ]
             )
       | Some (ip, prefixlen) ->
@@ -645,6 +646,7 @@ module Ip = struct
                ; Unix.string_of_inet_addr gateway
                ; "dev"
                ; dev
+               ; "onlink"
                ]
             )
     with _ -> ()
