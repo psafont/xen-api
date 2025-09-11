@@ -268,9 +268,16 @@ let progress_cb =
         debug "progress %d%%" new_percent ;
       last_percent := new_percent
 
+let doc =
+  String.concat " "
+    [
+      "This is binary copies the disk blocks when VMs are migrated."
+    ; "It supports a number of protocols and formats, like NBD, Raw or VHD"
+    ]
+
 let _ =
   Vhd_format_lwt.File.use_unbuffered := true ;
-  Xcp_service.configure ~options () ;
+  Xcp_service.configure ~doc ~version:Xapi_version.version ~options () ;
   let src =
     match !src with
     | None ->

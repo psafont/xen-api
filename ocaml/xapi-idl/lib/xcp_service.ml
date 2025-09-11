@@ -353,8 +353,6 @@ let command_of ~name ~version ~doc xs =
     (Cmd.info name ~version ~sdocs:_common_options ~man)
     Term.(const (fun (_ : unit list) -> `Ok ()) $ list terms)
 
-let arg_spec = List.map (fun (a, b, _, c) -> ("-" ^ a, b, c))
-
 type res = {
     name: string
   ; description: string
@@ -464,23 +462,7 @@ let configure_common ~options ~resources arg_parse_fn =
   adjust_timeslice () ;
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore
 
-let configure ?(argv = Sys.argv) ?(options = []) ?(resources = []) () =
-  try
-    configure_common ~options ~resources (fun config_spec ->
-        Arg.parse_argv argv
-          (Arg.align (arg_spec config_spec))
-          (fun _ -> failwith "Invalid argument")
-          (Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0))
-    )
-  with
-  | Failure msg ->
-      prerr_endline msg ; flush stderr ; exit 1
-  | Arg.Bad msg ->
-      Printf.eprintf "%s" msg ; exit 2
-  | Arg.Help msg ->
-      Printf.printf "%s" msg ; exit 0
-
-let configure2 ~version ~doc ?(name = Filename.basename Sys.argv.(0))
+let configure ~version ~doc ?(name = Filename.basename Sys.argv.(0))
     ?(options = []) ?(resources = []) () =
   configure_common ~options ~resources @@ fun config_spec ->
   let cmd = command_of ~name ~version ~doc config_spec in

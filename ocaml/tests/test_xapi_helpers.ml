@@ -41,8 +41,7 @@ let filtering_test =
     strings
 
 let test_xapi_configure () =
-  Xcp_service.configure
-    ~argv:[|Sys.argv.(0)|]
+  Xcp_service.configure ~version:"0.0.0" ~doc:"Test XCP_configure"
     ~options:Xapi_globs.all_options ()
 
 let () =

@@ -2291,7 +2291,7 @@ let () =
       )
     ]
   in
-  configure2 ~name:"xapi-storage-script" ~version:Xapi_version.version
+  configure ~name:"xapi-storage-script" ~version:Xapi_version.version
     ~doc:description ~resources ~options () ;
 
   Logs.set_reporter (lwt_reporter ()) ;

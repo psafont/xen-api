@@ -11,8 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xcp_service
-
 module D = Debug.Make (struct let name = Memory_interface.service_name end)
 
 open D
@@ -99,10 +97,19 @@ let bind () =
   S.get_host_initial_free_memory get_host_initial_free_memory ;
   S.get_domain_zero_policy get_domain_zero_policy
 
+let doc =
+  String.concat " "
+    [
+      "Squeezed is the XAPI Toolstack’s host memory manager"
+    ; "(aka balloon driver)."
+    ; "Squeezed uses ballooning to move memory between running VMs,"
+    ; "to avoid wasting host memory."
+    ]
+
 let _ =
   Debug.set_facility Syslog.Local5 ;
   debug "squeezed version %s starting" Xapi_version.version ;
-  configure ~options () ;
+  Xcp_service.configure ~doc ~options ~version:Xapi_version.version () ;
   bind () ;
   let server =
     Xcp_service.make ~path:Memory_interface.xml_path

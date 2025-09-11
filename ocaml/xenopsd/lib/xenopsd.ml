@@ -479,7 +479,7 @@ let configure ?(specific_options = []) ?(specific_essential_paths = [])
       ~essentials:(Resources.essentials @ specific_essential_paths)
       ~nonessentials:(Resources.nonessentials @ specific_nonessential_paths)
   in
-  Xcp_service.configure2 ~version:Xapi_version.version ~doc ~options ~resources
+  Xcp_service.configure ~version:Xapi_version.version ~doc ~options ~resources
     ()
 
 let log_raw_backtrace bt =

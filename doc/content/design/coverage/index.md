@@ -123,7 +123,7 @@ functionality in a common library `xapi-idl` that:
    named `bisect-<name>-<random>.<Number>.out`
     * sending `reset` will cause the runtime coverage counters to be reset
 
-Daemons that use `Xcp_service.configure2` (e.g. `xenopsd`) will benefit from this runtime trigger automatically,
+Daemons that use `Xcp_service.configure` (e.g. `xenopsd`) will benefit from this runtime trigger automatically,
 provided they are themselves preprocessed with `bisect_ppx`.
 
 Since we are interested in collecting coverage data for system-wide test-suite runs we need a way to trigger

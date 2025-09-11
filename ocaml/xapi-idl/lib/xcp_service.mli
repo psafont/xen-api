@@ -29,9 +29,6 @@ type res = {
 }
 
 val configure :
-  ?argv:string array -> ?options:opt list -> ?resources:res list -> unit -> unit
-
-val configure2 :
      version:string
   -> doc:string
   -> ?name:string
@@ -39,7 +36,7 @@ val configure2 :
   -> ?resources:res list
   -> unit
   -> unit
-(** More advanced service configuration with manpage generation *)
+(** Service configuration with manpage generation *)
 
 type server
 
