@@ -479,8 +479,7 @@ let () =
   Debug.set_facility Syslog.Local5 ;
   (* Read configuration file. *)
   debug "Reading configuration file .." ;
-  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Xapi_version.version ~doc
-    ~options () ;
+  Xcp_service.configure2 ~version:Xapi_version.version ~doc ~options () ;
   debug "Starting the HTTP server .." ;
   (* Eventually we should switch over to xcp_service to declare our services,
      but since it doesn't support HTTP GET and PUT we keep the old code for now.

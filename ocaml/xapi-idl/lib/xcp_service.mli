@@ -32,9 +32,9 @@ val configure :
   ?argv:string array -> ?options:opt list -> ?resources:res list -> unit -> unit
 
 val configure2 :
-     name:string
-  -> version:string
+     version:string
   -> doc:string
+  -> ?name:string
   -> ?options:opt list
   -> ?resources:res list
   -> unit

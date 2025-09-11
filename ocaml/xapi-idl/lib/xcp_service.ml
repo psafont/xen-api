@@ -274,8 +274,7 @@ let rec list = function
   | x :: xs ->
       Term.app (Term.app (Term.const (fun x y -> x :: y)) x) (list xs)
 
-let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
-    ?(doc = "Please describe this command.") xs =
+let command_of ~name ~version ~doc xs =
   let term_of_option (key, arg, get_fn, doc) =
     let default = get_fn () in
     match arg with
@@ -498,7 +497,8 @@ let configure ?(argv = Sys.argv) ?(options = []) ?(resources = []) () =
   | Arg.Help msg ->
       Printf.printf "%s" msg ; exit 0
 
-let configure2 ~name ~version ~doc ?(options = []) ?(resources = []) () =
+let configure2 ~version ~doc ?(name = Filename.basename Sys.argv.(0))
+    ?(options = []) ?(resources = []) () =
   configure_common ~options ~resources @@ fun config_spec ->
   let cmd = command_of ~name ~version ~doc config_spec in
   match Cmd.eval_value ~catch:true cmd with
