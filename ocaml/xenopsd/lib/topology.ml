@@ -78,8 +78,8 @@ module NUMARequest = struct
        constraint too *)
     && CPUSet.(cardinal available.NUMAResource.affinity >= requested.vcpus)
     && (* this is an optional constraint: it is desirable to be able to leave
-          hyperthread siblings idle, when the system is not busy.
-          However requested.cores can also be 0.
+                hyperthread siblings idle, when the system is not busy.
+                However requested.cores can also be 0.
        *)
     available.NUMAResource.cores >= requested.cores
 

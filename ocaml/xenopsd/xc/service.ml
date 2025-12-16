@@ -505,7 +505,7 @@ module Vgpu = struct
              (* pass PF otherwise *)
              match vgpu.implementation with
              (* 1. Upgrade case, migrate from a old host with old vGPU having
-                   config_path 2. Legency case, run with old Nvidia host driver
+                         config_path 2. Legency case, run with old Nvidia host driver
              *)
              | Nvidia
                  {
@@ -515,7 +515,7 @@ module Vgpu = struct
                  ; _
                  } ->
                  (* The VGPU UUID is not available. Create a fresh one; xapi
-                    will deal with it. *)
+                          will deal with it. *)
                  let uuid = Uuidx.(to_string (make ())) in
                  debug "NVidia vGPU config: using config file %s and uuid %s"
                    config_file uuid ;
