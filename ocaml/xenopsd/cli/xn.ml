@@ -768,7 +768,9 @@ let export copts metadata xm filename (x : Vm.id option) () =
   if not metadata then
     `Error (false, "Unfortunately I only support metadata import")
   else
-    match x with
+    match
+      x
+    with
     | None ->
         `Error (false, "Please supply a VM uuid or name")
     | Some x -> (
@@ -813,7 +815,9 @@ let import copts metadata filename () =
   if not metadata then
     `Error (false, "Unfortunately I only support metadata import")
   else
-    match filename with
+    match
+      filename
+    with
     | None ->
         `Error (false, "Please provide a filename")
     | Some f ->

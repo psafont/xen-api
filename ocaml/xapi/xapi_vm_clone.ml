@@ -27,7 +27,9 @@ let delete_disks rpc session_id disks =
   List.iter
     (fun (_, vdi, on_error_delete) ->
       if on_error_delete then
-        try Client.VDI.destroy ~rpc ~session_id ~self:vdi with _ -> ()
+        try
+          Client.VDI.destroy ~rpc ~session_id ~self:vdi
+        with _ -> ()
       else
         debug "Not destroying CD VDI: %s" (Ref.string_of vdi)
     )

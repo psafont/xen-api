@@ -70,9 +70,7 @@ module StringMap = struct
   let add key v t = add (Share.merge key) v t
 end
 
-module type VAL = sig
-  type t
-end
+module type VAL = sig type t end
 
 module type MAP = sig
   type t
@@ -194,7 +192,9 @@ module Row = struct
     List.fold_left
       (fun t c ->
         if not (mem c.Schema.Column.name t) then
-          match c.Schema.Column.default with
+          match
+            c.Schema.Column.default
+          with
           | Some default ->
               add g c.Schema.Column.name default t
           | None ->
@@ -704,15 +704,14 @@ let add_row tblname objref newval db =
   let g = db.Database.manifest.Manifest.generation_count in
   db
   |> Database.update_keymap (fun m ->
-         if Row.mem Db_names.uuid newval then
-           KeyMap.add_unique tblname Db_names.uuid
-             (Uuid
-                (Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid newval))
-             )
-             (tblname, objref) m
-         else
-           m
-     )
+      if Row.mem Db_names.uuid newval then
+        KeyMap.add_unique tblname Db_names.uuid
+          (Uuid (Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid newval))
+          )
+          (tblname, objref) m
+      else
+        m
+  )
   |> Database.update_keymap
        (KeyMap.add_unique tblname Db_names.ref (Ref objref) (tblname, objref))
   |> ((fun _ -> newval)
@@ -731,8 +730,8 @@ let remove_row tblname objref db =
   let g = db.Database.manifest.Manifest.generation_count in
   db
   |> Database.update_keymap (fun m ->
-         match uuid with Some u -> KeyMap.remove (Uuid u) m | None -> m
-     )
+      match uuid with Some u -> KeyMap.remove (Uuid u) m | None -> m
+  )
   |> Database.update_keymap (KeyMap.remove (Ref objref))
   |> update_many_to_many g tblname objref remove_from_set
   (* Update foreign (Set(Ref _)) fields *)

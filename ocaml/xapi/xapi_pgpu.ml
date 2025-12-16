@@ -103,7 +103,9 @@ let sync_pci_hidden ~__context ~pgpu ~pci =
     Db.PGPU.set_dom0_access ~__context ~self:pgpu ~value:dom0_access ;
     is_pci_hidden
   ) else
-    match Db.PGPU.get_dom0_access ~__context ~self:pgpu with
+    match
+      Db.PGPU.get_dom0_access ~__context ~self:pgpu
+    with
     | `disabled | `enable_on_reboot ->
         true
     | `enabled | `disable_on_reboot ->

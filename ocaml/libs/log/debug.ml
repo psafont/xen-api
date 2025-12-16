@@ -281,9 +281,7 @@ let with_thread_named name f x =
     ThreadLocalTable.remove names ;
     raise e
 
-module type BRAND = sig
-  val name : string
-end
+module type BRAND = sig val name : string end
 
 let all_levels =
   [Syslog.Debug; Syslog.Info; Syslog.Warning; Syslog.Err; Syslog.Crit]

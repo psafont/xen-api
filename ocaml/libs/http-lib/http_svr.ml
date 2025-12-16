@@ -381,7 +381,9 @@ let read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd =
     |> List.fold_left
          (fun (status, req) header ->
            if not status then
-             match Astring.String.fields ~empty:false header with
+             match
+               Astring.String.fields ~empty:false header
+             with
              | [meth; uri; version] ->
                  (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
                  let uri_t = Uri.of_string uri in
@@ -400,7 +402,9 @@ let read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd =
              | _ ->
                  raise Http_parse_failure
            else
-             match Astring.String.cut ~sep:":" header with
+             match
+               Astring.String.cut ~sep:":" header
+             with
              | Some (k, v) -> (
                  let k = lowercase k in
                  let v = String.trim v in

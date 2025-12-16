@@ -225,8 +225,8 @@ module Dev = struct
       let open Astring.String in
       cuts ~sep:"\n" output_of_one_dev
       |> List.filter_map (fun line ->
-             cut ~sep:":" line |> Option.map (fun (k, v) -> (trim k, trim v))
-         )
+          cut ~sep:":" line |> Option.map (fun (k, v) -> (trim k, trim v))
+      )
     in
     List.iter (fun (k, v) -> debug "%s: [%s]=[%s]" __FUNCTION__ k v) kvs ;
     [
@@ -516,11 +516,11 @@ let sort' ~(currents : Dev.t list) ~(rules : Rule.t list)
   let removed =
     last_order
     |> List.filter_map (fun (dev : OrderedDev.t) ->
-           if MacaddrSet.mem dev.mac curr_macs then
-             None
-           else
-             Some {dev with present= false}
-       )
+        if MacaddrSet.mem dev.mac curr_macs then
+          None
+        else
+          Some {dev with present= false}
+    )
     |> List.filter (fun dev -> not (IntMap.mem dev.position m))
   in
   let ordered = List.rev_append ordered removed in
@@ -551,8 +551,8 @@ let sort last_order =
   let* new_order = sort' ~currents ~rules ~last_order in
   new_order
   |> List.iter (fun x ->
-         debug "%s new order: %s" __FUNCTION__ (OrderedDev.to_string x)
-     ) ;
+      debug "%s new order: %s" __FUNCTION__ (OrderedDev.to_string x)
+  ) ;
 
   (* Find the NICs whose name changes *)
   let* m = OrderedDev.map_by_position last_order in

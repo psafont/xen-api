@@ -75,12 +75,12 @@ end = struct
     ; ("ip", x.ip)
     ]
     |> List.filter_map (fun (label, value) ->
-           match value with
-           | None | Some "" ->
-               None
-           | Some value ->
-               Some (Printf.sprintf "<%s>%s</%s>" label value label)
-       )
+        match value with
+        | None | Some "" ->
+            None
+        | Some value ->
+            Some (Printf.sprintf "<%s>%s</%s>" label value label)
+    )
     |> String.concat "\n"
 
   type client_failed_attempts = {
@@ -483,7 +483,8 @@ let revalidate_external_session ~__context acc session =
 
         if session_timed_out then (
           (* if so, then:*)
-          validate_with_memo acc @@ fun acc ->
+          validate_with_memo acc
+          @@ fun acc ->
           debug "session %s needs revalidation" (trackid session) ;
 
           (* 2a. revalidate external authentication *)
@@ -617,10 +618,11 @@ let revalidate_all_sessions ~__context =
     (* filter out those sessions where is_local_superuser or client_certificate is true *)
     (* we only want to revalidate the sessions created using the external authentication service *)
     |> List.filter (fun session ->
-           (not (Db.Session.get_is_local_superuser ~__context ~self:session))
-           && not (Db.Session.get_client_certificate ~__context ~self:session)
-       )
-    |> (* revalidate each external session *)
+        (not (Db.Session.get_is_local_superuser ~__context ~self:session))
+        && not (Db.Session.get_client_certificate ~__context ~self:session)
+    )
+    |>
+    (* revalidate each external session *)
     List.fold_left
       (revalidate_external_session ~__context)
       SessionValidateMap.empty

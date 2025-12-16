@@ -109,7 +109,9 @@ let of_string x =
   else if String.starts_with ~prefix:ref_prefix x then
     Real String.(sub x ref_prefix_length (length x - ref_prefix_length))
   else if String.starts_with ~prefix:dummy_prefix x then
-    match Astring.String.cuts ~sep:dummy_sep x with
+    match
+      Astring.String.cuts ~sep:dummy_sep x
+    with
     | _prefix :: uuid :: name ->
         Dummy (uuid, String.concat dummy_sep name)
     | _ ->

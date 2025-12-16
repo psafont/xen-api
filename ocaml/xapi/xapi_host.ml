@@ -641,11 +641,11 @@ let evacuate ~__context ~host ~network ~evacuate_batch_size =
     |> List.of_seq
     |> List.sort_uniq compare
     |> List.iter (fun host ->
-           ignore
-           @@ Xapi_network_attach_helpers
-              .assert_valid_ip_configuration_on_network_for_host ~__context
-                ~self:network ~host
-       )
+        ignore
+        @@ Xapi_network_attach_helpers
+           .assert_valid_ip_configuration_on_network_for_host ~__context
+             ~self:network ~host
+    )
   in
 
   let options =
@@ -1794,48 +1794,49 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
         (* we try to use the configuration to set up the new external authentication service *)
 
         (* we persist as much set up configuration now as we can *)
-        try
-          Db.Host.set_external_auth_service_name ~__context ~self:host
-            ~value:service_name ;
+          try
+            Db.Host.set_external_auth_service_name ~__context ~self:host
+              ~value:service_name ;
 
-          (* the ext_auth.on_enable dispatcher called below will store the configuration params, and also *)
-          (* filter out any one-time credentials such as the administrator password, so we *)
-          (* should not call here 'host.set_external_auth_configuration ~config' *)
+            (* the ext_auth.on_enable dispatcher called below will store the configuration params, and also *)
+            (* filter out any one-time credentials such as the administrator password, so we *)
+            (* should not call here 'host.set_external_auth_configuration ~config' *)
 
-          (* use the special 'named dispatcher' function to call an extauth plugin function even though we have *)
-          (* not yet set up the external_auth_type value that will enable generic access to the extauth plugin. *)
-          (Ext_auth.nd auth_type).on_enable ~__context config ;
+            (* use the special 'named dispatcher' function to call an extauth plugin function even though we have *)
+            (* not yet set up the external_auth_type value that will enable generic access to the extauth plugin. *)
+            (Ext_auth.nd auth_type).on_enable ~__context config ;
 
-          (* from this point on, we have successfully enabled the external authentication services. *)
+            (* from this point on, we have successfully enabled the external authentication services. *)
 
-          (* Up to this point, we cannot call external auth functions via extauth's generic dispatcher d(). *)
-          Db.Host.set_external_auth_type ~__context ~self:host ~value:auth_type ;
+            (* Up to this point, we cannot call external auth functions via extauth's generic dispatcher d(). *)
+            Db.Host.set_external_auth_type ~__context ~self:host
+              ~value:auth_type ;
 
-          (* From this point on, anyone can call external auth functions via extauth.ml's generic dispatcher d(), which depends on the value of external_auth_type. *)
-          (* This enables all functions to the external authentication and directory service that xapi makes available to the user, *)
-          (* such as external login, subject id/info queries, group membership etc *)
+            (* From this point on, anyone can call external auth functions via extauth.ml's generic dispatcher d(), which depends on the value of external_auth_type. *)
+            (* This enables all functions to the external authentication and directory service that xapi makes available to the user, *)
+            (* such as external login, subject id/info queries, group membership etc *)
 
-          (* CP-709: call extauth hook-script after extauth.enable *)
-          (* we must not fork, intead block until the script has returned *)
-          (* so that at most one enable-external-auth event script is running at any one time in the same host *)
-          (* we use its local variation without mutex, otherwise we will deadlock *)
-          let call_plugin_fn () =
-            call_extauth_plugin_nomutex ~__context ~host
-              ~fn:Extauth.event_name_after_extauth_enable
-              ~args:(Extauth.get_event_params ~__context host)
-          in
-          ignore
-            (Extauth.call_extauth_hook_script_in_host_wrapper ~__context host
-               Extauth.event_name_after_extauth_enable ~call_plugin_fn
-            ) ;
-          debug
-            "external authentication service type %s for service name %s \
-             enabled successfully in host %s"
-            auth_type service_name host_name_label ;
-          Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded := true ;
-          (* CA-24856: detect non-homogeneous external-authentication config in this host *)
-          detect_nonhomogeneous_external_auth_in_host ~__context ~host
-        with
+            (* CP-709: call extauth hook-script after extauth.enable *)
+            (* we must not fork, intead block until the script has returned *)
+            (* so that at most one enable-external-auth event script is running at any one time in the same host *)
+            (* we use its local variation without mutex, otherwise we will deadlock *)
+            let call_plugin_fn () =
+              call_extauth_plugin_nomutex ~__context ~host
+                ~fn:Extauth.event_name_after_extauth_enable
+                ~args:(Extauth.get_event_params ~__context host)
+            in
+            ignore
+              (Extauth.call_extauth_hook_script_in_host_wrapper ~__context host
+                 Extauth.event_name_after_extauth_enable ~call_plugin_fn
+              ) ;
+            debug
+              "external authentication service type %s for service name %s \
+               enabled successfully in host %s"
+              auth_type service_name host_name_label ;
+            Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded := true ;
+            (* CA-24856: detect non-homogeneous external-authentication config in this host *)
+            detect_nonhomogeneous_external_auth_in_host ~__context ~host
+          with
         | Extauth.Unknown_extauth_type msg ->
             (* unknown plugin *)
             (* we rollback to the original xapi configuration *)
@@ -2491,13 +2492,13 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
     Db.PIF.get_records_where ~__context
       ~expr:(Eq (Field "host", Literal (Ref.string_of host)))
     |> List.filter (fun (_, pif_rec) ->
-           match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec with
-           | VLAN_untagged _ :: Network_sriov_logical _ :: _
-           | Network_sriov_logical _ :: _ ->
-               false
-           | _ ->
-               true
-       )
+        match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec with
+        | VLAN_untagged _ :: Network_sriov_logical _ :: _
+        | Network_sriov_logical _ :: _ ->
+            false
+        | _ ->
+            true
+    )
   in
   let network_to_bridge =
     List.map (fun (net, net_r) -> (net, net_r.API.network_bridge)) networks
@@ -2581,7 +2582,9 @@ let migrate_receive ~__context ~host ~network ~options:_ =
       )
   in
   ( if ip = "" then
-      match configuration_mode with
+      match
+        configuration_mode
+      with
       | `None ->
           raise
             (Api_errors.Server_error
@@ -2741,17 +2744,17 @@ let really_write_uefi_certificates_to_disk ~__context ~host:_ ~value =
       (* from an existing directory *)
       Sys.readdir !Xapi_globs.default_auth_dir
       |> Array.iter (fun file ->
-             let src = !Xapi_globs.default_auth_dir // file in
-             let dst = !Xapi_globs.varstore_dir // file in
-             let@ src_fd = Unixext.with_file src [Unix.O_RDONLY] 0o400 in
-             let@ dst_fd =
-               Unixext.with_file dst
-                 [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC]
-                 0o644
-             in
-             debug "%s: copy_file %s->%s" __FUNCTION__ src dst ;
-             ignore (Unixext.copy_file src_fd dst_fd)
-         )
+          let src = !Xapi_globs.default_auth_dir // file in
+          let dst = !Xapi_globs.varstore_dir // file in
+          let@ src_fd = Unixext.with_file src [Unix.O_RDONLY] 0o400 in
+          let@ dst_fd =
+            Unixext.with_file dst
+              [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC]
+              0o644
+          in
+          debug "%s: copy_file %s->%s" __FUNCTION__ src dst ;
+          ignore (Unixext.copy_file src_fd dst_fd)
+      )
   | base64_value -> (
     (* from an existing base64 tar file *)
     match Base64.decode base64_value with
@@ -2789,14 +2792,14 @@ let write_uefi_certificates_to_disk ~__context ~host =
     (* check expected uefi certificates are present *)
     ["KEK.auth"; "db.auth"]
     |> List.iter (fun cert ->
-           let log_of found =
-             (if found then info else warn)
-               "check_valid_uefi_certs: %s %s in %s"
-               (if found then "found" else "missing")
-               cert path
-           in
-           uefi_certs_in_disk |> Array.mem cert |> log_of
-       )
+        let log_of found =
+          (if found then info else warn)
+            "check_valid_uefi_certs: %s %s in %s"
+            (if found then "found" else "missing")
+            cert path
+        in
+        uefi_certs_in_disk |> Array.mem cert |> log_of
+    )
   in
   let disk_uefi_certs_tar =
     really_read_uefi_certificates_from_disk ~__context ~host
@@ -2988,19 +2991,19 @@ let alert_if_kernel_broken =
          in
          all_alerts
          |> List.filter (fun (_, alert_message) ->
-                let alert_already_issued_for_this_boot =
-                  Helpers.call_api_functions ~__context (fun rpc session_id ->
-                      Client.Client.Message.get_all_records ~rpc ~session_id
-                      |> List.exists (fun (_, record) ->
-                             record.API.message_name = fst alert_message
-                             && API.Date.is_later
-                                  ~than:(API.Date.of_unix_time boot_time)
-                                  record.API.message_timestamp
-                         )
-                  )
-                in
-                alert_already_issued_for_this_boot
-            )
+             let alert_already_issued_for_this_boot =
+               Helpers.call_api_functions ~__context (fun rpc session_id ->
+                   Client.Client.Message.get_all_records ~rpc ~session_id
+                   |> List.exists (fun (_, record) ->
+                       record.API.message_name = fst alert_message
+                       && API.Date.is_later
+                            ~than:(API.Date.of_unix_time boot_time)
+                            record.API.message_timestamp
+                   )
+               )
+             in
+             alert_already_issued_for_this_boot
+         )
         )
         )
   in
@@ -3011,23 +3014,20 @@ let alert_if_kernel_broken =
       Lazy.from_val
         (Lazy.force !possible_alerts
         |> List.filter (fun (alert_bit, alert_message) ->
-               let is_bit_tainted =
-                 Unixext.string_of_file "/proc/sys/kernel/tainted"
-                 |> int_of_string
-               in
-               let is_bit_tainted = (is_bit_tainted lsr alert_bit) land 1 = 1 in
-               if is_bit_tainted then (
-                 let host = Db.Host.get_name_label ~__context ~self in
-                 let body =
-                   Printf.sprintf "<body><host>%s</host></body>" host
-                 in
-                 Xapi_alert.add ~msg:alert_message ~cls:`Host
-                   ~obj_uuid:(Db.Host.get_uuid ~__context ~self)
-                   ~body ;
-                 false (* alert issued, remove from the list *)
-               ) else
-                 true (* keep in the list, alert can be issued later *)
-           )
+            let is_bit_tainted =
+              Unixext.string_of_file "/proc/sys/kernel/tainted" |> int_of_string
+            in
+            let is_bit_tainted = (is_bit_tainted lsr alert_bit) land 1 = 1 in
+            if is_bit_tainted then (
+              let host = Db.Host.get_name_label ~__context ~self in
+              let body = Printf.sprintf "<body><host>%s</host></body>" host in
+              Xapi_alert.add ~msg:alert_message ~cls:`Host
+                ~obj_uuid:(Db.Host.get_uuid ~__context ~self)
+                ~body ;
+              false (* alert issued, remove from the list *)
+            ) else
+              true (* keep in the list, alert can be issued later *)
+        )
         )
 
 let alert_if_tls_verification_was_emergency_disabled ~__context =
@@ -3047,9 +3047,9 @@ let alert_if_tls_verification_was_emergency_disabled ~__context =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           Client.Client.Message.get_all_records ~rpc ~session_id
           |> List.exists (fun (_, record) ->
-                 record.API.message_name
-                 = fst Api_messages.tls_verification_emergency_disabled
-             )
+              record.API.message_name
+              = fst Api_messages.tls_verification_emergency_disabled
+          )
       )
     in
 
@@ -3161,10 +3161,10 @@ let emergency_clear_mandatory_guidance ~__context =
   let self = Helpers.get_localhost ~__context in
   Db.Host.get_pending_guidances ~__context ~self
   |> List.iter (fun g ->
-         let open Updateinfo.Guidance in
-         let s = g |> of_pending_guidance |> to_string in
-         info "%s: %s is cleared" __FUNCTION__ s
-     ) ;
+      let open Updateinfo.Guidance in
+      let s = g |> of_pending_guidance |> to_string in
+      info "%s: %s is cleared" __FUNCTION__ s
+  ) ;
   Db.Host.set_pending_guidances ~__context ~self ~value:[]
 
 let set_ssh_auto_mode ~__context ~self ~value =
@@ -3321,7 +3321,9 @@ let set_ssh_enabled_timeout ~__context ~self ~value =
     value ;
   Db.Host.set_ssh_enabled_timeout ~__context ~self ~value ;
   if Db.Host.get_ssh_enabled ~__context ~self then
-    match value with
+    match
+      value
+    with
     | 0L ->
         Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue
           !Xapi_globs.job_for_disable_ssh ;

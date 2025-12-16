@@ -527,22 +527,24 @@ module Server = struct
                         in
                         response >>= fun response ->
                         ( match m.Message.kind with
-                        | Message.Response _ ->
-                            (* response where a request should be: configuration error? *)
-                            return ()
-                        | Message.Request reply_to ->
-                            let request =
-                              In.Send
-                                ( reply_to
-                                , {
-                                    Message.kind= Message.Response i
-                                  ; payload= response
-                                  }
-                                )
-                            in
-                            with_lock mutex (fun () -> do_rpc reply_conn request)
-                            >>= fun _ -> return ()
-                        )
+                          | Message.Response _ ->
+                              (* response where a request should be: configuration error? *)
+                              return ()
+                          | Message.Request reply_to ->
+                              let request =
+                                In.Send
+                                  ( reply_to
+                                  , {
+                                      Message.kind= Message.Response i
+                                    ; payload= response
+                                    }
+                                  )
+                              in
+                              with_lock mutex (fun () ->
+                                  do_rpc reply_conn request
+                              )
+                              >>= fun _ -> return ()
+                          )
                         >>= fun () ->
                         let request = In.Ack i in
                         with_lock mutex (fun () -> do_rpc reply_conn request)

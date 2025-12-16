@@ -61,12 +61,12 @@ let get_map_param params ?(default = []) param =
   let get_map x =
     String.split_on_char ',' x
     |> List.filter_map (fun x ->
-           match String.split_on_char ':' x with
-           | [k; v] ->
-               Some (k, v)
-           | _ ->
-               None
-       )
+        match String.split_on_char ':' x with
+        | [k; v] ->
+            Some (k, v)
+        | _ ->
+            None
+    )
   in
   List.assoc_opt param params |> Option.map get_map |> Option.value ~default
 
@@ -203,8 +203,8 @@ let diagnostic_timing_stats printer rpc session_id params =
     ; ("host-name-label", Client.Host.get_name_label ~rpc ~session_id ~self:host)
     ]
     @
-    try Client.Host.get_diagnostic_timing_stats ~rpc ~session_id ~host ~counts
-    with e -> [("Error", Api_errors.to_string e)]
+      try Client.Host.get_diagnostic_timing_stats ~rpc ~session_id ~host ~counts
+      with e -> [("Error", Api_errors.to_string e)]
   in
   let all = List.map table_of_host (Client.Host.get_all ~rpc ~session_id) in
   printer (Cli_printer.PTable all)
@@ -2064,7 +2064,10 @@ let vdi_pool_migrate printer rpc session_id params =
     Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "uuid" params)
   and sr =
     Client.SR.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "sr-uuid" params)
-  and options = [] (* no options implemented yet *) in
+  and options =
+    []
+    (* no options implemented yet *)
+  in
   let newvdi = Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options in
   let newuuid = Client.VDI.get_uuid ~rpc ~session_id ~self:newvdi in
   printer (Cli_printer.PList [newuuid])
@@ -2370,7 +2373,9 @@ let vbd_create printer rpc session_id params =
   let bootable = get_bool_param params "bootable" in
   let mode =
     if List.mem_assoc "mode" params then
-      match String.lowercase_ascii (List.assoc "mode" params) with
+      match
+        String.lowercase_ascii (List.assoc "mode" params)
+      with
       | "ro" ->
           `RO
       | "rw" ->
@@ -2383,7 +2388,9 @@ let vbd_create printer rpc session_id params =
   in
   let _type =
     if List.mem_assoc "type" params then
-      match String.lowercase_ascii (List.assoc "type" params) with
+      match
+        String.lowercase_ascii (List.assoc "type" params)
+      with
       | "cd" ->
           `CD
       | "disk" ->
@@ -2443,7 +2450,8 @@ let vbd_unplug _printer rpc session_id params =
   in
   let timeout =
     if List.mem_assoc "timeout" params then
-      try float_of_string (List.assoc "timeout" params)
+      try
+        float_of_string (List.assoc "timeout" params)
       with _ ->
         failwith "Failed to parse parameter 'timeout': expecting a float"
     else
@@ -3948,7 +3956,9 @@ let is_recommended recommendations_xml fieldname =
     if Xmlm.eoi i then
       false
     else
-      match Xmlm.input i with
+      match
+        Xmlm.input i
+      with
       | `El_start ((ns, tag), attrs)
         when tag = "restriction" && List.mem ((ns, "field"), fieldname) attrs ->
           List.mem ((ns, "value"), "true") attrs
@@ -4292,7 +4302,9 @@ let vm_uninstall_common fd _printer rpc session_id params vms =
       Client.VM.destroy ~rpc ~session_id ~self:vm ;
       List.iter (fun vdi -> Client.VDI.destroy ~rpc ~session_id ~self:vdi) vdis ;
       if suspend_VDI <> Ref.null then
-        try Client.VDI.destroy ~rpc ~session_id ~self:suspend_VDI with _ -> ()
+        try
+          Client.VDI.destroy ~rpc ~session_id ~self:suspend_VDI
+        with _ -> ()
     in
     toremove := !toremove @ [destroy]
   in
@@ -4765,9 +4777,9 @@ let vm_migrate printer rpc session_id params =
             let srs =
               remote Client.PBD.get_all_where ~expr
               |> List.map (fun pbd ->
-                     let sr = remote Client.PBD.get_SR ~self:pbd in
-                     (sr, remote Client.SR.get_record ~self:sr)
-                 )
+                  let sr = remote Client.PBD.get_SR ~self:pbd in
+                  (sr, remote Client.SR.get_record ~self:sr)
+              )
             in
             (* In the following loop, the current SR:sr' will be compared with previous checked ones,
                first if it is an ISO type, then pass this one for selection, then the only shared one from this and
@@ -5040,7 +5052,9 @@ let vm_disk_add printer rpc session_id params =
       let sr_uuid = List.assoc "sr-uuid" params in
       Client.SR.get_by_uuid ~rpc ~session_id ~uuid:sr_uuid
     else
-      match get_default_sr_uuid rpc session_id with
+      match
+        get_default_sr_uuid rpc session_id
+      with
       | Some uuid ->
           Client.SR.get_by_uuid ~rpc ~session_id ~uuid
       | None ->
@@ -5389,8 +5403,8 @@ let host_evacuate _printer rpc session_id params =
   let network =
     List.assoc_opt "network-uuid" params
     |> Option.fold ~none:Ref.null ~some:(fun uuid ->
-           Client.Network.get_by_uuid ~rpc ~session_id ~uuid
-       )
+        Client.Network.get_by_uuid ~rpc ~session_id ~uuid
+    )
   in
   let evacuate_batch_size =
     match List.assoc_opt "batch-size" params with
@@ -5633,7 +5647,9 @@ let vm_import fd _printer rpc session_id params =
     if List.mem_assoc "sr-uuid" params then
       Client.SR.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "sr-uuid" params)
     else
-      match Cli_util.get_default_sr_uuid rpc session_id with
+      match
+        Cli_util.get_default_sr_uuid rpc session_id
+      with
       | Some uuid ->
           Client.SR.get_by_uuid ~rpc ~session_id ~uuid
       | None ->
@@ -6377,8 +6393,8 @@ let diagnostic_license_status printer rpc session_id _params =
     Client.Pool.get_all_records ~rpc ~session_id
     |> List.hd
     |> (fun (pool, _) ->
-         Client.Pool.get_restrictions ~rpc ~session_id ~self:pool
-       )
+    Client.Pool.get_restrictions ~rpc ~session_id ~self:pool
+    )
     |> Features.of_assoc_list
   in
   let divider = ["-"; "-"; "-"; "-"; "-"; "-"] in
@@ -6403,8 +6419,8 @@ let diagnostic_license_status printer rpc session_id _params =
     (fun row ->
       List.combine row column_sizes
       |> List.map (fun (data, len) ->
-             data ^ String.make (len - String.length data) ' '
-         )
+          data ^ String.make (len - String.length data) ' '
+      )
       |> String.concat " "
       |> (fun x -> Cli_printer.PMsg x)
       |> printer
@@ -7100,7 +7116,9 @@ let update_upload fd _printer rpc session_id params =
         Client.SR.get_by_uuid ~rpc ~session_id
           ~uuid:(List.assoc "sr-uuid" params)
       else
-        match get_default_sr_uuid rpc session_id with
+        match
+          get_default_sr_uuid rpc session_id
+        with
         | Some uuid ->
             Client.SR.get_by_uuid ~rpc ~session_id ~uuid
         | None ->
@@ -7421,7 +7439,9 @@ let vmss_create printer rpc session_id params =
     if List.mem_assoc param_name params then
       List.assoc param_name params
     else
-      match default with
+      match
+        default
+      with
       | Some default_value ->
           default_value
       | None ->
@@ -7794,8 +7814,8 @@ let host_apply_updates _printer rpc session_id params =
          let host = host.getref () in
          Client.Host.apply_updates ~rpc ~session_id ~self:host ~hash
          |> List.iter (fun l ->
-                _printer (Cli_printer.PMsg (String.concat "; " l))
-            )
+             _printer (Cli_printer.PMsg (String.concat "; " l))
+         )
        )
        params ["hash"]
     )
@@ -7824,7 +7844,8 @@ module SDN_controller = struct
   let introduce printer rpc session_id params =
     let port =
       if List.mem_assoc "tcp-port" params then
-        try Int64.of_string (List.assoc "tcp-port" params)
+        try
+          Int64.of_string (List.assoc "tcp-port" params)
         with _ -> failwith "port field should be an integer"
       else
         0L

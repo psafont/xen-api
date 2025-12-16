@@ -1054,25 +1054,22 @@ module Nvidia_compat = struct
         read_config_dir conf_dir
         (* Nvidia host driver does not support multiple vGPU, create compat config file *)
         |> List.iter (fun (conf_file, identifier) ->
-               let identifier_string = Identifier.to_string identifier in
-               let expr = Eq (Field "identifier", Literal identifier_string) in
-               match
-                 Db.VGPU_type.get_internal_records_where ~__context ~expr
-               with
-               | [(vgpu_type_ref, rc)] ->
-                   let updated_config =
-                     rc.Db_actions.vGPU_type_internal_config
-                     |> List.remove_assoc
-                          Xapi_globs.nvidia_compat_config_file_key
-                     |> fun x ->
-                     (Xapi_globs.nvidia_compat_config_file_key, conf_file) :: x
-                   in
-                   Db.VGPU_type.set_internal_config ~__context
-                     ~self:vgpu_type_ref ~value:updated_config
-               | _ ->
-                   ()
-               (* Type is not relevant: ignore *)
-           )
+            let identifier_string = Identifier.to_string identifier in
+            let expr = Eq (Field "identifier", Literal identifier_string) in
+            match Db.VGPU_type.get_internal_records_where ~__context ~expr with
+            | [(vgpu_type_ref, rc)] ->
+                let updated_config =
+                  rc.Db_actions.vGPU_type_internal_config
+                  |> List.remove_assoc Xapi_globs.nvidia_compat_config_file_key
+                  |> fun x ->
+                  (Xapi_globs.nvidia_compat_config_file_key, conf_file) :: x
+                in
+                Db.VGPU_type.set_internal_config ~__context ~self:vgpu_type_ref
+                  ~value:updated_config
+            | _ ->
+                ()
+            (* Type is not relevant: ignore *)
+        )
     with e ->
       error "Failed to create NVidia compat config_file: %s\n%s\n"
         (Printexc.to_string e)

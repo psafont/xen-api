@@ -57,8 +57,8 @@ let classes_with_records =
   Datamodel_utils.add_implicit_messages ~document_order:false Datamodel.all_api
   |> objects_of_api
   |> List.filter (fun x ->
-         List.exists (fun y -> y.msg_name = "get_all_records") x.messages
-     )
+      List.exists (fun y -> y.msg_name = "get_all_records") x.messages
+  )
   |> List.map (fun x -> x.name)
 
 let classes = objects_of_api api
@@ -339,7 +339,8 @@ and print_header_constructor message classname =
     \    [OutputType(typeof(%s))]%s\n\
     \    [OutputType(typeof(void))]\n\
     \    public class NewXen%sCommand : XenServerCmdlet\n\
-    \    {" Licence.bsd_two_clause
+    \    {"
+    Licence.bsd_two_clause
     (ocaml_class_to_csharp_class classname)
     (qualified_class_name classname)
     ( if message.msg_async then
@@ -524,7 +525,9 @@ and explode_record_fields message fields =
   | hd :: tl ->
       if List.exists (fun x -> full_name hd = x.param_name) message.msg_params
       then
-        match hd.ty with
+        match
+          hd.ty
+        with
         | Map (_, _) ->
             print_map tl hd
         | _ ->
@@ -1188,7 +1191,8 @@ and print_param_xen_object qualifiedClassName publicName =
     "\n\
     \        [Parameter(ParameterSetName = \"XenObject\", Mandatory = true, \
      ValueFromPipeline = true, Position = 0)]\n\
-    \        public %s %s { get; set; }" qualifiedClassName publicName
+    \        public %s %s { get; set; }"
+    qualifiedClassName publicName
 
 and print_param_uuid hasUuid =
   if hasUuid then
@@ -1507,7 +1511,8 @@ and print_pass_thru x =
     "\n\
     \                    if (PassThru)\n\
     \                    {%s\n\
-    \                    }" x
+    \                    }"
+    x
 
 and gen_csharp_api_call_async message classname commonVerb =
   sprintf "\n                    taskRef = %s.async_%s(%s);\n"

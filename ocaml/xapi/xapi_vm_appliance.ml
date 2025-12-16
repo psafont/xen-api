@@ -192,10 +192,10 @@ let get_SRs_required_for_recovery ~__context ~self ~session_to =
   Db.VM_appliance.get_VMs ~__context ~self
   |> List.to_seq
   |> Seq.flat_map (fun vm ->
-         Xapi_vm_helpers.get_SRs_required_for_recovery ~__context ~self:vm
-           ~session_to
-         |> List.to_seq
-     )
+      Xapi_vm_helpers.get_SRs_required_for_recovery ~__context ~self:vm
+        ~session_to
+      |> List.to_seq
+  )
   |> Xapi_vm_helpers.SRSet.of_seq
   |> Xapi_vm_helpers.SRSet.elements
 

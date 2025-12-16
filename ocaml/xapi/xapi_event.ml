@@ -66,7 +66,9 @@ module Subscription = struct
     if x = "*" then
       All
     else
-      match Xapi_stdext_std.Xstringext.String.split ~limit:2 '/' x with
+      match
+        Xapi_stdext_std.Xstringext.String.split ~limit:2 '/' x
+      with
       | [cls] ->
           Class (String.lowercase_ascii cls)
       | [cls; id] ->

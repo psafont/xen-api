@@ -300,10 +300,10 @@ let destroy ~__context ~self =
   if
     List.mem_assoc Xapi_globs.is_host_internal_management_network oc
     &&
-    try
-      bool_of_string
-        (List.assoc Xapi_globs.is_host_internal_management_network oc)
-    with _ -> false
+      try
+        bool_of_string
+          (List.assoc Xapi_globs.is_host_internal_management_network oc)
+      with _ -> false
   then
     raise
       (Api_errors.Server_error
@@ -420,17 +420,17 @@ let assert_can_add_purpose ~__context ~network:_ ~current:_ newval =
      * type doesn't allow searching for a value inside a list. *)
     Db.Network.get_all ~__context
     |> List.iter (fun nwk ->
-           Db.Network.get_purpose ~__context ~self:nwk
-           |> List.iter (fun suspect ->
-                  if List.mem suspect bads then (
-                    info
-                      "Cannot set new network purpose %s when there is a \
-                       network with purpose %s"
-                      (sop newval) (sop suspect) ;
-                    reject suspect
-                  )
-              )
-       )
+        Db.Network.get_purpose ~__context ~self:nwk
+        |> List.iter (fun suspect ->
+            if List.mem suspect bads then (
+              info
+                "Cannot set new network purpose %s when there is a network \
+                 with purpose %s"
+                (sop newval) (sop suspect) ;
+              reject suspect
+            )
+        )
+    )
   in
   match newval with
   | `nbd ->

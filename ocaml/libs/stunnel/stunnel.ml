@@ -484,7 +484,9 @@ let check_verify_error line =
    * in this case, Stunnel_verify_error can be raised with detailed error as
    * reason if it can found in the log *)
   if Astring.String.is_infix ~affix:"certificate verify failed" line then
-    match Astring.String.find_sub ~sub:"error:" line with
+    match
+      Astring.String.find_sub ~sub:"error:" line
+    with
     | Some e ->
         raise
           (Stunnel_verify_error

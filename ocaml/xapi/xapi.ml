@@ -1554,4 +1554,6 @@ let watchdog f =
   in
   if !Xapi_globs.nowatchdog then
     (* backtrace already logged by the Debug module, so ignore the exception here *)
-    try Debug.with_thread_associated __FUNCTION__ run () with _ -> exit 2
+    try
+      Debug.with_thread_associated __FUNCTION__ run ()
+    with _ -> exit 2

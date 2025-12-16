@@ -45,7 +45,9 @@ let wait_for_all_inner ~rpc ~session_id ~all_timeout ~tasks ~callback =
     if TaskSet.is_empty task_set then
       true
     else
-      match timeout_span with
+      match
+        timeout_span
+      with
       | Some span when Mtime.Span.compare (Mtime_clock.count timer) span > 0 ->
           let tasks = TaskSet.elements task_set in
           let tasks_str =

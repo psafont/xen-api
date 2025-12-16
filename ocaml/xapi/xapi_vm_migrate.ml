@@ -212,9 +212,9 @@ let assert_sr_support_operations ~__context ~vdi_map ~remote ~local_ops
   in
   List.filter (fun (vdi, sr) -> not (is_sr_matching vdi sr)) vdi_map
   |> List.iter (fun (vdi, sr) ->
-         op_supported_on_source_sr vdi local_ops ;
-         op_supported_on_dest_sr sr remote_ops sm_record remote
-     )
+      op_supported_on_source_sr vdi local_ops ;
+      op_supported_on_dest_sr sr remote_ops sm_record remote
+  )
 
 (** Check that none of the VDIs that are mapped to a different SR have CBT
     or encryption enabled. This function must be called with the complete
@@ -414,12 +414,12 @@ let pool_migrate ~__context ~vm ~host ~options =
    * the vgpu <-> pgpu mapping. *)
   Db.VM.get_VGPUs ~__context ~self:vm
   |> List.map (fun vgpu ->
-         (vgpu, Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu)
-     )
+      (vgpu, Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu)
+  )
   |> List.iter (fun (vgpu, pgpu) ->
-         Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm
-           ~__context ~vm ~host ~vgpu ~pgpu ()
-     ) ;
+      Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context
+        ~vm ~host ~vgpu ~pgpu ()
+  ) ;
   Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid
     (fun () ->
       try
@@ -1567,7 +1567,9 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
       List.iter
         (fun mirror_record ->
           if mirror_record.mr_mirrored then
-            match mirror_record.mr_dp with
+            match
+              mirror_record.mr_dp
+            with
             | Some dp ->
                 SMAPI.DP.destroy dbg dp false
             | None ->
@@ -1722,18 +1724,18 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
     if (not is_intra_pool) && Db.is_valid_ref __context vm then
       List.map (fun self -> Db.VM.get_uuid ~__context ~self) vm_and_snapshots
       |> List.iter (fun uuid ->
-             try
-               let vm_ref =
-                 XenAPI.VM.get_by_uuid ~rpc:remote.rpc
-                   ~session_id:remote.session ~uuid
-               in
-               info "Destroying stale VM uuid=%s on destination host" uuid ;
-               XenAPI.VM.destroy ~rpc:remote.rpc ~session_id:remote.session
-                 ~self:vm_ref
-             with e ->
-               error "Caught %s while destroying VM uuid=%s on destination host"
-                 (Printexc.to_string e) uuid
-         ) ;
+          try
+            let vm_ref =
+              XenAPI.VM.get_by_uuid ~rpc:remote.rpc ~session_id:remote.session
+                ~uuid
+            in
+            info "Destroying stale VM uuid=%s on destination host" uuid ;
+            XenAPI.VM.destroy ~rpc:remote.rpc ~session_id:remote.session
+              ~self:vm_ref
+          with e ->
+            error "Caught %s while destroying VM uuid=%s on destination host"
+              (Printexc.to_string e) uuid
+      ) ;
     let task = Context.get_task_id __context in
     let oc = Db.Task.get_other_config ~__context ~self:task in
     if List.mem_assoc "mirror_failed" oc then (

@@ -4,7 +4,9 @@ let () =
     if Daemon.systemd_notify Daemon.State.Ready then
       exit 0
     else
-      match Sys.getenv_opt "NOTIFY_SOCKET" with
+      match
+        Sys.getenv_opt "NOTIFY_SOCKET"
+      with
       | Some _ ->
           exit 4
       | None ->

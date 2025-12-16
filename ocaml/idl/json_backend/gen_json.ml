@@ -139,7 +139,7 @@ end = struct
               f :: l
           | Namespace (_name, contents) ->
               flatten_contents contents @ l
-        )
+          )
         [] contents
     in
     let fields = flatten_contents obj.contents in
@@ -241,9 +241,9 @@ end = struct
                 (function {qualifier= StaticRO | RW; _} -> true | _ -> false)
                 (fields_of_obj obj)
               |> List.map (fun f ->
-                     String.concat "_" f.full_name
-                     ^ if f.default_value = None then "*" else ""
-                 )
+                  String.concat "_" f.full_name
+                  ^ if f.default_value = None then "*" else ""
+              )
             in
             Printf.sprintf "\nThe constructor args are: %s (* = non-optional)."
               (String.concat ", " ctor_fields)
@@ -398,12 +398,12 @@ end = struct
        latest change one and drop the rest *)
     changes
     |> List.sort (fun ((_, nam_a, _, _) as a) ((_, nam_b, _, _) as b) ->
-           let cmp = String.compare nam_a nam_b in
-           if cmp <> 0 then
-             cmp
-           else
-             -compare_changes a b
-       )
+        let cmp = String.compare nam_a nam_b in
+        if cmp <> 0 then
+          cmp
+        else
+          -compare_changes a b
+    )
     |> list_dedup (fun (_, a, _, _) (_, b, _, _) -> String.compare a b)
 
   let release_info releases objs =
@@ -489,7 +489,7 @@ end = struct
                   f :: l
               | Namespace (_name, contents) ->
                   flatten_contents contents @ l
-            )
+              )
             [] contents
         in
         let fields = flatten_contents obj.contents in

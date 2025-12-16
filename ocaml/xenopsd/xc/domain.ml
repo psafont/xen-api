@@ -348,7 +348,8 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
   (* Any guest using PCI devices needs an IOMMU configuration. *)
   let iommu = vm_info.pci_passthrough in
   if iommu then
-    assert_capability CAP_DirectIO ~on_error:(fun () -> "IOMMU unavailable") ;
+    assert_capability CAP_DirectIO ~on_error:(fun () -> "IOMMU unavailable"
+    ) ;
   let nested_virt =
     get_platform_key ~key:"nested-virt" ~default:false require_hvm
   in
@@ -1082,17 +1083,17 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
       result
     in
     ( match hard_affinity with
-    | [] ->
-        []
-    | m :: ms ->
-        (* Treat the first as the template for the rest *)
-        let all_vcpus = List.init vcpus Fun.id in
-        let defaults = List.map (fun _ -> m) all_vcpus in
-        Xapi_stdext_std.Listext.List.take vcpus ((m :: ms) @ defaults)
-    )
+      | [] ->
+          []
+      | m :: ms ->
+          (* Treat the first as the template for the rest *)
+          let all_vcpus = List.init vcpus Fun.id in
+          let defaults = List.map (fun _ -> m) all_vcpus in
+          Xapi_stdext_std.Listext.List.take vcpus ((m :: ms) @ defaults)
+      )
     |> List.iteri (fun vcpu mask ->
-           Xenctrlext.vcpu_setaffinity_hard xcext domid vcpu (bitmap mask)
-       )
+        Xenctrlext.vcpu_setaffinity_hard xcext domid vcpu (bitmap mask)
+    )
   in
   apply_hard_vcpu_map () ;
   let node_placement =
@@ -1149,11 +1150,11 @@ let xenguest_args_base ~domid ~store_port ~store_domid ~console_port
 let xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port
     ~console_domid ~memory ~kernel ~vgpus ~numa_placement =
   ["-mode"; "hvm_build"; "-image"; kernel]
-  @ (vgpus |> function
-     | Xenops_interface.Vgpu.{implementation= Nvidia _; _} :: _ ->
-         ["-vgpu"]
-     | _ ->
-         []
+  @ ( vgpus |> function
+      | Xenops_interface.Vgpu.{implementation= Nvidia _; _} :: _ ->
+          ["-vgpu"]
+      | _ ->
+          []
     )
   @ xenguest_args_base ~domid ~store_port ~store_domid ~console_port
       ~console_domid ~memory ~numa_placement

@@ -441,7 +441,9 @@ functor
           let y = f x in
           (* Only update the DB if the value has changed *)
           if x <> y then (
-            match y with
+            match
+              y
+            with
             | None ->
                 delete k ; true
             | Some y' ->

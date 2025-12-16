@@ -185,7 +185,9 @@ let authorization_equal a b =
 let authorization_of_string x =
   let basic = "Basic " in
   if Astring.String.is_prefix ~affix:basic x then
-    match Base64.decode ~off:(String.length basic) x with
+    match
+      Base64.decode ~off:(String.length basic) x
+    with
     | Result.Ok userpass -> (
       match Astring.String.cut ~sep:":" userpass with
       | Some (username, password) ->
@@ -431,7 +433,9 @@ module Accept = struct
     if c <> 0 then
       -c (* q factor (user-preference) overrides all else *)
     else
-      match (a.ty, b.ty) with
+      match
+        (a.ty, b.ty)
+      with
       | Some _, None | Some (_, Some _), Some (_, None) ->
           -1
       | None, Some _ | Some (_, None), Some (_, Some _) ->

@@ -81,7 +81,9 @@ let require_operation_on_pci_device ~__context ~sriov ~self =
   in
   let pif_rec = Db.PIF.get_record ~__context ~self in
   if is_sriov_enabled ~pif_rec then
-    match Db.Network_sriov.get_configuration_mode ~__context ~self:sriov with
+    match
+      Db.Network_sriov.get_configuration_mode ~__context ~self:sriov
+    with
     | `sysfs ->
         true
     | `unknown ->
@@ -108,21 +110,21 @@ let require_operation_on_pci_device ~__context ~sriov ~self =
                )
             )
         |> List.filter (fun (_, pif_rec) ->
-               let sriov =
-                 match pif_rec.API.pIF_sriov_logical_PIF_of with
-                 | v :: _ ->
-                     v
-                 | [] ->
-                     Helpers.internal_error
-                       "Cannot find sriov object in sriov logical PIF %s"
-                       pif_rec.API.pIF_uuid
-               in
-               let physical_pif =
-                 Db.Network_sriov.get_physical_PIF ~__context ~self:sriov
-               in
-               let pci = Db.PIF.get_PCI ~__context ~self:physical_pif in
-               Db.PCI.get_driver_name ~__context ~self:pci = driver_name
-           )
+            let sriov =
+              match pif_rec.API.pIF_sriov_logical_PIF_of with
+              | v :: _ ->
+                  v
+              | [] ->
+                  Helpers.internal_error
+                    "Cannot find sriov object in sriov logical PIF %s"
+                    pif_rec.API.pIF_uuid
+            in
+            let physical_pif =
+              Db.Network_sriov.get_physical_PIF ~__context ~self:sriov
+            in
+            let pci = Db.PIF.get_PCI ~__context ~self:physical_pif in
+            Db.PCI.get_driver_name ~__context ~self:pci = driver_name
+        )
         |> List.filter (fun (_, pif_rec) -> is_sriov_enabled ~pif_rec)
         |> List.map (fun (pif_ref, _) -> pif_ref)
         |> ( = ) [self]

@@ -322,10 +322,10 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
     |> List.map (fun self -> (self, Db.VDI.get_record ~__context ~self))
     |> List.filter (fun (_, record) -> record.API.vDI_on_boot = `reset)
     |> List.filter_map (fun (reference, record) ->
-           Option.map
-             (fun offset -> (reference, offset))
-             (List.assoc_opt Vm_platform.timeoffset record.API.vDI_other_config)
-       )
+        Option.map
+          (fun offset -> (reference, offset))
+          (List.assoc_opt Vm_platform.timeoffset record.API.vDI_other_config)
+    )
   in
   match vdis_with_timeoffset_to_be_reset_on_boot with
   | [] ->
@@ -392,7 +392,9 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
     then
       IGD_passthrough GVT_d
     else
-      match string vm.API.vM_platform "cirrus" Vm_platform.vga with
+      match
+        string vm.API.vM_platform "cirrus" Vm_platform.vga
+      with
       | "std" ->
           Standard_VGA
       | "cirrus" ->
@@ -546,12 +548,12 @@ let list_net_sriov_vf_pcis ~__context ~vm =
   vm.API.vM_VIFs
   |> List.filter (fun self -> Db.VIF.get_currently_attached ~__context ~self)
   |> List.filter_map (fun vif ->
-         match backend_of_vif ~__context ~vif with
-         | Network.Sriov {domain; bus; dev; fn} ->
-             Some (domain, bus, dev, fn)
-         | _ ->
-             None
-     )
+      match backend_of_vif ~__context ~vif with
+      | Network.Sriov {domain; bus; dev; fn} ->
+          Some (domain, bus, dev, fn)
+      | _ ->
+          None
+  )
 
 module StringMap = Map.Make (String)
 
@@ -831,7 +833,9 @@ module MD = struct
     let carrier =
       if !Xapi_globs.pass_through_pif_carrier then
         (* We need to reflect the carrier of the local PIF on the network (if any) *)
-        match pifs with
+          match
+            pifs
+          with
         | [] ->
             true (* Internal network; consider as "always up" *)
         | pif :: _ -> (
@@ -2577,7 +2581,9 @@ let update_vbd ~__context (id : string * string) =
               Db.VBD.set_currently_attached ~__context ~self:vbd
                 ~value:currently_attached ;
               ( if state.Vbd.plugged then
-                  match state.Vbd.backend_present with
+                  match
+                    state.Vbd.backend_present
+                  with
                   | Some (VDI x) ->
                       Option.iter
                         (fun (vdi, _) ->
@@ -2899,12 +2905,12 @@ let update_vusb ~__context (id : string * string) =
             Db.VM.get_VUSBs ~__context ~self:vm
             |> List.map (fun self -> Db.VUSB.get_USB_group ~__context ~self)
             |> List.map (fun usb_group ->
-                   Helpers.get_first_pusb ~__context usb_group
-               )
+                Helpers.get_first_pusb ~__context usb_group
+            )
             |> List.map (fun self -> (self, Db.PUSB.get_record ~__context ~self))
             |> List.find (fun (_, pusbr) ->
-                   "vusb" ^ pusbr.API.pUSB_path = snd id
-               )
+                "vusb" ^ pusbr.API.pUSB_path = snd id
+            )
           in
           let usb_group = Db.PUSB.get_USB_group ~__context ~self:pusb in
           let vusb = Helpers.get_first_vusb ~__context usb_group in
@@ -3802,7 +3808,8 @@ let maybe_refresh_vm ~__context ~self =
     (* By calling with_events_suppressed we can guarentee that an refresh_vm
      * will be called with events enabled and therefore we get Xenopsd into a
      * consistent state with Xapi *)
-    Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ())
+    Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ()
+    )
   )
 
 let start ~__context ~self paused force =
@@ -3968,8 +3975,8 @@ let suspend ~__context ~self =
           Db.VM.get_VGPUs ~__context ~self
           |> List.map (fun self -> Db.VGPU.get_type ~__context ~self)
           |> List.map (fun self ->
-                 Db.VGPU_type.get_framebuffer_size ~__context ~self
-             )
+              Db.VGPU_type.get_framebuffer_size ~__context ~self
+          )
           |> List.fold_left Int64.add 0L
         in
         Int64.(ram |> add vgpu |> add 104857600L)

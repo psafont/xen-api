@@ -407,8 +407,8 @@ let parse_ds_defs path =
   in
   OS.File.fold_lines fold (Rrd.StringMap.empty, None) path
   |> Logs.on_error_msg ~use:(fun _ ->
-         failwith "Could not parse datasource definitions"
-     )
+      failwith "Could not parse datasource definitions"
+  )
   |> fst
 
 let plot_rrd ~filename rrd =

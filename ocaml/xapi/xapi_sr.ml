@@ -439,8 +439,8 @@ let assert_sr_not_local_cache ~__context ~sr =
   let host_with_sr_as_cache =
     Db.Host.get_all ~__context
     |> List.find_opt (fun host ->
-           sr = Db.Host.get_local_cache_sr ~__context ~self:host
-       )
+        sr = Db.Host.get_local_cache_sr ~__context ~self:host
+    )
   in
   match host_with_sr_as_cache with
   | Some host ->
@@ -528,11 +528,11 @@ let unload_metrics_from_memory ~__context ~sr =
      this prevents these metrics from being archived *)
   Rrdd.query_possible_host_dss ()
   |> List.filter_map (fun ds ->
-         if is_sr_metric ds.Data_source.name then
-           Some ds.Data_source.name
-         else
-           None
-     )
+      if is_sr_metric ds.Data_source.name then
+        Some ds.Data_source.name
+      else
+        None
+  )
   |> List.iter (fun ds_name -> Rrdd.forget_host_ds ds_name)
 
 (* Remove SR record from database without attempting to remove SR from disk.

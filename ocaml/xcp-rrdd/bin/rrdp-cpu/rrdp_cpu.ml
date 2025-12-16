@@ -254,7 +254,7 @@ let dss_hostload xc domains =
                   0
             )
           with _ -> 0
-        )
+          )
         + acc
       )
       0 domains

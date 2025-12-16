@@ -251,8 +251,8 @@ let update_pcis ~__context =
   let pfs, vfs =
     current
     |> List.map (fun ((pref, prec), pci) ->
-           (pref, prec, pci, get_phyfn_path prec)
-       )
+        (pref, prec, pci, get_phyfn_path prec)
+    )
     |> List.partition (fun (_, _, _, phyfn_path) -> phyfn_path = None)
   in
   let update_dependencies pfs =
@@ -264,15 +264,13 @@ let update_pcis ~__context =
             try
               pci.related
               |> List.map (fun address ->
-                     let r, _, _, _ =
-                       List.find
-                         (fun (_, rc, _, _) ->
-                           rc.Db_actions.pCI_pci_id = address
-                         )
-                         pfs
-                     in
-                     r
-                 )
+                  let r, _, _, _ =
+                    List.find
+                      (fun (_, rc, _, _) -> rc.Db_actions.pCI_pci_id = address)
+                      pfs
+                  in
+                  r
+              )
             with Not_found ->
               Helpers.internal_error
                 "failed to update PCI dependencies for %s (%s)"

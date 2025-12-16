@@ -280,16 +280,16 @@ module Header = struct
     assert (List.length test_cases = 8) ;
     test_cases
     |> List.iter (fun (frame, proxy, header) ->
-           with_fd (mk_header_string ~frame ~proxy ~header) (fun fd ->
-               let actual_frame, actual_header, actual_proxy =
-                 Http.read_http_request_header ~read_timeout:None
-                   ~total_timeout:None ~max_length:None fd
-               in
-               assert (actual_frame = frame) ;
-               assert (actual_header = header) ;
-               assert (actual_proxy = if proxy then Some proxy_str else None)
-           )
-       )
+        with_fd (mk_header_string ~frame ~proxy ~header) (fun fd ->
+            let actual_frame, actual_header, actual_proxy =
+              Http.read_http_request_header ~read_timeout:None
+                ~total_timeout:None ~max_length:None fd
+            in
+            assert (actual_frame = frame) ;
+            assert (actual_header = header) ;
+            assert (actual_proxy = if proxy then Some proxy_str else None)
+        )
+    )
 
   let tests = [("read http header", `Quick, test_read_http_request_header)]
 end

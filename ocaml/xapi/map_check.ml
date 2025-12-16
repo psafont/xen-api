@@ -16,7 +16,9 @@ let add_defaults requirements kvpairs =
       if key_is_present requirement then
         acc
       else
-        match requirement.default_value with
+        match
+          requirement.default_value
+        with
         | None ->
             acc
         | Some default_value ->
@@ -135,7 +137,13 @@ let with_ks ~kss ~fn =
   if corrected_values = [] then
     []
   else
-    match List.hd corrected_values with None -> [] | Some cv -> cv
+    match
+      List.hd corrected_values
+    with
+    | None ->
+        []
+    | Some cv ->
+        cv
 
 let assert_req_values ~field ~ks ~vs =
   (* each required values in this ks must match the one in the vs map this key/value belongs to *)

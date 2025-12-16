@@ -1112,7 +1112,9 @@ module Proc = struct
                     let interface = Some (String.trim v) in
                     loop interface acc tail
                   else if k = key then
-                    match current with
+                    match
+                      current
+                    with
                     | Some interface ->
                         loop current ((interface, String.trim v) :: acc) tail
                     | None ->
@@ -1477,7 +1479,9 @@ module Ovs = struct
       in
       let disable_in_band_arg =
         if vlan = None then
-          match disable_in_band with
+          match
+            disable_in_band
+          with
           | None ->
               []
           | Some None ->
@@ -1939,21 +1943,21 @@ module Modprobe = struct
     try
       Unixext.read_lines ~path:(getpath driver)
       |> List.filter_map (fun x ->
-             let line = String.trim x in
-             if not (Astring.String.is_prefix ~affix:"# " line) then
-               None
-             else
-               match
-                 Astring.String.cut ~sep:":"
-                   (Astring.String.with_range ~first:2 line)
-               with
-               | None ->
-                   None
-               | Some (k, v) when String.trim k = "" || String.trim v = "" ->
-                   None
-               | Some (k, v) ->
-                   Some (String.trim k, String.trim v)
-         )
+          let line = String.trim x in
+          if not (Astring.String.is_prefix ~affix:"# " line) then
+            None
+          else
+            match
+              Astring.String.cut ~sep:":"
+                (Astring.String.with_range ~first:2 line)
+            with
+            | None ->
+                None
+            | Some (k, v) when String.trim k = "" || String.trim v = "" ->
+                None
+            | Some (k, v) ->
+                Some (String.trim k, String.trim v)
+      )
     with _ -> []
 
   (* this function not returning None means that the driver doesn't suppport

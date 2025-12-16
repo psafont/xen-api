@@ -3953,9 +3953,13 @@ let rec parse_params_2 xs =
       (* unary *)
       if starts_with p "--" then
         (String.sub p 2 (String.length p - 2), "true") :: parse_params_2 ps
-      else if (* x may be a diadic switch *)
-              starts_with p "-" then
-        match ps with
+      else if
+        (* x may be a diadic switch *)
+        starts_with p "-"
+      then
+        match
+          ps
+        with
         | q :: qs ->
             (convert_switch p, q) :: parse_params_2 qs
         | _ ->

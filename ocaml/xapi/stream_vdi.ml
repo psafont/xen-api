@@ -529,7 +529,8 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
             Tar_helpers.skip ifd (Tar.Header.compute_zero_padding_length hdr) ;
             made_progress __context progress (Int64.add skipped_size length) ;
             ( if has_inline_checksums then
-                try verify_inline_checksum ifd checksum_table csum_hdr
+                try
+                  verify_inline_checksum ifd checksum_table csum_hdr
                 with Invalid_checksum _ as e -> if not force then raise e
             ) ;
             stream_from suffix (Int64.add skipped_size (Int64.add offset length))

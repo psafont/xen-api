@@ -103,7 +103,8 @@ let storage_driver_domain_of_pbd ~__context ~pbd =
     if Db.is_valid_ref __context (Ref.of_string v) then
       Ref.of_string v
     else
-      try Db.VM.get_by_uuid ~__context ~uuid:v
+      try
+        Db.VM.get_by_uuid ~__context ~uuid:v
       with _ ->
         error "PBD %s has invalid %s key: falling back to dom0"
           (Ref.string_of pbd) storage_driver_domain_key ;

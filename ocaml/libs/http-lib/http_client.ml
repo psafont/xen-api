@@ -135,7 +135,9 @@ let response_of_fd_exn fd =
     (List.fold_left
        (fun (status, res) header ->
          if not status then
-           match Astring.String.cut ~sep:" " header with
+           match
+             Astring.String.cut ~sep:" " header
+           with
            | Some (http_version, rest) -> (
              match Astring.String.cut ~sep:" " rest with
              | Some (code, message) -> (
@@ -155,7 +157,9 @@ let response_of_fd_exn fd =
            | None ->
                raise (Parse_error (Printf.sprintf "Failed to parse %s" header))
          else
-           match Astring.String.cut ~sep:":" header with
+           match
+             Astring.String.cut ~sep:":" header
+           with
            | Some (k, v) -> (
                let k = lowercase k in
                let v = Astring.String.trim v in

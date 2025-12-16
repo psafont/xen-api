@@ -285,8 +285,8 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
       let all_vifs_with_devices =
         Db.VM.get_VIFs ~__context ~self:vM
         |> List.map (fun self ->
-               (self, int_of_string (Db.VIF.get_device ~__context ~self))
-           )
+            (self, int_of_string (Db.VIF.get_device ~__context ~self))
+        )
       in
       let new_device = int_of_string device in
       if List.exists (fun (_, d) -> d = new_device) all_vifs_with_devices then

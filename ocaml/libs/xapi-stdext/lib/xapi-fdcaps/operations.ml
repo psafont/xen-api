@@ -258,7 +258,9 @@ let repeat_read op fd buf off len =
     if len = 0 then
       consumed (* we filled the buffer *)
     else
-      match op fd buf off len with
+      match
+        op fd buf off len
+      with
       | 0 (* EOF *)
       | (exception
           Unix.(
@@ -279,7 +281,9 @@ let repeat_write op fd buf off len =
     if len = 0 then
       written (* we've written the entire buffer *)
     else
-      match op fd buf off len with
+      match
+        op fd buf off len
+      with
       | 0
         (* should never happen, but we cannot retry now or we'd enter an infinite loop *)
       | (exception

@@ -43,7 +43,9 @@ let check interval name =
       if !oldnotify then
         disc_inserted name
     ) else
-      match status with
+      match
+        status
+      with
       | Cdrom.DISC_OK ->
           has_disc := true ;
           disc_inserted name

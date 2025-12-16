@@ -32,7 +32,8 @@ let backend_kind = ref Openvswitch
 
 let write_config () =
   if not !write_lock then
-    try Network_config.write_config !config
+    try
+      Network_config.write_config !config
     with Network_config.Write_error -> ()
 
 let get_index_from_ethx = Network_config.get_index_from_ethx
@@ -40,11 +41,11 @@ let get_index_from_ethx = Network_config.get_index_from_ethx
 let sort_based_on_ethx () =
   Sysfs.list ()
   |> List.filter_map (fun name ->
-         if Sysfs.is_physical name then
-           get_index_from_ethx name |> Option.map (fun i -> (name, i))
-         else
-           None
-     )
+      if Sysfs.is_physical name then
+        get_index_from_ethx name |> Option.map (fun i -> (name, i))
+      else
+        None
+  )
 
 let read_previous_inventory previous_inventory =
   try
@@ -1316,7 +1317,9 @@ module Bridge = struct
           in
           List.map (fun (port, {interfaces; _}) -> (port, interfaces)) ports
         else
-          match !backend_kind with
+          match
+            !backend_kind
+          with
           | Openvswitch ->
               List.concat_map Ovs.bridge_to_ports (Ovs.list_bridges ())
           | Bridge ->
@@ -1336,7 +1339,9 @@ module Bridge = struct
           in
           List.filter (fun (_, ifs) -> List.length ifs > 1) names
         else
-          match !backend_kind with
+          match
+            !backend_kind
+          with
           | Openvswitch ->
               List.concat_map Ovs.bridge_to_ports (Ovs.list_bridges ())
           | Bridge ->

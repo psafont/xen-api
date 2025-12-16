@@ -18,7 +18,9 @@ module Exporter = struct
   (* Submit JSON to a specified endpoint. *)
   let submit_json url json =
     if json <> "" then
-      match Tracing_export.Destination.Http.export ~url json with
+      match
+        Tracing_export.Destination.Http.export ~url json
+      with
       | Error err ->
           Printf.eprintf "Error: %s\n" (Printexc.to_string err) ;
           exit 1

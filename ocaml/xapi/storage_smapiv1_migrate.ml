@@ -768,7 +768,8 @@ module MIRROR : SMAPIv2_MIRROR = struct
         SMAPI.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
         (* On SMAPIv3, compose would have removed the now invalid dummy vdi, so
            there is no need to destroy it anymore, while this is necessary on SMAPIv1 SRs. *)
-        D.log_and_ignore_exn (fun () -> SMAPI.VDI.destroy dbg r.sr r.dummy_vdi) ;
+        D.log_and_ignore_exn (fun () -> SMAPI.VDI.destroy dbg r.sr r.dummy_vdi
+        ) ;
         SMAPI.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
       )
       recv_state ;
@@ -818,51 +819,48 @@ module MIRROR : SMAPIv2_MIRROR = struct
     let start = Mtime_clock.counter () in
     State.find_active_local_mirror id
     |> Option.iter (fun s ->
-           (* We used to pause here and then check the nbd_mirror_failed key.
+        (* We used to pause here and then check the nbd_mirror_failed key.
                     Now, we poll until the number of outstanding requests has gone to
                     zero, then check the status. This avoids confusing the backend
                     (CA-128460) *)
-           try
-             match s.tapdev with
-             | None ->
-                 ()
-             | Some tapdev ->
-                 let open Tapctl in
-                 let ctx = create () in
-                 let rec wait () =
-                   let elapsed = Mtime_clock.count start in
-                   if Mtime.Span.compare elapsed reqs_outstanding_timeout > 0
-                   then
-                     raise (Timeout elapsed) ;
-                   let st = stats ctx tapdev in
-                   if st.Stats.reqs_outstanding > 0 then (
-                     Thread.delay 1.0 ; wait ()
-                   ) else
-                     (st, elapsed)
-                 in
-                 let st, elapsed = wait () in
-                 D.debug "Got final stats after waiting %a" pp_time elapsed ;
-                 if st.Stats.nbd_mirror_failed = 1 then (
-                   D.error "tapdisk reports mirroring failed" ;
-                   s.failed <- true
-                 ) ;
-                 Option.iter
-                   (fun id -> Scheduler.cancel scheduler id)
-                   s.watchdog
-           with
-           | Timeout elapsed ->
-               D.error
-                 "Timeout out after %a waiting for tapdisk to complete all \
-                  outstanding requests while migrating vdi %s of domain %s"
-                 pp_time elapsed (s_of_vdi vdi) (s_of_vm s.live_vm) ;
-               s.failed <- true
-           | e ->
-               D.error
-                 "Caught exception while finally checking mirror state: %s \
-                  when migrating vdi %s of domain %s"
-                 (Printexc.to_string e) (s_of_vdi vdi) (s_of_vm s.live_vm) ;
-               s.failed <- true
-       )
+        try
+          match s.tapdev with
+          | None ->
+              ()
+          | Some tapdev ->
+              let open Tapctl in
+              let ctx = create () in
+              let rec wait () =
+                let elapsed = Mtime_clock.count start in
+                if Mtime.Span.compare elapsed reqs_outstanding_timeout > 0 then
+                  raise (Timeout elapsed) ;
+                let st = stats ctx tapdev in
+                if st.Stats.reqs_outstanding > 0 then (
+                  Thread.delay 1.0 ; wait ()
+                ) else
+                  (st, elapsed)
+              in
+              let st, elapsed = wait () in
+              D.debug "Got final stats after waiting %a" pp_time elapsed ;
+              if st.Stats.nbd_mirror_failed = 1 then (
+                D.error "tapdisk reports mirroring failed" ;
+                s.failed <- true
+              ) ;
+              Option.iter (fun id -> Scheduler.cancel scheduler id) s.watchdog
+        with
+        | Timeout elapsed ->
+            D.error
+              "Timeout out after %a waiting for tapdisk to complete all \
+               outstanding requests while migrating vdi %s of domain %s"
+              pp_time elapsed (s_of_vdi vdi) (s_of_vm s.live_vm) ;
+            s.failed <- true
+        | e ->
+            D.error
+              "Caught exception while finally checking mirror state: %s when \
+               migrating vdi %s of domain %s"
+              (Printexc.to_string e) (s_of_vdi vdi) (s_of_vm s.live_vm) ;
+            s.failed <- true
+    )
 
   let has_mirror_failed _ctx ~dbg:_ ~mirror_id ~sr:_ =
     match State.find_active_local_mirror mirror_id with

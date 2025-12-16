@@ -299,7 +299,9 @@ module Domain = struct
           if path = _introduceDomain || path = _releaseDomain then
             look_for_different_domains ()
           else
-            match Astring.String.cuts ~empty:false ~sep:"/" path with
+            match
+              Astring.String.cuts ~empty:false ~sep:"/" path
+            with
             | "local" :: "domain" :: domid :: rest
               when List.mem rest interesting_paths ->
                 let value = try Some (Client.read xs path) with _ -> None in
@@ -652,7 +654,8 @@ let make_host ~verbose ~xc =
             if not has_booted then
               0L
             else
-              try Domain.get_memory_offset cnx di.Xenctrl.domid
+              try
+                Domain.get_memory_offset cnx di.Xenctrl.domid
               with Xs_protocol.Enoent _ ->
                 (* Our memory_actual_kib value was sampled before reading
                    xenstore which means there is a slight race. The race is

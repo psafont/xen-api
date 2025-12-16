@@ -106,7 +106,9 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
       if is_unarchive_request then
         unarchive ()
       else
-        match (Pool_role.get_role (), metrics_at ()) with
+        match
+          (Pool_role.get_role (), metrics_at ())
+        with
         | (Master | Slave _), Some owner ->
             read_at owner
         | Master, None ->

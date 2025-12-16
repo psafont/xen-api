@@ -12,9 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module type SIZE = sig
-  val n : unit -> int
-end
+module type SIZE = sig val n : unit -> int end
 
 module Make (Size : SIZE) = struct
   module Semaphore = Semaphore.Counting

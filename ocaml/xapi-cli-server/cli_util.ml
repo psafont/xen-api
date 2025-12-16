@@ -193,7 +193,9 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
           debug "result was [%s]" result ;
           result
         ) else
-          match Client.Task.get_error_info ~rpc ~session_id ~self:task_id with
+          match
+            Client.Task.get_error_info ~rpc ~session_id ~self:task_id
+          with
           | [] ->
               raise Api_errors.(Server_error (internal_error, []))
           | err :: params ->
@@ -276,7 +278,11 @@ let ref_convert x =
   | Some ir -> (
       ir.Ref_index.uuid
       ^
-      match ir.Ref_index.name_label with None -> "" | Some x -> " (" ^ x ^ ")"
+      match ir.Ref_index.name_label with
+      | None ->
+          ""
+      | Some x ->
+          " (" ^ x ^ ")"
     )
 
 (* Marshal an API-style server-error *)

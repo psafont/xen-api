@@ -191,8 +191,7 @@ module Ds_selector = struct
               Some "\"\""
           | _ ->
               None
-          )
-          )
+          ))
     else if String.contains s ',' || String.contains s '\n' then
       quote s
     else
@@ -285,17 +284,17 @@ module Ds_selector = struct
     && (String.starts_with ~prefix:f.metric d.metric || f.metric = "")
     && (f.cf = d.cf || f.cf = None)
     && ( match (f.owner, d.owner) with
-       | None, _ ->
-           true
-       | Some (VM _), Some (VM _) ->
-           f.uuid = d.uuid || f.uuid = ""
-       | Some (SR _), Some (SR _) ->
-           f.uuid = d.uuid || f.uuid = ""
-       | Some Host, Some Host ->
-           true
-       | _ ->
-           false
-       )
+      | None, _ ->
+          true
+      | Some (VM _), Some (VM _) ->
+          f.uuid = d.uuid || f.uuid = ""
+      | Some (SR _), Some (SR _) ->
+          f.uuid = d.uuid || f.uuid = ""
+      | Some Host, Some Host ->
+          true
+      | _ ->
+          false
+      )
     && (f.uuid = d.uuid || f.uuid = "")
 
   (* Returns true if d "passes" at least one of the filters fs, with

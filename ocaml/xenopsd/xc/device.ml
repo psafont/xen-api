@@ -260,11 +260,11 @@ module Generic = struct
     (* qemu-dp does not delete the hotplug status key *)
     backend_closed ~xs x
     |> Watch.map (fun _ ->
-           debug "Backend closed for %s, deleting hotplug-status"
-             (string_of_device x) ;
-           (* deleting this key causes the udev rule to fire *)
-           safe_rm ~xs (Hotplug.path_written_by_hotplug_scripts x)
-       )
+        debug "Backend closed for %s, deleting hotplug-status"
+          (string_of_device x) ;
+        (* deleting this key causes the udev rule to fire *)
+        safe_rm ~xs (Hotplug.path_written_by_hotplug_scripts x)
+    )
 
   let clean_shutdown_wait (task : Xenops_task.task_handle) ~xs
       ~ignore_transients (x : device) =
@@ -1373,9 +1373,13 @@ module PCI = struct
     in
     callscript "flr-pre" device ;
     ( if Sys.file_exists device_reset_file then
-        try write_string_to_file device_reset_file "1" with _ -> ()
+        try
+          write_string_to_file device_reset_file "1"
+        with _ -> ()
       else
-        try write_string_to_file doflr device with _ -> ()
+        try
+          write_string_to_file doflr device
+        with _ -> ()
     ) ;
     callscript "flr-post" device
 
@@ -1924,7 +1928,8 @@ module Vusb = struct
     finally
       (fun () ->
         if Service.Qemu.is_running ~xs domid then
-          try qmp_send_cmd domid Qmp.(Device_del id) |> ignore
+          try
+            qmp_send_cmd domid Qmp.(Device_del id) |> ignore
           with QMP_connection_error _ ->
             raise (Xenopsd_error Device_not_connected)
       )
@@ -1933,8 +1938,7 @@ end
 
 module Serial : sig
   val update_xenstore :
-    xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> unit
-end = struct
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> unit end = struct
   let tty_prefix = "pty:"
 
   let tty_path domid = Printf.sprintf "/local/domain/%d/serial/0/tty" domid
@@ -2085,7 +2089,8 @@ module Dm_Common = struct
     if not (Service.Qemu.is_running ~xs domid) then
       None
     else
-      try Some (int_of_string (xs.Xs.read (Service.PV_Vnc.tc_port_path domid)))
+      try
+        Some (int_of_string (xs.Xs.read (Service.PV_Vnc.tc_port_path domid)))
       with _ -> None
 
   let signal (task : Xenops_task.task_handle) ~xs ~qemu_domid ~domid ?wait_for
@@ -2208,11 +2213,11 @@ module Dm_Common = struct
         ; (info.pci_passthrough |> function false -> [] | true -> ["-priv"])
         ; List.rev info.extras
           |> List.concat_map (function
-               | k, None ->
-                   ["-" ^ k]
-               | k, Some v ->
-                   ["-" ^ k; v]
-               )
+            | k, None ->
+                ["-" ^ k]
+            | k, Some v ->
+                ["-" ^ k; v]
+            )
         ; (info.monitor |> function None -> [] | Some x -> ["-monitor"; x])
         ; ["-pidfile"; Service.Qemu.pidfile_path domid]
         ]
@@ -2233,17 +2238,17 @@ module Dm_Common = struct
           packets. *)
       xs.Xs.directory root
       |> List.concat_map (fun domid ->
-             let path = Printf.sprintf "%s/%s/device/vgpu" root domid in
-             try List.map (fun x -> path // x) (xs.Xs.directory path)
-             with Xs_protocol.Enoent _ -> []
-         )
+          let path = Printf.sprintf "%s/%s/device/vgpu" root domid in
+          try List.map (fun x -> path // x) (xs.Xs.directory path)
+          with Xs_protocol.Enoent _ -> []
+      )
       |> List.exists (fun vgpu ->
-             try
-               let path = Printf.sprintf "%s/pf" vgpu in
-               let pf = xs.Xs.read path in
-               pf = physical_function
-             with Xs_protocol.Enoent _ -> false
-         )
+          try
+            let path = Printf.sprintf "%s/pf" vgpu in
+            let pf = xs.Xs.read path in
+            pf = physical_function
+          with Xs_protocol.Enoent _ -> false
+      )
     with Xs_protocol.Enoent _ -> false
 
   let call_gimtool args =
@@ -2367,7 +2372,9 @@ module Dm_Common = struct
            [
              ["xen-platform"; "addr=3"]
            ; ( if trad_compat then
-                 match info.xen_platform with
+                 match
+                   info.xen_platform
+                 with
                  | Some (device_id, revision) ->
                      [
                        sprintf "device-id=0x%04x" device_id
@@ -2379,7 +2386,9 @@ module Dm_Common = struct
                  | None ->
                      []
                else
-                 match info.xen_platform with
+                 match
+                   info.xen_platform
+                 with
                  | Some (device_id, _) ->
                      [sprintf "device-id=0x%04x" device_id]
                  | None ->
@@ -2401,9 +2410,7 @@ module Backend = struct
   module type Intf = sig
     (** Vgpu functions that use the dispatcher to choose between different
             profile and device-model backends *)
-    module Vgpu : sig
-      val device : index:int -> int option
-    end
+    module Vgpu : sig val device : index:int -> int option end
 
     (** Vbd functions that use the dispatcher to choose between different
             profile backends *)
@@ -2585,8 +2592,7 @@ module Backend = struct
       val extra_args : string list
     end
 
-    module Firmware : sig
-      val supported : Xenops_types.Vm.firmware_type -> bool
+    module Firmware : sig val supported : Xenops_types.Vm.firmware_type -> bool
     end
 
     module XenPV : sig
@@ -2595,28 +2601,23 @@ module Backend = struct
         -> domid:int
         -> Dm_Common.info
         -> nics:(string * string * int) list
-        -> int
-    end
+        -> int end
 
     module XenPlatform : sig
       val device :
            xs:Ezxenstore_core.Xenstore.Xs.xsh
         -> domid:int
         -> info:Dm_Common.info
-        -> string list
-    end
+        -> string list end
 
-    module VGPU : sig
-      val device : index:int -> int option
-    end
+    module VGPU : sig val device : index:int -> int option end
 
     module PCI : sig
       val assign_guest :
            xs:Ezxenstore_core.Xenstore.Xs.xsh
         -> index:int
         -> host:Pci.address
-        -> Pci.address option
-    end
+        -> Pci.address option end
 
     val extra_qemu_args : nic_type:string -> string list
 
@@ -2983,27 +2984,29 @@ module Backend = struct
         try
           ignore
           @@ Polly.wait m 10 forever (fun _ fd events ->
-                 Lookup.domid_of fd >>= fun domid ->
-                 Lookup.channel_of domid >>= fun c ->
-                 let qmp = Qmp_protocol.to_fd c in
-                 if Polly.Events.(test events inp) then (
-                   match Readln.read qmp with
-                   | Readln.Ok msgs ->
-                       List.iter (process domid) msgs
-                   | Readln.Error msg ->
-                       error "domain-%d: %s, close QMP socket" domid msg ;
-                       Readln.free qmp ;
-                       remove domid
-                   | Readln.EOF ->
-                       debug "domain-%d: end of file, close QMP socket" domid ;
-                       Readln.free qmp ;
-                       remove domid
-                 ) else (
-                   debug "EPOLL error on domain-%d, close QMP socket" domid ;
-                   Readln.free qmp ;
-                   remove domid
-                 )
-             )
+              Lookup.domid_of fd >>= fun domid ->
+              Lookup.channel_of domid >>= fun c ->
+              let qmp = Qmp_protocol.to_fd c in
+              if Polly.Events.(test events inp) then (
+                match
+                  Readln.read qmp
+                with
+                | Readln.Ok msgs ->
+                    List.iter (process domid) msgs
+                | Readln.Error msg ->
+                    error "domain-%d: %s, close QMP socket" domid msg ;
+                    Readln.free qmp ;
+                    remove domid
+                | Readln.EOF ->
+                    debug "domain-%d: end of file, close QMP socket" domid ;
+                    Readln.free qmp ;
+                    remove domid
+              ) else (
+                debug "EPOLL error on domain-%d, close QMP socket" domid ;
+                Readln.free qmp ;
+                remove domid
+              )
+          )
         with e -> debug_exn "Exception in QMP_Event_thread: %s" e
       done
   end
@@ -3333,8 +3336,8 @@ module Backend = struct
               let devs =
                 devices
                 |> List.concat_map (fun (x, y) ->
-                       ["-device"; sprintf "usb-%s,port=%d" x y]
-                   )
+                    ["-device"; sprintf "usb-%s,port=%d" x y]
+                )
               in
               "-usb" :: devs
         in
@@ -3393,11 +3396,11 @@ module Backend = struct
         let qmp =
           ["libxl"; "event"]
           |> List.concat_map (fun x ->
-                 [
-                   "-qmp"
-                 ; sprintf "unix:/var/run/xen/qmp-%s-%d,server,nowait" x domid
-                 ]
-             )
+              [
+                "-qmp"
+              ; sprintf "unix:/var/run/xen/qmp-%s-%d,server,nowait" x domid
+              ]
+          )
         in
         let pv_device addr =
           try
@@ -3437,11 +3440,11 @@ module Backend = struct
               ]
             ; ["-S"]
             ; Config.extra_qemu_args ~nic_type
-            ; (info.Dm_Common.parallel |> function
-               | None ->
-                   ["-parallel"; "null"]
-               | Some x ->
-                   ["-parallel"; x]
+            ; ( info.Dm_Common.parallel |> function
+                | None ->
+                    ["-parallel"; "null"]
+                | Some x ->
+                    ["-parallel"; x]
               )
             ; qmp
             ; Config.XenPlatform.device ~xs ~domid ~info
@@ -3864,7 +3867,9 @@ module Dm = struct
                 )
               in
               if not Service.Qemu.(SignalMask.has signal_mask domid) then
-                match Service.Qemu.pid ~xs domid with
+                match
+                  Service.Qemu.pid ~xs domid
+                with
                 | None ->
                     (* after expected qemu stop or domain xs tree destroyed:
                        this event arrived too late, nothing to do *)

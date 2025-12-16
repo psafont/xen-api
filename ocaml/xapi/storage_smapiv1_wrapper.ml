@@ -1049,8 +1049,8 @@ functor
         let failures =
           Host.list !Host.host
           |> List.filter_map (fun (sr, sr_t) ->
-                 destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak false
-             )
+              destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak false
+          )
         in
         match (failures, allow_leak) with
         | [], _ ->

@@ -14,8 +14,7 @@
 
 module type DEBUG = sig
   val debug : ('a, unit, string, unit) format4 -> 'a
-  (** Debug function *)
-end
+  (** Debug function *) end
 
 module Make (Debug : DEBUG) = struct
   open Debug

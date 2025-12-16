@@ -79,10 +79,10 @@ let key_of_path path =
     Filename.basename key_dir
     |> int_of_string_opt
     |> Option.map (fun e ->
-           Types.Tpm.deserialize_key e
-           |> Result.map_error (fun msg -> D.info "Invalid key found: %s" msg)
-           |> Result.to_option
-       )
+        Types.Tpm.deserialize_key e
+        |> Result.map_error (fun msg -> D.info "Invalid key found: %s" msg)
+        |> Result.to_option
+    )
     |> Option.join
   in
   let* timestamp =
@@ -367,8 +367,7 @@ module Watcher : sig
     -> Types.Service.t
     -> channel
     -> unit
-    -> unit Lwt.t
-end = struct
+    -> unit Lwt.t end = struct
   type push_cache = File of valid_file | Update_all | Wait
 
   let get_latest_and_delete_rest root =

@@ -77,7 +77,8 @@ module NUMARequest = struct
        constraint is not met, although if hard affinity is used this is a hard
        constraint too *)
     && CPUSet.(cardinal available.NUMAResource.affinity >= requested.vcpus)
-    && (* this is an optional constraint: it is desirable to be able to leave
+    &&
+    (* this is an optional constraint: it is desirable to be able to leave
                 hyperthread siblings idle, when the system is not busy.
                 However requested.cores can also be 0.
        *)
@@ -191,12 +192,12 @@ module NUMA = struct
     let valid_nodes =
       seq_range 0 (Array.length d)
       |> Seq.filter_map (fun i ->
-             let self = d.(i).(i) in
-             if self <> unreachable_distance then
-               Some i
-             else
-               None
-         )
+          let self = d.(i).(i) in
+          if self <> unreachable_distance then
+            Some i
+          else
+            None
+      )
     in
     let numa_nodes = Seq.length valid_nodes in
     let nodes =
@@ -210,9 +211,9 @@ module NUMA = struct
           __FUNCTION__ ;
         valid_nodes
         |> Seq.map (fun i ->
-               let self = d.(i).(i) in
-               (distance_to_candidate self, Seq.return i)
-           )
+            let self = d.(i).(i) in
+            (distance_to_candidate self, Seq.return i)
+        )
       ) else
         valid_nodes |> seq_all_subsets |> Seq.filter_map (node_distances d)
     in
@@ -247,12 +248,12 @@ module NUMA = struct
       distances
       |> Array.to_seqi
       |> Seq.for_all (fun (i, row) ->
-             let d = distances.(i).(i) in
-             (d = unreachable_distance || d = self_distance)
-             && Array.for_all
-                  (fun d -> d >= self_distance || d = unreachable_distance)
-                  row
-         )
+          let d = distances.(i).(i) in
+          (d = unreachable_distance || d = self_distance)
+          && Array.for_all
+               (fun d -> d >= self_distance || d = unreachable_distance)
+               row
+      )
     in
 
     let* () =

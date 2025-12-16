@@ -115,7 +115,9 @@ let stop ~service =
   (* allow systemd to garbage-collect the status and the unit, preventing leaks.
    * See CollectMode in systemd.unit(5) for details. *)
   ( if status.exec_main_status <> 0 then
-      try action ~service "reset-failed" with _ -> ()
+      try
+        action ~service "reset-failed"
+      with _ -> ()
   ) ;
   let destination = Filename.concat run_path (service ^ ".service") in
   Xapi_stdext_unix.Unixext.unlink_safe destination ;

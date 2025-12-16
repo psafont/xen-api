@@ -373,7 +373,9 @@ let set_DNS ~__context ~pif ~bridge =
   let dbg = Context.string_of_task __context in
   try
     if Net.Interface.exists dbg bridge then
-      match Net.Interface.get_dns dbg bridge with
+      match
+        Net.Interface.get_dns dbg bridge
+      with
       | (_ :: _ as nameservers), _ ->
           let dns =
             String.concat "," (List.map Unix.string_of_inet_addr nameservers)
@@ -584,7 +586,8 @@ let call_api_functions_internal ~__context f =
     (fun () ->
       (* debug "remote client call finished; logging out"; *)
       if !require_explicit_logout then
-        try Client.Client.Session.logout ~rpc ~session_id
+        try
+          Client.Client.Session.logout ~rpc ~session_id
         with e ->
           debug "Helpers.call_api_functions failed to logout: %s (ignoring)"
             (Printexc.to_string e)
@@ -930,11 +933,11 @@ let sort_by_schwarzian ?(descending = false) f list =
 module Checks = struct
   let get_software_versions ~version_keys ~__context host =
     ( match host with
-    | LocalObject self ->
-        Db.Host.get_software_version ~__context ~self
-    | RemoteObject (rpc, session_id, self) ->
-        Client.Client.Host.get_software_version ~rpc ~session_id ~self
-    )
+      | LocalObject self ->
+          Db.Host.get_software_version ~__context ~self
+      | RemoteObject (rpc, session_id, self) ->
+          Client.Client.Host.get_software_version ~rpc ~session_id ~self
+      )
     |> List.filter (fun (k, _) -> List.mem k version_keys)
 
   let versions_string_of : (string * string) list -> string =
@@ -945,13 +948,13 @@ module Checks = struct
 
   let version_numbers_of_string version_string =
     ( match String.split_on_char '-' version_string with
-    | standard_version :: patch :: _ ->
-        List.concat_map (String.split_on_char '.') [standard_version; patch]
-    | standard_version :: [] ->
-        String.split_on_char '.' standard_version
-    | _ ->
-        ["0"; "0"; "0"]
-    )
+      | standard_version :: patch :: _ ->
+          List.concat_map (String.split_on_char '.') [standard_version; patch]
+      | standard_version :: [] ->
+          String.split_on_char '.' standard_version
+      | _ ->
+          ["0"; "0"; "0"]
+      )
     |> List.filter_map int_of_string_opt
 
   let version_of : version_key:string -> (string * string) list -> int list =
@@ -1418,7 +1421,8 @@ let local_storage_exists () =
     string is used for expressing the null value *)
 let touch_file cmd_arg =
   if cmd_arg <> "" then
-    try Unixext.touch_file cmd_arg
+    try
+      Unixext.touch_file cmd_arg
     with e ->
       warn "Unable to touch file '%s': %s" cmd_arg (Printexc.to_string e)
 
@@ -1471,7 +1475,9 @@ let get_srmaster ~__context ~sr =
   if shared then
     get_master ~__context
   else
-    match List.length pbds with
+    match
+      List.length pbds
+    with
     | 0 ->
         raise (Api_errors.Server_error (Api_errors.sr_no_pbds, []))
     | 1 ->
@@ -2072,9 +2078,10 @@ end = struct
       ( try
           Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK] ;
           Unixext.string_of_file !Xapi_globs.pool_secret_path
-        with _ -> (* No pool secret exists. *)
-                  _make ()
-      )
+        with _ ->
+          (* No pool secret exists. *)
+          _make ()
+        )
       |> to_secret
     in
     Xapi_globs.pool_secrets := [ps] ;
@@ -2307,10 +2314,7 @@ end
 
 module AuthenticationCache = struct
   (* Associate arbitrary data with an expiry time. *)
-  module Expires (Data : sig
-    type t
-  end) =
-  struct
+  module Expires (Data : sig type t end) = struct
     type t = Data.t with_expiration
 
     and 'a with_expiration = {data: 'a; expires: Mtime.Span.t}

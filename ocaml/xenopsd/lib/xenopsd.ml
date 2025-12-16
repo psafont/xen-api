@@ -373,12 +373,12 @@ let rpc_fn call =
         let span_parent =
           kv_list
           |> List.find_map (function
-               | "debug_info", Rpc.String debug_info ->
-                   let di = debug_info |> Debug_info.of_string in
-                   di.tracing
-               | _ ->
-                   None
-               )
+            | "debug_info", Rpc.String debug_info ->
+                let di = debug_info |> Debug_info.of_string in
+                di.tracing
+            | _ ->
+                None
+            )
         in
         (call, call_name, span_parent)
     | call_name, _ ->

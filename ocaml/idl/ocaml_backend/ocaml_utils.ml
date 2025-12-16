@@ -21,7 +21,13 @@ let escape x =
   if List.mem x keywords then
     "_" ^ x
   else
-    match x.[0] with 'a' .. 'z' | '_' -> x | _ -> "_" ^ x
+    match
+      x.[0]
+    with
+    | 'a' .. 'z' | '_' ->
+        x
+    | _ ->
+        "_" ^ x
 
 (** Escape enum names to make them readable polymorphic variant type
     constructors. *)
@@ -150,7 +156,9 @@ let ocaml_of_obj_name x =
   if x = "" then
     failwith "Empty object name"
   else
-    match x.[0] with
+    match
+      x.[0]
+    with
     | 'A' .. 'Z' | 'a' .. 'z' ->
         String.capitalize_ascii x
     | _ ->

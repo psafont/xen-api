@@ -982,7 +982,9 @@ module VDI : HandlerTools = struct
             vdi_record.API.vDI_location ;
           Found_no_iso
     ) else
-      match config.import_type with
+      match
+        config.import_type
+      with
       | Metadata_import {vdi_map; _} -> (
           let mapto =
             if
@@ -1002,8 +1004,8 @@ module VDI : HandlerTools = struct
           let find_by_sr_and_location sr location =
             vdi_records
             |> List.filter (fun (_, vdir) ->
-                   vdir.API.vDI_location = location && vdir.API.vDI_SR = sr
-               )
+                vdir.API.vDI_location = location && vdir.API.vDI_SR = sr
+            )
             |> choose_one
             |> Option.map fst
           in
@@ -1023,8 +1025,8 @@ module VDI : HandlerTools = struct
           let find_by_scsiid x =
             vdi_records
             |> List.filter_map (fun (rf, vdir) ->
-                   if scsiid_of vdir = Some x then Some (rf, vdir) else None
-               )
+                if scsiid_of vdir = Some x then Some (rf, vdir) else None
+            )
             |> choose_one
           in
           let by_vdi_map =
@@ -1033,7 +1035,9 @@ module VDI : HandlerTools = struct
               if List.mem_assoc vdi_record.API.vDI_uuid vdi_map then
                 Some (List.assoc vdi_record.API.vDI_uuid vdi_map)
               else
-                match scsiid_of vdi_record with
+                match
+                  scsiid_of vdi_record
+                with
                 | None ->
                     None
                 | Some x ->
@@ -1383,7 +1387,9 @@ module VBD : HandlerTools = struct
     let vbd_opt =
       (* If there's already a VBD with the same UUID and we're preserving UUIDs, use that one. *)
       if config.full_restore then (
-        match get_vbd () with
+        match
+          get_vbd ()
+        with
         | Some x ->
             Some x
         | None ->
@@ -1525,7 +1531,9 @@ module VIF : HandlerTools = struct
     let vif_opt =
       if config.full_restore then (
         (* If there's already a VIF with the same UUID and we're preserving UUIDs, use that one. *)
-        match get_vif () with
+          match
+            get_vif ()
+          with
         | Some x ->
             Some x
         | None ->
@@ -1753,7 +1761,9 @@ module VGPU : HandlerTools = struct
     let vgpu_opt =
       if config.full_restore then (
         (* If there's already a VGPU with the same UUID and we're preserving UUIDs, use that one. *)
-        match get_vgpu () with
+          match
+            get_vgpu ()
+          with
         | Some x ->
             Some x
         | None ->

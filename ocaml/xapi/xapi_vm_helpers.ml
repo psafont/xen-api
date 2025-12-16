@@ -79,7 +79,8 @@ let set_is_a_template ~__context ~self ~value =
   info "VM.set_is_a_template('%b')" value ;
   let m = Db.VM.get_metrics ~__context ~self in
   ( if not value then
-      try Db.VM_metrics.set_install_time ~__context ~self:m ~value:(Date.now ())
+      try
+        Db.VM_metrics.set_install_time ~__context ~self:m ~value:(Date.now ())
       with _ ->
         warn
           "Could not update VM install time because metrics object was missing"
@@ -114,8 +115,8 @@ let set_is_a_template ~__context ~self ~value =
       (* Destroy any attached pvs proxies *)
       Db.VM.get_VIFs ~__context ~self
       |> List.filter_map (fun vif ->
-             Pvs_proxy_control.find_proxy_for_vif ~__context ~vif
-         )
+          Pvs_proxy_control.find_proxy_for_vif ~__context ~vif
+      )
       |> List.rev
       |> List.iter (fun p -> Db.PVS_proxy.destroy ~__context ~self:p) ;
       (* Remove from any VM groups when we templatize it *)
@@ -483,8 +484,8 @@ let assert_host_has_iommu ~__context ~host =
 let has_non_allocated_vgpus ~__context ~self =
   Db.VM.get_VGPUs ~__context ~self
   |> List.map (fun vgpu ->
-         Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
-     )
+      Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
+  )
   |> List.filter (fun pgpu -> not (Db.is_valid_ref __context pgpu))
   |> ( <> ) []
 
@@ -513,24 +514,24 @@ let assert_gpus_available ~__context ~self ~host =
 let assert_usbs_available ~__context ~self ~host =
   Db.VM.get_VUSBs ~__context ~self
   |> List.iter (fun vusb ->
-         try
-           let usb_group = Db.VUSB.get_USB_group ~__context ~self:vusb in
-           let pusb =
-             List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group)
-           in
-           let usb_host = Db.PUSB.get_host ~__context ~self:pusb in
-           assert (usb_host = host)
-         with _ ->
-           raise
-             (Api_errors.Server_error
-                ( Api_errors.operation_not_allowed
-                , [
-                    Printf.sprintf "VUSB %s is not available on Host %s"
-                      (Ref.string_of vusb) (Ref.string_of host)
-                  ]
-                )
+      try
+        let usb_group = Db.VUSB.get_USB_group ~__context ~self:vusb in
+        let pusb =
+          List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group)
+        in
+        let usb_host = Db.PUSB.get_host ~__context ~self:pusb in
+        assert (usb_host = host)
+      with _ ->
+        raise
+          (Api_errors.Server_error
+             ( Api_errors.operation_not_allowed
+             , [
+                 Printf.sprintf "VUSB %s is not available on Host %s"
+                   (Ref.string_of vusb) (Ref.string_of host)
+               ]
              )
-     )
+          )
+  )
 
 (* 1.To avoid redundant checks,for each VF if it was reserved, then it's no need to check remaining capacity again.
    2.Get SR-IOV Vifs by return a list of [(network1,(required_num1,PCI1));(network2,(required_num2,PCI2))....]
@@ -611,7 +612,9 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
 (* CA-233580: prevent starting a control domain on a host different from its affinity*)
 let assert_matches_control_domain_affinity ~__context ~self ~host =
   if Db.VM.get_is_control_domain ~__context ~self then
-    match Db.VM.get_affinity ~__context ~self with
+    match
+      Db.VM.get_affinity ~__context ~self
+    with
     | x when x = Ref.null || x = host ->
         ()
     | _ ->
@@ -916,14 +919,14 @@ let vm_has_anti_affinity ~__context ~vm =
       (fun g -> Db.VM_group.get_placement ~__context ~self:g = `anti_affinity)
       (Db.VM.get_groups ~__context ~self:vm)
     |> Option.map (fun group ->
-           debug
-             "The VM (uuid %s) is associated with an anti-affinity group \
-              (uuid: %s, name: %s)"
-             (Db.VM.get_uuid ~__context ~self:vm)
-             (Db.VM_group.get_uuid ~__context ~self:group)
-             (Db.VM_group.get_name_label ~__context ~self:group) ;
-           `AntiAffinity group
-       )
+        debug
+          "The VM (uuid %s) is associated with an anti-affinity group (uuid: \
+           %s, name: %s)"
+          (Db.VM.get_uuid ~__context ~self:vm)
+          (Db.VM_group.get_uuid ~__context ~self:group)
+          (Db.VM_group.get_name_label ~__context ~self:group) ;
+        `AntiAffinity group
+    )
   else (
     debug
       "VM group feature is disabled, ignore VM anti-affinity during VM start" ;
@@ -1574,36 +1577,35 @@ let assert_valid_bios_strings ~__context ~value =
   (* Validate value chars are printable ASCII characters *)
   value
   |> List.iter (fun (k, v) ->
-         if not (List.mem k Constants.settable_vm_bios_string_keys) then
-           raise
-             (Api_errors.Server_error
-                (Api_errors.invalid_value, [k; "Unknown key"])
-             ) ;
-         match String.length v with
-         | 0 ->
-             raise
-               (Api_errors.Server_error
-                  (Api_errors.invalid_value, [k; "Value provided is empty"])
-               )
-         | len when len > Constants.bios_string_limit_size ->
-             let err =
-               Printf.sprintf "%s has length more than %d characters" v
-                 Constants.bios_string_limit_size
-             in
-             raise (Api_errors.Server_error (Api_errors.invalid_value, [k; err]))
-         | _ ->
-             String.iter
-               (fun c ->
-                 if c < Char.chr 32 || c >= Char.chr 127 then
-                   raise
-                     (Api_errors.Server_error
-                        ( Api_errors.invalid_value
-                        , [k; v ^ " has non-printable ASCII characters"]
-                        )
+      if not (List.mem k Constants.settable_vm_bios_string_keys) then
+        raise
+          (Api_errors.Server_error (Api_errors.invalid_value, [k; "Unknown key"])
+          ) ;
+      match String.length v with
+      | 0 ->
+          raise
+            (Api_errors.Server_error
+               (Api_errors.invalid_value, [k; "Value provided is empty"])
+            )
+      | len when len > Constants.bios_string_limit_size ->
+          let err =
+            Printf.sprintf "%s has length more than %d characters" v
+              Constants.bios_string_limit_size
+          in
+          raise (Api_errors.Server_error (Api_errors.invalid_value, [k; err]))
+      | _ ->
+          String.iter
+            (fun c ->
+              if c < Char.chr 32 || c >= Char.chr 127 then
+                raise
+                  (Api_errors.Server_error
+                     ( Api_errors.invalid_value
+                     , [k; v ^ " has non-printable ASCII characters"]
                      )
-               )
-               v
-     )
+                  )
+            )
+            v
+  )
 
 let copy_bios_strings ~__context ~vm ~host =
   (* only allow to fill in BIOS strings if they are not yet set *)

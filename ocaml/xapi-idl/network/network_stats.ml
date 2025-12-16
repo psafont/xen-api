@@ -136,7 +136,9 @@ let read_stats () =
         Thread.delay retry_delay ;
         retry (n - 1)
       ) else
-        match e with
+        match
+          e
+        with
         | Invalid_magic_string | Invalid_length | Invalid_checksum ->
             raise e
         | _ ->

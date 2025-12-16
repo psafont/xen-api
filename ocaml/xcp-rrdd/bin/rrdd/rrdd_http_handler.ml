@@ -117,7 +117,9 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
         let sr_rrds = Hashtbl.to_seq sr_rrds in
         let host_rrds =
           if is_host = "true" then
-            match !host_rrd with
+            match
+              !host_rrd
+            with
             | None ->
                 []
             | Some rrdi ->

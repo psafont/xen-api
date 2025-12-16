@@ -119,21 +119,21 @@ let _ =
                 |> Option.map fst
                 |> Option.map (List.map Unix.string_of_inet_addr)
                 |> Option.fold ~none:[] ~some:(function
-                     | [] ->
-                         []
-                     | dns' ->
-                         [("dns", String.concat "," dns')]
-                     )
+                  | [] ->
+                      []
+                  | dns' ->
+                      [("dns", String.concat "," dns')]
+                  )
               in
               let domains =
                 interface_config.dns
                 |> Option.map snd
                 |> Option.fold ~none:[] ~some:(function
-                     | [] ->
-                         []
-                     | domains' ->
-                         [("domain", String.concat "," domains')]
-                     )
+                  | [] ->
+                      []
+                  | domains' ->
+                      [("domain", String.concat "," domains')]
+                  )
               in
               mode @ addrs @ gateway @ dns @ domains
           | None4 ->

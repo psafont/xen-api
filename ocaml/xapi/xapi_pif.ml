@@ -78,7 +78,9 @@ let get_physical_pif_device ~__context ~interface_tables ~pif_rec =
       )
   in
   if pif_rec.API.pIF_physical then (
-    match Xapi_pif_helpers.get_pif_position ~__context ~pif_rec with
+    match
+      Xapi_pif_helpers.get_pif_position ~__context ~pif_rec
+    with
     | Some position ->
         find_name_by_position position pif_rec.API.pIF_device
     | None ->
@@ -417,24 +419,24 @@ let assert_fcoe_not_in_use ~__context ~self =
       let fcoe_scsids = Str.split (Str.regexp " ") output in
       Helpers.get_my_pbds __context
       |> List.iter (fun (_, pbd_rec) ->
-             let sr = pbd_rec.API.pBD_SR in
-             match Db.SR.get_type ~__context ~self:sr with
-             | "lvmofcoe" -> (
-               match List.assoc_opt "SCSIid" pbd_rec.API.pBD_device_config with
-               | Some scsid ->
-                   if List.mem scsid fcoe_scsids then
-                     raise
-                       (Api_errors.Server_error
-                          ( Api_errors.pif_has_fcoe_sr_in_use
-                          , [Ref.string_of self; Ref.string_of sr]
-                          )
+          let sr = pbd_rec.API.pBD_SR in
+          match Db.SR.get_type ~__context ~self:sr with
+          | "lvmofcoe" -> (
+            match List.assoc_opt "SCSIid" pbd_rec.API.pBD_device_config with
+            | Some scsid ->
+                if List.mem scsid fcoe_scsids then
+                  raise
+                    (Api_errors.Server_error
+                       ( Api_errors.pif_has_fcoe_sr_in_use
+                       , [Ref.string_of self; Ref.string_of sr]
                        )
-               | None ->
-                   ()
-             )
-             | _ ->
-                 ()
-         )
+                    )
+            | None ->
+                ()
+          )
+          | _ ->
+              ()
+      )
 
 let find_or_create_network (bridge : string) (device : string)
     (pos_opt : int option) ~managed ~__context =
@@ -800,8 +802,8 @@ let destroy ~__context ~self =
 let restrict_to ~domain dns =
   Astring.String.cuts ~sep:"," ~empty:false dns
   |> List.filter (fun addr ->
-         Xapi_stdext_unix.Unixext.domain_of_addr addr = Some domain
-     )
+      Xapi_stdext_unix.Unixext.domain_of_addr addr = Some domain
+  )
 
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self ;
@@ -1036,9 +1038,9 @@ let rec unplug ~__context ~self =
   let unplug_vlan_on_sriov ~__context ~self =
     Db.PIF.get_VLAN_slave_of ~__context ~self
     |> List.iter (fun vlan ->
-           let untagged_pif = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
-           unplug ~__context ~self:untagged_pif
-       )
+        let untagged_pif = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
+        unplug ~__context ~self:untagged_pif
+    )
   in
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self ;
   assert_no_protection_enabled ~__context ~self ;

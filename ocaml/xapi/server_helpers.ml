@@ -69,7 +69,9 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward ?quiet f
         if not (Pool_role.is_master ()) then
           f ~__context (* slaves process everything locally *)
         else
-          match f_forward with
+          match
+            f_forward
+          with
           | None ->
               (* this operation cannot be forwarded (eg database lookup); do it now *)
               f ~__context
@@ -78,7 +80,9 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward ?quiet f
               forward ~local_fn:f ~__context
       in
       if need_complete then
-        match marshaller with
+        match
+          marshaller
+        with
         | None ->
             TaskHelper.complete ~__context None
         | Some fn ->

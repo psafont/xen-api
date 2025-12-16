@@ -531,18 +531,17 @@ let suspend ~__context ~vm =
   |> List.filter (fun vgpu -> Db.is_valid_ref __context vgpu)
   |> List.map (fun self -> (self, Db.VGPU.get_resident_on ~__context ~self))
   |> List.iter (fun (vgpu, pgpu) ->
-         debug "VM.suspend checking vgpu/pgpu support for suspend: %s/%s"
-           (Ref.string_of vgpu) (Ref.string_of pgpu) ;
-         try
-           Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm
-             ~__context ~vm ~host ~vgpu ~pgpu ()
-         with
-         | Api_errors.Server_error (e, params)
-         when e = Api_errors.vgpu_destination_incompatible
-         ->
-           raise
-             Api_errors.(Server_error (vgpu_suspension_not_supported, params))
-     ) ;
+      debug "VM.suspend checking vgpu/pgpu support for suspend: %s/%s"
+        (Ref.string_of vgpu) (Ref.string_of pgpu) ;
+      try
+        Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm
+          ~__context ~vm ~host ~vgpu ~pgpu ()
+      with
+      | Api_errors.Server_error (e, params)
+      when e = Api_errors.vgpu_destination_incompatible
+      ->
+        raise Api_errors.(Server_error (vgpu_suspension_not_supported, params))
+  ) ;
 
   Xapi_gpumon.update_vgpu_metadata ~__context ~vm ;
   Xapi_xenops.suspend ~__context ~self:vm ;

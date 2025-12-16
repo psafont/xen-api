@@ -107,8 +107,8 @@ let assert_update_vbds_attached ~__context ~vdi =
   let unplugged =
     get_update_vbds ~__context ~vdi
     |> List.filter (fun self ->
-           not (Db.VBD.get_currently_attached ~__context ~self)
-       )
+        not (Db.VBD.get_currently_attached ~__context ~self)
+    )
   in
   match unplugged with
   | [] ->
@@ -643,19 +643,19 @@ let destroy ~__context ~self =
 let detach_attached_updates __context =
   Db.Pool_update.get_all ~__context
   |> List.iter (fun self ->
-         let uuid = Db.Pool_update.get_uuid ~__context ~self in
-         let vdi = Db.Pool_update.get_vdi ~__context ~self in
-         match
-           (get_mount_dir_opt ~__context ~uuid, get_update_vbds ~__context ~vdi)
-         with
-         | None, [] ->
-             ()
-         | _ ->
-             Helpers.log_exn_continue
-               ("detach_attached_updates: update_uuid " ^ uuid)
-               (fun () -> detach_helper ~__context ~uuid ~vdi)
-               ()
-     )
+      let uuid = Db.Pool_update.get_uuid ~__context ~self in
+      let vdi = Db.Pool_update.get_vdi ~__context ~self in
+      match
+        (get_mount_dir_opt ~__context ~uuid, get_update_vbds ~__context ~vdi)
+      with
+      | None, [] ->
+          ()
+      | _ ->
+          Helpers.log_exn_continue
+            ("detach_attached_updates: update_uuid " ^ uuid)
+            (fun () -> detach_helper ~__context ~uuid ~vdi)
+            ()
+  )
 
 let resync_host ~__context ~host =
   let update_applied_dir =
@@ -731,22 +731,22 @@ let resync_host ~__context ~host =
     (* Remove any pool_patch objects that don't have a corresponding pool_update object *)
     Db.Pool_patch.get_all ~__context
     |> List.filter (fun self ->
-           Db.Pool_patch.get_pool_update ~__context ~self = Ref.null
-       )
+        Db.Pool_patch.get_pool_update ~__context ~self = Ref.null
+    )
     |> List.iter (fun self ->
-           (* Destroy connector before destroying Pool_patch *)
-           Db.Pool_patch.get_host_patches ~__context ~self
-           |> List.iter (fun self ->
-                  if Db.Host_patch.get_host ~__context ~self = host then
-                    Db.Host_patch.destroy ~__context ~self
-              ) ;
-           Db.Pool_patch.destroy ~__context ~self
-       ) ;
+        (* Destroy connector before destroying Pool_patch *)
+        Db.Pool_patch.get_host_patches ~__context ~self
+        |> List.iter (fun self ->
+            if Db.Host_patch.get_host ~__context ~self = host then
+              Db.Host_patch.destroy ~__context ~self
+        ) ;
+        Db.Pool_patch.destroy ~__context ~self
+    ) ;
     (* Clean updates that don't have a corresponding patch record *)
     Db.Pool_update.get_all ~__context
     |> List.filter (fun self ->
-           Xapi_pool_patch.pool_patch_of_update ~__context self = Ref.null
-       )
+        Xapi_pool_patch.pool_patch_of_update ~__context self = Ref.null
+    )
     |> List.iter (fun self -> destroy ~__context ~self) ;
     (*
      * If db indicates an update is not applied to any host but the corresponding patch is applied
@@ -755,15 +755,14 @@ let resync_host ~__context ~host =
      *)
     Db.Pool_update.get_all ~__context
     |> List.filter (fun self ->
-           Db.Pool_update.get_hosts ~__context ~self = []
-           && Xapi_pool_patch.pool_patch_of_update ~__context self
-              |> fun self ->
-              Db.Pool_patch.get_host_patches ~__context ~self |> function
-              | [] ->
-                  false
-              | _ ->
-                  true
-       )
+        Db.Pool_update.get_hosts ~__context ~self = []
+        && Xapi_pool_patch.pool_patch_of_update ~__context self |> fun self ->
+           Db.Pool_patch.get_host_patches ~__context ~self |> function
+           | [] ->
+               false
+           | _ ->
+               true
+    )
     |> List.iter (fun self -> destroy ~__context ~self)
   )
 

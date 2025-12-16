@@ -270,26 +270,25 @@ let gc_certificates ~__context =
      related to any single host *)
   all_certificates
   |> List.filter (fun (cert, record) ->
-         record.API.certificate_type <> `ca
-         && not (List.mem cert host_certificates)
-     )
+      record.API.certificate_type <> `ca && not (List.mem cert host_certificates)
+  )
   |> List.iter (fun (cert, _) -> Db.Certificate.destroy ~__context ~self:cert)
 
 let gc_vtpms ~__context =
   Db.VTPM.get_all ~__context
   |> List.iter (fun vtpm ->
-         let is_valid =
-           valid_ref __context vtpm
-           && valid_ref __context (Db.VTPM.get_VM ~__context ~self:vtpm)
-         in
+      let is_valid =
+        valid_ref __context vtpm
+        && valid_ref __context (Db.VTPM.get_VM ~__context ~self:vtpm)
+      in
 
-         if not is_valid then (
-           let contents = Db.VTPM.get_contents ~__context ~self:vtpm in
-           if contents <> Ref.null then
-             Db.Secret.destroy ~__context ~self:contents ;
-           Db.VTPM.destroy ~__context ~self:vtpm
-         )
-     )
+      if not is_valid then (
+        let contents = Db.VTPM.get_contents ~__context ~self:vtpm in
+        if contents <> Ref.null then
+          Db.Secret.destroy ~__context ~self:contents ;
+        Db.VTPM.destroy ~__context ~self:vtpm
+      )
+  )
 
 let probation_pending_tasks = Hashtbl.create 53
 

@@ -78,9 +78,9 @@ module Group = struct
         user_agent
         |> Option.map sanitize
         |> Option.map (fun user_agent ->
-               let len = Int.min (String.length user_agent) 16 in
-               String.sub user_agent 0 len
-           )
+            let len = Int.min (String.length user_agent) 16 in
+            String.sub user_agent 0 len
+        )
       in
 
       let user_agent = if user_agent = Some "" then None else user_agent in
@@ -320,11 +320,10 @@ let of_req_originator originator =
       try
         originator
         |> Option.iter (fun originator ->
-               let originator = Group.Originator.of_string originator in
-               Group.Creator.make ~endpoint:Group.Endpoint.Internal ~originator
-                 ()
-               |> Cgroup.set_cgroup
-           )
+            let originator = Group.Originator.of_string originator in
+            Group.Creator.make ~endpoint:Group.Endpoint.Internal ~originator ()
+            |> Cgroup.set_cgroup
+        )
       with _ -> ()
     )
     (Atomic.get Cgroup.cgroup_dir)

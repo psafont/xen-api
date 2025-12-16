@@ -288,7 +288,9 @@ let rec sexpr_args_of __context name rpc_value action =
     || is_selected_action_param action_params_whitelist
     (* action+param pair *)
   then
-    match rpc_value with
+    match
+      rpc_value
+    with
     | Rpc.String value ->
         Some (get_sexpr_arg name value "" "")
     | Rpc.Dict _ ->
@@ -310,7 +312,9 @@ let rec sexpr_args_of __context name rpc_value action =
         (*None*)
         Some (get_sexpr_arg name (Rpc.to_string rpc_value) "" "")
   else (* heuristic 2: print uuid/refs arguments in the xapi call *)
-    match rpc_value with
+    match
+      rpc_value
+    with
     | Rpc.String value -> (
       match Xapi_database.Ref_index.lookup value with
       | None when Ref.(is_real (of_string value)) ->

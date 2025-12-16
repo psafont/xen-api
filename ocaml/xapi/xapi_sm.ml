@@ -95,8 +95,8 @@ let remove_valid_features_from_pending ~__context ~self valid_features =
   let new_pending_feature =
     Db.SM.get_host_pending_features ~__context ~self
     |> List.map (fun (h, pending_features) ->
-           (h, Listext.List.set_difference pending_features valid_features)
-       )
+        (h, Listext.List.set_difference pending_features valid_features)
+    )
   in
   Db.SM.set_host_pending_features ~__context ~self ~value:new_pending_feature
 

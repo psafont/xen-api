@@ -22,7 +22,8 @@ let () =
   if !Sys.interactive then
     ()
   else
-    try main ()
+    try
+      main ()
     with e ->
       Printf.eprintf "error: %s\n" (Printexc.to_string e) ;
       exit 1

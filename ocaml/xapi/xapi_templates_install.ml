@@ -101,7 +101,9 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
                   ) ;
                   let newpid, status = Forkhelpers.waitpid_nohang pid in
                   if newpid <> 0 then
-                    match status with
+                    match
+                      status
+                    with
                     | Unix.WEXITED 0 ->
                         (newpid, status)
                     | Unix.WEXITED n | Unix.WSIGNALED n | Unix.WSTOPPED n ->

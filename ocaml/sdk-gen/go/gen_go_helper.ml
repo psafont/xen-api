@@ -203,9 +203,9 @@ module Json = struct
     let enums =
       Datamodel_utils.Types.of_objects objs
       |> List.map (fun ty ->
-             let _, e = string_of_ty_with_enums ty in
-             e
-         )
+          let _, e = string_of_ty_with_enums ty in
+          e
+      )
       |> merge_maps StringMap.empty
     in
     `O
@@ -344,15 +344,15 @@ module Json = struct
   let ctor_fields_of_obj obj =
     Datamodel_utils.fields_of_obj obj
     |> List.filter (function
-         | {qualifier= StaticRO | RW; _} ->
-             true
-         | _ ->
-             false
-         )
+      | {qualifier= StaticRO | RW; _} ->
+          true
+      | _ ->
+          false
+      )
     |> List.map (fun f ->
-           String.concat "_" f.full_name
-           ^ if f.default_value = None then "*" else ""
-       )
+        String.concat "_" f.full_name
+        ^ if f.default_value = None then "*" else ""
+    )
     |> String.concat ", "
 
   let method_name_exported method_name params latest =
@@ -479,24 +479,24 @@ module Json = struct
     let ctor_fields = ctor_fields_of_obj obj in
     obj.messages
     |> List.rev_map (fun msg ->
-           let of_message (latest, params, rel_version) =
-             let base_assoc_list =
-               [
-                 ("method_name", `String msg.msg_name)
-               ; ("class_name", `String obj.name)
-               ; ("class_name_exported", `String (snake_to_camel obj.name))
-               ; ("description", desc_of_msg msg ctor_fields)
-               ; ("result", of_result obj msg)
-               ; ("errors", of_errors msg.msg_errors)
-               ; ("has_error", `Bool (msg.msg_errors <> []))
-               ; ("async", `Bool msg.msg_async)
-               ; ("version", `String rel_version)
-               ]
-             in
-             `O (base_assoc_list @ diverse_info msg params latest)
-           in
-           msg |> group_params |> List.map of_message
-       )
+        let of_message (latest, params, rel_version) =
+          let base_assoc_list =
+            [
+              ("method_name", `String msg.msg_name)
+            ; ("class_name", `String obj.name)
+            ; ("class_name_exported", `String (snake_to_camel obj.name))
+            ; ("description", desc_of_msg msg ctor_fields)
+            ; ("result", of_result obj msg)
+            ; ("errors", of_errors msg.msg_errors)
+            ; ("has_error", `Bool (msg.msg_errors <> []))
+            ; ("async", `Bool msg.msg_async)
+            ; ("version", `String rel_version)
+            ]
+          in
+          `O (base_assoc_list @ diverse_info msg params latest)
+        in
+        msg |> group_params |> List.map of_message
+    )
     |> List.concat
 
   let of_option ty =
@@ -694,11 +694,11 @@ module Convert = struct
       List.assoc_opt record_name records
       |> Option.value ~default:[]
       |> List.rev_map (fun field ->
-             ( String.concat "_" field.full_name
-             , Json.suffix_of_type field.ty
-             , match field.ty with Option _ -> true | _ -> false
-             )
-         )
+          ( String.concat "_" field.full_name
+          , Json.suffix_of_type field.ty
+          , match field.ty with Option _ -> true | _ -> false
+          )
+      )
     in
     if record_name = "EventRecord" then
       ("snapshot", "RecordInterface", false) :: fields

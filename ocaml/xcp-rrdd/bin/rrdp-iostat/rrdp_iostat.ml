@@ -128,7 +128,9 @@ module Iostat = struct
       let res = Utils.cut str in
       (* Keep values from the second set of outputs *)
       ( if !parsing_section = 2 then
-          match res with
+          match
+            res
+          with
           | dev :: vals -> (
             try
               Hashtbl.replace dev_values_map dev (List.map float_of_string vals)
@@ -262,17 +264,17 @@ let refresh_phypath_to_sr_vdi () =
     try
       Sys.readdir path
       |> Array.iter (fun sruuid ->
-             let sr_dir = Printf.sprintf "%s/%s" path sruuid in
-             Sys.readdir sr_dir
-             |> Array.iter (fun vdi_entry ->
-                    (* in /dev/sm/phy vdi_entry __should__ be a vdiuuid
+          let sr_dir = Printf.sprintf "%s/%s" path sruuid in
+          Sys.readdir sr_dir
+          |> Array.iter (fun vdi_entry ->
+              (* in /dev/sm/phy vdi_entry __should__ be a vdiuuid
                                    in /var/run/sr-mount vdi_entry might look like:
                                    - "$vdiuuid.vhd",
                                    - "$vdiuuid.vhdcache",
                                    -  ".*" *)
-                    f sruuid vdi_entry
-                )
-         )
+              f sruuid vdi_entry
+          )
+      )
     with e ->
       D.debug "refresh_phypath_to_sr_vdi: failed searching %s. error: %s" path
         (Printexc.to_string e)
@@ -311,20 +313,20 @@ let refresh_phypath_to_sr_vdi () =
   (* add any vhdcache files *)
   !extra_paths_to_search
   |> StringSet.iter (fun path ->
-         iter_sr_dirs path (fun sruuid vdi_entry ->
-             let vdiuuid =
-               try Some (Scanf.sscanf vdi_entry "%s@.vhdcache" Fun.id)
-               with _ -> None
-             in
-             match vdiuuid with
-             | None ->
-                 ()
-             | Some vdiuuid ->
-                 Hashtbl.replace phypath_to_sr_vdi
-                   (Printf.sprintf "%s/%s/%s" path sruuid vdi_entry)
-                   (sruuid, vdiuuid)
-         )
-     )
+      iter_sr_dirs path (fun sruuid vdi_entry ->
+          let vdiuuid =
+            try Some (Scanf.sscanf vdi_entry "%s@.vhdcache" Fun.id)
+            with _ -> None
+          in
+          match vdiuuid with
+          | None ->
+              ()
+          | Some vdiuuid ->
+              Hashtbl.replace phypath_to_sr_vdi
+                (Printf.sprintf "%s/%s/%s" path sruuid vdi_entry)
+                (sruuid, vdiuuid)
+      )
+  )
 
 (* Get a list of currently-active tapdisk processes as an assoc list from SR/VDI tuple
    to minor number. As a side-effect, this updates the VDI-to-VM in the process state,
@@ -394,7 +396,9 @@ let exec_tap_ctl_list () : ((string * string) * int) list =
             (pid_vdis_to_string newly_discovered)
          )
      else if unmapped_vdi_pids <> [] then
-       match !vdi_to_vm_map_last_updated_counter with
+       match
+         !vdi_to_vm_map_last_updated_counter
+       with
        | None ->
            Some "performing map initialization"
        | Some c ->

@@ -189,8 +189,8 @@ and gen_decl cls =
                |> List.map String.lowercase_ascii
                |> List.sort String.compare
                |> List.filter (fun x ->
-                      not (Astring.String.is_suffix ~affix:"internal" x)
-                  )
+                   not (Astring.String.is_suffix ~affix:"internal" x)
+               )
                )
             )
         )
@@ -199,38 +199,34 @@ and gen_decl cls =
             (cls
             |> Datamodel_utils.fields_of_obj
             |> List.map (fun field ->
-                   `O
-                     [
-                       ( "field_name_lower"
-                       , `String (fieldname (String.concat "_" field.full_name))
-                       )
-                     ; ( "field_type"
-                       , `String (c_type_of_ty headers true field.ty)
-                       )
-                     ]
-               )
+                `O
+                  [
+                    ( "field_name_lower"
+                    , `String (fieldname (String.concat "_" field.full_name))
+                    )
+                  ; ("field_type", `String (c_type_of_ty headers true field.ty))
+                  ]
+            )
             )
         )
       ; ( "messages"
         , `A
             (cls.messages
             |> List.filter (fun x ->
-                   not (cls.name = "event" && x.msg_name = "from")
-               )
+                not (cls.name = "event" && x.msg_name = "from")
+            )
             |> List.map (fun x ->
-                   `O
-                     [
-                       ( "msg_name_lower"
-                       , `String (String.lowercase_ascii x.msg_name)
-                       )
-                     ; ( "msg_doc"
-                       , `String (Helper.comment true (full_msg_doc x))
-                       )
-                     ; ("is_async", `Bool x.msg_async)
-                     ; ("sync_params", `A (List.map paramJson (syncParams x)))
-                     ; ("async_params", `A (List.map paramJson (asyncParams x)))
-                     ]
-               )
+                `O
+                  [
+                    ( "msg_name_lower"
+                    , `String (String.lowercase_ascii x.msg_name)
+                    )
+                  ; ("msg_doc", `String (Helper.comment true (full_msg_doc x)))
+                  ; ("is_async", `Bool x.msg_async)
+                  ; ("sync_params", `A (List.map paramJson (syncParams x)))
+                  ; ("async_params", `A (List.map paramJson (asyncParams x)))
+                  ]
+            )
             )
         )
       ]
@@ -393,8 +389,8 @@ and gen_impl cls =
                |> List.map String.lowercase_ascii
                |> List.sort String.compare
                |> List.filter (fun x ->
-                      Astring.String.is_suffix ~affix:"internal" x
-                  )
+                   Astring.String.is_suffix ~affix:"internal" x
+               )
                )
             )
         )
@@ -403,8 +399,8 @@ and gen_impl cls =
         , `A
             (cls.messages
             |> List.filter (fun x ->
-                   not (cls.name = "event" && x.msg_name = "from")
-               )
+                not (cls.name = "event" && x.msg_name = "from")
+            )
             |> List.map messageJson
             )
         )
@@ -595,8 +591,8 @@ and render_map_decl l r =
                |> List.map String.lowercase_ascii
                |> List.sort String.compare
                |> List.filter (fun x ->
-                      not (Astring.String.is_suffix ~affix:"internal" x)
-                  )
+                   not (Astring.String.is_suffix ~affix:"internal" x)
+               )
                )
             )
         )
@@ -636,8 +632,8 @@ and render_map_impl l r =
                |> List.map String.lowercase_ascii
                |> List.sort String.compare
                |> List.filter (fun x ->
-                      not (Astring.String.is_suffix ~affix:"internal" x)
-                  )
+                   not (Astring.String.is_suffix ~affix:"internal" x)
+               )
                )
             )
         )
@@ -649,8 +645,8 @@ and render_map_impl l r =
                |> List.map String.lowercase_ascii
                |> List.sort String.compare
                |> List.filter (fun x ->
-                      Astring.String.is_suffix ~affix:"internal" x
-                  )
+                   Astring.String.is_suffix ~affix:"internal" x
+               )
                )
             )
         )

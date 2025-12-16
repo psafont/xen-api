@@ -2493,34 +2493,31 @@ and queue_atomics_and_wait ~progress_callback ~max_parallel_atoms dbg id ops
   let from = Updates.last_id dbg updates in
   Xenops_utils.chunks max_parallel_atoms ops
   |> List.mapi (fun chunk_idx ops ->
-         debug "queue_atomics_and_wait: %s: chunk of %d atoms" dbg
-           (List.length ops) ;
-         let task_list =
-           List.mapi
-             (fun atom_idx op ->
-               (* atom_id is a unique name for a parallel atom worker queue *)
-               let atom_id =
-                 Printf.sprintf "%s.chunk=%d.atom=%d" id chunk_idx atom_idx
-               in
-               ( queue_atomic_int ~progress_callback dbg atom_id op redirector
-               , op
-               )
-             )
-             ops
-         in
-         let timeout_start = Unix.gettimeofday () in
-         List.map
-           (fun (task, op) ->
-             let task_id = Xenops_task.id_of_handle task in
-             let expiration = atomic_expires_after op in
-             let completion =
-               event_wait updates task ~from ~timeout_start expiration
-                 (is_task task_id) task_ended
-             in
-             (task_id, task, completion)
-           )
-           task_list
-     )
+      debug "queue_atomics_and_wait: %s: chunk of %d atoms" dbg (List.length ops) ;
+      let task_list =
+        List.mapi
+          (fun atom_idx op ->
+            (* atom_id is a unique name for a parallel atom worker queue *)
+            let atom_id =
+              Printf.sprintf "%s.chunk=%d.atom=%d" id chunk_idx atom_idx
+            in
+            (queue_atomic_int ~progress_callback dbg atom_id op redirector, op)
+          )
+          ops
+      in
+      let timeout_start = Unix.gettimeofday () in
+      List.map
+        (fun (task, op) ->
+          let task_id = Xenops_task.id_of_handle task in
+          let expiration = atomic_expires_after op in
+          let completion =
+            event_wait updates task ~from ~timeout_start expiration
+              (is_task task_id) task_ended
+          in
+          (task_id, task, completion)
+        )
+        task_list
+  )
   |> List.concat
 
 (* Used to divide up the progress (bar) amongst atomic operations *)
@@ -3635,7 +3632,10 @@ let string_of_numa_affinity_policy =
 let affinity_of_numa_affinity_policy =
   let open Xenops_interface.Host in
   function
-  | Any | Best_effort | Prio_mem_only -> Soft | Best_effort_hard -> Hard
+  | Any | Best_effort | Prio_mem_only ->
+      Soft
+  | Best_effort_hard ->
+      Hard
 
 let cores_of_numa_affinity_policy policy ~vcpus =
   let open Xenops_interface.Host in

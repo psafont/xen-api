@@ -423,9 +423,9 @@ let read_config_file x =
   |> Array.to_list
   |> List.stable_sort compare
   |> List.iter (fun fragment ->
-         let path = Filename.concat !config_dir fragment in
-         Config_file.parse path x
-     )
+      let path = Filename.concat !config_dir fragment in
+      Config_file.parse path x
+  )
 
 let startswith prefix x =
   let prefix' = String.length prefix and x' = String.length x in

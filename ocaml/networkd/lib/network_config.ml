@@ -111,12 +111,12 @@ let read_management_conf interface_order =
     let args =
       Astring.String.cuts ~empty:false ~sep:"\n" (String.trim management_conf)
       |> List.filter_map (fun s ->
-             match Astring.String.cut ~sep:"=" s with
-             | Some (_, "") | None ->
-                 None
-             | Some (k, v) ->
-                 Some (k, Astring.String.trim ~drop:(( = ) '\'') v)
-         )
+          match Astring.String.cut ~sep:"=" s with
+          | Some (_, "") | None ->
+              None
+          | Some (k, v) ->
+              Some (k, Astring.String.trim ~drop:(( = ) '\'') v)
+      )
     in
     debug "Firstboot file management.conf has: %s"
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) args)) ;

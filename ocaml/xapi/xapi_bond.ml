@@ -670,12 +670,11 @@ let set_mode ~__context ~self ~value =
   let properties =
     Db.Bond.get_properties ~__context ~self
     |> List.filter (fun property ->
-           try
-             ignore
-               (Map_check.validate_kvpair "properties" requirements property) ;
-             true
-           with _ -> false
-       )
+        try
+          ignore (Map_check.validate_kvpair "properties" requirements property) ;
+          true
+        with _ -> false
+    )
     |> Map_check.add_defaults requirements
   in
   Db.Bond.set_properties ~__context ~self ~value:properties ;

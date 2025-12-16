@@ -69,7 +69,9 @@ let of_xenstore_int x =
   if x land (1 lsl 28) <> 0 then
     (Xen, (x lsr 8) land ((1 lsl 20) - 1), x land ((1 lsl 8) - 1))
   else
-    match x lsr 8 with
+    match
+      x lsr 8
+    with
     | 202 ->
         (Xen, (x lsr 4) land ((1 lsl 4) - 1), x land ((1 lsl 4) - 1))
     | 8 ->

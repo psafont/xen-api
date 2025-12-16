@@ -54,7 +54,9 @@ let wait_for ~xs ?(timeout = 300.) (x : 'a t) =
             if r <> [] then
               ()
             else
-              try Xs_client_unix.Task.cancel task with _ -> ()
+              try
+                Xs_client_unix.Task.cancel task
+              with _ -> ()
           )
           ()
       in

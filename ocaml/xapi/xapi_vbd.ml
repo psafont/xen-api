@@ -232,7 +232,9 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
             if userdevice <> "autodetect" then
               userdevice
             else
-              match (_type, possibilities) with
+              match
+                (_type, possibilities)
+              with
               | _, [] ->
                   raise_invalid_device ()
               | `Floppy, dev :: _ ->

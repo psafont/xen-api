@@ -87,7 +87,9 @@ let split_host_port url =
       in
       (host, int_of_string port)
     ) else
-      match String.split_f (fun a -> a = ':') url with
+      match
+        String.split_f (fun a -> a = ':') url
+      with
       | [host; port] ->
           (host, int_of_string port)
       | _ ->
@@ -262,7 +264,8 @@ let parse_result_code meth xml_data response initial_error enable_log =
            "After failing to retrieve valid response, an error codecould not \
             be found. Some data is missing or corrupt.\n\
             Attempt retrieve valid response: (%s)\n\
-            Attempt to retrieve error code: (%s)" initial_error error
+            Attempt to retrieve error code: (%s)"
+           initial_error error
         )
         ( if enable_log then
             response
@@ -399,7 +402,8 @@ let perform_wlb_request ?auth ?url ?(enable_log = true) ~meth ~params
            in
            raise_internal_error [code; message]
          else (* Call was successful, parse inner xml *)
-           try handle_response inner_xml
+           try
+             handle_response inner_xml
            with Xml_parse_failure error ->
              parse_result_code meth inner_xml (Xml.to_string response) error
                enable_log
@@ -658,7 +662,9 @@ let get_opt_recommendations ~__context =
     if is_childless inner_xml then
       ([], "") (*No recommendations to give. *)
     else
-      match descend_and_match ["Recommendations"] inner_xml with
+      match
+        descend_and_match ["Recommendations"] inner_xml
+      with
       | Xml.Element (_, _, children) ->
           ( gen_map children
           , data_from_leaf (descend_and_match ["OptimizationId"] inner_xml)
@@ -754,7 +760,9 @@ let get_evacuation_recoms ~__context ~uuid =
     if is_childless inner_xml then
       []
     else
-      match inner_xml with
+      match
+        inner_xml
+      with
       | Xml.Element (_, _, _) -> (
         match descend_and_match ["Recommendations"] inner_xml with
         | Xml.Element (_, _, children) ->

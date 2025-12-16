@@ -67,7 +67,9 @@ module Delay = struct
     if t <= 0. then
       true
     else
-      match Mtime.Span.of_float_ns (t *. 1e9) with
+      match
+        Mtime.Span.of_float_ns (t *. 1e9)
+      with
       | Some span ->
           let now = Mtime_clock.now () in
           let deadline =
