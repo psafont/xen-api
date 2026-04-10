@@ -182,7 +182,7 @@ let doc =
 let init_args () =
   (* Immediately register callback functions *)
   register_callback_fns () ;
-  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Xapi_version.version ~doc
+  Xcp_service.configure ~name:Sys.argv.(0) ~version:Xapi_version.version ~doc
     ~options:Xapi_globs.all_options
     ~resources:Xapi_globs.Resources.xcp_resources () ;
   if not !Xcp_client.use_switch then (

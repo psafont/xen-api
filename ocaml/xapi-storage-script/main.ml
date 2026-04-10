@@ -2207,8 +2207,6 @@ let main ~root_dir ~state_path ~switch_path =
   |> List.map (fun thread -> retry_loop thread ())
   |> Lwt.join
 
-open Xcp_service
-
 let description =
   String.concat " "
     [
@@ -2289,8 +2287,8 @@ let () =
       )
     ]
   in
-  configure2 ~name:"xapi-script-storage" ~version:Xapi_version.version
-    ~doc:description ~resources ~options () ;
+  Xcp_service.configure ~name:"xapi-script-storage"
+    ~version:Xapi_version.version ~doc:description ~resources ~options () ;
 
   Logs.set_reporter (lwt_reporter ()) ;
   Logs.set_level ~all:true (Some Logs.Info) ;

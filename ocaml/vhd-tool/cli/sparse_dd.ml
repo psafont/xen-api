@@ -275,7 +275,7 @@ let doc =
 
 let _ =
   Vhd_format_lwt.File.use_unbuffered := true ;
-  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Xapi_version.version ~doc
+  Xcp_service.configure ~name:Sys.argv.(0) ~version:Xapi_version.version ~doc
     ~options () ;
   let src =
     match !src with

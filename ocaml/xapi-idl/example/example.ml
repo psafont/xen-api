@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xcp_service
-
 let ls = ref "/bin/ls"
 
 let sh = ref "/bin/sh"
@@ -74,7 +72,7 @@ let options =
 
 let _ =
   Debug.log_to_stdout () ;
-  configure2 ~name:"Example-service" ~version:Xapi_version.version
+  Xcp_service.configure ~name:"Example-service" ~version:Xapi_version.version
     ~doc:
       "This is an example service which demonstrates the configuration \
        mechanism."

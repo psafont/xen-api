@@ -112,7 +112,7 @@ let doc =
 let _ =
   Debug.set_facility Syslog.Local5 ;
   debug "squeezed version %s starting" Xapi_version.version ;
-  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Xapi_version.version ~doc
+  Xcp_service.configure ~name:Sys.argv.(0) ~version:Xapi_version.version ~doc
     ~options () ;
   bind () ;
   let server =

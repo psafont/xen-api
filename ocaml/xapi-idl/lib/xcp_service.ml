@@ -369,8 +369,6 @@ let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
     (Cmd.info name ~version ~sdocs:_common_options ~man)
     Term.(const (fun (_ : unit list) -> `Ok ()) $ list terms)
 
-let arg_spec = List.map (fun (a, b, _, c) -> ("-" ^ a, b, c))
-
 type res = {
     name: string
   ; description: string
@@ -446,20 +444,6 @@ let configure_common ~options ~resources arg_parse_fn =
   let () = try Unix.gethostname () |> Debug.set_backtrace_name with _ -> () in
   let resources = default_resources @ resources in
   let config_spec = common_options @ options @ to_opt resources in
-  (* It's very confusing if there are duplicate key names *)
-  let keys = List.map (fun (k, _, _, _) -> k) config_spec in
-  let rec check_for_duplicates seen_already = function
-    | [] ->
-        ()
-    | x :: xs ->
-        if List.mem x seen_already then
-          warn
-            "Duplicate configuration keys in Xcp_service.configure: %s in [ %s \
-             ]"
-            x (String.concat "; " keys) ;
-        check_for_duplicates (x :: seen_already) xs
-  in
-  check_for_duplicates [] keys ;
   arg_parse_fn config_spec ;
   read_config_file config_spec ;
   List.iter (fun r -> r.path := canonicalise !(r.path)) resources ;
@@ -491,23 +475,7 @@ let configure_common ~options ~resources arg_parse_fn =
   adjust_timeslice () ;
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore
 
-let configure ?(argv = Sys.argv) ?(options = []) ?(resources = []) () =
-  try
-    configure_common ~options ~resources (fun config_spec ->
-        Arg.parse_argv argv
-          (Arg.align (arg_spec config_spec))
-          (fun _ -> failwith "Invalid argument")
-          (Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0))
-    )
-  with
-  | Failure msg ->
-      prerr_endline msg ; flush stderr ; exit 1
-  | Arg.Bad msg ->
-      Printf.eprintf "%s" msg ; exit 2
-  | Arg.Help msg ->
-      Printf.printf "%s" msg ; exit 0
-
-let configure2 ~name ~version ~doc ?(options = []) ?(resources = []) () =
+let configure ~name ~version ~doc ?(options = []) ?(resources = []) () =
   configure_common ~options ~resources @@ fun config_spec ->
   let cmd = command_of ~name ~version ~doc config_spec in
   match Cmd.eval_value ~catch:true cmd with

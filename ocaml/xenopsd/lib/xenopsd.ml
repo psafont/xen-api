@@ -516,7 +516,7 @@ let configure ?(specific_options = []) ?(specific_essential_paths = [])
       ~essentials:(Resources.essentials @ specific_essential_paths)
       ~nonessentials:(Resources.nonessentials @ specific_nonessential_paths)
   in
-  Xcp_service.configure2
+  Xcp_service.configure
     ~name:(Filename.basename Sys.argv.(0))
     ~version:Xapi_version.version ~doc ~options ~resources ()
 
