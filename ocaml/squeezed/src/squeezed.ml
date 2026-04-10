@@ -11,8 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xcp_service
-
 module D = Debug.Make (struct let name = Memory_interface.service_name end)
 
 open D
@@ -102,10 +100,20 @@ let bind () =
   S.get_host_initial_free_memory get_host_initial_free_memory ;
   S.get_domain_zero_policy get_domain_zero_policy
 
+let doc =
+  String.concat "\n"
+    [
+      "This is the xapi toolstack memory management daemon."
+    ; ""
+    ; "This service manages memory ballooning, also called DMC."
+    ; "It also collects and reports memory metrics to the metrics service"
+    ]
+
 let _ =
   Debug.set_facility Syslog.Local5 ;
   debug "squeezed version %s starting" Xapi_version.version ;
-  configure ~options () ;
+  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Xapi_version.version ~doc
+    ~options () ;
   bind () ;
   let server =
     Xcp_service.make ~path:Memory_interface.xml_path

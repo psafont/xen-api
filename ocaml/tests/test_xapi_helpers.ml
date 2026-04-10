@@ -40,9 +40,10 @@ let filtering_test =
     )
     strings
 
+let doc = "This is unused, and only used for testing purposes"
+
 let test_xapi_configure () =
-  Xcp_service.configure
-    ~argv:[|Sys.argv.(0)|]
+  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Xapi_version.version ~doc
     ~options:Xapi_globs.all_options ()
 
 let () =

@@ -269,9 +269,14 @@ let progress_cb =
         debug "progress %d%%" new_percent ;
       last_percent := new_percent
 
+let doc =
+  "Utility program which copies between two block devices, using vhd BATs and \
+   efficient zero-scanning for performance."
+
 let _ =
   Vhd_format_lwt.File.use_unbuffered := true ;
-  Xcp_service.configure ~options () ;
+  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Xapi_version.version ~doc
+    ~options () ;
   let src =
     match !src with
     | None ->

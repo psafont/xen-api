@@ -170,10 +170,20 @@ let noevents = ref false
 
 let debug_dummy_data = ref false
 
+let doc =
+  String.concat "\n"
+    [
+      "This is the main xapi toolstack daemon."
+    ; ""
+    ; "This service manages the web server, database and forwarding of all \
+       calls done to the RPC API."
+    ]
+
 let init_args () =
   (* Immediately register callback functions *)
   register_callback_fns () ;
-  Xcp_service.configure ~options:Xapi_globs.all_options
+  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Xapi_version.version ~doc
+    ~options:Xapi_globs.all_options
     ~resources:Xapi_globs.Resources.xcp_resources () ;
   if not !Xcp_client.use_switch then (
     debug "Xcp_client.use_switch=false: resetting list of xenopsds" ;
